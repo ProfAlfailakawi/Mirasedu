@@ -292,7 +292,13 @@ const normalizeLocalVisionConfig = (exam: any) => {
   ].includes(String(raw.cameraFailurePolicy || ""))
     ? (String(raw.cameraFailurePolicy) as MirasCameraFailurePolicy)
     : DEFAULT_LOCAL_VISION_CONFIG.cameraFailurePolicy;
-  const enabled = raw.enabled === true && mode !== "off";
+  const enabled =
+    (raw.enabled === true ||
+      exam?.localVisionEnabled === true ||
+      exam?.antiCheat?.localVisionEnabled === true ||
+      exam?.cameraEnabled === true ||
+      exam?.requiresCamera === true) &&
+    mode !== "off";
   const cameraExceptions = Array.isArray(raw.cameraExceptions)
     ? raw.cameraExceptions
         .map((v: any) => String(v || "").trim())
@@ -3286,28 +3292,10 @@ export default function App() {
   const previewBlobUrlCacheRef = useRef<Record<string, string>>({});
   const submissionAttachmentWarmupRef = useRef<Record<string, boolean>>({});
   useEffect(() => {
-    // تسريع معاينة التسليمات فقط: نجهّز أول مرفقات PDF/PowerPoint بهدوء بعد فتح
-    // حل الطالب، بدون تغيير طريقة الفتح أو إظهار طبقات إضافية. هذا يعيد سرعة
-    // البوربوينت السابقة ويحافظ على الجمال البصري.
+    // لا نطلق تحويلات/طلبات خلفية عند فتح حل الطالب؛ هذا كان يزاحم نقرة المعلم
+    // على PowerPoint ويجعل أول عرض بطيئاً. يظل الفتح نفسه سريعاً ومباشراً عند الضغط.
     if (!selectedSubmissionDetail?.attachments?.length) return;
-    const warmable = (selectedSubmissionDetail.attachments || []).slice(0, 3);
-    warmable.forEach((att: any) => {
-      const safe = normalizeSubmissionAttachmentForSave(att) || att || {};
-      const name = mirasCleanAttachmentName(safe.originalName || safe.name, "مرفق");
-      const ext = name.slice(name.lastIndexOf(".")).toLowerCase();
-      const isOfficeConvertible = [".ppt", ".pptx", ".doc", ".rtf"].includes(ext);
-      const isPdf = ext === ".pdf" || String(safe.mimeType || "") === "application/pdf";
-      if (!isOfficeConvertible && !isPdf) return;
-      const baseUrl = attachmentDisplayUrl(safe);
-      if (!baseUrl || baseUrl.startsWith("data:")) return;
-      const warmUrl = isOfficeConvertible ? `${baseUrl}${baseUrl.includes("?") ? "&" : "?"}as=pdf` : baseUrl;
-      const key = `${attachmentLoadKey(safe) || name}:${warmUrl}`;
-      if (submissionAttachmentWarmupRef.current[key]) return;
-      submissionAttachmentWarmupRef.current[key] = true;
-      window.setTimeout(() => {
-        fetch(warmUrl, { headers: jsonHeaders() }).catch(() => {});
-      }, 80);
-    });
+    submissionAttachmentWarmupRef.current = submissionAttachmentWarmupRef.current || {};
   }, [selectedSubmissionDetail]);
   useEffect(() => {
     setPdfViewerSrc("");
@@ -3331,6 +3319,14 @@ export default function App() {
       isOfficeConvertible && !baseUrl.startsWith("data:")
         ? `${baseUrl}${baseUrl.includes("?") ? "&" : "?"}as=pdf`
         : baseUrl;
+    // أسرع مسار: للملفات المخزنة على نفس الخادم نمرر الرابط مباشرة إلى PDF.js.
+    // هذا يلغي جلب blob كامل من React قبل العرض، ويرجع إحساس الفتح الصاروخي خصوصاً للـ PowerPoint.
+    if (!url.startsWith("data:")) {
+      setPdfViewerSrc(
+        `/pdfjs/web/viewer.html?file=${encodeURIComponent(url)}#zoom=page-width`,
+      );
+      return;
+    }
     const previewCacheKey = `${attachmentLoadKey(previewAttachment) || name}:${isOfficeConvertible ? "pdf" : ext}:${url.startsWith("data:") ? String(url.length) : url}`;
     const cachedBlobUrl = previewBlobUrlCacheRef.current[previewCacheKey];
     if (cachedBlobUrl) {
@@ -21739,6 +21735,7 @@ ${rows
   const runTeacherSmartCommand = () => {
     const raw = teacherSmartRawTerm;
     const q = normalizeTeacherCommandText(raw);
+    if (!q) return;
     const first = teacherSmartSearchResults[0];
     const closeSearch = () => setTeacherSmartSearchOpen(false);
 
@@ -29749,7 +29746,8 @@ ${rows
                   type="button"
                   title="بحث ذكي"
                   aria-label="بحث ذكي"
-                  onClick={() => { setTeacherSmartSearchOpen(true); setTeacherSmartSearchQuery(teacherSmartSearchQuery || ""); window.setTimeout(() => { try { (document.querySelector(".miras-smart-search-input") as HTMLInputElement | null)?.focus(); } catch {} }, 40); }}
+                  onPointerDown={(e) => { e.preventDefault(); e.stopPropagation(); }}
+                  onClick={(e) => { e.preventDefault(); e.stopPropagation(); setTeacherSmartSearchOpen(true); setTeacherSmartSearchQuery(teacherSmartSearchQuery || ""); window.setTimeout(() => { try { (document.querySelector(".miras-mobile-command-bar .miras-smart-search-input") as HTMLInputElement | null)?.focus(); } catch {} }, 40); }}
                   className="miras-zero-action-btn miras-zero-action-command"
                 >
                   <Search className="h-5 w-5" />
@@ -29766,37 +29764,35 @@ ${rows
               </div>
             </header>
 
-            <div className={`miras-mobile-command-bar fixed left-3 right-3 top-[calc(env(safe-area-inset-top,0px)+5.75rem)] z-[99998] rounded-[1.35rem] border border-slate-200/80 bg-white/98 p-2 shadow-[0_24px_70px_rgba(15,23,42,0.18)] backdrop-blur-2xl sm:hidden ${teacherSmartSearchOpen ? "" : "hidden"}`} onClick={(e) => e.stopPropagation()}>
-              <div className="flex items-center gap-2 rounded-2xl bg-slate-50 px-3 py-2">
-                <Search className="h-4 w-4 text-slate-400" />
+            <div className={`miras-mobile-command-bar fixed left-3 right-3 top-[calc(env(safe-area-inset-top,0px)+5.75rem)] z-[99998] rounded-[1.25rem] border border-slate-200/80 bg-white/98 p-2 shadow-[0_18px_48px_rgba(15,23,42,0.14)] backdrop-blur-2xl sm:hidden ${teacherSmartSearchOpen ? "" : "hidden"}`} onClick={(e) => e.stopPropagation()}>
+              <div className="flex items-center gap-2 rounded-[1.05rem] bg-white px-3 py-2 shadow-inner ring-1 ring-slate-100">
+                <Search className="h-4 w-4 text-indigo-500" />
                 <input
                   value={teacherSmartSearchQuery}
                   onFocus={() => setTeacherSmartSearchOpen(true)}
                   onChange={(e) => { setTeacherSmartSearchQuery(e.target.value); setTeacherSmartSearchOpen(true); }}
-                  onKeyDown={(e) => { if (e.key === "Enter") runTeacherSmartCommand(); if (e.key === "Escape") setTeacherSmartSearchOpen(false); }}
-                  placeholder="ابحث أو اكتب أمراً"
-                  className="miras-smart-search-input h-8 w-full bg-transparent text-right text-[12px] font-black text-slate-700 outline-none placeholder:text-slate-400"
+                  onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); runTeacherSmartCommand(); } if (e.key === "Escape") setTeacherSmartSearchOpen(false); }}
+                  placeholder="بحث"
+                  className="miras-smart-search-input h-8 w-full bg-transparent text-right text-[11px] font-medium text-slate-700 outline-none placeholder:text-slate-300"
                   inputMode="search"
                 />
-                <button type="button" onClick={runTeacherSmartCommand} className="inline-flex h-8 w-8 items-center justify-center rounded-xl bg-indigo-600 text-white" aria-label="تنفيذ">
-                  <Sparkles className="h-3.5 w-3.5" />
-                </button>
+                {teacherSmartSearchQuery && (
+                  <button type="button" onClick={() => { setTeacherSmartSearchQuery(""); setTeacherSmartSearchOpen(true); }} className="inline-flex h-7 w-7 items-center justify-center rounded-xl bg-slate-50 text-slate-400" aria-label="مسح">
+                    <X className="h-3.5 w-3.5" />
+                  </button>
+                )}
               </div>
-              {teacherSmartSearchOpen && (
-                <div className="absolute left-0 right-0 top-[calc(100%+0.35rem)] z-[90] max-h-[50vh] overflow-y-auto rounded-[1.25rem] border border-slate-100 bg-white/98 p-2 text-right shadow-[0_24px_70px_rgba(15,23,42,0.15)] backdrop-blur-2xl">
-                  {teacherSmartVisibleResults.length > 0 ? teacherSmartVisibleResults.slice(0, 8).map((item: any) => (
-                    <button key={`m-${item.key}`} type="button" onClick={() => { item.action?.(); setTeacherSmartSearchOpen(false); }} className="flex w-full items-center justify-between gap-2 rounded-2xl px-3 py-2.5 text-right hover:bg-slate-50">
+              {teacherSmartSearchOpen && teacherSmartSearchTerm && teacherSmartVisibleResults.length > 0 && (
+                <div className="absolute left-0 right-0 top-[calc(100%+0.35rem)] z-[90] max-h-[50vh] overflow-y-auto rounded-[1.15rem] border border-slate-100 bg-white/98 p-2 text-right shadow-[0_20px_52px_rgba(15,23,42,0.13)] backdrop-blur-2xl">
+                  {teacherSmartVisibleResults.slice(0, 8).map((item: any) => (
+                    <button key={`m-${item.key}`} type="button" onClick={(e) => { e.preventDefault(); e.stopPropagation(); item.action?.(); setTeacherSmartSearchOpen(false); }} className="flex w-full items-center justify-between gap-2 rounded-2xl px-3 py-2 text-right hover:bg-slate-50">
                       <span className="min-w-0 flex-1">
-                        <span className="block truncate text-[12px] font-black text-slate-900">{item.title}</span>
-                        <span className="block truncate text-[10px] font-bold text-slate-400">{item.type} • {item.meta}</span>
+                        <span className="block truncate text-[11px] font-bold text-slate-900">{item.title}</span>
+                        <span className="block truncate text-[9px] font-medium text-slate-400">{item.type} • {item.meta}</span>
                       </span>
-                      <span className="rounded-full bg-slate-900 px-2.5 py-1 text-[9px] font-black text-white">{item.actionLabel}</span>
+                      <span className="rounded-full bg-slate-900 px-2 py-0.5 text-[8.5px] font-bold text-white">{item.actionLabel}</span>
                     </button>
-                  )) : (
-                    <div className="rounded-2xl bg-slate-50 px-3 py-3 text-center text-[11px] font-black text-slate-400">
-                      اكتب للبحث في مِراس
-                    </div>
-                  )}
+                  ))}
                 </div>
               )}
             </div>
@@ -29867,11 +29863,11 @@ ${rows
                             setTeacherSmartSearchOpen(true);
                           }}
                           onKeyDown={(e) => {
-                            if (e.key === "Enter") runTeacherSmartCommand();
+                            if (e.key === "Enter") { e.preventDefault(); runTeacherSmartCommand(); }
                             if (e.key === "Escape") setTeacherSmartSearchOpen(false);
                           }}
-                          placeholder="ابحث أو اكتب أمراً"
-                          className="miras-smart-search-input h-9 w-full bg-transparent text-right text-[12px] font-bold text-slate-700 outline-none placeholder:text-slate-400"
+                          placeholder="بحث"
+                          className="miras-smart-search-input h-9 w-full bg-transparent text-right text-[11px] font-medium text-slate-700 outline-none placeholder:text-slate-300"
                           inputMode="search"
                         />
                         {teacherSmartSearchQuery && (
@@ -29888,33 +29884,27 @@ ${rows
                           </button>
                         )}
                       </div>
-                      {teacherSmartSearchOpen && (
-                        <div className="absolute left-0 right-0 top-[calc(100%+0.5rem)] z-50 overflow-hidden rounded-[1.35rem] border border-slate-100 bg-white/97 p-2 text-right shadow-[0_24px_70px_rgba(15,23,42,0.14)] backdrop-blur-2xl">
-                          {teacherSmartVisibleResults.length > 0 ? (
-                            <div className="max-h-80 space-y-1 overflow-y-auto">
-                              {teacherSmartVisibleResults.map((item: any) => (
-                                <button
-                                  key={item.key}
-                                  type="button"
-                                  onClick={() => { item.action?.(); setTeacherSmartSearchOpen(false); }}
-                                  className="flex w-full items-center justify-between gap-3 rounded-2xl px-3 py-2.5 text-right transition hover:bg-slate-50"
-                                >
-                                  <div className="min-w-0 flex-1">
-                                    <div className="flex items-center gap-2"><span className="rounded-full bg-indigo-50 px-2 py-0.5 text-[9px] font-black text-indigo-700">{item.type}</span><span className="truncate text-[12px] font-black text-slate-900">{item.title}</span></div>
-                                    <p className="mt-1 truncate text-[10px] font-bold text-slate-500">{item.meta}</p>
-                                    {item.extra && (
-                                      <p className="mt-0.5 truncate text-[9px] font-bold text-slate-400">{item.extra}</p>
-                                    )}
-                                  </div>
-                                  <span className={`shrink-0 rounded-full px-2.5 py-1 text-[9px] font-black text-white ${item.actionTone === "emerald" ? "bg-emerald-600" : item.actionTone === "blue" ? "bg-blue-600" : item.actionTone === "amber" ? "bg-amber-500" : item.actionTone === "indigo" ? "bg-indigo-600" : "bg-slate-900"}`}>{item.actionLabel}</span>
-                                </button>
-                              ))}
-                            </div>
-                          ) : (
-                            <div className="rounded-2xl bg-slate-50 px-3 py-3 text-center text-[11px] font-black text-slate-400">
-                              اكتب للبحث في مِراس
-                            </div>
-                          )}
+                      {teacherSmartSearchOpen && teacherSmartSearchTerm && teacherSmartVisibleResults.length > 0 && (
+                        <div className="absolute left-0 right-0 top-[calc(100%+0.5rem)] z-50 overflow-hidden rounded-[1.25rem] border border-slate-100 bg-white/97 p-2 text-right shadow-[0_20px_52px_rgba(15,23,42,0.12)] backdrop-blur-2xl">
+                          <div className="max-h-80 space-y-1 overflow-y-auto">
+                            {teacherSmartVisibleResults.map((item: any) => (
+                              <button
+                                key={item.key}
+                                type="button"
+                                onClick={(e) => { e.preventDefault(); e.stopPropagation(); item.action?.(); setTeacherSmartSearchOpen(false); }}
+                                className="flex w-full items-center justify-between gap-3 rounded-2xl px-3 py-2.5 text-right transition hover:bg-slate-50"
+                              >
+                                <div className="min-w-0 flex-1">
+                                  <div className="flex items-center gap-2"><span className="rounded-full bg-indigo-50 px-2 py-0.5 text-[8.5px] font-bold text-indigo-700">{item.type}</span><span className="truncate text-[11px] font-bold text-slate-900">{item.title}</span></div>
+                                  <p className="mt-1 truncate text-[9.5px] font-medium text-slate-500">{item.meta}</p>
+                                  {item.extra && (
+                                    <p className="mt-0.5 truncate text-[9px] font-medium text-slate-400">{item.extra}</p>
+                                  )}
+                                </div>
+                                <span className={`shrink-0 rounded-full px-2.5 py-1 text-[8.5px] font-bold text-white ${item.actionTone === "emerald" ? "bg-emerald-600" : item.actionTone === "blue" ? "bg-blue-600" : item.actionTone === "amber" ? "bg-amber-500" : item.actionTone === "indigo" ? "bg-indigo-600" : "bg-slate-900"}`}>{item.actionLabel}</span>
+                              </button>
+                            ))}
+                          </div>
                         </div>
                       )}
                     </div>
@@ -30259,7 +30249,7 @@ ${rows
                         className={`miras-dock-codes-btn relative inline-flex h-10 w-10 items-center justify-center rounded-2xl border shadow-sm transition-all ${teacherTab === "codes" ? "border-indigo-200 bg-indigo-500 text-white" : "border-indigo-100 bg-white/90 text-indigo-700 hover:bg-indigo-50"}`}
                       >
                         <Key className="h-4 w-4" />
-                        {(passwordResetRequestsState.length > 0 || deviceProblemAttempts.length > 0) && (
+                        {shouldShowDockBadge("codes") && (
                           <span className="absolute -left-0.5 -top-0.5 h-2.5 w-2.5 rounded-full bg-rose-500 ring-2 ring-white" />
                         )}
                       </button>
@@ -30571,11 +30561,11 @@ ${rows
                                         st.idNumber ||
                                         studentIdStr
                                       }
-                                      className="group relative min-h-[54px] rounded-[1.15rem] border border-slate-100 bg-slate-50/45 p-2 hover:bg-white hover:border-slate-200 hover:shadow-sm transition-all duration-200 text-right"
+                                      className="group relative min-h-[48px] rounded-[1rem] border border-slate-100 bg-slate-50/45 p-1.5 hover:bg-white hover:border-slate-200 hover:shadow-sm transition-all duration-200 text-right"
                                     >
                                       <div className="flex items-start justify-between gap-2">
                                         <div className="min-w-0 flex-1">
-                                          <span className="block truncate text-[11px] font-medium tracking-tight text-slate-700">
+                                          <span className="block truncate text-[10.5px] font-medium tracking-tight text-slate-700">
                                             {st.name}
                                           </span>
                                           <span className="mt-1 inline-flex max-w-full items-center rounded-lg bg-white/75 px-2 py-0.5 text-[9.5px] font-mono font-semibold text-slate-500 shadow-sm truncate">
@@ -30621,7 +30611,7 @@ ${rows
                                                 ids.includes(String(item || "").trim().toLowerCase()),
                                               );
                                             });
-                                            const canSetCameraException = visibleCameraExams.length > 0 && cfg.enabled && (pulseExamFilter !== "all" || !!rowExam || visibleCameraExams.length === 1);
+                                            const canSetCameraException = visibleCameraExams.length > 0 && cfg.enabled;
                                             if (!canSetCameraException && !isExempt) return null;
                                             return (
                                               <button
@@ -31235,7 +31225,7 @@ ${rows
                           onClick={closeSubmissionDetail}
                         >
                           <div
-                            className="miras-submission-detail-panel mt-[calc(env(safe-area-inset-top,0px)+6.75rem)] flex h-[calc(100dvh-env(safe-area-inset-top,0px)-6.75rem)] max-h-[calc(100dvh-env(safe-area-inset-top,0px)-6.75rem)] w-full max-w-6xl flex-col rounded-t-[2rem] bg-white p-3 shadow-premium-lg sm:mt-0 sm:h-auto sm:max-h-[94vh] sm:rounded-[2rem] sm:p-5"
+                            className="miras-submission-detail-panel mt-[calc(env(safe-area-inset-top,0px)+7.6rem)] flex h-[calc(100dvh-env(safe-area-inset-top,0px)-7.6rem)] max-h-[calc(100dvh-env(safe-area-inset-top,0px)-7.6rem)] w-full max-w-6xl flex-col rounded-t-[2rem] bg-white p-3 shadow-premium-lg sm:mt-0 sm:h-auto sm:max-h-[94vh] sm:rounded-[2rem] sm:p-5"
                             style={{ paddingTop: "0.9rem" }}
                             dir="rtl"
                             onClick={(e) => e.stopPropagation()}
