@@ -3364,14 +3364,6 @@ export default function App() {
       isOfficeConvertible && !baseUrl.startsWith("data:")
         ? `${baseUrl}${baseUrl.includes("?") ? "&" : "?"}as=pdf`
         : baseUrl;
-    // أسرع مسار: للملفات المخزنة على نفس الخادم نمرر الرابط مباشرة إلى PDF.js.
-    // هذا يلغي جلب blob كامل من React قبل العرض، ويرجع إحساس الفتح الصاروخي خصوصاً للـ PowerPoint.
-    if (!url.startsWith("data:")) {
-      setPdfViewerSrc(
-        `/pdfjs/web/viewer.html?file=${encodeURIComponent(url)}#zoom=page-width`,
-      );
-      return;
-    }
     const previewCacheKey = `${attachmentLoadKey(previewAttachment) || name}:${isOfficeConvertible ? "pdf" : ext}:${url.startsWith("data:") ? String(url.length) : url}`;
     const cachedBlobUrl = previewBlobUrlCacheRef.current[previewCacheKey];
     if (cachedBlobUrl) {
@@ -20148,6 +20140,7 @@ ${rows
         0,
     ).getTime() || 0;
   const latestSubmissionRows = (rows: any[]) => {
+    if (!Array.isArray(rows)) return [];
     const map = new Map<string, any>();
     rows.forEach((sub: any) => {
       const key = [
@@ -21610,8 +21603,9 @@ ${rows
     return targets;
   };
   const teacherSmartSearchResults = useMemo(() => {
-    const q = normalizeTeacherCommandText(teacherSmartSearchTerm);
-    if (!q) return [] as any[];
+    try {
+      const q = normalizeTeacherCommandText(teacherSmartSearchTerm);
+      if (!q) return [] as any[];
     const qWords = teacherCommandNeedles(q);
     const scoreText = (haystack: any, boost = 0) => {
       const text = normalizeTeacherCommandText(haystack);
@@ -21769,6 +21763,10 @@ ${rows
     return results
       .sort((a, b) => (b.score || 0) - (a.score || 0))
       .slice(0, 18);
+    } catch (err) {
+      console.error("Error calculating search results:", err);
+      return [] as any[];
+    }
   }, [teacherSmartSearchTerm, teacherSmartRawTerm, scopedTeacherStudents, scopedJoinCodes, visibleTeacherSections, teacherSubmissions, deviceProblemAttempts, analyticsSubTab, integrityFocus, codesSubTab]);
 
   const teacherSmartVisibleResults = teacherSmartSearchTerm
@@ -29817,10 +29815,18 @@ ${rows
               </div>
             </header>
 
-            <div className={`miras-mobile-command-bar fixed left-3 right-3 top-[calc(env(safe-area-inset-top,0px)+5.75rem)] z-[99998] rounded-[1.25rem] border border-slate-200/80 bg-white/98 p-2 shadow-[0_18px_48px_rgba(15,23,42,0.14)] backdrop-blur-2xl sm:hidden ${teacherSmartSearchOpen ? "" : "hidden"}`} onPointerDownCapture={guardTeacherSmartSearchEvent} onTouchStartCapture={guardTeacherSmartSearchEvent} onKeyDownCapture={guardTeacherSmartSearchEvent} onKeyUpCapture={guardTeacherSmartSearchEvent} onClick={(e) => e.stopPropagation()}>
+            <div className={`miras-mobile-command-bar fixed left-3 right-3 top-[calc(env(safe-area-inset-top,0px)+5.75rem)] z-[99998] rounded-[1.25rem] border border-slate-200/80 bg-white/98 p-2 shadow-[0_18px_48px_rgba(15,23,42,0.14)] backdrop-blur-2xl sm:hidden ${teacherSmartSearchOpen ? "" : "hidden"}`} onPointerDown={(e) => e.stopPropagation()} onClick={(e) => e.stopPropagation()}>
               <div className="flex items-center gap-2 rounded-[1.05rem] bg-white px-3 py-2 shadow-inner ring-1 ring-slate-100">
                 <Search className="h-4 w-4 text-indigo-500" />
-                <div className="flex-1 min-w-0">
+                <form
+                  onSubmit={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    runTeacherSmartCommand();
+                    (document.activeElement as HTMLElement | null)?.blur();
+                  }}
+                  className="flex-1 min-w-0"
+                >
                   <input
                     value={teacherSmartSearchQuery}
                     onFocus={() => setTeacherSmartSearchOpen(true)}
@@ -29831,19 +29837,13 @@ ${rows
                     autoCorrect="off"
                     spellCheck={false}
                     onKeyDown={(e) => {
-                      if (e.key === "Enter" || e.keyCode === 13) {
-                        e.preventDefault();
-                        e.stopPropagation();
-                        runTeacherSmartCommand();
-                        (e.target as HTMLInputElement).blur();
-                      }
                       if (e.key === "Escape") setTeacherSmartSearchOpen(false);
                     }}
                     placeholder="بحث"
-                    className="miras-smart-search-input h-8 w-full bg-transparent text-right text-[10.5px] font-light text-slate-500 outline-none placeholder:text-slate-300"
+                    className="miras-smart-search-input h-8 w-full bg-transparent text-right text-[10px] font-light text-slate-500 outline-none placeholder:text-slate-300"
                     inputMode="search"
                   />
-                </div>
+                </form>
                 {teacherSmartSearchQuery && (
                   <button type="button" onClick={() => { setTeacherSmartSearchQuery(""); setTeacherSmartSearchOpen(true); }} className="inline-flex h-7 w-7 items-center justify-center rounded-xl bg-slate-50 text-slate-400" aria-label="مسح">
                     <X className="h-3.5 w-3.5" />
@@ -29921,9 +29921,17 @@ ${rows
                       )}
                     </div>
                     <div className="relative w-full sm:max-w-xl" onClick={(e) => e.stopPropagation()}>
-                      <div className="flex items-center gap-2 rounded-[1.45rem] border border-slate-200/80 bg-white/88 px-3 py-2 shadow-inner backdrop-blur-xl animate-fade-in" onPointerDownCapture={guardTeacherSmartSearchEvent} onTouchStartCapture={guardTeacherSmartSearchEvent} onKeyDownCapture={guardTeacherSmartSearchEvent} onKeyUpCapture={guardTeacherSmartSearchEvent}>
+                      <div className="flex items-center gap-2 rounded-[1.45rem] border border-slate-200/80 bg-white/88 px-3 py-2 shadow-inner backdrop-blur-xl animate-fade-in" onPointerDown={(e) => e.stopPropagation()}>
                         <Search className="h-4 w-4 shrink-0 text-slate-400" />
-                        <div className="flex-1 min-w-0">
+                        <form
+                          onSubmit={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            runTeacherSmartCommand();
+                            (document.activeElement as HTMLElement | null)?.blur();
+                          }}
+                          className="flex-1 min-w-0"
+                        >
                           <input
                             value={teacherSmartSearchQuery}
                             onFocus={() => setTeacherSmartSearchOpen(true)}
@@ -29937,19 +29945,13 @@ ${rows
                             autoCorrect="off"
                             spellCheck={false}
                             onKeyDown={(e) => {
-                              if (e.key === "Enter" || e.keyCode === 13) {
-                                e.preventDefault();
-                                e.stopPropagation();
-                                runTeacherSmartCommand();
-                                (e.target as HTMLInputElement).blur();
-                              }
                               if (e.key === "Escape") setTeacherSmartSearchOpen(false);
                             }}
                             placeholder="بحث"
-                            className="miras-smart-search-input h-9 w-full bg-transparent text-right text-[10.5px] font-light text-slate-500 outline-none placeholder:text-slate-300"
+                            className="miras-smart-search-input h-9 w-full bg-transparent text-right text-[10px] font-light text-slate-500 outline-none placeholder:text-slate-300"
                             inputMode="search"
                           />
-                        </div>
+                        </form>
                         {teacherSmartSearchQuery && (
                           <button
                             type="button"
