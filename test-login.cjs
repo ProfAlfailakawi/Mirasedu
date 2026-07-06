@@ -1,0 +1,10 @@
+const crypto = require('crypto');
+const fs = require('fs');
+const db = JSON.parse(fs.readFileSync('./data/db.json', 'utf8'));
+const teacher = db.teachers.find(t => t.email.toLowerCase() === 'ada.alenezi@paaet.edu.kw');
+console.log('JSON File teacher password hash:', teacher ? teacher.passwordHash : 'Not found');
+console.log('JSON File teacher name:', teacher ? teacher.name : 'Not found');
+const pwd = 'A97852900';
+const expectedHash = "sha256:" + crypto.createHash('sha256').update(pwd).digest('hex');
+console.log('Input password:', pwd);
+console.log('Generated hash:', expectedHash);
