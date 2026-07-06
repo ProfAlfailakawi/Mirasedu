@@ -276,9 +276,54 @@ const DEFAULT_LOCAL_VISION_CONFIG = {
   teacherEscalationThreshold: 4,
 };
 
+const mirasTruthyFlag = (value: any) =>
+  value === true ||
+  value === 1 ||
+  String(value || "").trim().toLowerCase() === "true" ||
+  String(value || "").trim() === "1" ||
+  ["نعم", "مفعل", "مفعّل", "تشغيل", "يعمل"].includes(String(value || "").trim());
+
+const mirasExamUsesCamera = (exam: any) => {
+  if (!exam) return false;
+  const raw = exam?.antiCheat?.localVision || exam?.localVision || {};
+  const rawMode = String(raw?.mode || exam?.localVisionMode || "").trim().toLowerCase();
+  if (rawMode === "off" || rawMode === "إيقاف" || rawMode === "ايقاف") return false;
+  const directFlags = [
+    raw?.enabled,
+    raw?.cameraEnabled,
+    raw?.requiresCamera,
+    raw?.cameraRequired,
+    raw?.useCamera,
+    exam?.localVisionEnabled,
+    exam?.cameraEnabled,
+    exam?.requiresCamera,
+    exam?.cameraRequired,
+    exam?.useCamera,
+    exam?.antiCheat?.localVisionEnabled,
+    exam?.antiCheat?.cameraEnabled,
+    exam?.antiCheat?.requiresCamera,
+    exam?.antiCheat?.cameraRequired,
+  ];
+  if (directFlags.some(mirasTruthyFlag)) return true;
+  const hasLocalVisionConfig =
+    raw &&
+    typeof raw === "object" &&
+    Object.keys(raw).some((key) =>
+      [
+        "cameraFailurePolicy",
+        "cameraExceptions",
+        "cameraExceptionsText",
+        "gazeAwaySeconds",
+        "softLockThreshold",
+        "teacherEscalationThreshold",
+      ].includes(String(key)),
+    );
+  return !!hasLocalVisionConfig;
+};
+
 const normalizeLocalVisionConfig = (exam: any) => {
   const raw = exam?.antiCheat?.localVision || exam?.localVision || {};
-  const rawMode = String(raw.mode || "");
+  const rawMode = String(raw.mode || exam?.localVisionMode || "");
   const mode =
     rawMode === "balanced" || rawMode === "low_light"
       ? "strict"
@@ -292,13 +337,7 @@ const normalizeLocalVisionConfig = (exam: any) => {
   ].includes(String(raw.cameraFailurePolicy || ""))
     ? (String(raw.cameraFailurePolicy) as MirasCameraFailurePolicy)
     : DEFAULT_LOCAL_VISION_CONFIG.cameraFailurePolicy;
-  const enabled =
-    (raw.enabled === true ||
-      exam?.localVisionEnabled === true ||
-      exam?.antiCheat?.localVisionEnabled === true ||
-      exam?.cameraEnabled === true ||
-      exam?.requiresCamera === true) &&
-    mode !== "off";
+  const enabled = mirasExamUsesCamera(exam) && mode !== "off";
   const cameraExceptions = Array.isArray(raw.cameraExceptions)
     ? raw.cameraExceptions
         .map((v: any) => String(v || "").trim())
@@ -3209,11 +3248,7 @@ export default function App() {
     } catch {}
     return 0;
   };
-  const shouldShowDockBadge = (tab: typeof teacherTab) => {
-    const count = dockBadgeCountForTab(tab);
-    const dismissedCount = Number(dismissedDockBadgeCounts[tab] || 0);
-    return count > 0 && dismissedCount < count;
-  };
+  const shouldShowDockBadge = (_tab: typeof teacherTab) => false;
   const dismissDockBadge = (tab: typeof teacherTab) => {
     const count = dockBadgeCountForTab(tab);
     if (count <= 0) return;
@@ -20975,7 +21010,7 @@ ${rows
     const explicitExam = teacherCreatedExams.find(
       (exam: any) => String(exam.id || "") === rowExamId,
     );
-    const enabledDayCameraExams = examDayExams.filter((exam: any) => normalizeLocalVisionConfig(exam).enabled);
+    const enabledDayCameraExams = examDayExams.filter((exam: any) => mirasExamUsesCamera(exam));
     const candidateExams = (explicitExam
       ? [explicitExam]
       : (pulseExamFilter !== "all"
@@ -20986,7 +21021,7 @@ ${rows
             ? enabledDayCameraExams
             : []
         )
-    ).filter((exam: any) => normalizeLocalVisionConfig(exam).enabled);
+    ).filter((exam: any) => mirasExamUsesCamera(exam));
     if (!candidateExams.length) {
       return;
     }
@@ -29771,7 +29806,7 @@ ${rows
                   value={teacherSmartSearchQuery}
                   onFocus={() => setTeacherSmartSearchOpen(true)}
                   onChange={(e) => { setTeacherSmartSearchQuery(e.target.value); setTeacherSmartSearchOpen(true); }}
-                  onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); runTeacherSmartCommand(); } if (e.key === "Escape") setTeacherSmartSearchOpen(false); }}
+                  onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); e.stopPropagation(); } if (e.key === "Escape") setTeacherSmartSearchOpen(false); }}
                   placeholder="بحث"
                   className="miras-smart-search-input h-8 w-full bg-transparent text-right text-[11px] font-medium text-slate-700 outline-none placeholder:text-slate-300"
                   inputMode="search"
@@ -29785,7 +29820,7 @@ ${rows
               {teacherSmartSearchOpen && teacherSmartSearchTerm && teacherSmartVisibleResults.length > 0 && (
                 <div className="absolute left-0 right-0 top-[calc(100%+0.35rem)] z-[90] max-h-[50vh] overflow-y-auto rounded-[1.15rem] border border-slate-100 bg-white/98 p-2 text-right shadow-[0_20px_52px_rgba(15,23,42,0.13)] backdrop-blur-2xl">
                   {teacherSmartVisibleResults.slice(0, 8).map((item: any) => (
-                    <button key={`m-${item.key}`} type="button" onClick={(e) => { e.preventDefault(); e.stopPropagation(); item.action?.(); setTeacherSmartSearchOpen(false); }} className="flex w-full items-center justify-between gap-2 rounded-2xl px-3 py-2 text-right hover:bg-slate-50">
+                    <button key={`m-${item.key}`} type="button" onClick={(e) => { e.preventDefault(); e.stopPropagation(); try { item.action?.(); } catch {} setTeacherSmartSearchOpen(false); }} className="flex w-full items-center justify-between gap-2 rounded-2xl px-3 py-2 text-right hover:bg-slate-50">
                       <span className="min-w-0 flex-1">
                         <span className="block truncate text-[11px] font-bold text-slate-900">{item.title}</span>
                         <span className="block truncate text-[9px] font-medium text-slate-400">{item.type} • {item.meta}</span>
@@ -29863,7 +29898,7 @@ ${rows
                             setTeacherSmartSearchOpen(true);
                           }}
                           onKeyDown={(e) => {
-                            if (e.key === "Enter") { e.preventDefault(); runTeacherSmartCommand(); }
+                            if (e.key === "Enter") { e.preventDefault(); e.stopPropagation(); }
                             if (e.key === "Escape") setTeacherSmartSearchOpen(false);
                           }}
                           placeholder="بحث"
@@ -29891,7 +29926,7 @@ ${rows
                               <button
                                 key={item.key}
                                 type="button"
-                                onClick={(e) => { e.preventDefault(); e.stopPropagation(); item.action?.(); setTeacherSmartSearchOpen(false); }}
+                                onClick={(e) => { e.preventDefault(); e.stopPropagation(); try { item.action?.(); } catch {} setTeacherSmartSearchOpen(false); }}
                                 className="flex w-full items-center justify-between gap-3 rounded-2xl px-3 py-2.5 text-right transition hover:bg-slate-50"
                               >
                                 <div className="min-w-0 flex-1">
@@ -30587,13 +30622,22 @@ ${rows
                                                 submission?.examId ||
                                                 (pulseExamFilter !== "all" ? pulseExamFilter : ""),
                                             ).trim();
-                                            const rowExam = teacherCreatedExams.find(
-                                              (exam: any) => String(exam.id || "") === rowExamId,
-                                            );
-                                            const visibleCameraExams = (rowExam ? [rowExam] : (pulseExamFilter !== "all"
-                                              ? teacherCreatedExams.filter((exam: any) => String(exam.id || "") === String(pulseExamFilter))
-                                              : examDayExams
-                                            )).filter((exam: any) => normalizeLocalVisionConfig(exam).enabled);
+                                            const selectedExam = pulseExamFilter !== "all"
+                                              ? examDayExams.find((exam: any) => String(exam.id || "") === String(pulseExamFilter)) ||
+                                                teacherCreatedExams.find((exam: any) => String(exam.id || "") === String(pulseExamFilter))
+                                              : null;
+                                            const rowExam = rowExamId
+                                              ? examDayExams.find((exam: any) => String(exam.id || "") === rowExamId) ||
+                                                teacherCreatedExams.find((exam: any) => String(exam.id || "") === rowExamId)
+                                              : null;
+                                            const visibleCameraExams = (selectedExam
+                                              ? [selectedExam]
+                                              : rowExam
+                                                ? [rowExam]
+                                                : examDayExams.length === 1
+                                                  ? examDayExams
+                                                  : []
+                                            ).filter((exam: any) => mirasExamUsesCamera(exam));
                                             const cfg = normalizeLocalVisionConfig(visibleCameraExams[0]);
                                             const ids = [
                                               st.id,
