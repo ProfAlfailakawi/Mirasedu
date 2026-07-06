@@ -3294,6 +3294,8 @@ export default function App() {
     if (isImage) return;
     const url = attachmentDisplayUrl(previewAttachment);
     if (!url || url.startsWith("data:")) return;
+    const isOfficeQuickOpen = [".ppt", ".pptx", ".doc", ".rtf"].includes(ext);
+    if (isOfficeQuickOpen) return;
     let cancelled = false;
     // يجب إرسال ترويسة الجلسة (Authorization) صراحة: تحميل مورد عادي (iframe/
     // fetch بلا ترويسات) لا يرسلها أبداً ويعتمد فقط على كوكي الجلسة، الذي قد
@@ -21007,20 +21009,18 @@ ${rows
         row?.submission?.examId ||
         (pulseExamFilter !== "all" ? pulseExamFilter : ""),
     ).trim();
-    const explicitExam = teacherCreatedExams.find(
-      (exam: any) => String(exam.id || "") === rowExamId,
-    );
+    const examPools = [...examDayExams, ...activeCourseExams, ...teacherCreatedExams];
+    const byId = (id: any) => examPools.find((exam: any) => String(exam.id || "") === String(id || ""));
+    const explicitExam = byId(rowExamId);
+    const selectedExam = pulseExamFilter !== "all" ? byId(pulseExamFilter) : null;
     const enabledDayCameraExams = examDayExams.filter((exam: any) => mirasExamUsesCamera(exam));
     const candidateExams = (explicitExam
       ? [explicitExam]
-      : (pulseExamFilter !== "all"
-          ? teacherCreatedExams.filter(
-              (exam: any) => String(exam.id || "") === String(pulseExamFilter),
-            )
-          : enabledDayCameraExams.length === 1
-            ? enabledDayCameraExams
-            : []
-        )
+      : selectedExam
+        ? [selectedExam]
+        : enabledDayCameraExams.length === 1
+          ? enabledDayCameraExams
+          : []
     ).filter((exam: any) => mirasExamUsesCamera(exam));
     if (!candidateExams.length) {
       return;
@@ -21766,6 +21766,13 @@ ${rows
   const teacherSmartVisibleResults = teacherSmartSearchTerm
     ? teacherSmartSearchResults
     : [];
+  const guardTeacherSmartSearchEvent = (event: any) => {
+    try {
+      event.stopPropagation?.();
+      event.nativeEvent?.stopImmediatePropagation?.();
+      if (event.key === "Enter" || event.key === "Search") event.preventDefault?.();
+    } catch {}
+  };
 
   const runTeacherSmartCommand = () => {
     const raw = teacherSmartRawTerm;
@@ -29641,7 +29648,7 @@ ${rows
           >
             {/* Mobile bottom navigation dock - situated at the root wrapper to avoid nested containing-block / backdrop-filter clipping in mobile viewport */}
             <nav
-              className={`miras-teacher-nav-shell teacher-orbit-dock teacher-nav-mobile rounded-[2.2rem] border border-white/80 bg-white/75 p-3 shadow-[0_22px_70px_rgba(15,23,42,0.08)] backdrop-blur-2xl ${dockShrunkRef.current ? "teacher-orbit-dock-shrunk" : ""}`}
+              className={`miras-teacher-nav-shell teacher-orbit-dock teacher-nav-mobile rounded-[2.2rem] border border-white/80 bg-white/75 p-3 shadow-[0_22px_70px_rgba(15,23,42,0.08)] backdrop-blur-2xl ${selectedSubmissionDetail ? "hidden" : ""} ${dockShrunkRef.current ? "teacher-orbit-dock-shrunk" : ""}`}
               data-miras-dock-state={dockShrunkRef.current ? "shrunk" : "open"}
               // Deliberately no onPointerDown/onTouchStart expand trigger here:
               // expanding on the same touch that starts a tap resized/shifted
@@ -29799,16 +29806,24 @@ ${rows
               </div>
             </header>
 
-            <div className={`miras-mobile-command-bar fixed left-3 right-3 top-[calc(env(safe-area-inset-top,0px)+5.75rem)] z-[99998] rounded-[1.25rem] border border-slate-200/80 bg-white/98 p-2 shadow-[0_18px_48px_rgba(15,23,42,0.14)] backdrop-blur-2xl sm:hidden ${teacherSmartSearchOpen ? "" : "hidden"}`} onClick={(e) => e.stopPropagation()}>
+            <div className={`miras-mobile-command-bar fixed left-3 right-3 top-[calc(env(safe-area-inset-top,0px)+5.75rem)] z-[99998] rounded-[1.25rem] border border-slate-200/80 bg-white/98 p-2 shadow-[0_18px_48px_rgba(15,23,42,0.14)] backdrop-blur-2xl sm:hidden ${teacherSmartSearchOpen ? "" : "hidden"}`} onPointerDownCapture={guardTeacherSmartSearchEvent} onTouchStartCapture={guardTeacherSmartSearchEvent} onKeyDownCapture={guardTeacherSmartSearchEvent} onClick={(e) => e.stopPropagation()}>
               <div className="flex items-center gap-2 rounded-[1.05rem] bg-white px-3 py-2 shadow-inner ring-1 ring-slate-100">
                 <Search className="h-4 w-4 text-indigo-500" />
                 <input
                   value={teacherSmartSearchQuery}
                   onFocus={() => setTeacherSmartSearchOpen(true)}
                   onChange={(e) => { setTeacherSmartSearchQuery(e.target.value); setTeacherSmartSearchOpen(true); }}
-                  onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); e.stopPropagation(); } if (e.key === "Escape") setTeacherSmartSearchOpen(false); }}
+                  type="text"
+                  enterKeyHint="done"
+                  autoComplete="off"
+                  autoCorrect="off"
+                  spellCheck={false}
+                  onPointerDownCapture={guardTeacherSmartSearchEvent}
+                  onTouchStartCapture={guardTeacherSmartSearchEvent}
+                  onKeyDownCapture={guardTeacherSmartSearchEvent}
+                  onKeyDown={(e) => { guardTeacherSmartSearchEvent(e); if (e.key === "Escape") setTeacherSmartSearchOpen(false); }}
                   placeholder="بحث"
-                  className="miras-smart-search-input h-8 w-full bg-transparent text-right text-[11px] font-medium text-slate-700 outline-none placeholder:text-slate-300"
+                  className="miras-smart-search-input h-8 w-full bg-transparent text-right text-[10.5px] font-medium text-slate-700 outline-none placeholder:text-slate-300"
                   inputMode="search"
                 />
                 {teacherSmartSearchQuery && (
@@ -29820,7 +29835,7 @@ ${rows
               {teacherSmartSearchOpen && teacherSmartSearchTerm && teacherSmartVisibleResults.length > 0 && (
                 <div className="absolute left-0 right-0 top-[calc(100%+0.35rem)] z-[90] max-h-[50vh] overflow-y-auto rounded-[1.15rem] border border-slate-100 bg-white/98 p-2 text-right shadow-[0_20px_52px_rgba(15,23,42,0.13)] backdrop-blur-2xl">
                   {teacherSmartVisibleResults.slice(0, 8).map((item: any) => (
-                    <button key={`m-${item.key}`} type="button" onClick={(e) => { e.preventDefault(); e.stopPropagation(); try { item.action?.(); } catch {} setTeacherSmartSearchOpen(false); }} className="flex w-full items-center justify-between gap-2 rounded-2xl px-3 py-2 text-right hover:bg-slate-50">
+                    <button key={`m-${item.key}`} type="button" onClick={(e) => { e.preventDefault(); e.stopPropagation(); (e.nativeEvent as any)?.stopImmediatePropagation?.(); try { item.action?.(); } catch {} setTeacherSmartSearchOpen(false); }} className="flex w-full items-center justify-between gap-2 rounded-2xl px-3 py-2 text-right hover:bg-slate-50">
                       <span className="min-w-0 flex-1">
                         <span className="block truncate text-[11px] font-bold text-slate-900">{item.title}</span>
                         <span className="block truncate text-[9px] font-medium text-slate-400">{item.type} • {item.meta}</span>
@@ -29897,12 +29912,20 @@ ${rows
                             setTeacherSmartSearchQuery(e.target.value);
                             setTeacherSmartSearchOpen(true);
                           }}
+                          type="text"
+                          enterKeyHint="done"
+                          autoComplete="off"
+                          autoCorrect="off"
+                          spellCheck={false}
+                          onPointerDownCapture={guardTeacherSmartSearchEvent}
+                          onTouchStartCapture={guardTeacherSmartSearchEvent}
+                          onKeyDownCapture={guardTeacherSmartSearchEvent}
                           onKeyDown={(e) => {
-                            if (e.key === "Enter") { e.preventDefault(); e.stopPropagation(); }
+                            guardTeacherSmartSearchEvent(e);
                             if (e.key === "Escape") setTeacherSmartSearchOpen(false);
                           }}
                           placeholder="بحث"
-                          className="miras-smart-search-input h-9 w-full bg-transparent text-right text-[11px] font-medium text-slate-700 outline-none placeholder:text-slate-300"
+                          className="miras-smart-search-input h-9 w-full bg-transparent text-right text-[10.5px] font-medium text-slate-700 outline-none placeholder:text-slate-300"
                           inputMode="search"
                         />
                         {teacherSmartSearchQuery && (
@@ -29926,7 +29949,7 @@ ${rows
                               <button
                                 key={item.key}
                                 type="button"
-                                onClick={(e) => { e.preventDefault(); e.stopPropagation(); try { item.action?.(); } catch {} setTeacherSmartSearchOpen(false); }}
+                                onClick={(e) => { e.preventDefault(); e.stopPropagation(); (e.nativeEvent as any)?.stopImmediatePropagation?.(); try { item.action?.(); } catch {} setTeacherSmartSearchOpen(false); }}
                                 className="flex w-full items-center justify-between gap-3 rounded-2xl px-3 py-2.5 text-right transition hover:bg-slate-50"
                               >
                                 <div className="min-w-0 flex-1">
@@ -30224,7 +30247,7 @@ ${rows
                     </div>
                   </div>
                   <nav
-                    className={`miras-teacher-nav-shell teacher-orbit-dock teacher-nav-desktop rounded-[2.2rem] border border-white/80 bg-white/75 p-3 shadow-[0_22px_70px_rgba(15,23,42,0.08)] backdrop-blur-2xl ${dockShrunkRef.current ? "teacher-orbit-dock-shrunk" : ""}`}
+                    className={`miras-teacher-nav-shell teacher-orbit-dock teacher-nav-desktop rounded-[2.2rem] border border-white/80 bg-white/75 p-3 shadow-[0_22px_70px_rgba(15,23,42,0.08)] backdrop-blur-2xl ${selectedSubmissionDetail ? "hidden" : ""} ${dockShrunkRef.current ? "teacher-orbit-dock-shrunk" : ""}`}
                     aria-label="تنقل حساب المعلم"
                   >
                     <div className="miras-teacher-nav-track teacher-orbit-dock-track rounded-[1.6rem] border border-white/80 bg-white/70 p-2 shadow-inner backdrop-blur-xl">
@@ -30622,20 +30645,16 @@ ${rows
                                                 submission?.examId ||
                                                 (pulseExamFilter !== "all" ? pulseExamFilter : ""),
                                             ).trim();
-                                            const selectedExam = pulseExamFilter !== "all"
-                                              ? examDayExams.find((exam: any) => String(exam.id || "") === String(pulseExamFilter)) ||
-                                                teacherCreatedExams.find((exam: any) => String(exam.id || "") === String(pulseExamFilter))
-                                              : null;
-                                            const rowExam = rowExamId
-                                              ? examDayExams.find((exam: any) => String(exam.id || "") === rowExamId) ||
-                                                teacherCreatedExams.find((exam: any) => String(exam.id || "") === rowExamId)
-                                              : null;
+                                            const examPools = [...examDayExams, ...activeCourseExams, ...teacherCreatedExams];
+                                            const byId = (id: any) => examPools.find((exam: any) => String(exam.id || "") === String(id || ""));
+                                            const selectedExam = pulseExamFilter !== "all" ? byId(pulseExamFilter) : null;
+                                            const rowExam = rowExamId ? byId(rowExamId) : null;
                                             const visibleCameraExams = (selectedExam
                                               ? [selectedExam]
                                               : rowExam
                                                 ? [rowExam]
-                                                : examDayExams.length === 1
-                                                  ? examDayExams
+                                                : examDayExams.filter((exam: any) => mirasExamUsesCamera(exam)).length === 1
+                                                  ? examDayExams.filter((exam: any) => mirasExamUsesCamera(exam))
                                                   : []
                                             ).filter((exam: any) => mirasExamUsesCamera(exam));
                                             const cfg = normalizeLocalVisionConfig(visibleCameraExams[0]);
@@ -30662,12 +30681,18 @@ ${rows
                                                 type="button"
                                                 title={isExempt ? "مسموح" : "بدون كاميرا"}
                                                 aria-label={isExempt ? "استثناء كاميرا مفعل" : "السماح بدون كاميرا"}
+                                                onPointerDown={(event) => {
+                                                  event.preventDefault();
+                                                  event.stopPropagation();
+                                                  (event.nativeEvent as any)?.stopImmediatePropagation?.();
+                                                }}
                                                 onClick={(event) => {
                                                   event.preventDefault();
                                                   event.stopPropagation();
-                                                  if (canSetCameraException && !isExempt) void addCameraExceptionForLivePulseStudent(row);
+                                                  (event.nativeEvent as any)?.stopImmediatePropagation?.();
+                                                  if (!isExempt) void addCameraExceptionForLivePulseStudent(row);
                                                 }}
-                                                className={`mt-1 inline-flex h-6 w-6 items-center justify-center rounded-lg border text-[10px] transition ${
+                                                className={`relative z-20 mt-1 inline-flex h-7 w-7 pointer-events-auto items-center justify-center rounded-lg border text-[10px] transition ${
                                                   isExempt
                                                     ? "border-emerald-500 bg-emerald-500 text-white shadow-[0_8px_18px_rgba(16,185,129,0.22)]"
                                                     : "border-slate-200 bg-white/85 text-slate-600 hover:border-emerald-200 hover:bg-emerald-50 hover:text-emerald-700"
@@ -31269,7 +31294,7 @@ ${rows
                           onClick={closeSubmissionDetail}
                         >
                           <div
-                            className="miras-submission-detail-panel mt-[calc(env(safe-area-inset-top,0px)+7.6rem)] flex h-[calc(100dvh-env(safe-area-inset-top,0px)-7.6rem)] max-h-[calc(100dvh-env(safe-area-inset-top,0px)-7.6rem)] w-full max-w-6xl flex-col rounded-t-[2rem] bg-white p-3 shadow-premium-lg sm:mt-0 sm:h-auto sm:max-h-[94vh] sm:rounded-[2rem] sm:p-5"
+                            className="miras-submission-detail-panel mt-[calc(env(safe-area-inset-top,0px)+6.2rem)] flex h-[calc(100dvh-env(safe-area-inset-top,0px)-6.2rem)] max-h-[calc(100dvh-env(safe-area-inset-top,0px)-6.2rem)] w-full max-w-6xl flex-col rounded-t-[2rem] bg-white p-3 pb-[calc(1.2rem+env(safe-area-inset-bottom,0px))] shadow-premium-lg sm:mt-0 sm:h-auto sm:max-h-[94vh] sm:rounded-[2rem] sm:p-5"
                             style={{ paddingTop: "0.9rem" }}
                             dir="rtl"
                             onClick={(e) => e.stopPropagation()}
@@ -31365,7 +31390,7 @@ ${rows
                               </div>
                             </div>
 
-                            <div className="miras-quick-grading-grid min-h-0 flex-1 gap-3 lg:grid lg:grid-cols-[16rem_minmax(0,1fr)]">
+                            <div className="miras-quick-grading-grid min-h-0 flex-1 gap-3 overflow-hidden lg:grid lg:grid-cols-[16rem_minmax(0,1fr)]">
                               <aside className="hidden min-h-0 overflow-hidden rounded-[1.45rem] border border-slate-100 bg-slate-50/70 p-2 lg:flex lg:flex-col">
                                 <div className="mb-2 flex items-center justify-between px-2 text-[10px] font-black text-slate-500">
                                   <span>الطلبة</span>
