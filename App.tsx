@@ -780,7 +780,103 @@ const simplifyMirasMessage = (
     return "العدسة تحتاج محاولة ثانية";
   if (any("خطأ ميكانيكي", "خطأ مستودع", "خطأ غير معروف"))
     return extractApiErrorReason(text, "تنفيذ الإجراء");
-  return simplifyStudentMessage(text, tone);
+
+  // Miras copy system: كل رسائل المعلم والطالب تظهر كإشارات قصيرة جداً.
+  // لا نغيّر المنطق أو البيانات؛ فقط نختصر نصوص التوست/التنبيه/الحوار.
+  const t = text;
+  if (/^(https?:\/\/|www\.)/i.test(t) || /^[A-Z0-9]{4,}[-_A-Z0-9]*$/i.test(t)) return t;
+
+  if (tone === "success") {
+    if (any("نسخ", "clipboard")) return "تم النسخ";
+    if (any("تصدير", "Excel", "PDF", "المطبعة")) return "تم التصدير";
+    if (any("استيراد", "قراءة ملف Excel", "رفع كشف")) return "تم الاستيراد";
+    if (any("حفظ", "اعتماد", "نشر")) return any("درجة", "درجات") ? "تم رصد الدرجات" : "تم الحفظ";
+    if (any("حذف", "إزالة")) return "تم الحذف";
+    if (any("تعديل", "تحديث", "تغيير")) return "تم التحديث";
+    if (any("إضافة", "أُضيف", "اضافة")) return "تمت الإضافة";
+    if (any("إنشاء", "انشاء", "تجهيز", "توليد")) return any("كود", "رمز") ? "تم توليد الكود" : "تم التجهيز";
+    if (any("تفعيل", "فتح المقرر", "فتح الحساب")) return "تم التفعيل";
+    if (any("رصد", "درجة", "درجات")) return "تم رصد الدرجات";
+    if (any("رفع", "تسليم")) return any("اختبار") ? "تم تسليم الاختبار" : any("مشروع") ? "تم تسليم المشروع" : "تم التسليم";
+    if (any("إرسال", "تنبيه")) return "تم الإرسال";
+    if (any("تنظيف")) return "تم التنظيف";
+    if (t.length > 28) return "تم";
+  }
+
+  if (tone === "error") {
+    if (any("اكتب", "أدخل", "يرجى إدخال", "اختر", "حدد")) {
+      if (any("درجة")) return "اكتب الدرجة";
+      if (any("طالب", "طلبة")) return "اختر الطالب";
+      if (any("مقرر")) return "اختر المقرر";
+      if (any("عنوان")) return "اكتب العنوان";
+      if (any("كلمة مرور")) return "اكتب كلمة المرور";
+      return "أكمل البيانات";
+    }
+    if (any("لا توجد", "لم يتم العثور", "لم أجد")) {
+      if (any("رموز", "أكواد")) return "لا توجد أكواد";
+      if (any("تسليم")) return "لا توجد تسليمات";
+      if (any("أسئلة")) return "لا توجد أسئلة";
+      if (any("طالب", "طلبة")) return "لا يوجد طالب";
+      return "لا توجد بيانات";
+    }
+    if (any("تعذر", "تعذّر", "فشل", "عطل")) {
+      if (any("الاتصال", "الخادم", "الشبكة")) return "تعذر الاتصال";
+      if (any("تصدير", "PDF", "المطبعة")) return "تعذر التصدير";
+      if (any("استيراد", "قراءة")) return "تعذر الاستيراد";
+      if (any("حفظ", "اعتماد", "نشر", "تحديث")) return "تعذر الحفظ";
+      if (any("حذف", "إزالة")) return "تعذر الحذف";
+      if (any("توليد", "إنشاء", "تجهيز")) return "تعذر التجهيز";
+      if (any("تفعيل", "فتح المقرر")) return "تعذر التفعيل";
+      if (any("رفع", "ملف")) return "تعذر الرفع";
+      if (any("تحميل")) return "تعذر التحميل";
+      if (any("تسليم")) return "تعذر التسليم";
+      if (any("كلمة المرور", "استرجاع")) return "تعذر الاسترجاع";
+      return "تعذر التنفيذ";
+    }
+    if (t.length > 34) return extractApiErrorReason(t, "تنفيذ الإجراء").slice(0, 34).replace(/[،.؛:：\-–—\s]+$/, "");
+  }
+
+  const simplified = simplifyStudentMessage(text, tone);
+  if (simplified.length > 34) {
+    if (tone === "success") return "تم";
+    if (tone === "error") return extractApiErrorReason(simplified, "تنفيذ الإجراء").slice(0, 34).replace(/[،.؛:：\-–—\s]+$/, "");
+    return simplified.slice(0, 34).replace(/[،.؛:：\-–—\s]+$/, "");
+  }
+  return simplified;
+};
+
+const compactMirasDialogMessage = (
+  value: any,
+  type: "confirm" | "prompt" = "confirm",
+) => {
+  const text = String(value || "").replace(/\s+/g, " ").trim();
+  if (!text) return type === "prompt" ? "اكتب المطلوب" : "هل أنت متأكد؟";
+  if (type === "prompt") {
+    if (/الرقم الجامعي/.test(text)) return "الرقم الجامعي";
+    if (/كلمة المرور/.test(text)) return "كلمة المرور";
+    if (/رمز|كود/.test(text)) return "الكود";
+    if (/اسم/.test(text)) return "الاسم";
+    return text.length > 28 ? "اكتب المطلوب" : text;
+  }
+  if (/حذف/.test(text)) {
+    if (/طالب/.test(text)) return "حذف الطالب؟";
+    if (/مشروع/.test(text)) return "حذف المشروع؟";
+    if (/اختبار/.test(text)) return "حذف الاختبار؟";
+    if (/سؤال/.test(text)) return "حذف السؤال؟";
+    if (/مقرر/.test(text)) return "حذف المقرر؟";
+    if (/رمز|كود/.test(text)) return "حذف الكود؟";
+    if (/استرجاع/.test(text)) return "حذف الطلب؟";
+    return "حذف؟";
+  }
+  if (/إيقاف|تعطيل/.test(text)) return "إيقاف الحساب؟";
+  if (/إعادة تفعيل|تفعيل/.test(text)) return "تفعيل الحساب؟";
+  if (/تغيير حالة|حالة/.test(text)) return "تغيير الحالة؟";
+  if (/رمز بديل|بديل/.test(text)) return "إصدار رمز بديل؟";
+  if (/درجة|درجات|رصد/.test(text)) return "اعتماد الدرجات؟";
+  if (/استيراد/.test(text)) return "استيراد البيانات؟";
+  if (/تصدير/.test(text)) return "تصدير البيانات؟";
+  if (text.length <= 30) return text;
+  return simplifyMirasMessage(text, "info");
 };
 
 const allowedRosterRowsToText = (rows: any[]) =>
@@ -2569,7 +2665,7 @@ export default function App() {
       text.includes("جلسة الأستاذ غير واضحة") ||
       text.includes("جلسة الطالب غير واضحة")
     ) {
-      setErrorMsgRaw("انتهت الجلسة، سجّل الدخول مرة أخرى.");
+      setErrorMsgRaw("انتهت الجلسة");
       return;
     }
     if (
@@ -2580,9 +2676,15 @@ export default function App() {
       setErrorMsgRaw("");
       return;
     }
-    setErrorMsgRaw(extractApiErrorReason(value, "تنفيذ الإجراء"));
+    setErrorMsgRaw(
+      simplifyMirasMessage(extractApiErrorReason(value, "تنفيذ الإجراء"), "error"),
+    );
   };
-  const [successMsg, setSuccessMsg] = useState("");
+  const [successMsg, setSuccessMsgRaw] = useState("");
+  const setSuccessMsg = (value: any) => {
+    const text = String(value || "").trim();
+    setSuccessMsgRaw(text ? simplifyMirasMessage(text, "success") : "");
+  };
   const [dialogState, setDialogState] = useState<any>(null);
   const [dialogInput, setDialogInput] = useState("");
   const dialogResolveRef = useRef<((value: any) => void) | null>(null);
@@ -10216,7 +10318,7 @@ export default function App() {
     new Promise<any>((resolve) => {
       dialogResolveRef.current = resolve;
       setDialogInput(defaultValue);
-      setDialogState({ type, message: message || "هل أنت متأكد؟" });
+      setDialogState({ type, message: compactMirasDialogMessage(message, type) });
     });
 
   const closeProgramDialog = (value: any) => {
@@ -21372,42 +21474,161 @@ ${rows
       dockLongPressTimerRef.current = null;
     }
   };
-  const teacherSmartSearchResults = useMemo(() => {
-    const q = teacherSmartSearchTerm;
-    if (!q) return [] as any[];
-    const includesQ = (...values: any[]) =>
-      values
-        .map((value) => normalizeArabicDigits(value).toLowerCase())
-        .join(" ")
-        .includes(q);
-    const results: any[] = [];
-    const addResult = (item: any) => {
-      if (results.some((r) => r.key === item.key)) return;
-      results.push(item);
+
+  const normalizeTeacherCommandText = (value: any) =>
+    normalizeArabicDigits(value)
+      .toLowerCase()
+      .replace(/[ًٌٍَُِّْـ]/g, "")
+      .replace(/[إأآا]/g, "ا")
+      .replace(/ى/g, "ي")
+      .replace(/ة/g, "ه")
+      .replace(/[\u200f\u200e]/g, " ")
+      .replace(/[.,،:؛؛!?؟()\[\]{}"'`~|\\/]+/g, " ")
+      .replace(/\s+/g, " ")
+      .trim();
+
+  const teacherCommandNeedles = (value: any) =>
+    normalizeTeacherCommandText(value)
+      .split(" ")
+      .map((part: string) => part.trim())
+      .filter((part: string) => part.length > 1);
+
+  const teacherProgramCommandTargets = () => {
+    const openSubmissions = (search = "") => {
+      openTeacherTab("submissions");
+      setSubmissionSearch(search);
+      setSelectedSubmissionDetail(null);
     };
-    scopedTeacherStudents.slice(0, 800).forEach((student: any) => {
+    const openQuestions = (mode?: "project" | "exam" | "question" | "import" | "categories") => {
+      openTeacherTab("questions");
+      if (mode === "project") setProjectBuilderOpen(true);
+      if (mode === "exam") setExamBuilderOpen(true);
+      if (mode === "question") setQuestionFormOpen(true);
+      if (mode === "import") setQuestionImportOpen(true);
+      if (mode === "categories") setBankCategoriesOpen(true);
+    };
+    const openSections = (mode?: "new" | "excel") => {
+      openTeacherTab("sections");
+      if (mode === "new") setSectionFormOpen(true);
+      if (mode === "excel") setExcelMappingOpen(true);
+    };
+    const openStudents = (mode?: "new" | "pending") => {
+      openTeacherTab("students");
+      if (mode === "new") setManualStudentFormOpen(true);
+      if (mode === "pending") setPendingActivationOpen(true);
+    };
+    const openAnalytics = (tab: typeof analyticsSubTab = "summary", focus?: typeof integrityFocus) => {
+      openTeacherTab("analytics");
+      setAnalyticsSubTab(tab);
+      if (focus) setIntegrityFocus(focus);
+      setAnalyticsOpen(true);
+    };
+    const openCodes = (tab: typeof codesSubTab = "health", extra?: "single" | "batch" | "reset" | "qr" | "manual") => {
+      openTeacherTab("codes");
+      setTeacherCodesOpen(true);
+      setCodesSubTab(tab);
+      if (extra === "single") setSingleCodeFormOpen(true);
+      if (extra === "batch") setCodesBatchFormOpen(true);
+      if (extra === "reset") setPasswordResetRequestsOpen(true);
+      if (extra === "qr") setActivationQrScannerOpen(true);
+      if (extra === "manual") {
+        setCodesAccordion((prev) => ({ ...prev, manualActivation: true }));
+      }
+    };
+    const targets: any[] = [
+      { key: "cmd-home", type: "وجهة", title: "الرئيسية", meta: "لوحة القيادة • ملخص اليوم • نبض مِراس", hint: "الملخص والتنبيهات والاختصارات", tags: "الرئيسية لوحة القيادة الهوم home داشبورد dashboard نبض اليوم الملخص", actionLabel: "فتح", actionTone: "slate", action: () => openTeacherTab("home") },
+      { key: "cmd-live", type: "وجهة", title: "النبض الحي", meta: "آخر نشاط • حركة الطلبة • إشارات مهمة", hint: "يفتح الصفحة الرئيسية ويبرز النبض", tags: "نبض حي لايف حركة نشاط اخر نشاط مباشر", actionLabel: "عرض", actionTone: "indigo", action: () => { openTeacherTab("home"); setIsLivePulseExpanded(true); } },
+      { key: "cmd-notifications", type: "وجهة", title: "التنبيهات المهمة", meta: "تنبيهات الأستاذ • أخطاء • طلبات تحتاج قرار", hint: "فتح مركز التنبيهات", tags: "تنبيهات اشعارات مهمه تحذيرات مشاكل", actionLabel: "فتح", actionTone: "amber", action: () => { openTeacherTab("home"); setTeacherImportantNotificationsOpen(true); } },
+      { key: "cmd-sections", type: "وجهة", title: "المقررات", meta: "إدارة المقررات • الشعب • الأكواد المرتبطة", hint: "كل ما يخص المقرر والشعبة", tags: "مقررات مواد شعبه شعب كورس course section مادة", actionLabel: "فتح", actionTone: "slate", action: () => openSections() },
+      { key: "cmd-section-new", type: "إجراء", title: "إضافة مقرر", meta: "مقرر جديد • شعبة جديدة • إعدادات الوصول", hint: "يفتح نموذج إضافة مقرر", tags: "اضافة مقرر انشاء مقرر مادة جديده شعبه جديده", actionLabel: "إضافة", actionTone: "emerald", action: () => openSections("new") },
+      { key: "cmd-section-excel", type: "إجراء", title: "استيراد طلبة Excel", meta: "ربط الأعمدة • كشف الطلبة • أرقام جامعية", hint: "يفتح أداة الاستيراد", tags: "استيراد اكسل excel كشف طلبة رفع ملف الطلاب", actionLabel: "استيراد", actionTone: "indigo", action: () => openSections("excel") },
+      { key: "cmd-students", type: "وجهة", title: "الطلبة", meta: "كشف الطلبة • الحالة • آخر نشاط", hint: "بحث وفرز ومتابعة كل طالب", tags: "طلبة طلاب طالب كشف الطلبة الاسم الرقم الجامعي", actionLabel: "فتح", actionTone: "slate", action: () => openStudents() },
+      { key: "cmd-student-new", type: "إجراء", title: "إضافة طالب", meta: "طالب يدوي • رقم جامعي • مقرر", hint: "يفتح نموذج إضافة طالب", tags: "اضافة طالب تسجيل طالب طالب جديد", actionLabel: "إضافة", actionTone: "emerald", action: () => openStudents("new") },
+      { key: "cmd-student-activate", type: "إجراء", title: "تفعيل طالب", meta: "تفعيل يدوي • كود • رقم جامعي", hint: "يفتح التفعيل الفوري", tags: "تفعيل طالب فعل فعّل تنشيط كود يدوي", actionLabel: "تفعيل", actionTone: "emerald", action: () => openCodes("manual", "manual") },
+      { key: "cmd-codes", type: "وجهة", title: "الأكواد", meta: "توليد • أرشيف • صحة • محاولات", hint: "غرفة الأكواد كاملة", tags: "اكواد كود رمز رموز تفعيل join code access code", actionLabel: "فتح", actionTone: "indigo", action: () => openCodes("health") },
+      { key: "cmd-code-generate", type: "إجراء", title: "توليد كود", meta: "كود مقرر • كود طالب • كود سريع", hint: "يفتح توليد كود مباشر", tags: "ولد كود ولّد كود توليد كود اصدار كود انشاء كود رمز", actionLabel: "توليد", actionTone: "emerald", action: () => openCodes("generate", "single") },
+      { key: "cmd-code-batch", type: "إجراء", title: "توليد أكواد جماعية", meta: "دفعة أكواد • طلاب كثيرون • مقرر", hint: "يفتح توليد الدفعات", tags: "اكواد جماعية دفعة توليد جماعي batch", actionLabel: "دفعة", actionTone: "emerald", action: () => openCodes("generate", "batch") },
+      { key: "cmd-code-archive", type: "وجهة", title: "أرشيف الأكواد", meta: "كل الأكواد • المستخدمة • غير المستخدمة", hint: "بحث داخل سجل الأكواد", tags: "ارشيف اكواد سجل الاكواد مستخدم غير مستخدم", actionLabel: "عرض", actionTone: "slate", action: () => openCodes("archive") },
+      { key: "cmd-code-attempts", type: "وجهة", title: "سجل محاولات التفعيل", meta: "محاولات ناجحة • فاشلة • مشتبه بها", hint: "يفتح تقارير المحاولات", tags: "محاولات تفعيل سجل محاولات فشل نجاح", actionLabel: "عرض", actionTone: "amber", action: () => openCodes("attempts") },
+      { key: "cmd-code-reset", type: "وجهة", title: "استرجاع كلمة المرور", meta: "طلبات الاسترجاع • اعتماد • حذف • إعادة", hint: "القائمة المختصرة لطلبات الاسترجاع", tags: "استرجاع كلمة المرور نسيت كلمة السر reset password طلبات استرجاع", actionLabel: "فتح", actionTone: "amber", action: () => openCodes("health", "reset") },
+      { key: "cmd-code-health", type: "وجهة", title: "صحة الأكواد", meta: "صلاحية • مشاكل • نطاقات", hint: "تشخيص الأكواد والربط", tags: "صحة الاكواد مشاكل الاكواد صلاحية نطاق scope", actionLabel: "فحص", actionTone: "indigo", action: () => openCodes("health") },
+      { key: "cmd-code-qr", type: "إجراء", title: "مسح QR للتفعيل", meta: "كاميرا • قراءة كود • تفعيل", hint: "يفتح ماسح QR", tags: "qr كيو ار سكان ماسح باركود كاميرا", actionLabel: "مسح", actionTone: "indigo", action: () => openCodes("manual", "qr") },
+      { key: "cmd-questions", type: "وجهة", title: "الأسئلة", meta: "بنك الأسئلة • مشاريع • اختبارات", hint: "مصنع المحتوى والتقييم", tags: "اسئلة سؤال بنك الاسئلة اختبارات مشاريع واجبات", actionLabel: "فتح", actionTone: "slate", action: () => openQuestions() },
+      { key: "cmd-question-new", type: "إجراء", title: "إضافة سؤال", meta: "سؤال جديد • خيارات • إجابة صحيحة", hint: "يفتح نموذج السؤال", tags: "اضافة سؤال انشاء سؤال سؤال جديد", actionLabel: "إضافة", actionTone: "emerald", action: () => openQuestions("question") },
+      { key: "cmd-question-import", type: "إجراء", title: "استيراد أسئلة", meta: "Excel • Moodle XML • بنك جاهز", hint: "يفتح أداة الاستيراد", tags: "استيراد اسئلة اكسل moodle xml بنك", actionLabel: "استيراد", actionTone: "indigo", action: () => openQuestions("import") },
+      { key: "cmd-question-categories", type: "وجهة", title: "تصنيفات بنك الأسئلة", meta: "أبواب • مهارات • مستويات", hint: "ترتيب وتصنيف الأسئلة", tags: "تصنيفات بنك الاسئلة فئات اقسام مستويات", actionLabel: "فتح", actionTone: "slate", action: () => openQuestions("categories") },
+      { key: "cmd-project-new", type: "إجراء", title: "إنشاء مشروع", meta: "تكليف مشروع • مرفقات • موعد تسليم", hint: "يفتح منشئ المشاريع", tags: "انشاء مشروع مشروع جديد تكليف واجب تسليم", actionLabel: "إنشاء", actionTone: "emerald", action: () => openQuestions("project") },
+      { key: "cmd-exam-new", type: "إجراء", title: "إنشاء اختبار", meta: "اختبار • وقت • أسئلة • مراقبة", hint: "يفتح منشئ الاختبار", tags: "انشاء اختبار اختبار جديد امتحان كويز quiz exam", actionLabel: "إنشاء", actionTone: "emerald", action: () => openQuestions("exam") },
+      { key: "cmd-submissions", type: "وجهة", title: "التسليمات", meta: "مشاريع • اختبارات • تصحيح • مرفقات", hint: "مصحح مِراس السريع", tags: "تسليمات تسليم حلول حل مشروع مشاريع اختبار اختبارات تصحيح درجات", actionLabel: "فتح", actionTone: "blue", action: () => openSubmissions() },
+      { key: "cmd-fast-grading", type: "وجهة", title: "وضع التصحيح السريع", meta: "طالب وراء طالب • السابق/التالي • درجة", hint: "يفتح التسليمات مع قائمة الطلبة", tags: "تصحيح سريع صحح درجة درجات السابق التالي بطاقات", actionLabel: "تصحيح", actionTone: "blue", action: () => openSubmissions() },
+      { key: "cmd-files", type: "وجهة", title: "معاينة الملفات", meta: "PDF • PowerPoint • Word • صور", hint: "يفتح التسليمات والمرفقات", tags: "ملفات مرفقات مستند pdf powerpoint ppt word صورة صور معاينة", actionLabel: "عرض", actionTone: "blue", action: () => openSubmissions() },
+      { key: "cmd-return", type: "إجراء", title: "إرجاع تسليم", meta: "ملاحظة للطالب • إعادة رفع • استثناء", hint: "من داخل تفاصيل التسليم", tags: "ارجاع تسليم رد حل اعادة رفع رجع للطالب", actionLabel: "فتح", actionTone: "amber", action: () => openSubmissions() },
+      { key: "cmd-analytics", type: "وجهة", title: "المتابعة", meta: "نزاهة • أجهزة • سجلات • نشاط", hint: "مركز المتابعة والتحقق", tags: "متابعة تحليلات Analytics نزاهة امن امان نشاط", actionLabel: "فتح", actionTone: "slate", action: () => openAnalytics("summary") },
+      { key: "cmd-integrity", type: "وجهة", title: "النزاهة والأمان", meta: "مخالفات • تحذيرات • مراقبة", hint: "يفتح تبويب النزاهة", tags: "نزاهة امن امان مخالفات غش مراقبة integrity", actionLabel: "فحص", actionTone: "amber", action: () => openAnalytics("integrity", "overview") },
+      { key: "cmd-devices", type: "وجهة", title: "الأجهزة", meta: "جهاز الطالب • اعتماد • مشكلة جهاز", hint: "طلبات الأجهزة والمراجعة", tags: "اجهزة جهاز device مشاكل الجهاز اعتماد جهاز", actionLabel: "فتح", actionTone: "amber", action: () => openAnalytics("integrity", "health") },
+      { key: "cmd-network", type: "وجهة", title: "الشبكة والجلسات", meta: "اتصال • جلسة • قفل جهاز", hint: "تشخيص الاتصال والحضور", tags: "شبكة جلسة اتصال network session قفل", actionLabel: "فتح", actionTone: "indigo", action: () => openAnalytics("integrity", "network") },
+      { key: "cmd-audit", type: "وجهة", title: "السجل الأمني", meta: "Logs • عمليات • تغييرات", hint: "يفتح سجل التدقيق", tags: "سجل امني سجلات audit logs عمليات تغييرات", actionLabel: "فتح", actionTone: "slate", action: () => { openAnalytics("audit"); setTeacherAuditOpen(true); } },
+      { key: "cmd-accounts", type: "وجهة", title: "الحسابات والصلاحيات", meta: "حسابات • صلاحيات • Passkey", hint: "إدارة الوصول الآمن", tags: "حسابات صلاحيات passkey مفاتيح مرور دخول", actionLabel: "فتح", actionTone: "slate", action: () => { openAnalytics("accounts"); setPasskeyDevicesOpen(true); } },
+      { key: "cmd-data-tools", type: "وجهة", title: "أدوات البيانات", meta: "نسخ • إصلاح • مزامنة • تقارير", hint: "أدوات الإدارة المتقدمة", tags: "ادوات البيانات نسخ احتياطي اصلاح مزامنة تقارير", actionLabel: "فتح", actionTone: "indigo", action: () => openAnalytics("dataTools") },
+      { key: "cmd-security-modal", type: "إجراء", title: "قفل الأمان", meta: "تأكيد حساس • حماية • جلسة", hint: "يفتح نافذة الأمان عند الحاجة", tags: "قفل امان حماية security", actionLabel: "فتح", actionTone: "amber", action: () => setSecurityModalOpen(true) },
+    ];
+    return targets;
+  };
+  const teacherSmartSearchResults = useMemo(() => {
+    const q = normalizeTeacherCommandText(teacherSmartSearchTerm);
+    if (!q) return [] as any[];
+    const qWords = teacherCommandNeedles(q);
+    const scoreText = (haystack: any, boost = 0) => {
+      const text = normalizeTeacherCommandText(haystack);
+      if (!text) return 0;
+      let score = boost;
+      if (text === q) score += 120;
+      if (text.startsWith(q)) score += 70;
+      if (text.includes(q)) score += 42;
+      qWords.forEach((word: string) => {
+        if (text.includes(word)) score += word.length > 3 ? 14 : 8;
+      });
+      return score;
+    };
+    const includesQ = (...values: any[]) =>
+      scoreText(values.join(" ")) > 0;
+    const results: any[] = [];
+    const addResult = (item: any, score = 1) => {
+      if (score <= 0) return;
+      const key = item.key || `${item.type}-${item.title}-${results.length}`;
+      const existing = results.find((r) => r.key === key);
+      if (existing) {
+        existing.score = Math.max(existing.score || 0, score);
+        return;
+      }
+      results.push({ ...item, key, score });
+    };
+
+    teacherProgramCommandTargets().forEach((target: any) => {
+      const score = scoreText(`${target.title} ${target.meta} ${target.hint} ${target.tags}`, 4);
+      addResult(target, score);
+    });
+
+    scopedTeacherStudents.slice(0, 1200).forEach((student: any) => {
       const sid = String(
         student.id || student.idNumber || student.studentId || student.universityId || "",
       );
       const studentName = student.name || student.fullName || "طالب";
-      if (
-        includesQ(
-          studentName,
-          sid,
-          student.sectionCode,
-          student.courseCode,
-          courseNameForCode(student.sectionCode || student.courseCode),
-          student.isPaid ? "نشط مفعل" : "معلق غير مفعل",
-        )
-      ) {
+      const studentCourse = courseNameForCode(student.sectionCode || student.courseCode) || student.sectionCode || student.courseCode || "مقرر";
+      const latestSub = latestSubmissionRows(teacherSubmissions)
+        .filter((sub: any) => String(sub?.studentId || "") === sid)
+        .sort((a: any, b: any) => new Date(b?.submittedAt || b?.updatedAt || b?.createdAt || 0).getTime() - new Date(a?.submittedAt || a?.updatedAt || a?.createdAt || 0).getTime())[0];
+      const hay = `${studentName} ${sid} ${student.sectionCode || ""} ${student.courseCode || ""} ${studentCourse} ${student.isPaid ? "نشط مفعل" : "معلق غير مفعل"} ${student.isAccessBlocked ? "موقوف محظور" : ""} ${latestSub?.activityTitle || ""} ${latestSub?.fileName || ""}`;
+      const score = scoreText(hay, 18);
+      if (score > 0) {
         const canActivate = !student.isPaid && !student.isAccessBlocked && sid;
         addResult({
           key: `student-${sid || student.id || results.length}`,
           type: "طالب",
           title: studentName,
-          meta: `${sid || "—"} • ${courseNameForCode(student.sectionCode || student.courseCode) || student.sectionCode || student.courseCode || "مقرر"}`,
+          meta: `${sid || "—"} • ${studentCourse}`,
           extra: `الحالة: ${student.isAccessBlocked ? "موقوف" : student.isPaid ? "نشط" : "بانتظار التفعيل"} • آخر نشاط: ${studentLastActivityText(student)}`,
-          actionLabel: canActivate ? "تفعيل مباشر" : "فتح الطلبة",
+          actionLabel: canActivate ? "تفعيل مباشر" : "فتح ملفه",
           actionTone: canActivate ? "emerald" : "slate",
           action: () => {
             if (canActivate) {
@@ -21416,47 +21637,45 @@ ${rows
             } else {
               openTeacherTab("students");
               setStudentDirectorySearch(studentName || sid);
+              setSelectedStudentDetail(student);
             }
           },
-        });
+        }, score);
       }
     });
-    scopedJoinCodes.slice(0, 700).forEach((code: any) => {
-      if (
-        includesQ(
-          code.code,
-          code.customCode,
-          code.studentName,
-          code.studentId,
-          code.sectionCode,
-          code.studentSection,
-          code.status,
-        )
-      ) {
+
+    scopedJoinCodes.slice(0, 1000).forEach((code: any) => {
+      const codeText = cleanCodeForDisplay(code.code || code.customCode || "");
+      const course = courseNameForCode(code.sectionCode || code.studentSection || code.courseCode) || code.sectionCode || code.studentSection || "—";
+      const score = scoreText(`${codeText} ${code.code || ""} ${code.customCode || ""} ${code.studentName || ""} ${code.studentId || ""} ${code.sectionCode || ""} ${code.studentSection || ""} ${code.status || ""} ${course} كود رمز تفعيل`, 14);
+      if (score > 0) {
         addResult({
           key: `code-${code.id || code.code || results.length}`,
           type: "كود",
-          title: cleanCodeForDisplay(code.code || code.customCode || "كود"),
+          title: codeText || "كود",
           meta: `${code.studentName || "غير مخصص"} • ${code.studentId || code.sectionCode || code.studentSection || "—"}`,
-          extra: `الحالة: ${String(code.status || code.state || (code.activatedAt ? "مستخدم" : "نشط"))} • المقرر: ${courseNameForCode(code.sectionCode || code.studentSection || code.courseCode) || code.sectionCode || code.studentSection || "—"}`,
+          extra: `الحالة: ${String(code.status || code.state || (code.activatedAt ? "مستخدم" : "نشط"))} • المقرر: ${course}`,
           actionLabel: "فتح الكود",
           actionTone: "indigo",
           action: () => {
             openTeacherTab("codes");
+            setTeacherCodesOpen(true);
             setCodesSubTab("archive");
             setCodesFilterSearch(String(code.code || code.customCode || ""));
             setCodesAccordion((prev) => ({ ...prev, cards: true }));
-            setTeacherCodesOpen(true);
           },
-        });
+        }, score);
       }
     });
-    visibleTeacherSections.slice(0, 160).forEach((section: any) => {
-      if (includesQ(section.courseName, section.title, section.code)) {
+
+    visibleTeacherSections.slice(0, 260).forEach((section: any) => {
+      const courseTitle = section.courseName || section.title || section.code || "مقرر";
+      const score = scoreText(`${courseTitle} ${section.code || ""} مقرر مادة شعبة طلبة اكواد تسليمات`, 12);
+      if (score > 0) {
         addResult({
           key: `section-${section.code || results.length}`,
           type: "مقرر",
-          title: section.courseName || section.title || section.code || "مقرر",
+          title: courseTitle,
           meta: section.code || "—",
           extra: `${scopedTeacherStudents.filter((st: any) => courseCodesMatch(st.sectionCode || st.courseCode, section.code)).length} طالب • ${latestSubmissionRows(teacherSubmissions).filter((sub: any) => courseCodesMatch(sub.courseCode || sub.sectionCode, section.code)).length} تسليم`,
           actionLabel: "فتح المقرر",
@@ -21465,23 +21684,14 @@ ${rows
             setSelectedTeacherCourseCode(section.code);
             openTeacherTab("sections");
           },
-        });
+        }, score);
       }
     });
-    latestSubmissionRows(teacherSubmissions).slice(0, 800).forEach((sub: any) => {
-      if (
-        includesQ(
-          sub.studentName,
-          sub.studentId,
-          sub.activityTitle,
-          sub.fileName,
-          sub.status,
-          sub.answerText,
-          sub.courseCode,
-          sub.sectionCode,
-          teacherSubmissionStatusText(sub),
-        )
-      ) {
+
+    latestSubmissionRows(teacherSubmissions).slice(0, 1200).forEach((sub: any) => {
+      const hay = `${sub.studentName || ""} ${sub.studentId || ""} ${sub.activityTitle || ""} ${sub.fileName || ""} ${sub.status || ""} ${sub.answerText || ""} ${sub.courseCode || ""} ${sub.sectionCode || ""} ${teacherSubmissionStatusText(sub)} تسليم حل مشروع اختبار مرفق ملف درجة تصحيح`;
+      const score = scoreText(hay, 16);
+      if (score > 0) {
         addResult({
           key: `submission-${sub.id || results.length}`,
           type: "تسليم",
@@ -21496,21 +21706,14 @@ ${rows
             setSelectedSubmissionDetail(sub);
             resetSubmissionDetailViewport();
           },
-        });
+        }, score);
       }
     });
-    deviceProblemAttempts.slice(0, 200).forEach((attempt: any) => {
-      if (
-        includesQ(
-          attempt.linkedStudentName,
-          attempt.studentName,
-          attempt.linkedStudentId,
-          attempt.studentId,
-          attempt.normalizedCode,
-          attempt.deviceId,
-          attempt.reason,
-        )
-      ) {
+
+    deviceProblemAttempts.slice(0, 350).forEach((attempt: any) => {
+      const hay = `${attempt.linkedStudentName || ""} ${attempt.studentName || ""} ${attempt.linkedStudentId || ""} ${attempt.studentId || ""} ${attempt.normalizedCode || ""} ${attempt.deviceId || ""} ${attempt.reason || ""} جهاز اعتماد مشكلة نزاهة`;
+      const score = scoreText(hay, 13);
+      if (score > 0) {
         addResult({
           key: `device-${attempt.id || attempt.normalizedCode || results.length}`,
           type: "جهاز",
@@ -21521,65 +21724,103 @@ ${rows
           actionTone: "amber",
           action: () => {
             openTeacherTab("analytics");
-            setIntegrityFocus("devices");
+            setAnalyticsSubTab("integrity");
+            setIntegrityFocus("health");
           },
-        });
+        }, score);
       }
     });
-    return results.slice(0, 12);
-  }, [teacherSmartSearchTerm, teacherSmartRawTerm, scopedTeacherStudents, scopedJoinCodes, visibleTeacherSections, teacherSubmissions, deviceProblemAttempts]);
+
+    return results
+      .sort((a, b) => (b.score || 0) - (a.score || 0))
+      .slice(0, 18);
+  }, [teacherSmartSearchTerm, teacherSmartRawTerm, scopedTeacherStudents, scopedJoinCodes, visibleTeacherSections, teacherSubmissions, deviceProblemAttempts, analyticsSubTab, integrityFocus, codesSubTab]);
+
   const runTeacherSmartCommand = () => {
     const raw = teacherSmartRawTerm;
-    const q = teacherSmartSearchTerm;
+    const q = normalizeTeacherCommandText(raw);
     const first = teacherSmartSearchResults[0];
-    const activationCommand = /^(فعّل|فعل|تفعيل)\s+(.+)/i.exec(raw);
-    if (activationCommand) {
-      const needle = normalizeArabicDigits(activationCommand[2]).trim().toLowerCase();
+    const closeSearch = () => setTeacherSmartSearchOpen(false);
+
+    const afterVerb = (pattern: RegExp) => {
+      const match = pattern.exec(raw);
+      return normalizeArabicDigits(match?.[1] || "").trim();
+    };
+
+    const activationNeedle = afterVerb(/^(?:فعّل|فعل|تفعيل|نشّط|نشط)\s+(.+)/i);
+    if (activationNeedle) {
+      const needle = normalizeTeacherCommandText(activationNeedle);
       const target = scopedTeacherStudents.find((student: any) => {
-        const hay = normalizeArabicDigits(
+        const hay = normalizeTeacherCommandText(
           `${student.name || ""} ${student.fullName || ""} ${student.id || ""} ${student.idNumber || ""} ${student.studentId || ""} ${student.universityId || ""}`,
-        ).toLowerCase();
+        );
         return hay.includes(needle) && !student.isPaid && !student.isAccessBlocked;
       });
       if (target) {
         handleManualActivateStudent(String(target.id || target.idNumber || target.studentId || target.universityId));
-        setTeacherSmartSearchOpen(false);
+        closeSearch();
         return;
       }
       openCodesQuickShortcut("manual");
-      setManualActivationSearch(activationCommand[2]);
-      setTeacherSmartSearchOpen(false);
+      setManualActivationSearch(activationNeedle);
+      closeSearch();
       return;
     }
-    const submissionsCommand = /(?:اعرض|عرض|افتح|فتح).*?(?:تسليمات|تسليم|حلول)\s*(.*)/i.exec(raw);
-    if (submissionsCommand) {
-      openTeacherTab("submissions");
-      setSubmissionSearch(submissionsCommand[1] || raw);
-      setTeacherSmartSearchOpen(false);
-      return;
-    }
-    const codeCommand = /(?:ولد|ولّد|انشئ|أنشئ|اصدر|إصدار|رمز|كود).*?(?:مقرر|لمقرر)?\s*(.*)/i.exec(raw);
-    if (codeCommand && /كود|رمز|ولد|ولّد|انشئ|أنشئ|اصدر|إصدار/.test(q)) {
-      const courseText = normalizeArabicDigits(codeCommand[1] || "").trim().toLowerCase();
-      const course = visibleTeacherSections.find((sec: any) =>
-        normalizeArabicDigits(`${sec.courseName || ""} ${sec.title || ""} ${sec.code || ""}`).toLowerCase().includes(courseText),
-      );
+
+    const codeCourseNeedle = afterVerb(/(?:ولد|ولّد|انشئ|أنشئ|اصدر|اصدار|إصدار|طلع|اعمل)\s+(?:لي\s+)?(?:كود|رمز|اكواد|أكواد)(?:\s+(?:لمقرر|للمقرر|مقرر|مادة|لمادة))?\s*(.*)/i);
+    if (codeCourseNeedle || /(?:ولد|ولّد|انشئ|اصدر|كود|رمز)/.test(q)) {
+      const courseNeedle = normalizeTeacherCommandText(codeCourseNeedle);
+      const course = courseNeedle
+        ? visibleTeacherSections.find((sec: any) =>
+            normalizeTeacherCommandText(`${sec.courseName || ""} ${sec.title || ""} ${sec.code || ""}`).includes(courseNeedle),
+          )
+        : null;
       if (course?.code) setSelectedTeacherCourseCode(course.code);
       openCodesQuickShortcut("generate");
-      setTeacherSmartSearchOpen(false);
+      closeSearch();
       return;
     }
+
+    const submissionNeedle = afterVerb(/(?:اعرض|عرض|افتح|فتح|ودني|روح|هات|جيب).*?(?:تسليمات|تسليم|حلول|حل|مشاريع|مشروع|اختبارات|اختبار|ملفات|مرفقات)\s*(.*)/i);
+    if (submissionNeedle || /(?:تسليم|حل|مشروع|اختبار|ملف|مرفق|تصحيح|درجه|درجة)/.test(q)) {
+      openTeacherTab("submissions");
+      setSubmissionSearch(submissionNeedle || raw);
+      closeSearch();
+      return;
+    }
+
+    const studentNeedle = afterVerb(/(?:اعرض|عرض|افتح|فتح|ابحث|بحث|وين|ودني|روح).*?(?:طالب|الطالب|طلبة|طلاب)\s*(.*)/i);
+    if (studentNeedle && !/(تسليم|كود|مقرر)/.test(q)) {
+      openTeacherTab("students");
+      setStudentDirectorySearch(studentNeedle);
+      closeSearch();
+      return;
+    }
+
     if (first) {
       first.action?.();
-      setTeacherSmartSearchOpen(false);
+      closeSearch();
       return;
     }
-    if (/تسليم|حل|مشروع|اختبار/.test(q)) openTeacherTab("submissions");
-    else if (/كود|رمز|فعّل|فعل|تفعيل/.test(q)) openTeacherTab("codes");
-    else if (/طالب|طلبة|طلاب/.test(q)) openTeacherTab("students");
-    else if (/مقرر|مادة/.test(q)) openTeacherTab("sections");
-    else if (/جهاز|متابعة|نشاط/.test(q)) openTeacherTab("analytics");
-    setTeacherSmartSearchOpen(false);
+
+    const target = teacherProgramCommandTargets()
+      .map((item: any) => ({
+        item,
+        score: normalizeTeacherCommandText(`${item.title} ${item.meta} ${item.tags} ${item.hint}`).includes(q) ? 1 : 0,
+      }))
+      .find((entry: any) => entry.score > 0)?.item;
+    if (target) {
+      target.action?.();
+      closeSearch();
+      return;
+    }
+
+    if (/كود|رمز|فعّل|فعل|تفعيل|استرجاع/.test(q)) openTeacherTab("codes");
+    else if (/طالب|طلبة|طلاب|كشف/.test(q)) openTeacherTab("students");
+    else if (/مقرر|مادة|شعبة/.test(q)) openTeacherTab("sections");
+    else if (/سؤال|اختبار|مشروع|بنك/.test(q)) openTeacherTab("questions");
+    else if (/جهاز|متابعة|نزاهة|امن|نشاط|سجل/.test(q)) openTeacherTab("analytics");
+    closeSearch();
   };
 
   const criticalTeacherNotifications = useMemo(() => {
@@ -29568,7 +29809,7 @@ ${rows
                             if (e.key === "Enter") runTeacherSmartCommand();
                             if (e.key === "Escape") setTeacherSmartSearchOpen(false);
                           }}
-                          placeholder="ابحث عن طالب، كود، مقرر، تسليم، جهاز..."
+                          placeholder="ابحث أو اكتب أمراً: طالب، كود، مقرر، تسليم، جهاز، فعّل أحمد..."
                           className="h-9 w-full bg-transparent text-right text-[12px] font-bold text-slate-700 outline-none placeholder:text-slate-400"
                           inputMode="search"
                         />
@@ -29602,6 +29843,9 @@ ${rows
                                     <p className="mt-1 truncate text-[10px] font-bold text-slate-500">{item.meta}</p>
                                     {item.extra && (
                                       <p className="mt-0.5 truncate text-[9px] font-bold text-slate-400">{item.extra}</p>
+                                    )}
+                                    {item.hint && (
+                                      <p className="mt-0.5 truncate text-[9px] font-black text-indigo-400">{item.hint}</p>
                                     )}
                                   </div>
                                   <span className={`shrink-0 rounded-full px-2.5 py-1 text-[9px] font-black text-white ${item.actionTone === "emerald" ? "bg-emerald-600" : item.actionTone === "blue" ? "bg-blue-600" : item.actionTone === "amber" ? "bg-amber-500" : item.actionTone === "indigo" ? "bg-indigo-600" : "bg-slate-900"}`}>{item.actionLabel}</span>
