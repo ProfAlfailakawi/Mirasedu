@@ -3088,6 +3088,8 @@ export default function App() {
   const [submissionSearch, setSubmissionSearch] = useState("");
   const [teacherSmartSearchQuery, setTeacherSmartSearchQuery] = useState("");
   const [teacherSmartSearchOpen, setTeacherSmartSearchOpen] = useState(false);
+  const [dockQuickMenu, setDockQuickMenu] = useState<"codes" | null>(null);
+  const dockLongPressTimerRef = useRef<number | null>(null);
   const [selectedSubmissionActivityId, setSelectedSubmissionActivityId] =
     useState<string | null>(null);
   const [bulkGradeInput, setBulkGradeInput] = useState("");
@@ -7792,7 +7794,50 @@ export default function App() {
                   : "تعذر تحميل المرفق من الخادم"
               }
             >
-              {/* Stable file card only: no live previews, to prevent mobile flashing/repaint loops. */}
+              <div className="mb-3 overflow-hidden rounded-2xl border border-slate-100 bg-slate-50/70">
+                {isImage && displayUrl ? (
+                  <img
+                    src={displayUrl}
+                    alt={fileName}
+                    className="h-28 w-full object-cover"
+                    loading="lazy"
+                    onError={(e) => {
+                      (e.currentTarget as HTMLImageElement).style.display = "none";
+                    }}
+                  />
+                ) : isPdf ? (
+                  <div className="flex h-28 items-center justify-center bg-gradient-to-br from-rose-50 to-white px-4">
+                    <div className="w-full max-w-[8rem] space-y-1.5 rounded-xl border border-rose-100 bg-white p-3 shadow-sm">
+                      <span className="block h-2 rounded-full bg-rose-100" />
+                      <span className="block h-2 w-4/5 rounded-full bg-slate-100" />
+                      <span className="block h-2 w-2/3 rounded-full bg-slate-100" />
+                      <span className="mt-2 block h-8 rounded-lg bg-slate-50" />
+                    </div>
+                  </div>
+                ) : [".ppt", ".pptx"].includes(ext) ? (
+                  <div className="grid h-28 grid-cols-3 gap-2 bg-gradient-to-br from-amber-50 to-white p-3">
+                    {[0, 1, 2].map((n) => (
+                      <span key={n} className="rounded-xl border border-amber-100 bg-white p-1 shadow-sm">
+                        <i className="mb-1 block h-2 rounded-full bg-amber-100" />
+                        <i className="block h-14 rounded-lg bg-slate-50" />
+                      </span>
+                    ))}
+                  </div>
+                ) : [".doc", ".docx", ".rtf"].includes(ext) ? (
+                  <div className="flex h-28 items-center justify-center bg-gradient-to-br from-blue-50 to-white px-4">
+                    <div className="w-full max-w-[8rem] space-y-1.5 rounded-xl border border-blue-100 bg-white p-3 shadow-sm">
+                      <span className="block h-2 rounded-full bg-blue-100" />
+                      <span className="block h-2 rounded-full bg-slate-100" />
+                      <span className="block h-2 w-5/6 rounded-full bg-slate-100" />
+                      <span className="block h-2 w-2/3 rounded-full bg-slate-100" />
+                    </div>
+                  </div>
+                ) : (
+                  <div className="flex h-20 items-center justify-center bg-gradient-to-br from-slate-50 to-white">
+                    <File className="h-7 w-7 text-indigo-300" />
+                  </div>
+                )}
+              </div>
               {/* Row Layout for File Meta & Controller Buttons */}
               <div className="flex items-start justify-between gap-2.5">
                 <div className="flex items-center gap-2.5 min-w-0">
@@ -21274,45 +21319,263 @@ ${rows
     }, {}),
   ) as any[];
   const teacherSmartSearchTerm = normalizeArabicDigits(teacherSmartSearchQuery).trim().toLowerCase();
+  const teacherSmartRawTerm = normalizeArabicDigits(teacherSmartSearchQuery).trim();
+  const studentLastActivityText = (student: any) => {
+    const studentId = String(
+      student?.id || student?.idNumber || student?.studentId || student?.universityId || "",
+    );
+    const lastSubmission = latestSubmissionRows(teacherSubmissions)
+      .filter((sub: any) => String(sub?.studentId || "") === studentId)
+      .sort(
+        (a: any, b: any) =>
+          new Date(b?.submittedAt || b?.updatedAt || b?.createdAt || 0).getTime() -
+          new Date(a?.submittedAt || a?.updatedAt || a?.createdAt || 0).getTime(),
+      )[0];
+    const at =
+      lastSubmission?.submittedAt ||
+      student?.lastActivityAt ||
+      student?.updatedAt ||
+      student?.activatedAt ||
+      student?.createdAt;
+    return at ? formatKwDateTime(at) : "لا يوجد نشاط حديث";
+  };
+  const openCodesQuickShortcut = (target: "generate" | "manual" | "attempts" | "reset") => {
+    openTeacherTab("codes");
+    setTeacherCodesOpen(true);
+    setDockQuickMenu(null);
+    fetchJoinCodes();
+    if (target === "generate") {
+      setCodesSubTab("generate");
+      setSingleCodeFormOpen(true);
+    } else if (target === "manual") {
+      setCodesSubTab("manual");
+      setCodesAccordion((prev) => ({ ...prev, manualActivation: true }));
+    } else if (target === "attempts") {
+      setCodesSubTab("attempts");
+      void fetchActivationAttemptReport();
+    } else {
+      setCodesSubTab("health");
+      setPasswordResetRequestsOpen(true);
+      void fetchPasswordResetRequests();
+    }
+  };
+  const startDockLongPress = (menu: "codes") => {
+    if (dockLongPressTimerRef.current) window.clearTimeout(dockLongPressTimerRef.current);
+    dockLongPressTimerRef.current = window.setTimeout(() => {
+      setDockQuickMenu(menu);
+      expandTeacherDockNow();
+    }, 420);
+  };
+  const endDockLongPress = () => {
+    if (dockLongPressTimerRef.current) {
+      window.clearTimeout(dockLongPressTimerRef.current);
+      dockLongPressTimerRef.current = null;
+    }
+  };
   const teacherSmartSearchResults = useMemo(() => {
     const q = teacherSmartSearchTerm;
     if (!q) return [] as any[];
     const includesQ = (...values: any[]) =>
-      values.map((value) => normalizeArabicDigits(value).toLowerCase()).join(" ").includes(q);
+      values
+        .map((value) => normalizeArabicDigits(value).toLowerCase())
+        .join(" ")
+        .includes(q);
     const results: any[] = [];
-    scopedTeacherStudents.slice(0, 400).forEach((student: any) => {
-      if (includesQ(student.name, student.fullName, student.id, student.idNumber, student.studentId, student.universityId, student.sectionCode, student.courseCode)) {
-        results.push({ key: `student-${student.id || student.idNumber || results.length}`, type: "طالب", title: student.name || student.fullName || "طالب", meta: `${student.idNumber || student.studentId || student.universityId || student.id || "—"} • ${student.sectionCode || student.courseCode || "مقرر"}`, actionLabel: "فتح الطلبة", action: () => openTeacherTab("students") });
+    const addResult = (item: any) => {
+      if (results.some((r) => r.key === item.key)) return;
+      results.push(item);
+    };
+    scopedTeacherStudents.slice(0, 800).forEach((student: any) => {
+      const sid = String(
+        student.id || student.idNumber || student.studentId || student.universityId || "",
+      );
+      const studentName = student.name || student.fullName || "طالب";
+      if (
+        includesQ(
+          studentName,
+          sid,
+          student.sectionCode,
+          student.courseCode,
+          courseNameForCode(student.sectionCode || student.courseCode),
+          student.isPaid ? "نشط مفعل" : "معلق غير مفعل",
+        )
+      ) {
+        const canActivate = !student.isPaid && !student.isAccessBlocked && sid;
+        addResult({
+          key: `student-${sid || student.id || results.length}`,
+          type: "طالب",
+          title: studentName,
+          meta: `${sid || "—"} • ${courseNameForCode(student.sectionCode || student.courseCode) || student.sectionCode || student.courseCode || "مقرر"}`,
+          extra: `الحالة: ${student.isAccessBlocked ? "موقوف" : student.isPaid ? "نشط" : "بانتظار التفعيل"} • آخر نشاط: ${studentLastActivityText(student)}`,
+          actionLabel: canActivate ? "تفعيل مباشر" : "فتح الطلبة",
+          actionTone: canActivate ? "emerald" : "slate",
+          action: () => {
+            if (canActivate) {
+              handleManualActivateStudent(sid);
+              setTeacherSmartSearchQuery(studentName);
+            } else {
+              openTeacherTab("students");
+              setStudentDirectorySearch(studentName || sid);
+            }
+          },
+        });
       }
     });
-    scopedJoinCodes.slice(0, 500).forEach((code: any) => {
-      if (includesQ(code.code, code.customCode, code.studentName, code.studentId, code.sectionCode, code.studentSection)) {
-        results.push({ key: `code-${code.id || code.code || results.length}`, type: "كود", title: cleanCodeForDisplay(code.code || code.customCode || "كود"), meta: `${code.studentName || "غير مخصص"} • ${code.studentId || code.sectionCode || code.studentSection || "—"}`, actionLabel: "فتح الأكواد", action: () => openTeacherTab("codes") });
+    scopedJoinCodes.slice(0, 700).forEach((code: any) => {
+      if (
+        includesQ(
+          code.code,
+          code.customCode,
+          code.studentName,
+          code.studentId,
+          code.sectionCode,
+          code.studentSection,
+          code.status,
+        )
+      ) {
+        addResult({
+          key: `code-${code.id || code.code || results.length}`,
+          type: "كود",
+          title: cleanCodeForDisplay(code.code || code.customCode || "كود"),
+          meta: `${code.studentName || "غير مخصص"} • ${code.studentId || code.sectionCode || code.studentSection || "—"}`,
+          extra: `الحالة: ${String(code.status || code.state || (code.activatedAt ? "مستخدم" : "نشط"))} • المقرر: ${courseNameForCode(code.sectionCode || code.studentSection || code.courseCode) || code.sectionCode || code.studentSection || "—"}`,
+          actionLabel: "فتح الكود",
+          actionTone: "indigo",
+          action: () => {
+            openTeacherTab("codes");
+            setCodesSubTab("archive");
+            setCodesFilterSearch(String(code.code || code.customCode || ""));
+            setCodesAccordion((prev) => ({ ...prev, cards: true }));
+            setTeacherCodesOpen(true);
+          },
+        });
       }
     });
-    visibleTeacherSections.slice(0, 120).forEach((section: any) => {
+    visibleTeacherSections.slice(0, 160).forEach((section: any) => {
       if (includesQ(section.courseName, section.title, section.code)) {
-        results.push({ key: `section-${section.code || results.length}`, type: "مقرر", title: section.courseName || section.title || section.code || "مقرر", meta: section.code || "—", actionLabel: "فتح المقررات", action: () => openTeacherTab("sections") });
+        addResult({
+          key: `section-${section.code || results.length}`,
+          type: "مقرر",
+          title: section.courseName || section.title || section.code || "مقرر",
+          meta: section.code || "—",
+          extra: `${scopedTeacherStudents.filter((st: any) => courseCodesMatch(st.sectionCode || st.courseCode, section.code)).length} طالب • ${latestSubmissionRows(teacherSubmissions).filter((sub: any) => courseCodesMatch(sub.courseCode || sub.sectionCode, section.code)).length} تسليم`,
+          actionLabel: "فتح المقرر",
+          actionTone: "slate",
+          action: () => {
+            setSelectedTeacherCourseCode(section.code);
+            openTeacherTab("sections");
+          },
+        });
       }
     });
-    latestSubmissionRows(teacherSubmissions).slice(0, 500).forEach((sub: any) => {
-      if (includesQ(sub.studentName, sub.studentId, sub.activityTitle, sub.fileName, sub.status, sub.answerText, sub.courseCode, sub.sectionCode)) {
-        results.push({ key: `submission-${sub.id || results.length}`, type: "تسليم", title: sub.activityTitle || submissionSummaryText(sub), meta: `${sub.studentName || "طالب"} • ${teacherSubmissionStatusText(sub)}`, actionLabel: "فتح التسليمات", action: () => { openTeacherTab("submissions"); setSubmissionSearch(String(sub.studentName || sub.studentId || sub.activityTitle || "")); } });
+    latestSubmissionRows(teacherSubmissions).slice(0, 800).forEach((sub: any) => {
+      if (
+        includesQ(
+          sub.studentName,
+          sub.studentId,
+          sub.activityTitle,
+          sub.fileName,
+          sub.status,
+          sub.answerText,
+          sub.courseCode,
+          sub.sectionCode,
+          teacherSubmissionStatusText(sub),
+        )
+      ) {
+        addResult({
+          key: `submission-${sub.id || results.length}`,
+          type: "تسليم",
+          title: sub.activityTitle || submissionSummaryText(sub),
+          meta: `${sub.studentName || "طالب"} • ${teacherSubmissionStatusText(sub)}`,
+          extra: `${sub.studentId || "—"} • ${formatKwDateTime(sub.submittedAt || sub.updatedAt || sub.createdAt)}`,
+          actionLabel: "افتح الحل",
+          actionTone: "blue",
+          action: () => {
+            openTeacherTab("submissions");
+            setSubmissionSearch(String(sub.studentName || sub.studentId || sub.activityTitle || ""));
+            setSelectedSubmissionDetail(sub);
+            resetSubmissionDetailViewport();
+          },
+        });
       }
     });
-    deviceProblemAttempts.slice(0, 120).forEach((attempt: any) => {
-      if (includesQ(attempt.linkedStudentName, attempt.studentName, attempt.linkedStudentId, attempt.studentId, attempt.normalizedCode, attempt.deviceId)) {
-        results.push({ key: `device-${attempt.id || attempt.normalizedCode || results.length}`, type: "جهاز", title: attempt.linkedStudentName || attempt.studentName || "جهاز يحتاج مراجعة", meta: attempt.linkedStudentId || attempt.studentId || attempt.normalizedCode || "—", actionLabel: "فتح المتابعة", action: () => openTeacherTab("analytics") });
+    deviceProblemAttempts.slice(0, 200).forEach((attempt: any) => {
+      if (
+        includesQ(
+          attempt.linkedStudentName,
+          attempt.studentName,
+          attempt.linkedStudentId,
+          attempt.studentId,
+          attempt.normalizedCode,
+          attempt.deviceId,
+          attempt.reason,
+        )
+      ) {
+        addResult({
+          key: `device-${attempt.id || attempt.normalizedCode || results.length}`,
+          type: "جهاز",
+          title: attempt.linkedStudentName || attempt.studentName || "جهاز يحتاج مراجعة",
+          meta: attempt.linkedStudentId || attempt.studentId || attempt.normalizedCode || "—",
+          extra: "طلب جهاز / نزاهة يحتاج متابعة",
+          actionLabel: "فتح المتابعة",
+          actionTone: "amber",
+          action: () => {
+            openTeacherTab("analytics");
+            setIntegrityFocus("devices");
+          },
+        });
       }
     });
-    return results.slice(0, 9);
-  }, [teacherSmartSearchTerm, scopedTeacherStudents, scopedJoinCodes, visibleTeacherSections, teacherSubmissions, deviceProblemAttempts]);
+    return results.slice(0, 12);
+  }, [teacherSmartSearchTerm, teacherSmartRawTerm, scopedTeacherStudents, scopedJoinCodes, visibleTeacherSections, teacherSubmissions, deviceProblemAttempts]);
   const runTeacherSmartCommand = () => {
-    const first = teacherSmartSearchResults[0];
-    if (first) { first.action?.(); setTeacherSmartSearchOpen(false); return; }
+    const raw = teacherSmartRawTerm;
     const q = teacherSmartSearchTerm;
+    const first = teacherSmartSearchResults[0];
+    const activationCommand = /^(فعّل|فعل|تفعيل)\s+(.+)/i.exec(raw);
+    if (activationCommand) {
+      const needle = normalizeArabicDigits(activationCommand[2]).trim().toLowerCase();
+      const target = scopedTeacherStudents.find((student: any) => {
+        const hay = normalizeArabicDigits(
+          `${student.name || ""} ${student.fullName || ""} ${student.id || ""} ${student.idNumber || ""} ${student.studentId || ""} ${student.universityId || ""}`,
+        ).toLowerCase();
+        return hay.includes(needle) && !student.isPaid && !student.isAccessBlocked;
+      });
+      if (target) {
+        handleManualActivateStudent(String(target.id || target.idNumber || target.studentId || target.universityId));
+        setTeacherSmartSearchOpen(false);
+        return;
+      }
+      openCodesQuickShortcut("manual");
+      setManualActivationSearch(activationCommand[2]);
+      setTeacherSmartSearchOpen(false);
+      return;
+    }
+    const submissionsCommand = /(?:اعرض|عرض|افتح|فتح).*?(?:تسليمات|تسليم|حلول)\s*(.*)/i.exec(raw);
+    if (submissionsCommand) {
+      openTeacherTab("submissions");
+      setSubmissionSearch(submissionsCommand[1] || raw);
+      setTeacherSmartSearchOpen(false);
+      return;
+    }
+    const codeCommand = /(?:ولد|ولّد|انشئ|أنشئ|اصدر|إصدار|رمز|كود).*?(?:مقرر|لمقرر)?\s*(.*)/i.exec(raw);
+    if (codeCommand && /كود|رمز|ولد|ولّد|انشئ|أنشئ|اصدر|إصدار/.test(q)) {
+      const courseText = normalizeArabicDigits(codeCommand[1] || "").trim().toLowerCase();
+      const course = visibleTeacherSections.find((sec: any) =>
+        normalizeArabicDigits(`${sec.courseName || ""} ${sec.title || ""} ${sec.code || ""}`).toLowerCase().includes(courseText),
+      );
+      if (course?.code) setSelectedTeacherCourseCode(course.code);
+      openCodesQuickShortcut("generate");
+      setTeacherSmartSearchOpen(false);
+      return;
+    }
+    if (first) {
+      first.action?.();
+      setTeacherSmartSearchOpen(false);
+      return;
+    }
     if (/تسليم|حل|مشروع|اختبار/.test(q)) openTeacherTab("submissions");
-    else if (/كود|فعّل|فعل|تفعيل/.test(q)) openTeacherTab("codes");
+    else if (/كود|رمز|فعّل|فعل|تفعيل/.test(q)) openTeacherTab("codes");
     else if (/طالب|طلبة|طلاب/.test(q)) openTeacherTab("students");
     else if (/مقرر|مادة/.test(q)) openTeacherTab("sections");
     else if (/جهاز|متابعة|نشاط/.test(q)) openTeacherTab("analytics");
@@ -29140,22 +29403,34 @@ ${rows
                   title="تسليمات الاختبارات والمشاريع"
                   aria-label="تسليمات الاختبارات والمشاريع"
                   onClick={() => openTeacherTab("submissions")}
-                  className={`inline-flex h-12 w-12 items-center justify-center rounded-[1.2rem] border shadow-sm transition-all hover:-translate-y-0.5 ${teacherTab === "submissions" ? "border-blue-200 bg-gradient-to-br from-blue-600 to-indigo-600 text-white shadow-blue-200" : "border-slate-200 bg-white/90 text-slate-700 hover:bg-blue-50 hover:text-blue-700"}`}
+                  className={`relative inline-flex h-12 w-12 items-center justify-center rounded-[1.2rem] border shadow-sm transition-all hover:-translate-y-0.5 ${teacherTab === "submissions" ? "border-blue-200 bg-gradient-to-br from-blue-600 to-indigo-600 text-white shadow-blue-200" : "border-slate-200 bg-white/90 text-slate-700 hover:bg-blue-50 hover:text-blue-700"}`}
                 >
                   <Award className="h-5 w-5" />
+                  {latestSubmissionRows(teacherSubmissions).some((sub: any) => !teacherVisibleGradeText(sub) && !isTeacherReturnedSubmission(sub)) && (
+                    <span className="absolute -left-0.5 -top-0.5 h-2.5 w-2.5 rounded-full bg-amber-400 ring-2 ring-white" />
+                  )}
                 </button>
                 <span className="mx-1 h-8 w-px bg-slate-200" />
                 <button
                   title="مفاتيح الدخول"
                   aria-label="مفاتيح الدخول"
+                  onPointerDown={() => startDockLongPress("codes")}
+                  onPointerUp={endDockLongPress}
+                  onPointerLeave={endDockLongPress}
+                  onPointerCancel={endDockLongPress}
+                  onContextMenu={(e) => { e.preventDefault(); setDockQuickMenu(dockQuickMenu === "codes" ? null : "codes"); }}
                   onClick={() => {
+                    endDockLongPress();
                     openTeacherTab("codes");
                     setTeacherCodesOpen(true);
                     fetchJoinCodes();
                   }}
-                  className={`inline-flex h-10 w-10 items-center justify-center rounded-2xl border shadow-sm transition-all ${teacherTab === "codes" ? "border-indigo-200 bg-indigo-500 text-white" : "border-indigo-100 bg-white/90 text-indigo-700 hover:bg-indigo-50"}`}
+                  className={`relative inline-flex h-10 w-10 items-center justify-center rounded-2xl border shadow-sm transition-all ${teacherTab === "codes" ? "border-indigo-200 bg-indigo-500 text-white" : "border-indigo-100 bg-white/90 text-indigo-700 hover:bg-indigo-50"}`}
                 >
                   <Key className="h-4 w-4" />
+                  {(passwordResetRequestsState.length > 0 || deviceProblemAttempts.length > 0) && (
+                    <span className="absolute -left-0.5 -top-0.5 h-2.5 w-2.5 rounded-full bg-rose-500 ring-2 ring-white" />
+                  )}
                 </button>
                 <button
                   title="مركز المتابعة"
@@ -29170,6 +29445,26 @@ ${rows
                 </button>
               </div>
             </nav>
+            {dockQuickMenu === "codes" && (
+              <div
+                className="fixed bottom-[6.3rem] right-4 z-[80] w-[15.5rem] overflow-hidden rounded-[1.55rem] border border-white/80 bg-white/96 p-2 text-right shadow-[0_24px_70px_rgba(15,23,42,0.16)] backdrop-blur-2xl sm:bottom-auto sm:right-auto sm:top-[10.5rem]"
+                dir="rtl"
+                onPointerDown={(e) => e.stopPropagation()}
+              >
+                <button type="button" onClick={() => openCodesQuickShortcut("generate")} className="flex w-full items-center justify-between rounded-2xl px-3 py-2.5 text-[11px] font-black text-slate-700 hover:bg-emerald-50 hover:text-emerald-700">
+                  <span>توليد كود</span><UserPlus className="h-4 w-4" />
+                </button>
+                <button type="button" onClick={() => openCodesQuickShortcut("manual")} className="flex w-full items-center justify-between rounded-2xl px-3 py-2.5 text-[11px] font-black text-slate-700 hover:bg-indigo-50 hover:text-indigo-700">
+                  <span>تفعيل طالب</span><CheckCircle className="h-4 w-4" />
+                </button>
+                <button type="button" onClick={() => openCodesQuickShortcut("attempts")} className="flex w-full items-center justify-between rounded-2xl px-3 py-2.5 text-[11px] font-black text-slate-700 hover:bg-amber-50 hover:text-amber-700">
+                  <span>سجل المحاولات</span><ShieldAlert className="h-4 w-4" />
+                </button>
+                <button type="button" onClick={() => openCodesQuickShortcut("reset")} className="flex w-full items-center justify-between rounded-2xl px-3 py-2.5 text-[11px] font-black text-slate-700 hover:bg-rose-50 hover:text-rose-700">
+                  <span>طلبات الاسترجاع</span><Key className="h-4 w-4" />
+                </button>
+              </div>
+            )}
 
             <header
               className="miras-mobile-teacher-zero-header"
@@ -29304,9 +29599,12 @@ ${rows
                                 >
                                   <div className="min-w-0 flex-1">
                                     <div className="flex items-center gap-2"><span className="rounded-full bg-indigo-50 px-2 py-0.5 text-[9px] font-black text-indigo-700">{item.type}</span><span className="truncate text-[12px] font-black text-slate-900">{item.title}</span></div>
-                                    <p className="mt-1 truncate text-[10px] font-bold text-slate-400">{item.meta}</p>
+                                    <p className="mt-1 truncate text-[10px] font-bold text-slate-500">{item.meta}</p>
+                                    {item.extra && (
+                                      <p className="mt-0.5 truncate text-[9px] font-bold text-slate-400">{item.extra}</p>
+                                    )}
                                   </div>
-                                  <span className="shrink-0 rounded-full bg-slate-900 px-2.5 py-1 text-[9px] font-black text-white">{item.actionLabel}</span>
+                                  <span className={`shrink-0 rounded-full px-2.5 py-1 text-[9px] font-black text-white ${item.actionTone === "emerald" ? "bg-emerald-600" : item.actionTone === "blue" ? "bg-blue-600" : item.actionTone === "amber" ? "bg-amber-500" : item.actionTone === "indigo" ? "bg-indigo-600" : "bg-slate-900"}`}>{item.actionLabel}</span>
                                 </button>
                               ))}
                             </div>
@@ -29631,22 +29929,34 @@ ${rows
                         title="تسليمات الاختبارات والمشاريع"
                         aria-label="تسليمات الاختبارات والمشاريع"
                         onClick={() => openTeacherTab("submissions")}
-                        className={`inline-flex h-12 w-12 items-center justify-center rounded-[1.2rem] border shadow-sm transition-all hover:-translate-y-0.5 ${teacherTab === "submissions" ? "border-blue-200 bg-gradient-to-br from-blue-600 to-indigo-600 text-white shadow-blue-200" : "border-slate-200 bg-white/90 text-slate-700 hover:bg-blue-50 hover:text-blue-700"}`}
+                        className={`relative inline-flex h-12 w-12 items-center justify-center rounded-[1.2rem] border shadow-sm transition-all hover:-translate-y-0.5 ${teacherTab === "submissions" ? "border-blue-200 bg-gradient-to-br from-blue-600 to-indigo-600 text-white shadow-blue-200" : "border-slate-200 bg-white/90 text-slate-700 hover:bg-blue-50 hover:text-blue-700"}`}
                       >
                         <Award className="h-5 w-5" />
+                        {latestSubmissionRows(teacherSubmissions).some((sub: any) => !teacherVisibleGradeText(sub) && !isTeacherReturnedSubmission(sub)) && (
+                          <span className="absolute -left-0.5 -top-0.5 h-2.5 w-2.5 rounded-full bg-amber-400 ring-2 ring-white" />
+                        )}
                       </button>
                       <span className="mx-1 h-8 w-px bg-slate-200" />
                       <button
                         title="مفاتيح الدخول"
                         aria-label="مفاتيح الدخول"
+                        onPointerDown={() => startDockLongPress("codes")}
+                        onPointerUp={endDockLongPress}
+                        onPointerLeave={endDockLongPress}
+                        onPointerCancel={endDockLongPress}
+                        onContextMenu={(e) => { e.preventDefault(); setDockQuickMenu(dockQuickMenu === "codes" ? null : "codes"); }}
                         onClick={() => {
+                          endDockLongPress();
                           openTeacherTab("codes");
                           setTeacherCodesOpen(true);
                           fetchJoinCodes();
                         }}
-                        className={`inline-flex h-10 w-10 items-center justify-center rounded-2xl border shadow-sm transition-all ${teacherTab === "codes" ? "border-indigo-200 bg-indigo-500 text-white" : "border-indigo-100 bg-white/90 text-indigo-700 hover:bg-indigo-50"}`}
+                        className={`relative inline-flex h-10 w-10 items-center justify-center rounded-2xl border shadow-sm transition-all ${teacherTab === "codes" ? "border-indigo-200 bg-indigo-500 text-white" : "border-indigo-100 bg-white/90 text-indigo-700 hover:bg-indigo-50"}`}
                       >
                         <Key className="h-4 w-4" />
+                        {(passwordResetRequestsState.length > 0 || deviceProblemAttempts.length > 0) && (
+                          <span className="absolute -left-0.5 -top-0.5 h-2.5 w-2.5 rounded-full bg-rose-500 ring-2 ring-white" />
+                        )}
                       </button>
                       <button
                         title="مركز المتابعة"
@@ -30750,9 +31060,49 @@ ${rows
                               </div>
                             </div>
 
-                            <div
-                              className={`miras-submission-detail-scroll min-h-0 flex-1 space-y-3 overflow-y-auto overscroll-contain pr-1 pb-3`}
-                            >
+                            <div className="miras-quick-grading-grid min-h-0 flex-1 gap-3 lg:grid lg:grid-cols-[16rem_minmax(0,1fr)]">
+                              <aside className="hidden min-h-0 overflow-hidden rounded-[1.45rem] border border-slate-100 bg-slate-50/70 p-2 lg:flex lg:flex-col">
+                                <div className="mb-2 flex items-center justify-between px-2 text-[10px] font-black text-slate-500">
+                                  <span>الطلبة</span>
+                                  <span className="rounded-full bg-white px-2 py-0.5 text-indigo-700">{detailActivitySubmissions.length}</span>
+                                </div>
+                                <div className="min-h-0 flex-1 space-y-1 overflow-y-auto pr-1">
+                                  {detailStudentRows.map((row: any) => {
+                                    const isActive =
+                                      row.submission &&
+                                      String(row.submission.id) ===
+                                        String(selectedSubmissionDetail.id);
+                                    return (
+                                      <button
+                                        key={`rail-${row.key}`}
+                                        type="button"
+                                        onClick={() => {
+                                          if (!row.submission) return;
+                                          setSelectedSubmissionDetail(row.submission);
+                                          resetSubmissionDetailViewport();
+                                        }}
+                                        disabled={!row.submission}
+                                        className={`flex w-full items-center justify-between gap-2 rounded-2xl border px-2.5 py-2 text-right transition ${
+                                          isActive
+                                            ? "border-indigo-200 bg-indigo-600 text-white shadow-sm"
+                                            : row.submission
+                                              ? "border-white bg-white/80 text-slate-700 hover:border-indigo-100 hover:bg-white"
+                                              : "cursor-not-allowed border-slate-100 bg-white/45 text-slate-300"
+                                        }`}
+                                      >
+                                        <span className="min-w-0">
+                                          <span className="block truncate text-[11px] font-black">{row.studentName || "طالب"}</span>
+                                          <span className={`mt-0.5 block truncate font-mono text-[9px] ${isActive ? "text-indigo-100" : "text-slate-400"}`}>{row.studentId || "—"}</span>
+                                        </span>
+                                        <span className={`h-2 w-2 shrink-0 rounded-full ${row.submission ? isActive ? "bg-white" : "bg-emerald-400" : "bg-slate-200"}`} />
+                                      </button>
+                                    );
+                                  })}
+                                </div>
+                              </aside>
+                              <div
+                                className={`miras-submission-detail-scroll min-h-0 flex-1 space-y-3 overflow-y-auto overscroll-contain pr-1 pb-3`}
+                              >
                               {/* Rich view for submission metadata and file attachments */}
                               <div className="rounded-2xl bg-slate-50 p-4 border border-slate-100 space-y-3 mb-3">
                                 <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
@@ -31034,6 +31384,7 @@ ${rows
                                   <RotateCw className="h-5 w-5" />
                                 </button>
                               </div>
+                            </div>
                             </div>
                           </div>
                         </div>
@@ -36045,11 +36396,10 @@ ${rows
                               <div>
                                 <h3 className="flex items-center gap-2 text-sm font-black text-amber-900">
                                   <Key className="h-4 w-4" />
-                                  طلبات استرجاع كلمة المرور
+                                  استرجاع
                                 </h3>
                                 <p className="mt-1 text-[11px] font-bold text-amber-700">
-                                  مختصرة ومغلقة افتراضياً؛ افتحها عند الحاجة
-                                  للنسخ أو المتابعة.
+                                  {passwordResetRequests.length} طلب • مغلقة بهدوء
                                 </p>
                               </div>
                               <span className="inline-flex items-center gap-2 rounded-full bg-white px-3 py-1 text-[11px] font-black text-amber-700 shadow-sm">
