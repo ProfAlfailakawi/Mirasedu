@@ -3348,7 +3348,15 @@ export default function App() {
     // جودة PDF.js. السيرفر يحوّلها إلى PDF فعلي (LibreOffice) ثم تُعرض هنا
     // بنفس العارض بالضبط — معاينة كاملة بلا تنزيل ولا فتح برنامج خارجي، بدل
     // شاشة "افتح كامل" القديمة.
-    const isOfficeConvertible = [".ppt", ".pptx", ".doc", ".rtf"].includes(ext);
+    const isOfficeConvertible = [
+      ".ppt",
+      ".pptx",
+      ".doc",
+      ".docx",
+      ".xls",
+      ".xlsx",
+      ".rtf",
+    ].includes(ext);
     if (!isPdf && !isOfficeConvertible) return;
     const baseUrl = attachmentDisplayUrl(previewAttachment);
     if (!baseUrl) return;
@@ -7923,17 +7931,6 @@ export default function App() {
 
           const openAttachment = () => {
             if (canPreviewAttachment) {
-              const isOffice = [".ppt", ".pptx", ".doc", ".docx", ".xls", ".xlsx", ".rtf"].includes(ext);
-              if (isOffice) {
-                const link = document.createElement("a");
-                link.href = displayUrl;
-                link.download = fileName;
-                link.target = "_blank";
-                document.body.appendChild(link);
-                link.click();
-                document.body.removeChild(link);
-                return;
-              }
               setPreviewAttachment(displayAtt);
               return;
             }
@@ -25803,6 +25800,9 @@ ${rows
                   ".ppt",
                   ".pptx",
                   ".doc",
+                  ".docx",
+                  ".xls",
+                  ".xlsx",
                   ".rtf",
                 ].includes(ext);
                 const isPdf = isNativePdf || isOfficeConvertible;
@@ -29820,27 +29820,30 @@ ${rows
             <div className={`miras-mobile-command-bar fixed left-3 right-3 top-[calc(env(safe-area-inset-top,0px)+5.75rem)] z-[99998] rounded-[1.25rem] border border-slate-200/80 bg-white/98 p-2 shadow-[0_18px_48px_rgba(15,23,42,0.14)] backdrop-blur-2xl sm:hidden ${teacherSmartSearchOpen ? "" : "hidden"}`} onPointerDownCapture={guardTeacherSmartSearchEvent} onTouchStartCapture={guardTeacherSmartSearchEvent} onKeyDownCapture={guardTeacherSmartSearchEvent} onKeyUpCapture={guardTeacherSmartSearchEvent} onClick={(e) => e.stopPropagation()}>
               <div className="flex items-center gap-2 rounded-[1.05rem] bg-white px-3 py-2 shadow-inner ring-1 ring-slate-100">
                 <Search className="h-4 w-4 text-indigo-500" />
-                <form onSubmit={(e) => { e.preventDefault(); e.stopPropagation(); }} className="flex-1 min-w-0">
+                <div className="flex-1 min-w-0">
                   <input
                     value={teacherSmartSearchQuery}
                     onFocus={() => setTeacherSmartSearchOpen(true)}
                     onChange={(e) => { setTeacherSmartSearchQuery(e.target.value); setTeacherSmartSearchOpen(true); }}
                     type="text"
-                    enterKeyHint="done"
+                    enterKeyHint="search"
                     autoComplete="off"
                     autoCorrect="off"
                     spellCheck={false}
-                    onPointerDownCapture={guardTeacherSmartSearchEvent}
-                    onTouchStartCapture={guardTeacherSmartSearchEvent}
-                    onKeyDownCapture={guardTeacherSmartSearchEvent}
-                    onKeyDown={(e) => { guardTeacherSmartSearchEvent(e); if (e.key === "Escape") setTeacherSmartSearchOpen(false); }}
-                    onKeyUpCapture={guardTeacherSmartSearchEvent}
-                    onKeyUp={guardTeacherSmartSearchEvent}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" || e.keyCode === 13) {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        runTeacherSmartCommand();
+                        (e.target as HTMLInputElement).blur();
+                      }
+                      if (e.key === "Escape") setTeacherSmartSearchOpen(false);
+                    }}
                     placeholder="بحث"
-                    className="miras-smart-search-input h-8 w-full bg-transparent text-right text-[10px] font-light text-slate-500 outline-none placeholder:text-slate-300"
+                    className="miras-smart-search-input h-8 w-full bg-transparent text-right text-[10.5px] font-light text-slate-500 outline-none placeholder:text-slate-300"
                     inputMode="search"
                   />
-                </form>
+                </div>
                 {teacherSmartSearchQuery && (
                   <button type="button" onClick={() => { setTeacherSmartSearchQuery(""); setTeacherSmartSearchOpen(true); }} className="inline-flex h-7 w-7 items-center justify-center rounded-xl bg-slate-50 text-slate-400" aria-label="مسح">
                     <X className="h-3.5 w-3.5" />
@@ -29920,7 +29923,7 @@ ${rows
                     <div className="relative w-full sm:max-w-xl" onClick={(e) => e.stopPropagation()}>
                       <div className="flex items-center gap-2 rounded-[1.45rem] border border-slate-200/80 bg-white/88 px-3 py-2 shadow-inner backdrop-blur-xl animate-fade-in" onPointerDownCapture={guardTeacherSmartSearchEvent} onTouchStartCapture={guardTeacherSmartSearchEvent} onKeyDownCapture={guardTeacherSmartSearchEvent} onKeyUpCapture={guardTeacherSmartSearchEvent}>
                         <Search className="h-4 w-4 shrink-0 text-slate-400" />
-                        <form onSubmit={(e) => { e.preventDefault(); e.stopPropagation(); }} className="flex-1 min-w-0">
+                        <div className="flex-1 min-w-0">
                           <input
                             value={teacherSmartSearchQuery}
                             onFocus={() => setTeacherSmartSearchOpen(true)}
@@ -29929,24 +29932,24 @@ ${rows
                               setTeacherSmartSearchOpen(true);
                             }}
                             type="text"
-                            enterKeyHint="done"
+                            enterKeyHint="search"
                             autoComplete="off"
                             autoCorrect="off"
                             spellCheck={false}
-                            onPointerDownCapture={guardTeacherSmartSearchEvent}
-                            onTouchStartCapture={guardTeacherSmartSearchEvent}
-                            onKeyDownCapture={guardTeacherSmartSearchEvent}
                             onKeyDown={(e) => {
-                              guardTeacherSmartSearchEvent(e);
+                              if (e.key === "Enter" || e.keyCode === 13) {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                runTeacherSmartCommand();
+                                (e.target as HTMLInputElement).blur();
+                              }
                               if (e.key === "Escape") setTeacherSmartSearchOpen(false);
                             }}
-                            onKeyUpCapture={guardTeacherSmartSearchEvent}
-                            onKeyUp={guardTeacherSmartSearchEvent}
                             placeholder="بحث"
-                            className="miras-smart-search-input h-9 w-full bg-transparent text-right text-[10px] font-light text-slate-500 outline-none placeholder:text-slate-300"
+                            className="miras-smart-search-input h-9 w-full bg-transparent text-right text-[10.5px] font-light text-slate-500 outline-none placeholder:text-slate-300"
                             inputMode="search"
                           />
-                        </form>
+                        </div>
                         {teacherSmartSearchQuery && (
                           <button
                             type="button"
@@ -30700,9 +30703,7 @@ ${rows
                                                 type="button"
                                                 title={isExempt ? "مسموح" : "بدون كاميرا"}
                                                 aria-label={isExempt ? "استثناء كاميرا مفعل" : "السماح بدون كاميرا"}
-                                                onPointerDown={(event) => {
-                                                  event.stopPropagation();
-                                                }}
+                                                
                                                 onClick={(event) => {
                                                   event.preventDefault();
                                                   event.stopPropagation();
