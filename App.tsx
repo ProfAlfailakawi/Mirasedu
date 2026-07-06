@@ -25729,6 +25729,335 @@ ${rows
         </div>
       )}
 
+      {selectedSubmissionDetail && (
+        <div
+          className="miras-submission-detail-overlay fixed inset-0 z-[100050] flex flex-col bg-slate-50 animate-fade-in"
+          dir="rtl"
+          onClick={(e) => e.stopPropagation()}
+        >
+          <div className="miras-submission-detail-panel flex flex-col h-full w-full bg-slate-50 overflow-hidden">
+            {/* Elegant Header Toolbar */}
+            <div className="miras-student-solution-toolbar shrink-0 bg-white border-b border-slate-200 px-4 py-2.5 shadow-sm sticky top-0 z-40 pt-[calc(env(safe-area-inset-top,0px)+12px)]">
+              <div className="flex items-center justify-between gap-3">
+                {/* Right section: Elegant Close/Exit Button & Active Student Banner */}
+                <div className="flex items-center gap-2 min-w-0">
+                  <button
+                    type="button"
+                    onClick={closeSubmissionDetail}
+                    className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-slate-100 text-slate-600 transition hover:bg-rose-50 hover:text-rose-700"
+                    title="رجوع وإغلاق"
+                    aria-label="رجوع وإغلاق"
+                  >
+                    <X className="h-4.5 w-4.5" />
+                  </button>
+
+                  <div className="min-w-0 max-w-[140px] sm:max-w-[200px] rounded-xl bg-slate-900 px-3 py-1 text-right text-white shadow-sm shrink-0">
+                    <div className="truncate text-[11px] font-black leading-tight">
+                      {selectedSubmissionDetail.studentName || "طالب"}
+                    </div>
+                    <div className="mt-0.5 flex items-center justify-between gap-2 text-[9px] font-bold text-slate-400">
+                      <span className="truncate font-mono">{selectedSubmissionDetail.studentId || "—"}</span>
+                      <span className="shrink-0 font-sans border-r border-slate-750 pr-2">{selectedSubmissionDetailIndex + 1}/{detailActivitySubmissions.length || 1}</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Middle section: Elegant light student search (Always visible) */}
+                <div className="relative flex-1 max-w-[10rem] sm:max-w-xs mx-1">
+                  <Search className="pointer-events-none absolute right-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400" />
+                  <input
+                    value={submissionDetailStudentSearch}
+                    onChange={(e) => setSubmissionDetailStudentSearch(e.target.value)}
+                    placeholder="بحث سريع عن طالب..."
+                    inputMode="search"
+                    className="h-8.5 w-full rounded-xl border border-slate-150 bg-slate-50 pr-7.5 pl-2.5 text-right text-[11px] text-slate-800 outline-none transition placeholder:text-slate-400 focus:border-indigo-300 focus:bg-white focus:ring-2 focus:ring-indigo-50"
+                  />
+                </div>
+
+                {/* Left section: Elegant and thin arrows */}
+                <div className="flex items-center gap-1.5 shrink-0">
+                  <button
+                    type="button"
+                    onClick={() => openAdjacentSubmissionDetail(1)}
+                    disabled={detailActivitySubmissions.length < 2}
+                    className="inline-flex h-8.5 w-8.5 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-600 shadow-sm transition hover:border-indigo-200 hover:bg-indigo-50 hover:text-indigo-700 disabled:cursor-not-allowed disabled:opacity-30"
+                    title="السابق"
+                    aria-label="السابق"
+                  >
+                    <ChevronRight className="h-4 w-4 stroke-[1.5]" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => openAdjacentSubmissionDetail(-1)}
+                    disabled={detailActivitySubmissions.length < 2}
+                    className="inline-flex h-8.5 w-8.5 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-600 shadow-sm transition hover:border-indigo-200 hover:bg-indigo-50 hover:text-indigo-700 disabled:cursor-not-allowed disabled:opacity-30"
+                    title="التالي"
+                    aria-label="التالي"
+                  >
+                    <ChevronLeft className="h-4 w-4 stroke-[1.5]" />
+                  </button>
+                </div>
+              </div>
+
+              {/* Horizontal student quick selector bar */}
+              <div className="mt-2 flex max-h-12 gap-1.5 overflow-x-auto overflow-y-hidden py-1 pr-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+                {detailStudentRows.map((row: any) => {
+                  const isActive = row.submission && String(row.submission.id) === String(selectedSubmissionDetail.id);
+                  return (
+                    <button
+                      key={row.key}
+                      type="button"
+                      onClick={() => {
+                        if (!row.submission) return;
+                        setSubmissionDetailStudentSearch("");
+                        setSelectedSubmissionDetail(row.submission);
+                        resetSubmissionDetailViewport();
+                      }}
+                      disabled={!row.submission}
+                      className={`min-w-[8rem] shrink-0 rounded-lg border px-2.5 py-1 text-right transition ${
+                        isActive
+                          ? "border-indigo-300 bg-indigo-600 text-white shadow-sm font-black"
+                          : row.submission
+                            ? "border-slate-200 bg-white text-slate-700 hover:border-indigo-150 hover:bg-indigo-50 hover:text-indigo-700 font-bold"
+                            : "cursor-not-allowed border-slate-150 bg-slate-100/60 text-slate-300"
+                      }`}
+                      title={row.submission ? "فتح" : "لا يوجد تسليم"}
+                    >
+                      <span className="block truncate text-[10px] leading-tight">{row.studentName || "طالب"}</span>
+                      <span className={`mt-0.5 block font-mono text-[8px] ${isActive ? "text-indigo-100" : "text-slate-400"}`}>{row.studentId || "—"}</span>
+                    </button>
+                  );
+                })}
+                {detailStudentRows.length === 0 && (
+                  <span className="rounded-xl bg-white px-2.5 py-1 text-[10px] font-bold text-slate-400">لا نتيجة</span>
+                )}
+              </div>
+            </div>
+
+            {/* Split Panel / Single Page Workspace */}
+            <div className="miras-quick-grading-grid min-h-0 flex-1 p-4 gap-4 overflow-hidden lg:grid lg:grid-cols-[17rem_minmax(0,1fr)]">
+              {/* Desktop Sidebar Rail */}
+              <aside className="hidden min-h-0 overflow-hidden rounded-[1.45rem] border border-slate-100 bg-slate-50/70 p-2 lg:flex lg:flex-col">
+                <div className="mb-2 flex items-center justify-between px-2 text-[10px] font-black text-slate-500">
+                  <span>الطلبة</span>
+                  <span className="rounded-full bg-white px-2 py-0.5 text-indigo-700">{detailActivitySubmissions.length}</span>
+                </div>
+                <div className="min-h-0 flex-1 space-y-1 overflow-y-auto pr-1">
+                  {detailStudentRows.map((row: any) => {
+                    const isActive = row.submission && String(row.submission.id) === String(selectedSubmissionDetail.id);
+                    return (
+                      <button
+                        key={`rail-${row.key}`}
+                        type="button"
+                        onClick={() => {
+                          if (!row.submission) return;
+                          setSelectedSubmissionDetail(row.submission);
+                          resetSubmissionDetailViewport();
+                        }}
+                        disabled={!row.submission}
+                        className={`flex w-full items-center justify-between gap-2 rounded-xl border px-2.5 py-2 text-right transition ${
+                          isActive
+                            ? "border-indigo-200 bg-indigo-600 text-white shadow-sm"
+                            : row.submission
+                              ? "border-white bg-white/80 text-slate-700 hover:border-indigo-100 hover:bg-white"
+                              : "cursor-not-allowed border-slate-100 bg-white/45 text-slate-300"
+                        }`}
+                      >
+                        <span className="min-w-0">
+                          <span className="block truncate text-[11px] font-black">{row.studentName || "طالب"}</span>
+                          <span className={`mt-0.5 block truncate font-mono text-[9px] ${isActive ? "text-indigo-100" : "text-slate-400"}`}>{row.studentId || "—"}</span>
+                        </span>
+                        <span className={`h-2 w-2 shrink-0 rounded-full ${row.submission ? isActive ? "bg-white" : "bg-emerald-400" : "bg-slate-200"}`} />
+                      </button>
+                    );
+                  })}
+                </div>
+              </aside>
+
+              {/* Solution Page Document Card with sticky bottom controls */}
+              <div className="min-h-0 flex-1 flex flex-col justify-between overflow-hidden bg-white rounded-3xl border border-slate-100 shadow-sm">
+                <div className="miras-submission-detail-scroll flex-1 overflow-y-auto p-5 space-y-4">
+                  {/* Rich view for submission metadata */}
+                  <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 border-b border-slate-100 pb-3">
+                    <div className="text-xs text-slate-600 font-sans">
+                      <span className="font-bold text-slate-700">تاريخ التسليم: </span>
+                      {selectedSubmissionDetail.submittedAt ? formatKwDateTime(selectedSubmissionDetail.submittedAt) : "غير متوفر"}
+                    </div>
+                    {(selectedSubmissionDetail.originalGrade || selectedSubmissionDetail.reviewedGrade || gradeAuditTrailForSubmission(selectedSubmissionDetail).length > 0) && (
+                      <div className="rounded-xl border border-emerald-150 bg-emerald-50/50 px-2.5 py-1 text-[10px] font-black text-emerald-700">
+                        بصمة عدالة: أصلية {selectedSubmissionDetail.originalGrade || "—"} / بعد مراجعة {selectedSubmissionDetail.reviewedGrade || teacherGradeInputValue(selectedSubmissionDetail) || "—"}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Exam-specific detailed timeline */}
+                  {selectedSubmissionDetail.kind === "exam" && (
+                    <div className="rounded-2xl border border-slate-100 bg-slate-50/60 p-4 space-y-2">
+                      <div className="mb-2 flex items-center justify-between gap-2">
+                        <span className="text-[11px] font-black text-slate-700">مسار الطالب داخل الاختبار</span>
+                        <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[8.5px] font-black text-slate-500">التاريخ الكامل</span>
+                      </div>
+                      <div className="space-y-2">
+                        {submissionTimelineEvents(selectedSubmissionDetail).map((evt: any, idx: number) => {
+                          const dateLabel = formatKwDateTime(evt.at);
+                          return (
+                            <div key={idx} className="flex items-center gap-2 border-r-2 border-slate-200 pr-2">
+                              <span className="font-mono text-[9px] text-slate-400">{dateLabel}</span>
+                              <span className="text-[10px] text-slate-600">{evt.label}</span>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+ 
+                  {/* Anti-cheat Cheating Alerts */}
+                  {selectedSubmissionDetail.kind === "exam" && selectedSubmissionDetail.cheatingAlerts && selectedSubmissionDetail.cheatingAlerts.length > 0 && (
+                    <div className="rounded-2xl border border-rose-100 bg-rose-50/60 p-4">
+                      <div className="mb-2 flex items-center gap-2 text-rose-700">
+                        <AlertTriangle className="h-4.5 w-4.5 shrink-0" />
+                        <span className="text-[11px] font-black">رصد محاولات غش أو خروج ({selectedSubmissionDetail.cheatingAlerts.length})</span>
+                      </div>
+                      <div className="space-y-1.5">
+                        {selectedSubmissionDetail.cheatingAlerts.map((c: any, idx: number) => (
+                          <div key={idx} className="rounded-xl bg-white px-3 py-2 text-[10px] font-bold text-rose-600 border border-rose-50 shadow-sm flex items-center justify-between">
+                            <span>
+                              {c.type === "tab_switch"
+                                ? "محاولة الخروج من الاختبار"
+                                : c.type === "blur"
+                                  ? "فقد تركيز شاشة الاختبار"
+                                  : c.type === "fullscreen_exit"
+                                    ? "محاولة تصغير الشاشة الكاملة"
+                                    : c.description || "سلوك مريب"}
+                            </span>
+                            <span className="font-mono text-[8px] text-slate-400">{formatKwDateTime(c.timestamp)}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+ 
+                  {/* Student Text Answer */}
+                  <div className="rounded-2xl border border-slate-100 bg-slate-50/30 p-4">
+                    <span className="text-[11px] font-black text-slate-400">إجابة الطالب النصية</span>
+                    <p className="mt-1.5 text-[12px] font-bold leading-relaxed text-slate-800 whitespace-pre-line">
+                      {selectedSubmissionDetail.studentSolutionText || "لم يقدم الطالب حلاً نصياً."}
+                    </p>
+                  </div>
+ 
+                  {/* File Attachments Grid */}
+                  {selectedSubmissionDetail.attachments && selectedSubmissionDetail.attachments.length > 0 && (
+                    <div className="space-y-2 pt-2">
+                      <span className="text-[11px] font-black text-slate-400">
+                        مرفقات الطالب ({selectedSubmissionDetail.attachments.length}):
+                      </span>
+                      <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                        {selectedSubmissionDetail.attachments.map((att: any, idx: number) => {
+                          const name = att.originalName || att.name;
+                          const ext = name.slice(name.lastIndexOf(".")).toLowerCase();
+                          const isPdf = ext === ".pdf";
+                          const isDoc = [".doc", ".docx"].includes(ext);
+                          const isPpt = [".ppt", ".pptx"].includes(ext);
+                          const isXls = [".xls", ".xlsx"].includes(ext);
+                          const isImage = [".jpg", ".jpeg", ".png", ".webp", ".gif"].includes(ext);
+ 
+                          return (
+                            <button
+                              key={idx}
+                              type="button"
+                              onClick={() => setPreviewAttachment(att)}
+                              className="flex items-center justify-between gap-3 rounded-xl border border-slate-150 bg-white p-3 text-right transition hover:border-indigo-200 hover:bg-indigo-50/30 shadow-sm"
+                            >
+                              <div className="min-w-0 flex-1">
+                                <div className="truncate text-[11px] font-black text-slate-800">
+                                  {mirasCleanAttachmentName(name, "مرفق")}
+                                </div>
+                                <div className="mt-0.5 flex items-center gap-1.5 text-[9px] font-bold text-slate-400">
+                                  <span>
+                                    {isPdf ? "PDF" : isDoc ? "Word" : isPpt ? "PowerPoint" : isXls ? "Excel" : isImage ? "صورة" : "ملف"}
+                                  </span>
+                                  <span>•</span>
+                                  <span>{((att.size || 0) / (1024 * 1024)).toFixed(2)} MB</span>
+                                </div>
+                              </div>
+                              <span className="grid h-8.5 w-8.5 shrink-0 place-items-center rounded-lg bg-slate-50 text-slate-500 shadow-inner">
+                                {isPdf ? (
+                                  <FileText className="h-4 w-4 text-rose-500" />
+                                ) : isDoc ? (
+                                  <FileText className="h-4 w-4 text-blue-500" />
+                                ) : isPpt ? (
+                                  <Presentation className="h-4 w-4 text-amber-500" />
+                                ) : isXls ? (
+                                  <FileSpreadsheet className="h-4 w-4 text-emerald-500" />
+                                ) : isImage ? (
+                                  <ImageIcon className="h-4 w-4 text-indigo-500" />
+                                ) : (
+                                  <Paperclip className="h-4 w-4 text-slate-500" />
+                                )}
+                              </span>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Audit Logs */}
+                  {gradeAuditTrailForSubmission(selectedSubmissionDetail).length > 0 && (
+                    <div className="rounded-2xl border border-slate-100 bg-slate-50/60 p-4 space-y-1.5">
+                      <span className="mb-2 block text-[10px] font-black text-slate-400">سجل رصد ومراجعة الدرجات:</span>
+                      {gradeAuditTrailForSubmission(selectedSubmissionDetail).map((audit: any, idx: number) => (
+                        <div key={idx} className="flex items-center justify-between rounded-xl bg-white px-3 py-1.5 text-[10px] font-bold text-slate-600 border border-slate-50">
+                          <span>الدرجة: {audit.grade} ({audit.changedBy === "teacher" ? "المعلم" : "تحديث تلقائي"})</span>
+                          <span className="font-mono text-[8px] text-slate-400">{formatKwDateTime(audit.timestamp)}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                {/* Secure & Fixed Grading & Return Controls */}
+                <div className="shrink-0 bg-slate-50 border-t border-slate-100 p-4 rounded-b-3xl flex items-center justify-between gap-3">
+                  <div className="flex items-center gap-2 flex-1 max-w-sm">
+                    <input
+                      value={teacherGradeInputValue(selectedSubmissionDetail)}
+                      onChange={(e) => {
+                        const grade = normalizeGradeChange(readGradeInputValue(e, selectedSubmissionDetail.grade));
+                        setSelectedSubmissionDetail((prev: any) => ({ ...prev, grade }));
+                        updateSubmissionGrade(selectedSubmissionDetail.id, grade);
+                      }}
+                      type="text"
+                      dir="ltr"
+                      inputMode="decimal"
+                      placeholder="رصد الدرجة هنا..."
+                      className="flex-1 h-11 rounded-xl border border-slate-200 bg-white px-4 text-center font-mono text-sm font-black text-indigo-700 outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-50"
+                    />
+                    <span className="whitespace-nowrap text-[11px] font-black text-slate-400">
+                      {teacherGradeMaxText(selectedSubmissionDetail)}
+                    </span>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      setPendingReturnSubmission(selectedSubmissionDetail);
+                    }}
+                    className="inline-flex h-11 items-center gap-2 rounded-xl border border-amber-200 bg-amber-50 px-4 text-xs font-black text-amber-700 hover:bg-amber-100 transition shadow-sm"
+                    title="إرجاع للطالب"
+                    aria-label="إرجاع للطالب"
+                  >
+                    <RotateCw className="h-4.5 w-4.5" />
+                    <span>إرجاع التسليم</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* معاينة المرفقات داخل التطبيق مع زر إغلاق X */}
       {previewAttachment && (
         <div
@@ -25773,6 +26102,51 @@ ${rows
                   "مرفق",
                 )}
               </p>
+
+              {/* Directly input grade and return submission when document preview is open above document */}
+              {selectedSubmissionDetail && (
+                <div className="flex items-center gap-1.5 border-r border-slate-100 pr-2 mr-2">
+                  <div className="flex items-center gap-1 bg-slate-50 border border-slate-150 rounded-xl px-2 py-1">
+                    <input
+                      value={teacherGradeInputValue(selectedSubmissionDetail)}
+                      onChange={(e) => {
+                        const grade = normalizeGradeChange(
+                          readGradeInputValue(e, selectedSubmissionDetail.grade)
+                        );
+                        setSelectedSubmissionDetail((prev: any) => ({
+                          ...prev,
+                          grade,
+                        }));
+                        updateSubmissionGrade(selectedSubmissionDetail.id, grade);
+                      }}
+                      type="text"
+                      dir="ltr"
+                      inputMode="decimal"
+                      placeholder="الدرجة"
+                      className="h-7 w-12 rounded-lg bg-white border border-slate-200 text-center font-mono text-xs font-black text-indigo-700 focus:outline-none focus:border-indigo-400"
+                    />
+                    <span className="text-[10px] font-black text-slate-450 leading-none">
+                      {teacherGradeMaxText(selectedSubmissionDetail)}
+                    </span>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      setPendingReturnSubmission(selectedSubmissionDetail);
+                    }}
+                    className="inline-flex h-9 items-center gap-1.5 rounded-xl border border-amber-200 bg-amber-50 px-2.5 text-[11px] font-black text-amber-700 hover:bg-amber-100 transition shadow-sm"
+                    title="إرجاع للطالب"
+                    aria-label="إرجاع للطالب"
+                  >
+                    <RotateCw className="h-3.5 w-3.5 animate-spin-reverse" />
+                    <span className="hidden sm:inline">إرجاع</span>
+                  </button>
+                </div>
+              )}
+
               <div className="flex shrink-0 items-center gap-2">
                 <button
                   type="button"
@@ -31329,7 +31703,7 @@ ${rows
                         </div>
                       </div>
 
-                      {selectedSubmissionDetail && (
+                      {false && selectedSubmissionDetail && (
                         <div
                           className="miras-submission-detail-overlay fixed inset-0 z-[99999] flex flex-col bg-slate-100 animate-fade-in"
                           dir="rtl"
