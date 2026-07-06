@@ -3086,6 +3086,8 @@ export default function App() {
     "projects" | "exams"
   >("projects");
   const [submissionSearch, setSubmissionSearch] = useState("");
+  const [teacherSmartSearchQuery, setTeacherSmartSearchQuery] = useState("");
+  const [teacherSmartSearchOpen, setTeacherSmartSearchOpen] = useState(false);
   const [selectedSubmissionActivityId, setSelectedSubmissionActivityId] =
     useState<string | null>(null);
   const [bulkGradeInput, setBulkGradeInput] = useState("");
@@ -16487,119 +16489,63 @@ ${rows
   const renderPasswordResetRequest = (req: any) => {
     const key = req.id || `${req.studentId}-${req.timestamp}`;
     const status = String(req.status || "new");
-    if (isFinishedPasswordResetRequest(req)) {
-      return (
-        <div
-          key={key}
-          className="rounded-2xl border border-amber-100/80 bg-white/80 px-3 py-2 text-[11px] shadow-sm md:col-span-2"
-        >
-          <div className="flex flex-wrap items-center justify-between gap-2 text-slate-600">
-            <span className="font-semibold text-slate-800">
-              {req.studentName || "طالب غير محدد"}
-            </span>
-            <span className="font-mono text-slate-500">
-              {req.studentId || "-"}
-            </span>
-            <span className="font-semibold text-slate-500">
-              {courseLabelForResetRequest(req)}
-            </span>
-            <span className="font-mono text-slate-400">
-              {formatKwDateTime(req.requestedAt || req.timestamp)}
-            </span>
-            <span
-              className={`rounded-full px-2 py-1 text-[10px] font-black ${passwordResetStatusClass(status)}`}
-            >
-              {passwordResetStatusLabel(status)}
-            </span>
-          </div>
-        </div>
-      );
-    }
+    const isFinished = isFinishedPasswordResetRequest(req);
+    const groupKey = `password-reset-${key}`;
+    const isOpen = !!openAuditGroups[groupKey] && !isFinished;
+    const toggleOpen = () => {
+      if (isFinished) return;
+      setOpenAuditGroups((prev) => ({ ...prev, [groupKey]: !prev[groupKey] }));
+    };
     return (
       <div
         key={key}
-        className="rounded-2xl border border-amber-100 bg-white p-4 text-xs shadow-sm flex flex-col justify-between space-y-3 relative overflow-hidden"
+        className={`overflow-hidden rounded-[1.35rem] border bg-white/90 text-right shadow-sm transition-all duration-200 ${isOpen ? "border-amber-200/80 shadow-[0_18px_42px_rgba(120,53,15,0.08)]" : "border-amber-100/70 hover:border-amber-200/80"}`}
       >
-        <div className="space-y-1.5 text-right">
-          <div className="flex items-center justify-between gap-2 border-b border-amber-50 pb-2 mb-2">
-            <p className="font-black text-slate-900 text-sm">
-              {req.studentName || "طالب غير محدد"}
-            </p>
-            <span
-              className={`rounded-full px-2 py-0.5 text-[9px] font-black shrink-0 ${passwordResetStatusClass(status)}`}
-            >
-              {passwordResetStatusLabel(status)}
+        <button
+          type="button"
+          onClick={toggleOpen}
+          className="flex w-full items-center justify-between gap-3 px-3.5 py-3 text-right"
+          aria-expanded={isOpen}
+        >
+          <div className="flex min-w-0 flex-1 items-center gap-3">
+            <span className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-amber-50 text-amber-700 ring-1 ring-amber-100">
+              <Key className="h-4 w-4" />
             </span>
+            <div className="min-w-0 flex-1">
+              <div className="flex min-w-0 items-center gap-2">
+                <span className="truncate text-[13px] font-black text-slate-900">
+                  {req.studentName || "طالب غير محدد"}
+                </span>
+                <span className={`shrink-0 rounded-full px-2 py-0.5 text-[9px] font-black ${passwordResetStatusClass(status)}`}>
+                  {passwordResetStatusLabel(status)}
+                </span>
+              </div>
+              <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-[10px] font-bold text-slate-400">
+                <span className="font-mono text-slate-600">{req.studentId || "-"}</span>
+                <span className="truncate">{courseLabelForResetRequest(req)}</span>
+                <span className="font-mono">{formatKwDateTime(req.requestedAt || req.timestamp)}</span>
+              </div>
+            </div>
           </div>
-          <p className="font-bold text-slate-600 flex justify-between items-center">
-            <span className="text-slate-400 text-[10px]">الرقم الجامعي</span>
-            <span className="font-mono text-slate-900 font-extrabold bg-slate-50 px-2 py-0.5 rounded-lg border border-slate-100">
-              {req.studentId || "-"}
-            </span>
-          </p>
-          <p className="font-bold text-slate-600 flex justify-between items-center">
-            <span className="text-slate-400 text-[10px]">المقرر</span>
-            <span className="text-slate-700 font-extrabold">
-              {courseLabelForResetRequest(req)}
-            </span>
-          </p>
-          <p className="font-bold text-slate-500 flex justify-between items-center gap-2">
-            <span className="text-slate-400 text-[10px] shrink-0">
-              وقت الطلب
-            </span>
-            <span className="text-slate-600 font-mono text-[10.5px] truncate">
-              {formatKwDateTime(req.requestedAt || req.timestamp)}
-            </span>
-          </p>
-          <p className="font-bold text-slate-500 flex justify-between items-center gap-2">
-            <span className="text-slate-400 text-[10px] shrink-0">ينتهي</span>
-            <span className="text-amber-700 font-mono text-[10.5px] bg-amber-50/50 px-2 py-0.5 rounded-lg border border-amber-100/30 truncate">
-              {formatKwDateTime(req.expiresAt)}
-            </span>
-          </p>
-        </div>
-        <div className="pt-3 border-t border-slate-100 flex flex-wrap gap-2 justify-end mt-2">
-          <button
-            onClick={() => copyResetLinkToClipboard(req.resetLink)}
-            title="نسخ الرابط"
-            aria-label="نسخ الرابط"
-            className="inline-flex h-9 w-9 items-center justify-center rounded-xl bg-slate-900 text-white hover:bg-indigo-600 transition-colors shrink-0"
-          >
-            <Link2 className="h-4 w-4" />
-          </button>
-          <button
-            onClick={() => resendPasswordResetLink(req.id)}
-            title="إعادة إرسال"
-            aria-label="إعادة إرسال"
-            className="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-indigo-100 bg-indigo-50 text-indigo-700 hover:bg-indigo-100 transition-colors shrink-0"
-          >
-            <RotateCw className="h-4 w-4" />
-          </button>
-          <button
-            onClick={() => manualPasswordReset(req)}
-            title="تغيير يدوي"
-            aria-label="تغيير يدوي"
-            className="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-emerald-100 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 transition-colors shrink-0"
-          >
-            <PencilLine className="h-4 w-4" />
-          </button>
-          <button
-            onClick={() => completePasswordResetRequest(req.id)}
-            title="مكتمل"
-            aria-label="مكتمل"
-            className="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-slate-200 bg-slate-50 text-slate-700 hover:bg-slate-150 transition-colors shrink-0"
-          >
-            <CheckCircle2 className="h-4 w-4" />
-          </button>
-          <button
-            onClick={() => deletePasswordResetRequest(req.id)}
-            title="حذف"
-            aria-label="حذف"
-            className="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-red-100 bg-red-50 text-red-700 hover:bg-red-100 transition-colors shrink-0"
-          >
-            <Trash2 className="h-4 w-4" />
-          </button>
-        </div>
+          <ChevronDown className={`h-4 w-4 shrink-0 text-slate-400 transition ${isOpen ? "rotate-180" : ""}`} />
+        </button>
+        {isOpen && (
+          <div className="border-t border-amber-50 px-3.5 pb-3 pt-2">
+            <div className="grid grid-cols-2 gap-2 text-[10px] font-bold text-slate-500 sm:grid-cols-4">
+              <div className="rounded-2xl bg-slate-50 px-3 py-2"><span className="block text-slate-400">الرقم</span><span className="mt-1 block font-mono text-slate-900">{req.studentId || "-"}</span></div>
+              <div className="rounded-2xl bg-slate-50 px-3 py-2"><span className="block text-slate-400">المقرر</span><span className="mt-1 block truncate text-slate-700">{courseLabelForResetRequest(req)}</span></div>
+              <div className="rounded-2xl bg-slate-50 px-3 py-2"><span className="block text-slate-400">الطلب</span><span className="mt-1 block font-mono text-slate-700">{formatKwDateTime(req.requestedAt || req.timestamp)}</span></div>
+              <div className="rounded-2xl bg-amber-50/70 px-3 py-2"><span className="block text-amber-600">ينتهي</span><span className="mt-1 block font-mono text-amber-800">{formatKwDateTime(req.expiresAt)}</span></div>
+            </div>
+            <div className="mt-3 flex flex-wrap justify-end gap-2 border-t border-slate-100 pt-3">
+              <button onClick={() => copyResetLinkToClipboard(req.resetLink)} title="نسخ الرابط" aria-label="نسخ الرابط" className="inline-flex h-10 w-10 items-center justify-center rounded-2xl bg-slate-900 text-white shadow-sm transition-colors hover:bg-indigo-600"><Link2 className="h-4 w-4" /></button>
+              <button onClick={() => resendPasswordResetLink(req.id)} title="إعادة إرسال" aria-label="إعادة إرسال" className="inline-flex h-10 w-10 items-center justify-center rounded-2xl border border-indigo-100 bg-indigo-50 text-indigo-700 transition-colors hover:bg-indigo-100"><RotateCw className="h-4 w-4" /></button>
+              <button onClick={() => manualPasswordReset(req)} title="تغيير يدوي" aria-label="تغيير يدوي" className="inline-flex h-10 w-10 items-center justify-center rounded-2xl border border-emerald-100 bg-emerald-50 text-emerald-700 transition-colors hover:bg-emerald-100"><PencilLine className="h-4 w-4" /></button>
+              <button onClick={() => completePasswordResetRequest(req.id)} title="مكتمل" aria-label="مكتمل" className="inline-flex h-10 w-10 items-center justify-center rounded-2xl border border-slate-200 bg-slate-50 text-slate-700 transition-colors hover:bg-slate-100"><CheckCircle2 className="h-4 w-4" /></button>
+              <button onClick={() => deletePasswordResetRequest(req.id)} title="حذف" aria-label="حذف" className="inline-flex h-10 w-10 items-center justify-center rounded-2xl border border-red-100 bg-red-50 text-red-700 transition-colors hover:bg-red-100"><Trash2 className="h-4 w-4" /></button>
+            </div>
+          </div>
+        )}
       </div>
     );
   };
@@ -21327,6 +21273,52 @@ ${rows
       return acc;
     }, {}),
   ) as any[];
+  const teacherSmartSearchTerm = normalizeArabicDigits(teacherSmartSearchQuery).trim().toLowerCase();
+  const teacherSmartSearchResults = useMemo(() => {
+    const q = teacherSmartSearchTerm;
+    if (!q) return [] as any[];
+    const includesQ = (...values: any[]) =>
+      values.map((value) => normalizeArabicDigits(value).toLowerCase()).join(" ").includes(q);
+    const results: any[] = [];
+    scopedTeacherStudents.slice(0, 400).forEach((student: any) => {
+      if (includesQ(student.name, student.fullName, student.id, student.idNumber, student.studentId, student.universityId, student.sectionCode, student.courseCode)) {
+        results.push({ key: `student-${student.id || student.idNumber || results.length}`, type: "طالب", title: student.name || student.fullName || "طالب", meta: `${student.idNumber || student.studentId || student.universityId || student.id || "—"} • ${student.sectionCode || student.courseCode || "مقرر"}`, actionLabel: "فتح الطلبة", action: () => openTeacherTab("students") });
+      }
+    });
+    scopedJoinCodes.slice(0, 500).forEach((code: any) => {
+      if (includesQ(code.code, code.customCode, code.studentName, code.studentId, code.sectionCode, code.studentSection)) {
+        results.push({ key: `code-${code.id || code.code || results.length}`, type: "كود", title: cleanCodeForDisplay(code.code || code.customCode || "كود"), meta: `${code.studentName || "غير مخصص"} • ${code.studentId || code.sectionCode || code.studentSection || "—"}`, actionLabel: "فتح الأكواد", action: () => openTeacherTab("codes") });
+      }
+    });
+    visibleTeacherSections.slice(0, 120).forEach((section: any) => {
+      if (includesQ(section.courseName, section.title, section.code)) {
+        results.push({ key: `section-${section.code || results.length}`, type: "مقرر", title: section.courseName || section.title || section.code || "مقرر", meta: section.code || "—", actionLabel: "فتح المقررات", action: () => openTeacherTab("sections") });
+      }
+    });
+    latestSubmissionRows(teacherSubmissions).slice(0, 500).forEach((sub: any) => {
+      if (includesQ(sub.studentName, sub.studentId, sub.activityTitle, sub.fileName, sub.status, sub.answerText, sub.courseCode, sub.sectionCode)) {
+        results.push({ key: `submission-${sub.id || results.length}`, type: "تسليم", title: sub.activityTitle || submissionSummaryText(sub), meta: `${sub.studentName || "طالب"} • ${teacherSubmissionStatusText(sub)}`, actionLabel: "فتح التسليمات", action: () => { openTeacherTab("submissions"); setSubmissionSearch(String(sub.studentName || sub.studentId || sub.activityTitle || "")); } });
+      }
+    });
+    deviceProblemAttempts.slice(0, 120).forEach((attempt: any) => {
+      if (includesQ(attempt.linkedStudentName, attempt.studentName, attempt.linkedStudentId, attempt.studentId, attempt.normalizedCode, attempt.deviceId)) {
+        results.push({ key: `device-${attempt.id || attempt.normalizedCode || results.length}`, type: "جهاز", title: attempt.linkedStudentName || attempt.studentName || "جهاز يحتاج مراجعة", meta: attempt.linkedStudentId || attempt.studentId || attempt.normalizedCode || "—", actionLabel: "فتح المتابعة", action: () => openTeacherTab("analytics") });
+      }
+    });
+    return results.slice(0, 9);
+  }, [teacherSmartSearchTerm, scopedTeacherStudents, scopedJoinCodes, visibleTeacherSections, teacherSubmissions, deviceProblemAttempts]);
+  const runTeacherSmartCommand = () => {
+    const first = teacherSmartSearchResults[0];
+    if (first) { first.action?.(); setTeacherSmartSearchOpen(false); return; }
+    const q = teacherSmartSearchTerm;
+    if (/تسليم|حل|مشروع|اختبار/.test(q)) openTeacherTab("submissions");
+    else if (/كود|فعّل|فعل|تفعيل/.test(q)) openTeacherTab("codes");
+    else if (/طالب|طلبة|طلاب/.test(q)) openTeacherTab("students");
+    else if (/مقرر|مادة/.test(q)) openTeacherTab("sections");
+    else if (/جهاز|متابعة|نشاط/.test(q)) openTeacherTab("analytics");
+    setTeacherSmartSearchOpen(false);
+  };
+
   const criticalTeacherNotifications = useMemo(() => {
     const timeValue = (item: any) =>
       new Date(
@@ -24867,6 +24859,21 @@ ${rows
           }
         }
 
+
+          .miras-teacher-v5-shell .teacher-orbit-dock-track button[class*="text-white"]::after {
+            content: "";
+            position: absolute;
+            left: 50%;
+            bottom: -0.45rem;
+            width: 0.42rem;
+            height: 0.42rem;
+            border-radius: 999px;
+            background: #34d399;
+            box-shadow: 0 0 0 4px rgba(52,211,153,0.18);
+            transform: translateX(-50%);
+          }
+          .miras-submission-detail-panel { overflow: hidden; }
+          .miras-submission-detail-scroll { scrollbar-width: thin; }
 
           /* MIRAS V21 — restored teacher dock behavior from the old working build.
              The fixed viewport rule above now keeps translateX(-50%) and delegates
@@ -29252,6 +29259,65 @@ ${rows
                         </p>
                       )}
                     </div>
+                    <div className="relative w-full sm:max-w-xl" onClick={(e) => e.stopPropagation()}>
+                      <div className="flex items-center gap-2 rounded-[1.45rem] border border-slate-200/80 bg-white/88 px-3 py-2 shadow-inner backdrop-blur-xl">
+                        <Search className="h-4 w-4 shrink-0 text-slate-400" />
+                        <input
+                          value={teacherSmartSearchQuery}
+                          onFocus={() => setTeacherSmartSearchOpen(true)}
+                          onChange={(e) => {
+                            setTeacherSmartSearchQuery(e.target.value);
+                            setTeacherSmartSearchOpen(true);
+                          }}
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter") runTeacherSmartCommand();
+                            if (e.key === "Escape") setTeacherSmartSearchOpen(false);
+                          }}
+                          placeholder="ابحث عن طالب، كود، مقرر، تسليم، جهاز..."
+                          className="h-9 w-full bg-transparent text-right text-[12px] font-bold text-slate-700 outline-none placeholder:text-slate-400"
+                          inputMode="search"
+                        />
+                        {teacherSmartSearchQuery && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setTeacherSmartSearchQuery("");
+                              setTeacherSmartSearchOpen(false);
+                            }}
+                            className="inline-flex h-7 w-7 items-center justify-center rounded-xl bg-slate-50 text-slate-400 hover:bg-slate-100"
+                            aria-label="مسح البحث"
+                          >
+                            <X className="h-3.5 w-3.5" />
+                          </button>
+                        )}
+                      </div>
+                      {teacherSmartSearchOpen && teacherSmartSearchQuery.trim() && (
+                        <div className="absolute left-0 right-0 top-[calc(100%+0.5rem)] z-50 overflow-hidden rounded-[1.35rem] border border-slate-100 bg-white/97 p-2 text-right shadow-[0_24px_70px_rgba(15,23,42,0.14)] backdrop-blur-2xl">
+                          {teacherSmartSearchResults.length > 0 ? (
+                            <div className="max-h-80 space-y-1 overflow-y-auto">
+                              {teacherSmartSearchResults.map((item: any) => (
+                                <button
+                                  key={item.key}
+                                  type="button"
+                                  onClick={() => { item.action?.(); setTeacherSmartSearchOpen(false); }}
+                                  className="flex w-full items-center justify-between gap-3 rounded-2xl px-3 py-2.5 text-right transition hover:bg-slate-50"
+                                >
+                                  <div className="min-w-0 flex-1">
+                                    <div className="flex items-center gap-2"><span className="rounded-full bg-indigo-50 px-2 py-0.5 text-[9px] font-black text-indigo-700">{item.type}</span><span className="truncate text-[12px] font-black text-slate-900">{item.title}</span></div>
+                                    <p className="mt-1 truncate text-[10px] font-bold text-slate-400">{item.meta}</p>
+                                  </div>
+                                  <span className="shrink-0 rounded-full bg-slate-900 px-2.5 py-1 text-[9px] font-black text-white">{item.actionLabel}</span>
+                                </button>
+                              ))}
+                            </div>
+                          ) : (
+                            <button type="button" onClick={runTeacherSmartCommand} className="flex w-full items-center justify-between rounded-2xl bg-slate-50 px-3 py-3 text-right text-[11px] font-bold text-slate-500">
+                              <span>لا توجد نتيجة مباشرة، اضغط Enter للتوجيه الذكي.</span><Sparkles className="h-4 w-4 text-indigo-500" />
+                            </button>
+                          )}
+                        </div>
+                      )}
+                    </div>
                     <div className="flex w-full shrink-0 flex-wrap items-center justify-start gap-2.5 sm:w-auto sm:justify-end">
                       <div
                         className="relative flex items-center gap-2.5"
@@ -29992,15 +30058,21 @@ ${rows
                 <div
                   className={`miras-submissions-panel space-y-5 p-3 sm:p-6 lg:p-8 ${submissionSubTab === "projects" && selectedSubmissionActivityId ? "pb-10 sm:pb-6" : ""}`}
                 >
-                  <div className="rounded-[2rem] border border-white/80 bg-white/80 p-4 shadow-[0_20px_60px_rgba(15,23,42,0.07)] backdrop-blur-xl space-y-3">
-                    <div className="flex items-center gap-2 rounded-[1.4rem] border border-slate-200 bg-white/90 px-4 py-3 shadow-inner">
-                      <Search className="h-4 w-4 text-slate-400" />
-                      <input
-                        value={submissionSearch}
-                        onChange={(e) => setSubmissionSearch(e.target.value)}
-                        placeholder="بحث في التسليمات..."
-                        className="w-full bg-transparent text-xs font-bold outline-none"
-                      />
+                  <div className="rounded-[2rem] border border-white/80 bg-white/84 p-4 shadow-[0_20px_60px_rgba(15,23,42,0.07)] backdrop-blur-xl space-y-3">
+                    <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                      <div className="min-w-0 text-right">
+                        <p className="text-[10px] font-black text-indigo-500">وضع التصحيح السريع</p>
+                        <h3 className="mt-0.5 text-lg font-black text-slate-950">التسليمات</h3>
+                      </div>
+                      <div className="flex min-w-0 flex-1 items-center gap-2 rounded-[1.4rem] border border-slate-200 bg-white/94 px-4 py-3 shadow-inner sm:max-w-xl">
+                        <Search className="h-4 w-4 text-slate-400" />
+                        <input
+                          value={submissionSearch}
+                          onChange={(e) => setSubmissionSearch(e.target.value)}
+                          placeholder="ابحث عن طالب، مقرر، ملف، درجة..."
+                          className="w-full bg-transparent text-xs font-bold outline-none"
+                        />
+                      </div>
                     </div>
                     <div className="flex flex-wrap items-end justify-end gap-2">
                       {(
@@ -30546,7 +30618,7 @@ ${rows
                           onClick={closeSubmissionDetail}
                         >
                           <div
-                            className="miras-submission-detail-panel flex h-[100dvh] max-h-[100dvh] w-full max-w-5xl flex-col rounded-none bg-white p-3 shadow-premium-lg sm:h-auto sm:max-h-[94vh] sm:rounded-[2rem] sm:p-5"
+                            className="miras-submission-detail-panel flex h-[100dvh] max-h-[100dvh] w-full max-w-6xl flex-col rounded-none bg-white p-3 shadow-premium-lg sm:h-auto sm:max-h-[94vh] sm:rounded-[2rem] sm:p-5"
                             style={{ paddingTop: "calc(env(safe-area-inset-top, 0px) + 0.75rem)" }}
                             dir="rtl"
                             onClick={(e) => e.stopPropagation()}
@@ -30617,8 +30689,8 @@ ${rows
                                     className="h-10 w-full rounded-2xl border border-slate-200 bg-white pr-10 pl-3 text-right text-[11px] font-bold text-slate-700 outline-none transition placeholder:text-slate-400 focus:border-indigo-300 focus:ring-2 focus:ring-indigo-100"
                                   />
                                 </div>
-                                {submissionDetailStudentSearch.trim() && (
-                                  <div className="mt-2 grid max-h-28 grid-cols-2 gap-1.5 overflow-y-auto pr-1 sm:grid-cols-4 md:grid-cols-6">
+                                {(detailStudentRows.length > 0 || submissionDetailStudentSearch.trim()) && (
+                                  <div className="mt-2 flex max-h-28 gap-1.5 overflow-x-auto overflow-y-auto pr-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
                                     {detailStudentRows.map((row: any) => {
                                       const isActive =
                                         row.submission &&
@@ -30637,7 +30709,7 @@ ${rows
                                             resetSubmissionDetailViewport();
                                           }}
                                           disabled={!row.submission}
-                                          className={`min-w-0 rounded-xl border px-2 py-1.5 text-right text-[9.5px] font-bold shadow-none transition ${
+                                          className={`min-w-[7rem] rounded-xl border px-2 py-1.5 text-right text-[9.5px] font-bold shadow-none transition ${
                                             isActive
                                               ? "border-indigo-300 bg-indigo-600 text-white"
                                               : row.submission
@@ -30679,7 +30751,7 @@ ${rows
                             </div>
 
                             <div
-                              className={`miras-submission-detail-scroll min-h-0 flex-1 space-y-3 overflow-y-auto overscroll-contain pr-1 ${selectedSubmissionDetail.kind === "exam" ? "" : "pb-16 sm:pb-3"}`}
+                              className={`miras-submission-detail-scroll min-h-0 flex-1 space-y-3 overflow-y-auto overscroll-contain pr-1 pb-3`}
                             >
                               {/* Rich view for submission metadata and file attachments */}
                               <div className="rounded-2xl bg-slate-50 p-4 border border-slate-100 space-y-3 mb-3">
