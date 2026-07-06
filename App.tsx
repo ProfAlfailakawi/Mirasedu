@@ -231,6 +231,7 @@ import {
   CalendarDays,
   Bell,
   Camera,
+  CameraOff,
   Clock,
   Download,
   Search,
@@ -3260,6 +3261,16 @@ export default function App() {
     dismissDockBadge(tab);
     setDockQuickMenu(null);
     openTeacherTab(tab);
+  };
+  const openTeacherSmartSearchBox = () => {
+    setDockQuickMenu(null);
+    expandTeacherDockNow();
+    setTeacherSmartSearchOpen(true);
+    window.setTimeout(() => {
+      try {
+        document.querySelector<HTMLInputElement>(".miras-smart-search-input")?.focus();
+      } catch {}
+    }, 40);
   };
   const [selectedSubmissionActivityId, setSelectedSubmissionActivityId] =
     useState<string | null>(null);
@@ -9486,6 +9497,29 @@ export default function App() {
   const notificationTargetsStudent = (n: any) => {
     if (!studentSession?.id) return true;
     const data = n?.data || {};
+    const notificationType = String(n?.type || data.type || "").trim().toLowerCase();
+    const notificationText = normalizeArabicDigits(`${notificationType} ${n?.title || ""} ${n?.body || n?.message || ""}`)
+      .toLowerCase()
+      .replace(/[ًٌٍَُِّْـ]/g, "")
+      .replace(/[إأآا]/g, "ا")
+      .replace(/ى/g, "ي")
+      .replace(/ة/g, "ه");
+    const isRoutineStudentEdit =
+      [
+        "course_updated",
+        "course_renamed",
+        "exam_updated",
+        "exam_renamed",
+        "project_updated",
+        "project_renamed",
+        "teacher_course_change",
+        "teacher_student_change",
+      ].includes(notificationType) ||
+      /تحديث مقرر|تحديث اختبار|تحديث مشروع|تغيير اسم|تعديل اسم|تم تحديث|تم تعديل/.test(notificationText);
+    const isMeaningfulStudentNotice =
+      /اختبار جديد|مشروع جديد|تسليم|مطلوب|واجب|درجة|درجه|موعد|فتح|اغلاق|إغلاق|نشر|رفض|قبول|اعاده|إعادة|ارجاع|إرجاع|دعوه|دعوة/.test(notificationText);
+    if (isRoutineStudentEdit && !isMeaningfulStudentNotice) return false;
+
     const course = String(
       n?.courseCode ||
         n?.sectionCode ||
@@ -21652,10 +21686,10 @@ ${rows
       results.push({ ...item, key, score });
     };
 
-    // teacherProgramCommandTargets().forEach((target: any) => {
-    //   const score = scoreText(`${target.title} ${target.meta} ${target.hint} ${target.tags}`, 4);
-    //   addResult(target, score);
-    // });
+    teacherProgramCommandTargets().forEach((target: any) => {
+      const score = scoreText(`${target.title} ${target.meta} ${target.hint} ${target.tags}`, 24);
+      addResult(target, score);
+    });
 
     scopedTeacherStudents.slice(0, 1200).forEach((student: any) => {
       const sid = String(
@@ -21841,6 +21875,14 @@ ${rows
         : null;
       if (course?.code) setSelectedTeacherCourseCode(course.code);
       openCodesQuickShortcut("generate");
+      closeSearch();
+      return;
+    }
+
+    // قبل القواعد العامة، ننفذ أفضل نتيجة ذكية حتى لا تُحوَّل كلمات مثل "اختبار" أو "مشروع"
+    // دائمًا إلى التسليمات فقط. هذا يجعل البحث ينقل المعلم مباشرة للوجهة الأقرب.
+    if (first && Number(first.score || 0) >= 35) {
+      first.action?.();
       closeSearch();
       return;
     }
@@ -22245,6 +22287,29 @@ ${rows
           action: () => openTeacherTab("home"),
         });
       }
+
+      // 10.5. تنبيهات داخلية وصلت من الخادم/FCM وتخص الأستاذ مباشرة.
+      // نحافظ على فكرة الإشعارات الحالية، لكن نضمن أن الجرس داخل البرنامج يعرضها
+      // ولا يكتفي بإشعار خارجي عابر.
+      localNotifications
+        .map(normalizeLocalNotification)
+        .filter(notificationTargetsTeacher)
+        .filter(isCriticalTeacherInAppNotification)
+        .forEach((note: any) => {
+          const noteType = String(note.type || note.data?.type || "").toLowerCase();
+          items.push({
+            key: `teacher-inapp-${stableNotificationId(note)}`,
+            title: note.title || "تنبيه مهم",
+            body: note.body || "هناك تنبيه يحتاج مراجعتك داخل مِراس.",
+            when: note.updatedAt || note.createdAt || note.timestamp,
+            tone: /password|كلمة|استرجاع/.test(noteType) ? "violet" : /غش|نزاهة|exit|withdraw|خروج|انسحاب/.test(`${noteType} ${note.title} ${note.body}`) ? "rose" : "amber",
+            action: () => {
+              if (/password|كلمة|استرجاع/.test(noteType)) openTeacherTab("home");
+              else if (/device|جهاز|code|كود/.test(noteType)) openTeacherTab("codes");
+              else openTeacherTab("analytics");
+            },
+          });
+        });
 
       // 11. Security logs of high importance (حالة نزاهة أو أمان تحتاج مراجعة)
       scopedSystemLogs
@@ -25751,13 +25816,12 @@ ${rows
                     <X className="h-4.5 w-4.5" />
                   </button>
 
-                  <div className="min-w-0 max-w-[140px] sm:max-w-[200px] rounded-xl bg-slate-900 px-3 py-1 text-right text-white shadow-sm shrink-0">
-                    <div className="truncate text-[11px] font-black leading-tight">
+                  <div className="min-w-0 max-w-[150px] sm:max-w-[210px] rounded-xl border border-indigo-100 bg-gradient-to-br from-white to-indigo-50/70 px-3 py-1.5 text-right text-slate-900 shadow-sm shrink-0">
+                    <div className="truncate text-[11.5px] font-black leading-tight">
                       {selectedSubmissionDetail.studentName || "طالب"}
                     </div>
-                    <div className="mt-0.5 flex items-center justify-between gap-2 text-[9px] font-bold text-slate-400">
-                      <span className="truncate font-mono">{selectedSubmissionDetail.studentId || "—"}</span>
-                      <span className="shrink-0 font-sans border-r border-slate-750 pr-2">{selectedSubmissionDetailIndex + 1}/{detailActivitySubmissions.length || 1}</span>
+                    <div className="mt-0.5 text-[9px] font-black text-indigo-400">
+                      {selectedSubmissionDetailIndex + 1}/{detailActivitySubmissions.length || 1}
                     </div>
                   </div>
                 </div>
@@ -25768,7 +25832,7 @@ ${rows
                   <input
                     value={submissionDetailStudentSearch}
                     onChange={(e) => setSubmissionDetailStudentSearch(e.target.value)}
-                    placeholder="بحث سريع عن طالب..."
+                    placeholder=""
                     inputMode="search"
                     className="h-8.5 w-full rounded-xl border border-slate-150 bg-slate-50 pr-7.5 pl-2.5 text-right text-[11px] text-slate-800 outline-none transition placeholder:text-slate-400 focus:border-indigo-300 focus:bg-white focus:ring-2 focus:ring-indigo-50"
                   />
@@ -25824,7 +25888,7 @@ ${rows
                       title={row.submission ? "فتح" : "لا يوجد تسليم"}
                     >
                       <span className="block truncate text-[10px] leading-tight">{row.studentName || "طالب"}</span>
-                      <span className={`mt-0.5 block font-mono text-[8px] ${isActive ? "text-indigo-100" : "text-slate-400"}`}>{row.studentId || "—"}</span>
+                      <span className={`mt-0.5 block text-[8px] ${isActive ? "text-indigo-100" : "text-slate-400"}`}>تسليم</span>
                     </button>
                   );
                 })}
@@ -25865,7 +25929,7 @@ ${rows
                       >
                         <span className="min-w-0">
                           <span className="block truncate text-[11px] font-black">{row.studentName || "طالب"}</span>
-                          <span className={`mt-0.5 block truncate font-mono text-[9px] ${isActive ? "text-indigo-100" : "text-slate-400"}`}>{row.studentId || "—"}</span>
+                          <span className={`mt-0.5 block truncate text-[9px] ${isActive ? "text-indigo-100" : "text-slate-400"}`}>تسليم الطالب</span>
                         </span>
                         <span className={`h-2 w-2 shrink-0 rounded-full ${row.submission ? isActive ? "bg-white" : "bg-emerald-400" : "bg-slate-200"}`} />
                       </button>
@@ -25879,9 +25943,11 @@ ${rows
                 <div className="miras-submission-detail-scroll flex-1 overflow-y-auto p-5 space-y-4">
                   {/* Rich view for submission metadata */}
                   <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 border-b border-slate-100 pb-3">
-                    <div className="text-xs text-slate-600 font-sans">
-                      <span className="font-bold text-slate-700">تاريخ التسليم: </span>
-                      {selectedSubmissionDetail.submittedAt ? formatKwDateTime(selectedSubmissionDetail.submittedAt) : "غير متوفر"}
+                    <div className="w-full rounded-2xl border border-slate-100 bg-white/80 px-3 py-2 text-right text-[11px] font-bold leading-5 text-slate-700 sm:w-auto">
+                      <span className="font-black text-slate-900">تاريخ التسليم: </span>
+                      <span className="font-mono text-slate-600" dir="ltr">
+                        {selectedSubmissionDetail.submittedAt ? formatKwDateTime(selectedSubmissionDetail.submittedAt) : "غير متوفر"}
+                      </span>
                     </div>
                     {(selectedSubmissionDetail.originalGrade || selectedSubmissionDetail.reviewedGrade || gradeAuditTrailForSubmission(selectedSubmissionDetail).length > 0) && (
                       <div className="rounded-xl border border-emerald-150 bg-emerald-50/50 px-2.5 py-1 text-[10px] font-black text-emerald-700">
@@ -26018,7 +26084,7 @@ ${rows
 
                 {/* Secure & Fixed Grading & Return Controls */}
                 <div className="shrink-0 bg-slate-50 border-t border-slate-100 p-4 rounded-b-3xl flex items-center justify-between gap-3">
-                  <div className="flex items-center gap-2 flex-1 max-w-sm">
+                  <div className="flex items-center gap-2 shrink-0">
                     <input
                       value={teacherGradeInputValue(selectedSubmissionDetail)}
                       onChange={(e) => {
@@ -26029,8 +26095,8 @@ ${rows
                       type="text"
                       dir="ltr"
                       inputMode="decimal"
-                      placeholder="رصد الدرجة هنا..."
-                      className="flex-1 h-11 rounded-xl border border-slate-200 bg-white px-4 text-center font-mono text-sm font-black text-indigo-700 outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-50"
+                      placeholder=""
+                      className="h-10 w-[5.75rem] shrink-0 rounded-2xl border border-slate-200 bg-white px-2 text-center font-mono text-sm font-black text-indigo-700 outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-50"
                     />
                     <span className="whitespace-nowrap text-[11px] font-black text-slate-400">
                       {teacherGradeMaxText(selectedSubmissionDetail)}
@@ -26044,12 +26110,11 @@ ${rows
                       e.stopPropagation();
                       setPendingReturnSubmission(selectedSubmissionDetail);
                     }}
-                    className="inline-flex h-11 items-center gap-2 rounded-xl border border-amber-200 bg-amber-50 px-4 text-xs font-black text-amber-700 hover:bg-amber-100 transition shadow-sm"
+                    className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-amber-200 bg-amber-50 text-amber-700 hover:bg-amber-100 transition shadow-sm"
                     title="إرجاع للطالب"
                     aria-label="إرجاع للطالب"
                   >
                     <RotateCw className="h-4.5 w-4.5" />
-                    <span>إرجاع التسليم</span>
                   </button>
                 </div>
               </div>
@@ -26122,8 +26187,8 @@ ${rows
                       type="text"
                       dir="ltr"
                       inputMode="decimal"
-                      placeholder="الدرجة"
-                      className="h-7 w-12 rounded-lg bg-white border border-slate-200 text-center font-mono text-xs font-black text-indigo-700 focus:outline-none focus:border-indigo-400"
+                      placeholder=""
+                      className="h-8 w-16 rounded-lg bg-white border border-slate-200 text-center font-mono text-xs font-black text-indigo-700 focus:outline-none focus:border-indigo-400"
                     />
                     <span className="text-[10px] font-black text-slate-450 leading-none">
                       {teacherGradeMaxText(selectedSubmissionDetail)}
@@ -26137,12 +26202,11 @@ ${rows
                       e.stopPropagation();
                       setPendingReturnSubmission(selectedSubmissionDetail);
                     }}
-                    className="inline-flex h-9 items-center gap-1.5 rounded-xl border border-amber-200 bg-amber-50 px-2.5 text-[11px] font-black text-amber-700 hover:bg-amber-100 transition shadow-sm"
+                    className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-amber-200 bg-amber-50 text-amber-700 hover:bg-amber-100 transition shadow-sm"
                     title="إرجاع للطالب"
                     aria-label="إرجاع للطالب"
                   >
                     <RotateCw className="h-3.5 w-3.5 animate-spin-reverse" />
-                    <span className="hidden sm:inline">إرجاع</span>
                   </button>
                 </div>
               )}
@@ -30190,8 +30254,9 @@ ${rows
                   type="button"
                   title="بحث ذكي"
                   aria-label="بحث ذكي"
-                  onPointerDown={(e) => { e.preventDefault(); e.stopPropagation(); }}
-                  onClick={(e) => { e.preventDefault(); e.stopPropagation(); setTeacherSmartSearchOpen(true); setTeacherSmartSearchQuery(teacherSmartSearchQuery || ""); window.setTimeout(() => { try { (document.querySelector(".miras-mobile-command-bar .miras-smart-search-input") as HTMLInputElement | null)?.focus(); } catch {} }, 40); }}
+                  onPointerDown={(e) => { e.stopPropagation(); }}
+                  onPointerUp={(e) => { e.preventDefault(); e.stopPropagation(); openTeacherSmartSearchBox(); }}
+                  onClick={(e) => { e.preventDefault(); e.stopPropagation(); openTeacherSmartSearchBox(); }}
                   className="miras-zero-action-btn miras-zero-action-command"
                 >
                   <Search className="h-5 w-5" />
@@ -30972,7 +31037,7 @@ ${rows
                                     onClick={() => setPulseExamFilter(exam.id)}
                                     className={`px-4 py-2 rounded-xl text-xs font-light tracking-tight transition-all ${
                                       pulseExamFilter === exam.id
-                                        ? "bg-indigo-650 text-white shadow-md shadow-indigo-100"
+                                        ? "bg-indigo-600 text-white shadow-md shadow-indigo-100 ring-1 ring-indigo-200"
                                         : "bg-white text-slate-600 hover:bg-slate-100 border border-slate-200"
                                     }`}
                                   >
@@ -31100,8 +31165,8 @@ ${rows
                                             return (
                                               <button
                                                 type="button"
-                                                title={isExempt ? "مسموح (اضغط للإلغاء)" : "بدون كاميرا (اضغط للسماح)"}
-                                                aria-label={isExempt ? "استثناء كاميرا مفعل" : "السماح بدون كاميرا"}
+                                                title={isExempt ? "استثناء بدون كاميرا مفعل (اضغط للإلغاء)" : "السماح بدون كاميرا"}
+                                                aria-label={isExempt ? "استثناء بدون كاميرا مفعل" : "السماح بدون كاميرا"}
                                                 onClick={(event) => {
                                                   event.preventDefault();
                                                   event.stopPropagation();
@@ -31109,11 +31174,11 @@ ${rows
                                                 }}
                                                 className={`relative z-20 mt-1 inline-flex h-7 w-7 pointer-events-auto items-center justify-center rounded-lg border text-[10px] transition ${
                                                   isExempt
-                                                    ? "border-emerald-500 bg-emerald-500 text-white shadow-[0_8px_18px_rgba(16,185,129,0.22)]"
+                                                    ? "border-amber-300 bg-amber-50 text-amber-700 shadow-[0_8px_18px_rgba(245,158,11,0.16)]"
                                                     : "border-slate-200 bg-white/85 text-slate-600 hover:border-emerald-200 hover:bg-emerald-50 hover:text-emerald-700"
                                                 }`}
                                               >
-                                                {isExempt ? <Check className="h-3 w-3" /> : <Camera className="h-3 w-3" />}
+                                                {isExempt ? <CameraOff className="h-3.5 w-3.5" /> : <Camera className="h-3 w-3" />}
                                               </button>
                                             );
                                           })()}
@@ -31402,7 +31467,7 @@ ${rows
                               inputMode="decimal"
                               type="text"
                               dir="ltr"
-                              placeholder="اكتب الدرجة"
+                              placeholder=""
                               className="w-full rounded-2xl border border-indigo-100 bg-white px-4 py-3 text-center font-mono text-sm font-semibold text-indigo-700 shadow-sm outline-none focus:border-indigo-300"
                             />
                           </div>
@@ -31628,8 +31693,8 @@ ${rows
                                         type="text"
                                         dir="ltr"
                                         inputMode="decimal"
-                                        placeholder="اكتب الدرجة"
-                                        className="w-28 rounded-xl border border-slate-200 bg-white px-3 py-2 text-center font-mono text-xs font-black text-indigo-700"
+                                        placeholder=""
+                                        className="w-[5.75rem] rounded-xl border border-slate-200 bg-white px-2 py-2 text-center font-mono text-xs font-black text-indigo-700"
                                       />
                                       <span className="whitespace-nowrap text-[10px] font-black text-slate-400">
                                         {teacherGradeMaxText(sub)}
@@ -31724,16 +31789,15 @@ ${rows
                                     aria-label="رجوع وإغلاق"
                                   >
                                     <X className="h-4 w-4" />
-                                    <span>إغلاق التقييم</span>
+                                    
                                   </button>
 
-                                  <div className="min-w-[140px] max-w-[260px] rounded-2xl bg-gradient-to-l from-slate-900 to-slate-800 px-4 py-2 text-right text-white shadow-sm shrink-0">
+                                  <div className="min-w-[140px] max-w-[240px] rounded-2xl border border-indigo-100 bg-gradient-to-br from-white to-indigo-50/70 px-4 py-2 text-right text-slate-900 shadow-sm shrink-0">
                                     <div className="truncate text-xs font-black">
                                       {selectedSubmissionDetail.studentName || "طالب"}
                                     </div>
-                                    <div className="mt-0.5 flex items-center justify-between gap-3 text-[10px] font-bold text-slate-300">
-                                      <span className="truncate font-mono">{selectedSubmissionDetail.studentId || "—"}</span>
-                                      <span className="shrink-0">{selectedSubmissionDetailIndex + 1}/{detailActivitySubmissions.length || 1}</span>
+                                    <div className="mt-0.5 text-[10px] font-black text-indigo-400">
+                                      {selectedSubmissionDetailIndex + 1}/{detailActivitySubmissions.length || 1}
                                     </div>
                                   </div>
                                 </div>
@@ -31746,7 +31810,7 @@ ${rows
                                     <input
                                       value={submissionDetailStudentSearch}
                                       onChange={(e) => setSubmissionDetailStudentSearch(e.target.value)}
-                                      placeholder="ابحث عن طالب..."
+                                      placeholder=""
                                       inputMode="search"
                                       className="h-10 w-full rounded-2xl border border-slate-200 bg-slate-50 pr-10 pl-3 text-right text-xs font-black text-slate-800 outline-none transition placeholder:text-slate-450 focus:border-indigo-300 focus:bg-white focus:ring-2 focus:ring-indigo-100"
                                     />
@@ -31763,7 +31827,7 @@ ${rows
                                       aria-label="السابق"
                                     >
                                       <ChevronRight className="h-4 w-4" />
-                                      <span>السابق</span>
+                                      
                                     </button>
                                     <button
                                       type="button"
@@ -31773,7 +31837,7 @@ ${rows
                                       title="التالي"
                                       aria-label="التالي"
                                     >
-                                      <span>التالي</span>
+                                      
                                       <ChevronLeft className="h-4 w-4" />
                                     </button>
                                   </div>
@@ -31805,7 +31869,7 @@ ${rows
                                       title={row.submission ? "فتح" : "لا يوجد تسليم"}
                                     >
                                       <span className="block truncate text-[10.5px] leading-tight">{row.studentName || "طالب"}</span>
-                                      <span className={`mt-0.5 block font-mono text-[9px] ${isActive ? "text-indigo-100" : "text-slate-400"}`}>{row.studentId || "—"}</span>
+                                      <span className={`mt-0.5 block font-mono text-[9px] ${isActive ? "text-indigo-100" : "text-slate-400"}`}>تسليم</span>
                                     </button>
                                   );
                                 })}
@@ -31847,7 +31911,7 @@ ${rows
                                       >
                                         <span className="min-w-0">
                                           <span className="block truncate text-[11px] font-black">{row.studentName || "طالب"}</span>
-                                          <span className={`mt-0.5 block truncate font-mono text-[9px] ${isActive ? "text-indigo-100" : "text-slate-400"}`}>{row.studentId || "—"}</span>
+                                          <span className={`mt-0.5 block truncate text-[9px] ${isActive ? "text-indigo-100" : "text-slate-400"}`}>تسليم الطالب</span>
                                         </span>
                                         <span className={`h-2 w-2 shrink-0 rounded-full ${row.submission ? isActive ? "bg-white" : "bg-emerald-400" : "bg-slate-200"}`} />
                                       </button>
@@ -31861,15 +31925,17 @@ ${rows
                               {/* Rich view for submission metadata and file attachments */}
                               <div className="rounded-2xl bg-slate-50 p-4 border border-slate-100 space-y-3 mb-3">
                                 <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
-                                  <div className="text-xs text-slate-600 font-sans">
-                                    <span className="font-bold text-slate-750">
+                                  <div className="w-full rounded-2xl border border-slate-100 bg-white/80 px-3 py-2 text-right text-[11px] font-bold leading-5 text-slate-700 sm:w-auto">
+                                    <span className="font-black text-slate-900">
                                       تاريخ التسليم:{" "}
                                     </span>
-                                    {selectedSubmissionDetail.submittedAt
-                                      ? formatKwDateTime(
-                                          selectedSubmissionDetail.submittedAt,
-                                        )
-                                      : "غير متوفر"}
+                                    <span className="font-mono text-slate-600" dir="ltr">
+                                      {selectedSubmissionDetail.submittedAt
+                                        ? formatKwDateTime(
+                                            selectedSubmissionDetail.submittedAt,
+                                          )
+                                        : "غير متوفر"}
+                                    </span>
                                   </div>
                                   {(selectedSubmissionDetail.originalGrade ||
                                     selectedSubmissionDetail.reviewedGrade ||
@@ -32114,8 +32180,8 @@ ${rows
                                     type="text"
                                     dir="ltr"
                                     inputMode="decimal"
-                                    placeholder="اكتب الدرجة"
-                                    className="flex-1 rounded-2xl border border-slate-200 bg-white px-4 py-3 text-center font-mono text-sm font-black text-indigo-700"
+                                    placeholder=""
+                                    className="h-10 w-[5.75rem] shrink-0 rounded-2xl border border-slate-200 bg-white px-2 text-center font-mono text-sm font-black text-indigo-700"
                                   />
                                   <span className="whitespace-nowrap text-[11px] font-black text-slate-400">
                                     {teacherGradeMaxText(
@@ -32146,11 +32212,11 @@ ${rows
                       )}
                       {pendingReturnSubmission && (
                         <div
-                          className="miras-return-overlay fixed inset-0 z-[60] flex items-end justify-center bg-slate-950/45 p-2 backdrop-blur-sm sm:items-center sm:p-4"
+                          className="miras-return-overlay fixed inset-0 z-[100250] flex items-center justify-center bg-slate-950/45 p-3 backdrop-blur-sm sm:p-4"
                           onClick={() => setPendingReturnSubmission(null)}
                         >
                           <div
-                            className="miras-return-modal relative w-full max-w-[32rem] overflow-hidden rounded-t-[2.15rem] border border-white/80 bg-white p-4 text-right shadow-[0_28px_90px_rgba(15,23,42,0.24)] sm:rounded-[2.2rem] sm:p-6"
+                            className="miras-return-modal relative w-full max-w-[32rem] overflow-hidden rounded-[2.15rem] border border-white/80 bg-white p-4 text-right shadow-[0_28px_90px_rgba(15,23,42,0.24)] sm:rounded-[2.2rem] sm:p-6"
                             dir="rtl"
                             onClick={(e) => e.stopPropagation()}
                           >
@@ -34397,7 +34463,7 @@ ${rows
                                               });
                                             }}
                                             className="rounded-2xl border border-amber-100 bg-amber-50/40 px-4 py-3 text-center text-xs font-black outline-none focus:ring-2 focus:ring-amber-100"
-                                            placeholder="الدرجة"
+                                            placeholder=""
                                           />
                                           {normalizeQuestionTypeValue(
                                             q.type,
