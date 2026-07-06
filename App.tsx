@@ -3205,7 +3205,8 @@ export default function App() {
   };
   const shouldShowDockBadge = (tab: typeof teacherTab) => {
     const count = dockBadgeCountForTab(tab);
-    return count > 0 && dismissedDockBadgeCounts[tab] !== count;
+    const dismissedCount = Number(dismissedDockBadgeCounts[tab] || 0);
+    return count > 0 && dismissedCount < count;
   };
   const dismissDockBadge = (tab: typeof teacherTab) => {
     const count = dockBadgeCountForTab(tab);
@@ -20978,13 +20979,16 @@ ${rows
     const explicitExam = teacherCreatedExams.find(
       (exam: any) => String(exam.id || "") === rowExamId,
     );
+    const enabledDayCameraExams = examDayExams.filter((exam: any) => normalizeLocalVisionConfig(exam).enabled);
     const candidateExams = (explicitExam
       ? [explicitExam]
       : (pulseExamFilter !== "all"
           ? teacherCreatedExams.filter(
               (exam: any) => String(exam.id || "") === String(pulseExamFilter),
             )
-          : examDayExams
+          : enabledDayCameraExams.length === 1
+            ? enabledDayCameraExams
+            : []
         )
     ).filter((exam: any) => normalizeLocalVisionConfig(exam).enabled);
     if (!candidateExams.length) {
@@ -21730,7 +21734,7 @@ ${rows
 
   const teacherSmartVisibleResults = teacherSmartSearchTerm
     ? teacherSmartSearchResults
-    : teacherProgramCommandTargets().slice(0, 8);
+    : [];
 
   const runTeacherSmartCommand = () => {
     const raw = teacherSmartRawTerm;
@@ -29745,7 +29749,7 @@ ${rows
                   type="button"
                   title="بحث ذكي"
                   aria-label="بحث ذكي"
-                  onClick={() => { setTeacherSmartSearchOpen(true); setTeacherSmartSearchQuery(teacherSmartSearchQuery || ""); window.setTimeout(() => { try { (document.querySelector(".miras-mobile-command-bar input") as HTMLInputElement | null)?.focus(); } catch {} }, 40); }}
+                  onClick={() => { setTeacherSmartSearchOpen(true); setTeacherSmartSearchQuery(teacherSmartSearchQuery || ""); window.setTimeout(() => { try { (document.querySelector(".miras-smart-search-input") as HTMLInputElement | null)?.focus(); } catch {} }, 40); }}
                   className="miras-zero-action-btn miras-zero-action-command"
                 >
                   <Search className="h-5 w-5" />
@@ -29762,7 +29766,7 @@ ${rows
               </div>
             </header>
 
-            <div className="miras-mobile-command-bar relative z-30 mx-3 mb-3 rounded-[1.35rem] border border-slate-200/80 bg-white/94 p-2 shadow-[0_14px_34px_rgba(15,23,42,0.08)] backdrop-blur-xl sm:hidden" onClick={(e) => e.stopPropagation()}>
+            <div className={`miras-mobile-command-bar fixed left-3 right-3 top-[calc(env(safe-area-inset-top,0px)+5.75rem)] z-[99998] rounded-[1.35rem] border border-slate-200/80 bg-white/98 p-2 shadow-[0_24px_70px_rgba(15,23,42,0.18)] backdrop-blur-2xl sm:hidden ${teacherSmartSearchOpen ? "" : "hidden"}`} onClick={(e) => e.stopPropagation()}>
               <div className="flex items-center gap-2 rounded-2xl bg-slate-50 px-3 py-2">
                 <Search className="h-4 w-4 text-slate-400" />
                 <input
@@ -29771,7 +29775,7 @@ ${rows
                   onChange={(e) => { setTeacherSmartSearchQuery(e.target.value); setTeacherSmartSearchOpen(true); }}
                   onKeyDown={(e) => { if (e.key === "Enter") runTeacherSmartCommand(); if (e.key === "Escape") setTeacherSmartSearchOpen(false); }}
                   placeholder="ابحث أو اكتب أمراً"
-                  className="h-8 w-full bg-transparent text-right text-[12px] font-black text-slate-700 outline-none placeholder:text-slate-400"
+                  className="miras-smart-search-input h-8 w-full bg-transparent text-right text-[12px] font-black text-slate-700 outline-none placeholder:text-slate-400"
                   inputMode="search"
                 />
                 <button type="button" onClick={runTeacherSmartCommand} className="inline-flex h-8 w-8 items-center justify-center rounded-xl bg-indigo-600 text-white" aria-label="تنفيذ">
@@ -29789,9 +29793,9 @@ ${rows
                       <span className="rounded-full bg-slate-900 px-2.5 py-1 text-[9px] font-black text-white">{item.actionLabel}</span>
                     </button>
                   )) : (
-                    <button type="button" onClick={runTeacherSmartCommand} className="flex w-full items-center justify-between rounded-2xl bg-slate-50 px-3 py-3 text-[11px] font-black text-slate-600">
-                      <span>تنفيذ ذكي</span><Sparkles className="h-4 w-4 text-indigo-600" />
-                    </button>
+                    <div className="rounded-2xl bg-slate-50 px-3 py-3 text-center text-[11px] font-black text-slate-400">
+                      اكتب للبحث في مِراس
+                    </div>
                   )}
                 </div>
               )}
@@ -29867,7 +29871,7 @@ ${rows
                             if (e.key === "Escape") setTeacherSmartSearchOpen(false);
                           }}
                           placeholder="ابحث أو اكتب أمراً"
-                          className="h-9 w-full bg-transparent text-right text-[12px] font-bold text-slate-700 outline-none placeholder:text-slate-400"
+                          className="miras-smart-search-input h-9 w-full bg-transparent text-right text-[12px] font-bold text-slate-700 outline-none placeholder:text-slate-400"
                           inputMode="search"
                         />
                         {teacherSmartSearchQuery && (
@@ -29901,18 +29905,15 @@ ${rows
                                     {item.extra && (
                                       <p className="mt-0.5 truncate text-[9px] font-bold text-slate-400">{item.extra}</p>
                                     )}
-                                    {item.hint && (
-                                      <p className="mt-0.5 truncate text-[9px] font-black text-indigo-400">{item.hint}</p>
-                                    )}
                                   </div>
                                   <span className={`shrink-0 rounded-full px-2.5 py-1 text-[9px] font-black text-white ${item.actionTone === "emerald" ? "bg-emerald-600" : item.actionTone === "blue" ? "bg-blue-600" : item.actionTone === "amber" ? "bg-amber-500" : item.actionTone === "indigo" ? "bg-indigo-600" : "bg-slate-900"}`}>{item.actionLabel}</span>
                                 </button>
                               ))}
                             </div>
                           ) : (
-                            <button type="button" onClick={runTeacherSmartCommand} className="flex w-full items-center justify-between rounded-2xl bg-slate-50 px-3 py-3 text-right text-[11px] font-bold text-slate-500">
-                              <span>تنفيذ ذكي</span><Sparkles className="h-4 w-4 text-indigo-500" />
-                            </button>
+                            <div className="rounded-2xl bg-slate-50 px-3 py-3 text-center text-[11px] font-black text-slate-400">
+                              اكتب للبحث في مِراس
+                            </div>
                           )}
                         </div>
                       )}
@@ -30235,7 +30236,7 @@ ${rows
                         className={`relative inline-flex h-12 w-12 items-center justify-center rounded-[1.2rem] border shadow-sm transition-all hover:-translate-y-0.5 ${teacherTab === "submissions" ? "border-blue-200 bg-gradient-to-br from-blue-600 to-indigo-600 text-white shadow-blue-200" : "border-slate-200 bg-white/90 text-slate-700 hover:bg-blue-50 hover:text-blue-700"}`}
                       >
                         <Award className="h-5 w-5" />
-                        {shouldShowDockBadge("submissions") && (
+                        {latestSubmissionRows(teacherSubmissions).some((sub: any) => !teacherVisibleGradeText(sub) && !isTeacherReturnedSubmission(sub)) && (
                           <span className="absolute -left-0.5 -top-0.5 h-2.5 w-2.5 rounded-full bg-amber-400 ring-2 ring-white" />
                         )}
                       </button>
@@ -30258,7 +30259,7 @@ ${rows
                         className={`miras-dock-codes-btn relative inline-flex h-10 w-10 items-center justify-center rounded-2xl border shadow-sm transition-all ${teacherTab === "codes" ? "border-indigo-200 bg-indigo-500 text-white" : "border-indigo-100 bg-white/90 text-indigo-700 hover:bg-indigo-50"}`}
                       >
                         <Key className="h-4 w-4" />
-                        {shouldShowDockBadge("codes") && (
+                        {(passwordResetRequestsState.length > 0 || deviceProblemAttempts.length > 0) && (
                           <span className="absolute -left-0.5 -top-0.5 h-2.5 w-2.5 rounded-full bg-rose-500 ring-2 ring-white" />
                         )}
                       </button>
@@ -30570,7 +30571,7 @@ ${rows
                                         st.idNumber ||
                                         studentIdStr
                                       }
-                                      className="group relative min-h-[68px] rounded-2xl border border-slate-100 bg-slate-50/45 p-2.5 hover:bg-white hover:border-slate-200 hover:shadow-sm transition-all duration-200 text-right"
+                                      className="group relative min-h-[54px] rounded-[1.15rem] border border-slate-100 bg-slate-50/45 p-2 hover:bg-white hover:border-slate-200 hover:shadow-sm transition-all duration-200 text-right"
                                     >
                                       <div className="flex items-start justify-between gap-2">
                                         <div className="min-w-0 flex-1">
@@ -30620,7 +30621,7 @@ ${rows
                                                 ids.includes(String(item || "").trim().toLowerCase()),
                                               );
                                             });
-                                            const canSetCameraException = pulseExamFilter !== "all" && visibleCameraExams.length > 0 && cfg.enabled;
+                                            const canSetCameraException = visibleCameraExams.length > 0 && cfg.enabled && (pulseExamFilter !== "all" || !!rowExam || visibleCameraExams.length === 1);
                                             if (!canSetCameraException && !isExempt) return null;
                                             return (
                                               <button
@@ -30632,13 +30633,13 @@ ${rows
                                                   event.stopPropagation();
                                                   if (canSetCameraException && !isExempt) void addCameraExceptionForLivePulseStudent(row);
                                                 }}
-                                                className={`mt-1.5 inline-flex h-7 w-7 items-center justify-center rounded-xl border text-[11px] transition ${
+                                                className={`mt-1 inline-flex h-6 w-6 items-center justify-center rounded-lg border text-[10px] transition ${
                                                   isExempt
                                                     ? "border-emerald-500 bg-emerald-500 text-white shadow-[0_8px_18px_rgba(16,185,129,0.22)]"
                                                     : "border-slate-200 bg-white/85 text-slate-600 hover:border-emerald-200 hover:bg-emerald-50 hover:text-emerald-700"
                                                 }`}
                                               >
-                                                {isExempt ? <Check className="h-3.5 w-3.5" /> : <Camera className="h-3.5 w-3.5" />}
+                                                {isExempt ? <Check className="h-3 w-3" /> : <Camera className="h-3 w-3" />}
                                               </button>
                                             );
                                           })()}
@@ -31230,12 +31231,12 @@ ${rows
 
                       {selectedSubmissionDetail && (
                         <div
-                          className="miras-submission-detail-overlay fixed inset-0 z-[2000] flex items-end justify-center bg-slate-950/45 p-0 sm:items-center sm:p-4"
+                          className="miras-submission-detail-overlay fixed inset-0 z-[99999] flex items-start justify-center bg-slate-950/35 p-0 sm:items-center sm:p-4"
                           onClick={closeSubmissionDetail}
                         >
                           <div
-                            className="miras-submission-detail-panel flex h-[100dvh] max-h-[100dvh] w-full max-w-6xl flex-col rounded-none bg-white p-3 shadow-premium-lg sm:h-auto sm:max-h-[94vh] sm:rounded-[2rem] sm:p-5"
-                            style={{ paddingTop: "calc(env(safe-area-inset-top, 0px) + 1.75rem)" }}
+                            className="miras-submission-detail-panel mt-[calc(env(safe-area-inset-top,0px)+6.75rem)] flex h-[calc(100dvh-env(safe-area-inset-top,0px)-6.75rem)] max-h-[calc(100dvh-env(safe-area-inset-top,0px)-6.75rem)] w-full max-w-6xl flex-col rounded-t-[2rem] bg-white p-3 shadow-premium-lg sm:mt-0 sm:h-auto sm:max-h-[94vh] sm:rounded-[2rem] sm:p-5"
+                            style={{ paddingTop: "0.9rem" }}
                             dir="rtl"
                             onClick={(e) => e.stopPropagation()}
                           >
@@ -32919,7 +32920,7 @@ ${rows
                                   <label
                                     title={!!(examDraft as any).localVisionEnabled ? "الكاميرا تعمل" : "الكاميرا متوقفة"}
                                     aria-label={!!(examDraft as any).localVisionEnabled ? "الكاميرا تعمل" : "الكاميرا متوقفة"}
-                                    className={`relative inline-flex h-8 w-16 shrink-0 cursor-pointer items-center rounded-full border px-1 transition-all duration-300 ${!!(examDraft as any).localVisionEnabled ? "border-emerald-500 bg-emerald-500 shadow-[0_10px_24px_rgba(16,185,129,0.26)]" : "border-slate-200 bg-slate-100"}`}
+                                    className={`relative inline-flex h-8 w-16 shrink-0 cursor-pointer items-center overflow-hidden rounded-full border transition-all duration-300 ${!!(examDraft as any).localVisionEnabled ? "border-emerald-500 bg-emerald-500 shadow-[0_10px_24px_rgba(16,185,129,0.26)]" : "border-slate-200 bg-slate-100"}`}
                                   >
                                     <input
                                       type="checkbox"
@@ -32950,7 +32951,7 @@ ${rows
                                         })
                                       }
                                     />
-                                    <span className={`inline-flex h-6 w-6 rounded-full bg-white shadow-sm transition-transform duration-300 ${!!(examDraft as any).localVisionEnabled ? "translate-x-8" : "translate-x-0"}`} />
+                                    <span className={`absolute top-1 inline-flex h-6 w-6 rounded-full bg-white shadow-sm transition-all duration-300 ${!!(examDraft as any).localVisionEnabled ? "left-1" : "right-1"}`} />
                                   </label>
                                 </div>
                                 {!!(examDraft as any).localVisionEnabled && (
