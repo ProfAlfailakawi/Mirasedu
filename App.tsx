@@ -6,6 +6,7 @@ import {
   useMemo,
   useDeferredValue,
 } from "react";
+import { createPortal } from "react-dom";
 import { motion, AnimatePresence } from "motion/react";
 import {
   startRegistration,
@@ -21058,16 +21059,19 @@ ${rows
     const selectedExam = pulseExamFilter !== "all" ? byId(pulseExamFilter) : null;
     const enabledDayCameraExams = examDayExams.filter((exam: any) => mirasExamUsesCamera(exam));
     const enabledCourseCameraExams = activeCourseExams.filter((exam: any) => mirasExamUsesCamera(exam));
-    const candidateExams = (explicitExam
-      ? [explicitExam]
-      : selectedExam
-        ? [selectedExam]
-        : enabledDayCameraExams.length > 0
-          ? enabledDayCameraExams
-          : enabledCourseCameraExams.length > 0
-            ? enabledCourseCameraExams
-            : []
-    ).filter((exam: any) => mirasExamUsesCamera(exam));
+    const candidateSeed =
+      explicitExam && mirasExamUsesCamera(explicitExam)
+        ? [explicitExam]
+        : selectedExam && mirasExamUsesCamera(selectedExam)
+          ? [selectedExam]
+          : enabledDayCameraExams.length > 0
+            ? enabledDayCameraExams
+            : enabledCourseCameraExams.length > 0
+              ? enabledCourseCameraExams
+              : [];
+    const candidateExams = candidateSeed.filter((exam: any) =>
+      mirasExamUsesCamera(exam),
+    );
     if (!candidateExams.length) {
       return;
     }
@@ -25826,8 +25830,8 @@ ${rows
                   </div>
                 </div>
 
-                {/* Middle section: Elegant light student search (Always visible) */}
-                <div className="relative flex-1 max-w-[10rem] sm:max-w-xs mx-1">
+                {/* Search removed from this correction view to keep navigation calm and stable. */}
+                <div className="hidden" aria-hidden="true">
                   <Search className="pointer-events-none absolute right-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400" />
                   <input
                     value={submissionDetailStudentSearch}
@@ -25949,7 +25953,7 @@ ${rows
                         {selectedSubmissionDetail.submittedAt ? formatKwDateTime(selectedSubmissionDetail.submittedAt) : "غير متوفر"}
                       </span>
                     </div>
-                    {(selectedSubmissionDetail.originalGrade || selectedSubmissionDetail.reviewedGrade || gradeAuditTrailForSubmission(selectedSubmissionDetail).length > 0) && (
+                    {false && (
                       <div className="rounded-xl border border-emerald-150 bg-emerald-50/50 px-2.5 py-1 text-[10px] font-black text-emerald-700">
                         بصمة عدالة: أصلية {selectedSubmissionDetail.originalGrade || "—"} / بعد مراجعة {selectedSubmissionDetail.reviewedGrade || teacherGradeInputValue(selectedSubmissionDetail) || "—"}
                       </div>
@@ -26069,7 +26073,7 @@ ${rows
                   )}
 
                   {/* Audit Logs */}
-                  {gradeAuditTrailForSubmission(selectedSubmissionDetail).length > 0 && (
+                  {false && (
                     <div className="rounded-2xl border border-slate-100 bg-slate-50/60 p-4 space-y-1.5">
                       <span className="mb-2 block text-[10px] font-black text-slate-400">سجل رصد ومراجعة الدرجات:</span>
                       {gradeAuditTrailForSubmission(selectedSubmissionDetail).map((audit: any, idx: number) => (
@@ -26090,7 +26094,15 @@ ${rows
                       onChange={(e) => {
                         const grade = normalizeGradeChange(readGradeInputValue(e, selectedSubmissionDetail.grade));
                         setSelectedSubmissionDetail((prev: any) => ({ ...prev, grade }));
+                      }}
+                      onBlur={() => {
+                        const grade = normalizeGradeChange(String(selectedSubmissionDetail.grade ?? ""));
                         updateSubmissionGrade(selectedSubmissionDetail.id, grade);
+                      }}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") {
+                          (e.currentTarget as HTMLInputElement).blur();
+                        }
                       }}
                       type="text"
                       dir="ltr"
@@ -26182,7 +26194,15 @@ ${rows
                           ...prev,
                           grade,
                         }));
+                      }}
+                      onBlur={() => {
+                        const grade = normalizeGradeChange(String(selectedSubmissionDetail.grade ?? ""));
                         updateSubmissionGrade(selectedSubmissionDetail.id, grade);
+                      }}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") {
+                          (e.currentTarget as HTMLInputElement).blur();
+                        }
                       }}
                       type="text"
                       dir="ltr"
@@ -30538,8 +30558,26 @@ ${rows
                                 </span>
                               )}
                             </button>
-                            {teacherImportantNotificationsOpen && (
-                              <div className="student-popover teacher-important-popover miras-teacher-alert-popover miras-student-popover miras-student-alert-popover text-right">
+                            {teacherImportantNotificationsOpen &&
+                              typeof document !== "undefined" &&
+                              createPortal(
+                              <div
+                                className="student-popover teacher-important-popover miras-teacher-alert-popover miras-student-popover miras-student-alert-popover text-right"
+                                dir="rtl"
+                                style={{
+                                  position: "fixed",
+                                  top: "max(5.5rem, calc(env(safe-area-inset-top) + 4.75rem))",
+                                  left: "max(0.75rem, env(safe-area-inset-left))",
+                                  right: "max(0.75rem, env(safe-area-inset-right))",
+                                  width: "auto",
+                                  maxWidth: "min(34rem, calc(100vw - 1.5rem))",
+                                  margin: "0 auto",
+                                  zIndex: 2147483000,
+                                  maxHeight: "calc(100dvh - 6.5rem)",
+                                  overflowY: "auto",
+                                  WebkitOverflowScrolling: "touch",
+                                }}
+                              >
                                 <div className="miras-alert-toolbar mb-2 flex items-center justify-between gap-3 rounded-2xl border border-slate-100 bg-white/82 px-3 py-2 w-full">
                                   <span className="miras-teacher-alert-count-badge whitespace-nowrap shrink-0">
                                     {criticalTeacherNotifications.length > 0
@@ -30714,8 +30752,9 @@ ${rows
                                     )}
                                   </div>
                                 )}
-                              </div>
-                            )}
+                              </div>,
+                                document.body,
+                              )}
                           </div>
                         )}
                         <button
@@ -31133,16 +31172,17 @@ ${rows
                                             const rowExam = rowExamId ? byId(rowExamId) : null;
                                             const enabledDayCameraExams = examDayExams.filter((exam: any) => mirasExamUsesCamera(exam));
                                             const enabledCourseCameraExams = activeCourseExams.filter((exam: any) => mirasExamUsesCamera(exam));
-                                            const visibleCameraExams = (selectedExam
-                                              ? [selectedExam]
-                                              : rowExam
+                                            const visibleCameraSeed =
+                                              rowExam && mirasExamUsesCamera(rowExam)
                                                 ? [rowExam]
-                                                : enabledDayCameraExams.length > 0
-                                                  ? enabledDayCameraExams
-                                                  : enabledCourseCameraExams.length > 0
-                                                    ? enabledCourseCameraExams
-                                                    : []
-                                            ).filter((exam: any) => mirasExamUsesCamera(exam));
+                                                : selectedExam && mirasExamUsesCamera(selectedExam)
+                                                  ? [selectedExam]
+                                                  : enabledDayCameraExams.length > 0
+                                                    ? enabledDayCameraExams
+                                                    : enabledCourseCameraExams.length > 0
+                                                      ? enabledCourseCameraExams
+                                                      : [];
+                                            const visibleCameraExams = visibleCameraSeed.filter((exam: any) => mirasExamUsesCamera(exam));
                                             const cfg = normalizeLocalVisionConfig(visibleCameraExams[0]);
                                             const ids = [
                                               st.id,
@@ -31220,7 +31260,7 @@ ${rows
                         <p className="text-[10px] font-black text-indigo-500">وضع التصحيح السريع</p>
                         <h3 className="mt-0.5 text-lg font-black text-slate-950">التسليمات</h3>
                       </div>
-                      <div className="flex min-w-0 flex-1 items-center gap-2 rounded-[1.4rem] border border-slate-200 bg-white/94 px-4 py-3 shadow-inner sm:max-w-xl">
+                      <div className="hidden">
                         <Search className="h-4 w-4 text-slate-400" />
                         <input
                           value={submissionSearch}
@@ -31804,8 +31844,8 @@ ${rows
 
                                 {/* Left section: Search Input & Prev/Next Arrows */}
                                 <div className="flex flex-1 items-center justify-end gap-3 min-w-0">
-                                  {/* Student Search */}
-                                  <div className="relative w-full max-w-xs shrink">
+                                  {/* Student Search removed from correction header. */}
+                                  <div className="hidden" aria-hidden="true">
                                     <Search className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
                                     <input
                                       value={submissionDetailStudentSearch}
@@ -32210,9 +32250,11 @@ ${rows
                           </div>
                         </div>
                       )}
-                      {pendingReturnSubmission && (
+                      {pendingReturnSubmission &&
+                        typeof document !== "undefined" &&
+                        createPortal(
                         <div
-                          className="miras-return-overlay fixed inset-0 z-[100250] flex items-center justify-center bg-slate-950/45 p-3 backdrop-blur-sm sm:p-4"
+                          className="miras-return-overlay fixed inset-0 z-[100250] flex items-start justify-center bg-slate-950/45 p-3 pt-[max(4.5rem,calc(env(safe-area-inset-top)+4rem))] backdrop-blur-sm sm:items-center sm:p-4"
                           onClick={() => setPendingReturnSubmission(null)}
                         >
                           <div
@@ -32407,8 +32449,9 @@ ${rows
                               </button>
                             </div>
                           </div>
-                        </div>
-                      )}
+                        </div>,
+                          document.body,
+                        )}
                     </>
                   )}
                 </div>

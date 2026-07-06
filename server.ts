@@ -1694,7 +1694,8 @@ function getValidSebPass(
   if (
     student &&
     pass.courseCode &&
-    !studentHasEnrollmentInCourse(student, pass.courseCode)
+    !studentHasEnrollmentInCourse(student, pass.courseCode) &&
+    !hasTeacherAuthorizedSebReturnException(pass.examId, student.id)
   )
     return null;
   if (examId && String(pass.examId) !== String(examId)) return null;
@@ -2523,7 +2524,11 @@ function validateSebLaunchInput(req: express.Request) {
       error: "هذا الاختبار لا يتبع المقرر المطلوب.",
       status: 403,
     } as any;
-  if (!studentHasEnrollmentInCourse(student, courseCode))
+  const teacherAuthorizedSebReturn = hasTeacherAuthorizedSebReturnException(
+    examId,
+    student.id,
+  );
+  if (!studentHasEnrollmentInCourse(student, courseCode) && !teacherAuthorizedSebReturn)
     return {
       error: "هذا المقرر غير مفعل لهذا الطالب بالكود الأصلي.",
       status: 403,
@@ -2566,16 +2571,20 @@ function createSebLaunchFromActivatedSession(req: express.Request) {
     checked.exam.id,
     checked.student.id,
   );
+  const teacherAuthorizedSebReturn = Boolean(
+    activeReturnException ||
+      isExamReturnedForStudent(checked.exam.id, checked.student.id),
+  );
   if (checked.exam.open && new Date(checked.exam.open).getTime() > now)
     return { error: "لم يبدأ وقت إتاحة هذا الاختبار بعد.", status: 403 } as any;
   if (
     checked.exam.close &&
     new Date(checked.exam.close).getTime() + 24 * 60 * 60 * 1000 < now &&
-    !activeReturnException
+    !teacherAuthorizedSebReturn
   )
     return { error: "انتهى وقت إتاحة هذا الاختبار.", status: 403 } as any;
   const sessionValidation = validateSessionFingerprint(req, checked.student);
-  if (!sessionValidation.isValid && !activeReturnException)
+  if (!sessionValidation.isValid && !teacherAuthorizedSebReturn)
     return {
       error:
         sessionValidation.error ||
@@ -2603,7 +2612,7 @@ function createSebLaunchFromActivatedSession(req: express.Request) {
     studentId: checked.student.id,
     studentName: checked.student.name,
     action: "إنشاء نفق SEB",
-    details: activeReturnException
+    details: teacherAuthorizedSebReturn
       ? `تم إنشاء جلسة اختبار مؤقتة للاختبار ${checked.examId} في مقرر ${checked.courseCode} عبر استثناء إرجاع مصرح من المعلم دون تغيير ربط الكود أو الجهاز الأصلي.`
       : `تم إنشاء جلسة اختبار مؤقتة للاختبار ${checked.examId} في مقرر ${checked.courseCode} دون تغيير ربط الكود أو الجهاز الأصلي.`,
     req,
@@ -5201,6 +5210,62 @@ async function sendFcmToToken(
   return { sent: true };
 }
 
+function normalizeNotificationNoiseText(value: any) {
+  return String(value || "")
+    .toLowerCase()
+    .replace(/[ًٌٍَُِّْـ]/g, "")
+    .replace(/[إأآا]/g, "ا")
+    .replace(/ى/g, "ي")
+    .replace(/ة/g, "ه")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function shouldSuppressRoutineStudentNotification(
+  title: any,
+  body: any,
+  data: Record<string, any> = {},
+): boolean {
+  const type = normalizeNotificationNoiseText(data.type || data.kind || "");
+  const text = normalizeNotificationNoiseText(
+    `${type} ${title || ""} ${body || ""} ${JSON.stringify(data || {})}`,
+  );
+  if (
+    data.silentCameraExceptionUpdate === true ||
+    data.notifyStudents === false ||
+    data.notifyStudents === "false" ||
+    type === "camera_exception" ||
+    type === "exam_integrity_pulse" ||
+    type === "teacher_camera_exception"
+  ) {
+    return true;
+  }
+  const routineTypes = new Set([
+    "course_updated",
+    "course_renamed",
+    "exam_updated",
+    "exam_renamed",
+    "project_updated",
+    "project_renamed",
+    "teacher_course_change",
+    "teacher_student_change",
+    "duplicate_name_renamed",
+    "name_duplicate_fixed",
+    "roster_cleanup",
+    "admin_cleanup",
+  ]);
+  const routineByType = routineTypes.has(type);
+  const routineByText =
+    /اسم مكرر|مكرر|تعديل اسم|تغيير اسم|تحديث اسم|تحديث مقرر|تحديث اختبار|تحديث مشروع|تم تحديث|تم تعديل|تنظيف|ترتيب|تصحيح اسم/.test(
+      text,
+    );
+  const meaningful =
+    /اختبار جديد|مشروع جديد|تنبيه اختبار|تسليم مطلوب|مطلوب|واجب|درجة|درجه|تم نشر درجتك|ارجاع|ارجاع|إرجاع|اعاده|إعادة|قبول|رفض|ايقاف دخول|إيقاف دخول|تفعيل|رابط إعادة|كلمة مرور/.test(
+      text,
+    );
+  return (routineByType || routineByText) && !meaningful;
+}
+
 function notificationTargets(filter: (token: NotificationToken) => boolean) {
   return dbInstance
     .getNotificationTokens()
@@ -5221,6 +5286,12 @@ function notifyUsers(
   const targets = notificationTargets(filter);
   const seen = new Set<string>();
   targets.forEach((target) => {
+    if (
+      target.role === "student" &&
+      shouldSuppressRoutineStudentNotification(safeTitle, safeBody, data)
+    ) {
+      return;
+    }
     sendFcmToToken(target.token, safeTitle, safeBody, data)
       .then((result) => {
         if (!result.sent) {
@@ -5351,6 +5422,7 @@ function notifyStudent(
 ) {
   const safeTitle = sanitizePublicMessageText(title) || "مِراس";
   const safeBody = sanitizePublicMessageText(body) || "لديك تنبيه جديد.";
+  if (shouldSuppressRoutineStudentNotification(safeTitle, safeBody, data)) return 0;
   const count = notifyUsers(
     (token) =>
       token.role === "student" && String(token.userId) === String(studentId),
@@ -10483,6 +10555,16 @@ function isExamReturnedForStudent(examId: any, studentId: any): boolean {
   );
 }
 
+function hasTeacherAuthorizedSebReturnException(examId: any, studentId: any): boolean {
+  // استثناء ضيق فقط لمسار الاختبار المُعاد/المفتوح من المعلم.
+  // الهدف ألا تظهر صفحة منع SEB للطالب حين يكون الإرجاع قراراً صريحاً من المعلم،
+  // مع بقاء قفل الجهاز وSEB كما هو في كل المسارات العادية.
+  return Boolean(
+    getActiveReturnException("exam", examId, studentId) ||
+      isExamReturnedForStudent(examId, studentId),
+  );
+}
+
 function getActiveReturnException(
   kind: any,
   activityId: any,
@@ -12484,7 +12566,14 @@ function resolveExamLockSubject(req: express.Request, res: express.Response) {
     res.status(404).json({ error: "الاختبار غير موجود" });
     return null;
   }
-  if (!studentHasEnrollmentInCourse(student, exam.courseCode || student.sectionCode)) {
+  const teacherAuthorizedSebReturn = hasTeacherAuthorizedSebReturnException(
+    exam.id,
+    student.id,
+  );
+  if (
+    !studentHasEnrollmentInCourse(student, exam.courseCode || student.sectionCode) &&
+    !teacherAuthorizedSebReturn
+  ) {
     res
       .status(403)
       .json({ error: "هذا الاختبار غير مخصص لأحد مقرراتك المفعلة." });
@@ -12498,7 +12587,7 @@ function resolveExamLockSubject(req: express.Request, res: express.Response) {
   if (
     exam.close &&
     new Date(exam.close).getTime() + 24 * 60 * 60 * 1000 < now &&
-    !getActiveReturnException("exam", exam.id, student.id)
+    !teacherAuthorizedSebReturn
   ) {
     res.status(403).json({ error: "انتهى وقت إتاحة هذا الاختبار." });
     return null;
