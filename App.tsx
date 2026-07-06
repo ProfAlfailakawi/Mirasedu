@@ -7923,6 +7923,17 @@ export default function App() {
 
           const openAttachment = () => {
             if (canPreviewAttachment) {
+              const isOffice = [".ppt", ".pptx", ".doc", ".docx", ".xls", ".xlsx", ".rtf"].includes(ext);
+              if (isOffice) {
+                const link = document.createElement("a");
+                link.href = displayUrl;
+                link.download = fileName;
+                link.target = "_blank";
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+                return;
+              }
               setPreviewAttachment(displayAtt);
               return;
             }
@@ -21631,10 +21642,10 @@ ${rows
       results.push({ ...item, key, score });
     };
 
-    teacherProgramCommandTargets().forEach((target: any) => {
-      const score = scoreText(`${target.title} ${target.meta} ${target.hint} ${target.tags}`, 4);
-      addResult(target, score);
-    });
+    // teacherProgramCommandTargets().forEach((target: any) => {
+    //   const score = scoreText(`${target.title} ${target.meta} ${target.hint} ${target.tags}`, 4);
+    //   addResult(target, score);
+    // });
 
     scopedTeacherStudents.slice(0, 1200).forEach((student: any) => {
       const sid = String(
@@ -29806,26 +29817,30 @@ ${rows
               </div>
             </header>
 
-            <div className={`miras-mobile-command-bar fixed left-3 right-3 top-[calc(env(safe-area-inset-top,0px)+5.75rem)] z-[99998] rounded-[1.25rem] border border-slate-200/80 bg-white/98 p-2 shadow-[0_18px_48px_rgba(15,23,42,0.14)] backdrop-blur-2xl sm:hidden ${teacherSmartSearchOpen ? "" : "hidden"}`} onPointerDownCapture={guardTeacherSmartSearchEvent} onTouchStartCapture={guardTeacherSmartSearchEvent} onKeyDownCapture={guardTeacherSmartSearchEvent} onClick={(e) => e.stopPropagation()}>
+            <div className={`miras-mobile-command-bar fixed left-3 right-3 top-[calc(env(safe-area-inset-top,0px)+5.75rem)] z-[99998] rounded-[1.25rem] border border-slate-200/80 bg-white/98 p-2 shadow-[0_18px_48px_rgba(15,23,42,0.14)] backdrop-blur-2xl sm:hidden ${teacherSmartSearchOpen ? "" : "hidden"}`} onPointerDownCapture={guardTeacherSmartSearchEvent} onTouchStartCapture={guardTeacherSmartSearchEvent} onKeyDownCapture={guardTeacherSmartSearchEvent} onKeyUpCapture={guardTeacherSmartSearchEvent} onClick={(e) => e.stopPropagation()}>
               <div className="flex items-center gap-2 rounded-[1.05rem] bg-white px-3 py-2 shadow-inner ring-1 ring-slate-100">
                 <Search className="h-4 w-4 text-indigo-500" />
-                <input
-                  value={teacherSmartSearchQuery}
-                  onFocus={() => setTeacherSmartSearchOpen(true)}
-                  onChange={(e) => { setTeacherSmartSearchQuery(e.target.value); setTeacherSmartSearchOpen(true); }}
-                  type="text"
-                  enterKeyHint="done"
-                  autoComplete="off"
-                  autoCorrect="off"
-                  spellCheck={false}
-                  onPointerDownCapture={guardTeacherSmartSearchEvent}
-                  onTouchStartCapture={guardTeacherSmartSearchEvent}
-                  onKeyDownCapture={guardTeacherSmartSearchEvent}
-                  onKeyDown={(e) => { guardTeacherSmartSearchEvent(e); if (e.key === "Escape") setTeacherSmartSearchOpen(false); }}
-                  placeholder="بحث"
-                  className="miras-smart-search-input h-8 w-full bg-transparent text-right text-[10.5px] font-medium text-slate-700 outline-none placeholder:text-slate-300"
-                  inputMode="search"
-                />
+                <form onSubmit={(e) => { e.preventDefault(); e.stopPropagation(); }} className="flex-1 min-w-0">
+                  <input
+                    value={teacherSmartSearchQuery}
+                    onFocus={() => setTeacherSmartSearchOpen(true)}
+                    onChange={(e) => { setTeacherSmartSearchQuery(e.target.value); setTeacherSmartSearchOpen(true); }}
+                    type="text"
+                    enterKeyHint="done"
+                    autoComplete="off"
+                    autoCorrect="off"
+                    spellCheck={false}
+                    onPointerDownCapture={guardTeacherSmartSearchEvent}
+                    onTouchStartCapture={guardTeacherSmartSearchEvent}
+                    onKeyDownCapture={guardTeacherSmartSearchEvent}
+                    onKeyDown={(e) => { guardTeacherSmartSearchEvent(e); if (e.key === "Escape") setTeacherSmartSearchOpen(false); }}
+                    onKeyUpCapture={guardTeacherSmartSearchEvent}
+                    onKeyUp={guardTeacherSmartSearchEvent}
+                    placeholder="بحث"
+                    className="miras-smart-search-input h-8 w-full bg-transparent text-right text-[10px] font-light text-slate-500 outline-none placeholder:text-slate-300"
+                    inputMode="search"
+                  />
+                </form>
                 {teacherSmartSearchQuery && (
                   <button type="button" onClick={() => { setTeacherSmartSearchQuery(""); setTeacherSmartSearchOpen(true); }} className="inline-flex h-7 w-7 items-center justify-center rounded-xl bg-slate-50 text-slate-400" aria-label="مسح">
                     <X className="h-3.5 w-3.5" />
@@ -29903,31 +29918,35 @@ ${rows
                       )}
                     </div>
                     <div className="relative w-full sm:max-w-xl" onClick={(e) => e.stopPropagation()}>
-                      <div className="flex items-center gap-2 rounded-[1.45rem] border border-slate-200/80 bg-white/88 px-3 py-2 shadow-inner backdrop-blur-xl">
+                      <div className="flex items-center gap-2 rounded-[1.45rem] border border-slate-200/80 bg-white/88 px-3 py-2 shadow-inner backdrop-blur-xl animate-fade-in" onPointerDownCapture={guardTeacherSmartSearchEvent} onTouchStartCapture={guardTeacherSmartSearchEvent} onKeyDownCapture={guardTeacherSmartSearchEvent} onKeyUpCapture={guardTeacherSmartSearchEvent}>
                         <Search className="h-4 w-4 shrink-0 text-slate-400" />
-                        <input
-                          value={teacherSmartSearchQuery}
-                          onFocus={() => setTeacherSmartSearchOpen(true)}
-                          onChange={(e) => {
-                            setTeacherSmartSearchQuery(e.target.value);
-                            setTeacherSmartSearchOpen(true);
-                          }}
-                          type="text"
-                          enterKeyHint="done"
-                          autoComplete="off"
-                          autoCorrect="off"
-                          spellCheck={false}
-                          onPointerDownCapture={guardTeacherSmartSearchEvent}
-                          onTouchStartCapture={guardTeacherSmartSearchEvent}
-                          onKeyDownCapture={guardTeacherSmartSearchEvent}
-                          onKeyDown={(e) => {
-                            guardTeacherSmartSearchEvent(e);
-                            if (e.key === "Escape") setTeacherSmartSearchOpen(false);
-                          }}
-                          placeholder="بحث"
-                          className="miras-smart-search-input h-9 w-full bg-transparent text-right text-[10.5px] font-medium text-slate-700 outline-none placeholder:text-slate-300"
-                          inputMode="search"
-                        />
+                        <form onSubmit={(e) => { e.preventDefault(); e.stopPropagation(); }} className="flex-1 min-w-0">
+                          <input
+                            value={teacherSmartSearchQuery}
+                            onFocus={() => setTeacherSmartSearchOpen(true)}
+                            onChange={(e) => {
+                              setTeacherSmartSearchQuery(e.target.value);
+                              setTeacherSmartSearchOpen(true);
+                            }}
+                            type="text"
+                            enterKeyHint="done"
+                            autoComplete="off"
+                            autoCorrect="off"
+                            spellCheck={false}
+                            onPointerDownCapture={guardTeacherSmartSearchEvent}
+                            onTouchStartCapture={guardTeacherSmartSearchEvent}
+                            onKeyDownCapture={guardTeacherSmartSearchEvent}
+                            onKeyDown={(e) => {
+                              guardTeacherSmartSearchEvent(e);
+                              if (e.key === "Escape") setTeacherSmartSearchOpen(false);
+                            }}
+                            onKeyUpCapture={guardTeacherSmartSearchEvent}
+                            onKeyUp={guardTeacherSmartSearchEvent}
+                            placeholder="بحث"
+                            className="miras-smart-search-input h-9 w-full bg-transparent text-right text-[10px] font-light text-slate-500 outline-none placeholder:text-slate-300"
+                            inputMode="search"
+                          />
+                        </form>
                         {teacherSmartSearchQuery && (
                           <button
                             type="button"
@@ -30682,14 +30701,11 @@ ${rows
                                                 title={isExempt ? "مسموح" : "بدون كاميرا"}
                                                 aria-label={isExempt ? "استثناء كاميرا مفعل" : "السماح بدون كاميرا"}
                                                 onPointerDown={(event) => {
-                                                  event.preventDefault();
                                                   event.stopPropagation();
-                                                  (event.nativeEvent as any)?.stopImmediatePropagation?.();
                                                 }}
                                                 onClick={(event) => {
                                                   event.preventDefault();
                                                   event.stopPropagation();
-                                                  (event.nativeEvent as any)?.stopImmediatePropagation?.();
                                                   if (!isExempt) void addCameraExceptionForLivePulseStudent(row);
                                                 }}
                                                 className={`relative z-20 mt-1 inline-flex h-7 w-7 pointer-events-auto items-center justify-center rounded-lg border text-[10px] transition ${
@@ -31290,12 +31306,12 @@ ${rows
 
                       {selectedSubmissionDetail && (
                         <div
-                          className="miras-submission-detail-overlay fixed inset-0 z-[99999] flex items-start justify-center bg-slate-950/35 p-0 sm:items-center sm:p-4"
+                          className="miras-submission-detail-overlay fixed inset-0 z-[99999] flex items-stretch justify-center bg-slate-950/45 p-0 sm:items-center sm:p-4 animate-fade-in"
                           onClick={closeSubmissionDetail}
                         >
                           <div
-                            className="miras-submission-detail-panel mt-[calc(env(safe-area-inset-top,0px)+6.2rem)] flex h-[calc(100dvh-env(safe-area-inset-top,0px)-6.2rem)] max-h-[calc(100dvh-env(safe-area-inset-top,0px)-6.2rem)] w-full max-w-6xl flex-col rounded-t-[2rem] bg-white p-3 pb-[calc(1.2rem+env(safe-area-inset-bottom,0px))] shadow-premium-lg sm:mt-0 sm:h-auto sm:max-h-[94vh] sm:rounded-[2rem] sm:p-5"
-                            style={{ paddingTop: "0.9rem" }}
+                            className="miras-submission-detail-panel flex h-full max-h-full w-full max-w-6xl flex-col bg-white p-3 pb-[calc(1.2rem+env(safe-area-inset-bottom,0px))] shadow-premium-lg sm:h-[92vh] sm:max-h-[900px] sm:rounded-[2.5rem] sm:p-5"
+                            style={{ paddingTop: "calc(env(safe-area-inset-top,0px) + 0.75rem)" }}
                             dir="rtl"
                             onClick={(e) => e.stopPropagation()}
                           >
