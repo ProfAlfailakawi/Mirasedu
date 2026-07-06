@@ -14267,7 +14267,7 @@ app.post("/api/submissions/upload", (req: any, res: any) => {
 // القديمة. LibreOffice هو الخيار الوحيد الذي يحافظ على شكل الشرائح/المستند
 // الحقيقي (لا نص فقط)، وتنفيذه هنا (لا عبر خدمة Google/Microsoft الخارجية)
 // يضمن بقاء ملفات تسليمات الطلاب داخل خوادمنا فقط، دون رفعها لجهة ثالثة.
-const MIRAS_OFFICE_CONVERTIBLE_EXTS = new Set([".ppt", ".pptx", ".doc", ".docx", ".rtf"]);
+const MIRAS_OFFICE_CONVERTIBLE_EXTS = new Set([".ppt", ".pptx", ".doc", ".docx", ".xls", ".xlsx", ".rtf"]);
 const MIRAS_OFFICE_CONVERSION_TIMEOUT_MS = 25_000;
 const MIRAS_UNOCONVERT_TIMEOUT_MS = 10_000;
 const officeConversionCacheDir = path.join(os.tmpdir(), "miras-office-pdf-cache");
