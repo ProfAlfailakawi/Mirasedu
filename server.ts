@@ -2559,16 +2559,23 @@ function createSebLaunchFromActivatedSession(req: express.Request) {
       status: 400,
     } as any;
   const now = Date.now();
+  // استثناء دقيق فقط عند إرجاع/سماح المعلم للطالب بالدخول من جديد:
+  // لا نغيّر منطق SEB الأساسي، لكن لا نُظهر رسالة المنع في هذا المسار المصرح من المعلم.
+  const activeReturnException = getActiveReturnException(
+    "exam",
+    checked.exam.id,
+    checked.student.id,
+  );
   if (checked.exam.open && new Date(checked.exam.open).getTime() > now)
     return { error: "لم يبدأ وقت إتاحة هذا الاختبار بعد.", status: 403 } as any;
   if (
     checked.exam.close &&
     new Date(checked.exam.close).getTime() + 24 * 60 * 60 * 1000 < now &&
-    !getActiveReturnException("exam", checked.exam.id, checked.student.id)
+    !activeReturnException
   )
     return { error: "انتهى وقت إتاحة هذا الاختبار.", status: 403 } as any;
   const sessionValidation = validateSessionFingerprint(req, checked.student);
-  if (!sessionValidation.isValid)
+  if (!sessionValidation.isValid && !activeReturnException)
     return {
       error:
         sessionValidation.error ||
@@ -2596,7 +2603,9 @@ function createSebLaunchFromActivatedSession(req: express.Request) {
     studentId: checked.student.id,
     studentName: checked.student.name,
     action: "إنشاء نفق SEB",
-    details: `تم إنشاء جلسة اختبار مؤقتة للاختبار ${checked.examId} في مقرر ${checked.courseCode} دون تغيير ربط الكود أو الجهاز الأصلي.`,
+    details: activeReturnException
+      ? `تم إنشاء جلسة اختبار مؤقتة للاختبار ${checked.examId} في مقرر ${checked.courseCode} عبر استثناء إرجاع مصرح من المعلم دون تغيير ربط الكود أو الجهاز الأصلي.`
+      : `تم إنشاء جلسة اختبار مؤقتة للاختبار ${checked.examId} في مقرر ${checked.courseCode} دون تغيير ربط الكود أو الجهاز الأصلي.`,
     req,
   });
   return {
@@ -8215,6 +8224,21 @@ app.post("/api/notifications/unregister-token", (req, res) => {
 function isCourseWideStudentNotification(item: any): boolean {
   const type = String(item?.type || item?.data?.type || "").toLowerCase();
   const text = `${type} ${item?.title || ""} ${item?.body || ""}`;
+  const routineEdit =
+    [
+      "course_updated",
+      "course_renamed",
+      "exam_updated",
+      "exam_renamed",
+      "project_updated",
+      "project_renamed",
+      "teacher_course_change",
+      "teacher_student_change",
+    ].includes(type) ||
+    /تحديث مقرر|تحديث اختبار|تحديث مشروع|تغيير اسم|تعديل اسم|تم تحديث|تم تعديل/i.test(text);
+  const meaningfulForStudent =
+    /اختبار جديد|مشروع جديد|تنبيه اختبار|اختبار متاح|موعد|رزنامة|تقويم|إعلان|عام|تسليم|مطلوب|واجب|درجة|نشر|فتح|إغلاق|اغلاق|قبول|رفض|إرجاع|ارجاع/i.test(text);
+  if (routineEdit && !meaningfulForStudent) return false;
   if (
     [
       "course",
@@ -8223,7 +8247,6 @@ function isCourseWideStudentNotification(item: any): boolean {
       "exam_reminder",
       "course_opened",
       "course_closed",
-      "course_updated",
       "activity_published",
       "project_published",
     ].includes(type)
@@ -18349,36 +18372,36 @@ app.post("/api/teacher/exams", async (req, res) => {
   dbInstance.upsertTeacherExam(saved);
   if (!(await ensureDurableSync(res))) return;
   const revision = bumpLiveContentRevision();
-  const noticeTitle = existedBefore ? "تحديث اختبار" : "اختبار جديد متاح";
-  const noticeBody = existedBefore
-    ? `تم تحديث ${saved.title} في مقرر ${saved.courseCode} وسيظهر التحديث فورياً.`
-    : `تم نشر ${saved.title} لمقرر ${saved.courseCode}`;
-  rememberCourseNotification(
-    saved.courseCode,
-    noticeTitle,
-    noticeBody,
-    "exam_available",
-    {
-      examId: saved.id,
-      courseCode: saved.courseCode,
-      revision: String(revision),
-      link: "/",
-    },
-  );
-  notifyUsers(
-    (token) =>
-      token.role === "student" &&
-      studentTokenHasCourse(token, saved.courseCode),
-    noticeTitle,
-    noticeBody,
-    {
-      type: "exam_available",
-      examId: saved.id,
-      courseCode: saved.courseCode,
-      revision: String(revision),
-      link: "/",
-    },
-  );
+  if (!existedBefore) {
+    const noticeTitle = "اختبار جديد متاح";
+    const noticeBody = `تم نشر ${saved.title} لمقرر ${saved.courseCode}`;
+    rememberCourseNotification(
+      saved.courseCode,
+      noticeTitle,
+      noticeBody,
+      "exam_available",
+      {
+        examId: saved.id,
+        courseCode: saved.courseCode,
+        revision: String(revision),
+        link: "/",
+      },
+    );
+    notifyUsers(
+      (token) =>
+        token.role === "student" &&
+        studentTokenHasCourse(token, saved.courseCode),
+      noticeTitle,
+      noticeBody,
+      {
+        type: "exam_available",
+        examId: saved.id,
+        courseCode: saved.courseCode,
+        revision: String(revision),
+        link: "/",
+      },
+    );
+  }
   return res.json({
     success: true,
     exam: saved,
@@ -18620,36 +18643,36 @@ app.post("/api/teacher/projects", async (req, res) => {
   dbInstance.upsertTeacherProject(saved);
   if (!(await ensureDurableSync(res))) return;
   const revision = bumpLiveContentRevision();
-  const noticeTitle = existedBefore ? "تحديث مشروع" : "مشروع جديد متاح";
-  const noticeBody = existedBefore
-    ? `تم تحديث ${saved.title} في مقرر ${saved.courseCode} وسيظهر التحديث فورياً.`
-    : `تم نشر ${saved.title} لمقرر ${saved.courseCode}`;
-  rememberCourseNotification(
-    saved.courseCode,
-    noticeTitle,
-    noticeBody,
-    "project_available",
-    {
-      projectId: saved.id,
-      courseCode: saved.courseCode,
-      revision: String(revision),
-      link: "/",
-    },
-  );
-  notifyUsers(
-    (token) =>
-      token.role === "student" &&
-      studentTokenHasCourse(token, saved.courseCode),
-    noticeTitle,
-    noticeBody,
-    {
-      type: "project_available",
-      projectId: saved.id,
-      courseCode: saved.courseCode,
-      revision: String(revision),
-      link: "/",
-    },
-  );
+  if (!existedBefore) {
+    const noticeTitle = "مشروع جديد متاح";
+    const noticeBody = `تم نشر ${saved.title} لمقرر ${saved.courseCode}`;
+    rememberCourseNotification(
+      saved.courseCode,
+      noticeTitle,
+      noticeBody,
+      "project_available",
+      {
+        projectId: saved.id,
+        courseCode: saved.courseCode,
+        revision: String(revision),
+        link: "/",
+      },
+    );
+    notifyUsers(
+      (token) =>
+        token.role === "student" &&
+        studentTokenHasCourse(token, saved.courseCode),
+      noticeTitle,
+      noticeBody,
+      {
+        type: "project_available",
+        projectId: saved.id,
+        courseCode: saved.courseCode,
+        revision: String(revision),
+        link: "/",
+      },
+    );
+  }
   return res.json({ success: true, project: saved });
 });
 
