@@ -3258,9 +3258,28 @@ export default function App() {
   const previewBlobUrlCacheRef = useRef<Record<string, string>>({});
   const submissionAttachmentWarmupRef = useRef<Record<string, boolean>>({});
   useEffect(() => {
-    // لا نُسخّن أو نحوّل المرفقات تلقائياً عند فتح حل الطالب.
-    // سرعة ظهور الملف أهم: نبدأ التحميل فقط عند ضغط المعاينة كما كان سابقاً.
-    return;
+    // تسريع معاينة التسليمات فقط: نجهّز أول مرفقات PDF/PowerPoint بهدوء بعد فتح
+    // حل الطالب، بدون تغيير طريقة الفتح أو إظهار طبقات إضافية. هذا يعيد سرعة
+    // البوربوينت السابقة ويحافظ على الجمال البصري.
+    if (!selectedSubmissionDetail?.attachments?.length) return;
+    const warmable = (selectedSubmissionDetail.attachments || []).slice(0, 3);
+    warmable.forEach((att: any) => {
+      const safe = normalizeSubmissionAttachmentForSave(att) || att || {};
+      const name = mirasCleanAttachmentName(safe.originalName || safe.name, "مرفق");
+      const ext = name.slice(name.lastIndexOf(".")).toLowerCase();
+      const isOfficeConvertible = [".ppt", ".pptx", ".doc", ".rtf"].includes(ext);
+      const isPdf = ext === ".pdf" || String(safe.mimeType || "") === "application/pdf";
+      if (!isOfficeConvertible && !isPdf) return;
+      const baseUrl = attachmentDisplayUrl(safe);
+      if (!baseUrl || baseUrl.startsWith("data:")) return;
+      const warmUrl = isOfficeConvertible ? `${baseUrl}${baseUrl.includes("?") ? "&" : "?"}as=pdf` : baseUrl;
+      const key = `${attachmentLoadKey(safe) || name}:${warmUrl}`;
+      if (submissionAttachmentWarmupRef.current[key]) return;
+      submissionAttachmentWarmupRef.current[key] = true;
+      window.setTimeout(() => {
+        fetch(warmUrl, { headers: jsonHeaders() }).catch(() => {});
+      }, 80);
+    });
   }, [selectedSubmissionDetail]);
   useEffect(() => {
     setPdfViewerSrc("");
