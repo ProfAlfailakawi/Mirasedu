@@ -3191,7 +3191,34 @@ export default function App() {
   const [teacherSmartSearchQuery, setTeacherSmartSearchQuery] = useState("");
   const [teacherSmartSearchOpen, setTeacherSmartSearchOpen] = useState(false);
   const [dockQuickMenu, setDockQuickMenu] = useState<"codes" | null>(null);
+  const [dismissedDockBadgeCounts, setDismissedDockBadgeCounts] = useState<Record<string, number>>({});
   const dockLongPressTimerRef = useRef<number | null>(null);
+  const dockBadgeCountForTab = (tab: typeof teacherTab) => {
+    try {
+      if (tab === "students") return Number(pendingActivationRows?.length || 0);
+      if (tab === "questions") return Number(examDayExams?.length || 0);
+      if (tab === "submissions") return Number((latestDisplayedActiveCourseSubmissions || []).filter((sub: any) => !sub?.reviewedGrade && !sub?.grade && !sub?.score).length || 0);
+      if (tab === "codes") return Number((actionablePasswordResetRequests?.length || 0) + (deviceProblemAttempts?.length || 0));
+      if (tab === "analytics") return Number((livePulseStudentRows || []).filter((row: any) => row?.isCheating || row?.isForcedExit || row?.hasViolation).length || 0);
+    } catch {}
+    return 0;
+  };
+  const shouldShowDockBadge = (tab: typeof teacherTab) => {
+    const count = dockBadgeCountForTab(tab);
+    return count > 0 && dismissedDockBadgeCounts[tab] !== count;
+  };
+  const dismissDockBadge = (tab: typeof teacherTab) => {
+    const count = dockBadgeCountForTab(tab);
+    if (count <= 0) return;
+    setDismissedDockBadgeCounts((prev) =>
+      prev[tab] === count ? prev : { ...prev, [tab]: count },
+    );
+  };
+  const openTeacherDockTab = (tab: typeof teacherTab) => {
+    dismissDockBadge(tab);
+    setDockQuickMenu(null);
+    openTeacherTab(tab);
+  };
   const [selectedSubmissionActivityId, setSelectedSubmissionActivityId] =
     useState<string | null>(null);
   const [bulkGradeInput, setBulkGradeInput] = useState("");
@@ -7899,35 +7926,19 @@ export default function App() {
                   : "تعذر تحميل المرفق من الخادم"
               }
             >
-              <div className="mb-3 overflow-hidden rounded-2xl border border-slate-100 bg-slate-50/70">
-                {isImage && displayUrl ? (
+              {isImage && displayUrl && (
+                <div className="mb-3 overflow-hidden rounded-2xl border border-slate-100 bg-slate-50/70">
                   <img
                     src={displayUrl}
                     alt={fileName}
-                    className="h-28 w-full object-cover"
+                    className="h-24 w-full object-cover"
                     loading="lazy"
                     onError={(e) => {
                       (e.currentTarget as HTMLImageElement).style.display = "none";
                     }}
                   />
-                ) : isPdf ? (
-                  <div className="flex h-20 items-center justify-center bg-gradient-to-br from-rose-50 to-white">
-                    <FileText className="h-8 w-8 text-rose-500" />
-                  </div>
-                ) : [".ppt", ".pptx"].includes(ext) ? (
-                  <div className="flex h-20 items-center justify-center bg-gradient-to-br from-amber-50 to-white">
-                    <Presentation className="h-8 w-8 text-amber-500" />
-                  </div>
-                ) : [".doc", ".docx", ".rtf"].includes(ext) ? (
-                  <div className="flex h-20 items-center justify-center bg-gradient-to-br from-blue-50 to-white">
-                    <FileText className="h-8 w-8 text-blue-500" />
-                  </div>
-                ) : (
-                  <div className="flex h-20 items-center justify-center bg-gradient-to-br from-slate-50 to-white">
-                    <File className="h-7 w-7 text-indigo-300" />
-                  </div>
-                )}
-              </div>
+                </div>
+              )}
               {/* Row Layout for File Meta & Controller Buttons */}
               <div className="flex items-start justify-between gap-2.5">
                 <div className="flex items-center gap-2.5 min-w-0">
@@ -20996,7 +21007,6 @@ ${rows
         )
     ).filter((exam: any) => normalizeLocalVisionConfig(exam).enabled);
     if (!candidateExams.length) {
-      setErrorMsg("اختر اختباراً بالكاميرا من نبض القاعة أولاً.");
       return;
     }
     const tokens = [
@@ -21059,10 +21069,10 @@ ${rows
           }),
         ),
       );
-      setSuccessMsg(changedIds.size > 1 ? "تمت إضافة الاستثناء للاختبارات النشطة بهدوء." : "تمت إضافة استثناء الكاميرا لهذا الطالب بهدوء.");
+      setSuccessMsg("تم السماح");
       window.setTimeout(() => void fetchTeacherExams(activeTeacherEmail()), 80);
     } catch {
-      setErrorMsg("تعذر حفظ استثناء الكاميرا. حاول مرة أخرى.");
+      setErrorMsg("تعذر السماح");
       await fetchTeacherExams(activeTeacherEmail()).catch(() => {});
     }
   };
@@ -25379,6 +25389,17 @@ ${rows
           }
           .miras-submission-detail-panel { overflow: hidden; }
           .miras-submission-detail-scroll { scrollbar-width: thin; }
+          .miras-app-teacher-root.miras-teacher-viewport-v5 .miras-zero-action-command {
+            color: #4f46e5 !important;
+            background: linear-gradient(145deg, #ffffff, #eef2ff) !important;
+            border-color: rgba(129,140,248,.28) !important;
+          }
+          .miras-submission-detail-overlay { z-index: 9999 !important; }
+          @media (max-width: 640px) {
+            .miras-submission-detail-panel { padding-top: calc(env(safe-area-inset-top, 0px) + .45rem) !important; }
+            .miras-student-solution-toolbar { border-radius: 1.15rem !important; }
+          }
+
 
           /* MIRAS V21 — restored teacher dock behavior from the old working build.
              The fixed viewport rule above now keeps translateX(-50%) and delegates
@@ -29620,7 +29641,7 @@ ${rows
                 <button
                   title="المقررات"
                   aria-label="المقررات"
-                  onClick={() => { setDockQuickMenu(null); openTeacherTab("sections"); }}
+                  onClick={() => openTeacherDockTab("sections")}
                   className={`inline-flex h-12 w-12 items-center justify-center rounded-[1.2rem] border shadow-sm transition-all hover:-translate-y-0.5 ${teacherTab === "sections" ? "border-indigo-200 bg-gradient-to-br from-indigo-600 to-blue-600 text-white shadow-indigo-200" : "border-slate-200 bg-white/90 text-slate-700 hover:bg-indigo-50 hover:text-indigo-700"}`}
                 >
                   <Compass className="h-5 w-5" />
@@ -29628,25 +29649,25 @@ ${rows
                 <button
                   title="الطلبة"
                   aria-label="الطلبة"
-                  onClick={() => { setDockQuickMenu(null); openTeacherTab("students"); }}
+                  onClick={() => openTeacherDockTab("students")}
                   className={`relative inline-flex h-12 w-12 items-center justify-center rounded-[1.2rem] border shadow-sm transition-all hover:-translate-y-0.5 ${teacherTab === "students" ? "border-emerald-200 bg-gradient-to-br from-emerald-600 to-teal-500 text-white shadow-emerald-200" : "border-slate-200 bg-white/90 text-slate-700 hover:bg-emerald-50 hover:text-emerald-700"}`}
                 >
                   <User className="h-5 w-5" />
-                  {pendingActivationRows.length > 0 && (<span className="absolute -left-0.5 -top-0.5 h-2.5 w-2.5 rounded-full bg-emerald-500 ring-2 ring-white" />)}
+                  {shouldShowDockBadge("students") && (<span className="absolute -left-0.5 -top-0.5 h-2.5 w-2.5 rounded-full bg-emerald-500 ring-2 ring-white" />)}
                 </button>
                 <button
                   title="بنك الأسئلة والاختبارات والمشاريع"
                   aria-label="بنك الأسئلة والاختبارات والمشاريع"
-                  onClick={() => { setDockQuickMenu(null); openTeacherTab("questions"); }}
+                  onClick={() => openTeacherDockTab("questions")}
                   className={`relative inline-flex h-12 w-12 items-center justify-center rounded-[1.2rem] border shadow-sm transition-all hover:-translate-y-0.5 ${teacherTab === "questions" ? "border-violet-200 bg-gradient-to-br from-violet-600 to-indigo-600 text-white shadow-violet-200" : "border-slate-200 bg-white/90 text-slate-700 hover:bg-violet-50 hover:text-violet-700"}`}
                 >
                   <Layers className="h-5 w-5" />
-                  {examDayExams.length > 0 && (<span className="absolute -left-0.5 -top-0.5 h-2.5 w-2.5 rounded-full bg-violet-500 ring-2 ring-white" />)}
+                  {shouldShowDockBadge("questions") && (<span className="absolute -left-0.5 -top-0.5 h-2.5 w-2.5 rounded-full bg-violet-500 ring-2 ring-white" />)}
                 </button>
                 <button
                   title="تسليمات الاختبارات والمشاريع"
                   aria-label="تسليمات الاختبارات والمشاريع"
-                  onClick={() => { setDockQuickMenu(null); openTeacherTab("submissions"); }}
+                  onClick={() => openTeacherDockTab("submissions")}
                   className={`relative inline-flex h-12 w-12 items-center justify-center rounded-[1.2rem] border shadow-sm transition-all hover:-translate-y-0.5 ${teacherTab === "submissions" ? "border-blue-200 bg-gradient-to-br from-blue-600 to-indigo-600 text-white shadow-blue-200" : "border-slate-200 bg-white/90 text-slate-700 hover:bg-blue-50 hover:text-blue-700"}`}
                 >
                   <Award className="h-5 w-5" />
@@ -29728,10 +29749,19 @@ ${rows
                   type="button"
                   title="الرئيسية"
                   aria-label="الرئيسية"
-                  onClick={() => { setDockQuickMenu(null); openTeacherTab("home"); }}
+                  onClick={() => openTeacherDockTab("home")}
                   className="miras-zero-action-btn"
                 >
                   <Home className="h-5 w-5" />
+                </button>
+                <button
+                  type="button"
+                  title="بحث ذكي"
+                  aria-label="بحث ذكي"
+                  onClick={() => { setTeacherSmartSearchOpen(true); setTeacherSmartSearchQuery(teacherSmartSearchQuery || ""); window.setTimeout(() => { try { (document.querySelector(".miras-mobile-command-bar input") as HTMLInputElement | null)?.focus(); } catch {} }, 40); }}
+                  className="miras-zero-action-btn miras-zero-action-command"
+                >
+                  <Search className="h-5 w-5" />
                 </button>
                 <button
                   type="button"
@@ -29907,7 +29937,7 @@ ${rows
                       >
                         <button
                           title="الرئيسية"
-                          onClick={() => { setDockQuickMenu(null); openTeacherTab("home"); }}
+                          onClick={() => openTeacherDockTab("home")}
                           className="student-icon-btn text-slate-700 relative bg-gradient-to-br from-white to-slate-50 border-slate-200 transition-all duration-200"
                         >
                           <Home className="h-5 w-5" />
@@ -30188,7 +30218,7 @@ ${rows
                       <button
                         title="المقررات"
                         aria-label="المقررات"
-                        onClick={() => { setDockQuickMenu(null); openTeacherTab("sections"); }}
+                        onClick={() => openTeacherDockTab("sections")}
                         className={`inline-flex h-12 w-12 items-center justify-center rounded-[1.2rem] border shadow-sm transition-all hover:-translate-y-0.5 ${teacherTab === "sections" ? "border-indigo-200 bg-gradient-to-br from-indigo-600 to-blue-600 text-white shadow-indigo-200" : "border-slate-200 bg-white/90 text-slate-700 hover:bg-indigo-50 hover:text-indigo-700"}`}
                       >
                         <Compass className="h-5 w-5" />
@@ -30196,25 +30226,25 @@ ${rows
                       <button
                         title="الطلبة"
                         aria-label="الطلبة"
-                        onClick={() => { setDockQuickMenu(null); openTeacherTab("students"); }}
+                        onClick={() => openTeacherDockTab("students")}
                         className={`relative inline-flex h-12 w-12 items-center justify-center rounded-[1.2rem] border shadow-sm transition-all hover:-translate-y-0.5 ${teacherTab === "students" ? "border-emerald-200 bg-gradient-to-br from-emerald-600 to-teal-500 text-white shadow-emerald-200" : "border-slate-200 bg-white/90 text-slate-700 hover:bg-emerald-50 hover:text-emerald-700"}`}
                       >
                         <User className="h-5 w-5" />
-                        {pendingActivationRows.length > 0 && (<span className="absolute -left-0.5 -top-0.5 h-2.5 w-2.5 rounded-full bg-emerald-500 ring-2 ring-white" />)}
+                        {shouldShowDockBadge("students") && (<span className="absolute -left-0.5 -top-0.5 h-2.5 w-2.5 rounded-full bg-emerald-500 ring-2 ring-white" />)}
                       </button>
                       <button
                         title="بنك الأسئلة والاختبارات والمشاريع"
                         aria-label="بنك الأسئلة والاختبارات والمشاريع"
-                        onClick={() => { setDockQuickMenu(null); openTeacherTab("questions"); }}
+                        onClick={() => openTeacherDockTab("questions")}
                         className={`relative inline-flex h-12 w-12 items-center justify-center rounded-[1.2rem] border shadow-sm transition-all hover:-translate-y-0.5 ${teacherTab === "questions" ? "border-violet-200 bg-gradient-to-br from-violet-600 to-indigo-600 text-white shadow-violet-200" : "border-slate-200 bg-white/90 text-slate-700 hover:bg-violet-50 hover:text-violet-700"}`}
                       >
                         <Layers className="h-5 w-5" />
-                        {examDayExams.length > 0 && (<span className="absolute -left-0.5 -top-0.5 h-2.5 w-2.5 rounded-full bg-violet-500 ring-2 ring-white" />)}
+                        {shouldShowDockBadge("questions") && (<span className="absolute -left-0.5 -top-0.5 h-2.5 w-2.5 rounded-full bg-violet-500 ring-2 ring-white" />)}
                       </button>
                       <button
                         title="تسليمات الاختبارات والمشاريع"
                         aria-label="تسليمات الاختبارات والمشاريع"
-                        onClick={() => { setDockQuickMenu(null); openTeacherTab("submissions"); }}
+                        onClick={() => openTeacherDockTab("submissions")}
                         className={`relative inline-flex h-12 w-12 items-center justify-center rounded-[1.2rem] border shadow-sm transition-all hover:-translate-y-0.5 ${teacherTab === "submissions" ? "border-blue-200 bg-gradient-to-br from-blue-600 to-indigo-600 text-white shadow-blue-200" : "border-slate-200 bg-white/90 text-slate-700 hover:bg-blue-50 hover:text-blue-700"}`}
                       >
                         <Award className="h-5 w-5" />
@@ -30601,15 +30631,15 @@ ${rows
                                                 ids.includes(String(item || "").trim().toLowerCase()),
                                               );
                                             });
-                                            const canSetCameraException = visibleCameraExams.length > 0 && cfg.enabled;
+                                            const canSetCameraException = pulseExamFilter !== "all" && visibleCameraExams.length > 0 && cfg.enabled;
                                             return (
                                               <button
                                                 type="button"
-                                                title={isExempt ? "استثناء كاميرا مفعل" : canSetCameraException ? "استثناء كاميرا" : "اختر اختباراً بالكاميرا"}
+                                                title={isExempt ? "استثناء مفعل" : canSetCameraException ? "بدون كاميرا" : "اختر الاختبار"}
                                                 aria-label={isExempt ? "استثناء كاميرا مفعل" : "استثناء كاميرا"}
                                                 onClick={(event) => {
                                                   event.stopPropagation();
-                                                  if (!isExempt) void addCameraExceptionForLivePulseStudent(row);
+                                                  if (canSetCameraException && !isExempt) void addCameraExceptionForLivePulseStudent(row);
                                                 }}
                                                 className={`mt-1.5 inline-flex h-7 w-7 items-center justify-center rounded-xl border text-[11px] transition ${
                                                   isExempt
@@ -31220,32 +31250,34 @@ ${rows
                             dir="rtl"
                             onClick={(e) => e.stopPropagation()}
                           >
-                            <div className="miras-student-solution-toolbar sticky top-0 z-30 -mx-1 mb-3 shrink-0 rounded-[1.45rem] border border-indigo-100/70 bg-white/96 p-2.5 shadow-[0_14px_34px_rgba(15,23,42,0.08)] backdrop-blur-xl">
-                              <div className="flex items-center justify-between gap-2">
-                                <div className="flex min-w-0 flex-1 items-center gap-2 text-right">
-                                  <div className="min-w-0 flex-1">
-                                    <p className="text-[10px] font-bold text-slate-400">حل الطالب</p>
-                                    <h3 className="truncate text-sm font-black text-slate-900 sm:text-base">
-                                      {selectedSubmissionDetail.studentName || "طالب"}
-                                    </h3>
-                                    <p className="mt-0.5 truncate font-mono text-[10px] font-semibold text-slate-400">
-                                      {selectedSubmissionDetail.studentId || "—"}
-                                      {detailActivitySubmissions.length > 1 && (
-                                        <span className="mr-1 font-sans text-slate-400">
-                                          • {selectedSubmissionDetailIndex + 1} / {detailActivitySubmissions.length}
-                                        </span>
-                                      )}
-                                    </p>
+                            <div className="miras-student-solution-toolbar sticky top-0 z-40 -mx-1 mb-3 shrink-0 rounded-[1.35rem] border border-indigo-100/70 bg-white/98 p-2.5 shadow-[0_14px_34px_rgba(15,23,42,0.08)] backdrop-blur-xl">
+                              <div className="grid grid-cols-[auto_1fr_auto] items-center gap-2">
+                                <button
+                                  type="button"
+                                  onClick={closeSubmissionDetail}
+                                  className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-slate-50 text-slate-500 transition hover:bg-rose-50 hover:text-rose-700"
+                                  title="إغلاق"
+                                  aria-label="إغلاق"
+                                >
+                                  <X className="h-4 w-4" />
+                                </button>
+                                <div className="min-w-0 rounded-2xl bg-gradient-to-l from-indigo-600 to-blue-600 px-3 py-2 text-right text-white shadow-sm">
+                                  <div className="truncate text-[12px] font-black">
+                                    {selectedSubmissionDetail.studentName || "طالب"}
+                                  </div>
+                                  <div className="mt-0.5 flex items-center justify-between gap-2 text-[10px] font-bold text-indigo-100">
+                                    <span className="truncate font-mono">{selectedSubmissionDetail.studentId || "—"}</span>
+                                    <span className="shrink-0">{selectedSubmissionDetailIndex + 1}/{detailActivitySubmissions.length || 1}</span>
                                   </div>
                                 </div>
-                                <div className="flex shrink-0 items-center gap-1.5">
+                                <div className="flex shrink-0 items-center gap-1">
                                   <button
                                     type="button"
                                     onClick={() => openAdjacentSubmissionDetail(1)}
                                     disabled={detailActivitySubmissions.length < 2}
-                                    className="inline-flex h-9 w-9 items-center justify-center rounded-2xl border border-slate-200 bg-white text-slate-700 shadow-sm transition hover:border-indigo-200 hover:bg-indigo-50 hover:text-indigo-700 disabled:cursor-not-allowed disabled:opacity-35"
-                                    title="الطالب السابق"
-                                    aria-label="الطالب السابق"
+                                    className="inline-flex h-10 w-10 items-center justify-center rounded-2xl border border-slate-200 bg-white text-slate-700 shadow-sm transition hover:border-indigo-200 hover:bg-indigo-50 hover:text-indigo-700 disabled:cursor-not-allowed disabled:opacity-35"
+                                    title="السابق"
+                                    aria-label="السابق"
                                   >
                                     <ChevronRight className="h-4 w-4" />
                                   </button>
@@ -31253,62 +31285,21 @@ ${rows
                                     type="button"
                                     onClick={() => openAdjacentSubmissionDetail(-1)}
                                     disabled={detailActivitySubmissions.length < 2}
-                                    className="inline-flex h-9 w-9 items-center justify-center rounded-2xl border border-slate-200 bg-white text-slate-700 shadow-sm transition hover:border-indigo-200 hover:bg-indigo-50 hover:text-indigo-700 disabled:cursor-not-allowed disabled:opacity-35"
-                                    title="الطالب التالي"
-                                    aria-label="الطالب التالي"
+                                    className="inline-flex h-10 w-10 items-center justify-center rounded-2xl border border-slate-200 bg-white text-slate-700 shadow-sm transition hover:border-indigo-200 hover:bg-indigo-50 hover:text-indigo-700 disabled:cursor-not-allowed disabled:opacity-35"
+                                    title="التالي"
+                                    aria-label="التالي"
                                   >
                                     <ChevronLeft className="h-4 w-4" />
                                   </button>
-                                  <button
-                                    type="button"
-                                    onClick={closeSubmissionDetail}
-                                    className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-2xl bg-slate-50 text-slate-500 transition hover:bg-rose-50 hover:text-rose-700"
-                                    title="إغلاق"
-                                    aria-label="إغلاق"
-                                  >
-                                    <X className="h-4 w-4" />
-                                  </button>
                                 </div>
                               </div>
-
-                              <div className="mt-2 grid grid-cols-[auto_1fr_auto] items-center gap-2 rounded-[1.25rem] border border-slate-100 bg-slate-50/70 p-2">
-                                <button
-                                  type="button"
-                                  onClick={() => openAdjacentSubmissionDetail(1)}
-                                  disabled={detailActivitySubmissions.length < 2}
-                                  className="inline-flex h-9 w-9 items-center justify-center rounded-2xl bg-white text-slate-700 shadow-sm disabled:opacity-35"
-                                  title="السابق"
-                                  aria-label="السابق"
-                                >
-                                  <ChevronRight className="h-4 w-4" />
-                                </button>
-                                <div className="min-w-0 text-center">
-                                  <span className="block truncate text-[10px] font-black text-indigo-600">بحث وتنقل</span>
-                                  <span className="block truncate text-[9px] font-bold text-slate-400">{selectedSubmissionDetailIndex + 1} / {detailActivitySubmissions.length || 1}</span>
-                                </div>
-                                <button
-                                  type="button"
-                                  onClick={() => openAdjacentSubmissionDetail(-1)}
-                                  disabled={detailActivitySubmissions.length < 2}
-                                  className="inline-flex h-9 w-9 items-center justify-center rounded-2xl bg-white text-slate-700 shadow-sm disabled:opacity-35"
-                                  title="التالي"
-                                  aria-label="التالي"
-                                >
-                                  <ChevronLeft className="h-4 w-4" />
-                                </button>
-                              </div>
-
                               <div className="mt-2">
                                 <div className="relative">
                                   <Search className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
                                   <input
                                     value={submissionDetailStudentSearch}
-                                    onChange={(e) =>
-                                      setSubmissionDetailStudentSearch(
-                                        e.target.value,
-                                      )
-                                    }
-                                    placeholder="بحث سريع عن طالب..."
+                                    onChange={(e) => setSubmissionDetailStudentSearch(e.target.value)}
+                                    placeholder="ابحث عن طالب"
                                     inputMode="search"
                                     className="h-10 w-full rounded-2xl border border-slate-200 bg-white pr-10 pl-3 text-right text-[11px] font-bold text-slate-700 outline-none transition placeholder:text-slate-400 focus:border-indigo-300 focus:ring-2 focus:ring-indigo-100"
                                   />
@@ -31316,10 +31307,7 @@ ${rows
                                 {submissionDetailStudentSearch.trim() && (
                                   <div className="mt-2 flex max-h-28 gap-1.5 overflow-x-auto overflow-y-auto pr-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
                                     {detailStudentRows.map((row: any) => {
-                                      const isActive =
-                                        row.submission &&
-                                        String(row.submission.id) ===
-                                          String(selectedSubmissionDetail.id);
+                                      const isActive = row.submission && String(row.submission.id) === String(selectedSubmissionDetail.id);
                                       return (
                                         <button
                                           key={row.key}
@@ -31327,9 +31315,7 @@ ${rows
                                           onClick={() => {
                                             if (!row.submission) return;
                                             setSubmissionDetailStudentSearch("");
-                                            setSelectedSubmissionDetail(
-                                              row.submission,
-                                            );
+                                            setSelectedSubmissionDetail(row.submission);
                                             resetSubmissionDetailViewport();
                                           }}
                                           disabled={!row.submission}
@@ -31340,34 +31326,15 @@ ${rows
                                                 ? "border-slate-200 bg-white/90 text-slate-700 hover:border-indigo-200 hover:bg-indigo-50 hover:text-indigo-700"
                                                 : "cursor-not-allowed border-slate-100 bg-white/50 text-slate-300"
                                           }`}
-                                          title={
-                                            row.submission
-                                              ? "فتح تسليم الطالب"
-                                              : "لا يوجد تسليم لهذا النشاط"
-                                          }
+                                          title={row.submission ? "فتح" : "لا يوجد تسليم"}
                                         >
-                                          <span
-                                            className="block truncate text-[9.5px] font-bold text-right leading-tight"
-                                            title={row.studentName || "طالب"}
-                                          >
-                                            {row.studentName || "طالب"}
-                                          </span>
-                                          <span
-                                            className={`mt-0.5 block font-mono text-[8.5px] ${
-                                              isActive
-                                                ? "text-indigo-100"
-                                                : "text-slate-400"
-                                            }`}
-                                          >
-                                            {row.studentId || "—"}
-                                          </span>
+                                          <span className="block truncate text-[9.5px] font-bold text-right leading-tight" title={row.studentName || "طالب"}>{row.studentName || "طالب"}</span>
+                                          <span className={`mt-0.5 block font-mono text-[8.5px] ${isActive ? "text-indigo-100" : "text-slate-400"}`}>{row.studentId || "—"}</span>
                                         </button>
                                       );
                                     })}
                                     {detailStudentRows.length === 0 && (
-                                      <span className="rounded-2xl bg-white px-3 py-2 text-[10px] font-bold text-slate-400">
-                                        لا توجد نتيجة مطابقة
-                                      </span>
+                                      <span className="rounded-2xl bg-white px-3 py-2 text-[10px] font-bold text-slate-400">لا نتيجة</span>
                                     )}
                                   </div>
                                 )}
