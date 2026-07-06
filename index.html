@@ -1,0 +1,91 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+  <head>
+    <meta name="theme-color" content="#4f46e5" />
+    <meta name="color-scheme" content="light" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-title" content="مِراس" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <meta name="application-name" content="مِراس" />
+    <meta name="format-detection" content="telephone=no" />
+    <link rel="manifest" href="/manifest.webmanifest" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon-v7.png" />
+    <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png" />
+    <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16.png" />
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+    <title>مِراس</title>
+    <script type="module" src="/src/main.tsx"></script>
+  </head>
+  <body>
+    <div id="root"></div>
+
+    <!-- شبكة إنقاذ SEB: عنصر HTML/CSS/JS عادي بدون React. يظهر فقط داخل جلسة
+         Safe Exam Browser إذا لم تظهر الواجهة خلال ٨ ثوانٍ أو حدث خطأ يمنع
+         التحميل، ليبقى للطالب مخرج آمن دائم ولا تتحول الشاشة لبياض بلا حل. -->
+    <div
+      id="miras-seb-rescue"
+      style="display:none;position:fixed;inset:0;z-index:2147483647;background:#020617;color:#fff;font-family:system-ui,-apple-system,'Segoe UI',Tajawal,sans-serif;direction:rtl;text-align:center;padding:20px;box-sizing:border-box;overflow:auto;-webkit-overflow-scrolling:touch;"
+    >
+      <div style="max-width:440px;margin:8vh auto 0;padding:26px;border:1px solid rgba(255,255,255,.14);border-radius:24px;background:rgba(255,255,255,.06);box-sizing:border-box;">
+        <div style="width:60px;height:60px;border-radius:18px;display:grid;place-items:center;margin:0 auto 14px;background:rgba(99,102,241,.18);color:#bfdbfe;font-size:28px;">⏳</div>
+        <h1 style="font-size:19px;margin:0 0 10px;font-weight:900;">تأخر تحميل صفحة الاختبار</h1>
+        <p style="color:#cbd5e1;font-size:13px;line-height:2;margin:0 0 16px;">
+          لم تظهر الواجهة بعد. يمكنك إعادة تحميل الصفحة، أو الخروج الآمن من Safe Exam Browser وإبلاغ المراقب.
+        </p>
+        <button id="miras-seb-rescue-reload" type="button" style="display:block;width:100%;box-sizing:border-box;border:0;border-radius:16px;padding:14px;background:#2563eb;color:#fff;font-weight:900;font-size:14px;margin-bottom:10px;cursor:pointer;">إعادة تحميل الصفحة</button>
+        <a id="miras-seb-rescue-exit" href="/seb/quit" style="display:block;width:100%;box-sizing:border-box;border:0;border-radius:16px;padding:14px;background:#dc2626;color:#fff;font-weight:900;font-size:14px;text-decoration:none;margin-bottom:10px;">الخروج الآمن من Safe Exam Browser</a>
+        <button id="miras-seb-rescue-dismiss" type="button" style="display:block;width:100%;box-sizing:border-box;border:1px solid rgba(255,255,255,.18);border-radius:16px;padding:12px;background:transparent;color:#cbd5e1;font-weight:800;font-size:12px;cursor:pointer;">إغلاق هذه الرسالة والمتابعة</button>
+        <p style="color:#94a3b8;font-size:12px;margin-top:14px;line-height:1.8;">إذا طلب البرنامج كلمة الخروج، استخدم: <b style="color:#fff;">CBE</b></p>
+      </div>
+    </div>
+    <script>
+      (function () {
+        try {
+          var qs = new URLSearchParams(window.location.search);
+          var ua = navigator.userAgent || "";
+          var isSeb =
+            /SafeExamBrowser|SEB/i.test(ua) ||
+            qs.get("seb") === "1" ||
+            qs.get("miras_seb") === "1" ||
+            !!qs.get("seb_token") ||
+            !!qs.get("seb_pass");
+          if (!isSeb) return;
+
+          var token = qs.get("seb_token") || qs.get("seb_pass") || qs.get("token") || "";
+          var exitLink = document.getElementById("miras-seb-rescue-exit");
+          if (exitLink) {
+            exitLink.href = token ? "/seb/quit?token=" + encodeURIComponent(token) : "/seb/quit";
+          }
+
+          var box = document.getElementById("miras-seb-rescue");
+          function showRescue() {
+            if (box) box.style.display = "block";
+          }
+          function hideRescue() {
+            if (box) box.style.display = "none";
+          }
+
+          var reloadBtn = document.getElementById("miras-seb-rescue-reload");
+          if (reloadBtn) reloadBtn.addEventListener("click", function () { window.location.reload(); });
+          var dismissBtn = document.getElementById("miras-seb-rescue-dismiss");
+          if (dismissBtn) dismissBtn.addEventListener("click", hideRescue);
+
+          // مهلة الإنقاذ: إذا لم تُحمَّل الواجهة فعلياً (لا React mount ولا أي
+          // عنصر داخل #root) خلال ٨ ثوانٍ، أظهر شاشة الإنقاذ.
+          setTimeout(function () {
+            var root = document.getElementById("root");
+            if (!window.__mirasAppMounted && (!root || !root.firstChild)) showRescue();
+          }, 8000);
+
+          // أي خطأ جافاسكربت قاتل أو وعد مرفوض غير معالج داخل SEB يُظهر شاشة
+          // الإنقاذ فوراً بدل ترك الشاشة بيضاء بلا أي مخرج.
+          window.addEventListener("error", showRescue);
+          window.addEventListener("unhandledrejection", showRescue);
+        } catch (e) {}
+      })();
+    </script>
+
+  </body>
+</html>

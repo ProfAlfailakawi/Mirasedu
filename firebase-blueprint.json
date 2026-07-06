@@ -1,0 +1,94 @@
+{
+  "entities": {
+    "AllowedStudent": {
+      "title": "Allowed Student",
+      "description": "Pre-approved university IDs by course professor",
+      "type": "object",
+      "properties": {
+        "idNumber": { "type": "string" },
+        "name": { "type": "string" },
+        "sectionCode": { "type": "string" }
+      },
+      "required": ["idNumber", "name", "sectionCode"]
+    },
+    "Student": {
+      "title": "Student Profile",
+      "description": "Adaptive path student account with device dynamic locks",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "email": { "type": "string" },
+        "sectionCode": { "type": "string" },
+        "semester": { "type": "string" },
+        "passwordHash": { "type": "string" },
+        "isPaid": { "type": "boolean" },
+        "isActivated": { "type": "boolean" },
+        "activationCode": { "type": "string" },
+        "devices": { "type": "array" },
+        "pathwayCode": { "type": "string" },
+        "progress": { "type": "integer" },
+        "score": { "type": "integer" },
+        "strengths": { "type": "array" },
+        "weaknesses": { "type": "array" },
+        "recommendations": { "type": "array" },
+        "signupDate": { "type": "string" },
+        "lastLoginDate": { "type": "string" }
+      },
+      "required": ["id", "name", "email", "sectionCode", "passwordHash", "isPaid", "isActivated"]
+    },
+    "JoinCode": {
+      "title": "Join Code",
+      "description": "One-time use activation codes found in textbook copies",
+      "type": "object",
+      "properties": {
+        "code": { "type": "string" },
+        "semester": { "type": "string" },
+        "sectionCode": { "type": "string" },
+        "status": { "type": "string" },
+        "studentId": { "type": "string" },
+        "studentName": { "type": "string" },
+        "activatedAt": { "type": "string" }
+      },
+      "required": ["code", "semester", "sectionCode", "status"]
+    },
+    "SystemBackup": {
+      "title": "System Backup",
+      "description": "System state backup and restore data block used by full-stack backend",
+      "type": "object",
+      "properties": {
+        "students": { "type": "array" },
+        "sections": { "type": "array" },
+        "chapters": { "type": "array" },
+        "questionBank": { "type": "array" },
+        "exercises": { "type": "array" },
+        "exerciseSubmissions": { "type": "array" },
+        "personalizedProjects": { "type": "array" },
+        "quizSubmissions": { "type": "array" },
+        "activityLogs": { "type": "array" },
+        "allowedStudents": { "type": "array" },
+        "otps": { "type": "array" },
+        "joinCodes": { "type": "array" },
+        "bookMetadata": { "type": "object" }
+      }
+    }
+  },
+  "firestore": {
+    "/allowedStudents/{studentId}": {
+      "schema": "AllowedStudent",
+      "description": "Allowed accounts for professor section rosters"
+    },
+    "/students/{studentId}": {
+      "schema": "Student",
+      "description": "Registered academic profiles"
+    },
+    "/joinCodes/{code}": {
+      "schema": "JoinCode",
+      "description": "Textbook activation codes"
+    },
+    "/system/database": {
+      "schema": "SystemBackup",
+      "description": "Full serialized local database snapshot synchronized to cloud"
+    }
+  }
+}

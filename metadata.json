@@ -1,0 +1,10 @@
+{
+  "name": "مِراس",
+  "description": "منصة تعليمية مخصصة لمقرر جامعي تقدم تجربة تعلم تطبيقية شخصية وفريدة لكل طالب، مع مولد مشاريع ذكي، واختبارات متغيرة، ونظام حماية لمنع مشاركة الحسابات.",
+  "requestFramePermissions": [
+    "camera"
+  ],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}
