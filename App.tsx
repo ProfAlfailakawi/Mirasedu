@@ -3364,6 +3364,14 @@ export default function App() {
       isOfficeConvertible && !baseUrl.startsWith("data:")
         ? `${baseUrl}${baseUrl.includes("?") ? "&" : "?"}as=pdf`
         : baseUrl;
+    // أسرع مسار: للملفات المخزنة على نفس الخادم نمرر الرابط مباشرة إلى PDF.js.
+    // هذا يلغي جلب blob كامل من React قبل العرض، ويرجع إحساس الفتح الصاروخي خصوصاً للـ PowerPoint.
+    if (!url.startsWith("data:")) {
+      setPdfViewerSrc(
+        `/pdfjs/web/viewer.html?file=${encodeURIComponent(url)}#zoom=page-width`,
+      );
+      return;
+    }
     const previewCacheKey = `${attachmentLoadKey(previewAttachment) || name}:${isOfficeConvertible ? "pdf" : ext}:${url.startsWith("data:") ? String(url.length) : url}`;
     const cachedBlobUrl = previewBlobUrlCacheRef.current[previewCacheKey];
     if (cachedBlobUrl) {
@@ -21003,7 +21011,7 @@ ${rows
     activeCourseCode,
   ]);
 
-  const addCameraExceptionForLivePulseStudent = async (row: any) => {
+  const toggleCameraExceptionForLivePulseStudent = async (row: any) => {
     const st = row?.st || row || {};
     const rowExamId = String(
       row?.submission?.activityId ||
@@ -21015,13 +21023,16 @@ ${rows
     const explicitExam = byId(rowExamId);
     const selectedExam = pulseExamFilter !== "all" ? byId(pulseExamFilter) : null;
     const enabledDayCameraExams = examDayExams.filter((exam: any) => mirasExamUsesCamera(exam));
+    const enabledCourseCameraExams = activeCourseExams.filter((exam: any) => mirasExamUsesCamera(exam));
     const candidateExams = (explicitExam
       ? [explicitExam]
       : selectedExam
         ? [selectedExam]
-        : enabledDayCameraExams.length === 1
+        : enabledDayCameraExams.length > 0
           ? enabledDayCameraExams
-          : []
+          : enabledCourseCameraExams.length > 0
+            ? enabledCourseCameraExams
+            : []
     ).filter((exam: any) => mirasExamUsesCamera(exam));
     if (!candidateExams.length) {
       return;
@@ -21037,16 +21048,25 @@ ${rows
       .filter(Boolean);
     const token = tokens[0] || String(row?.studentIdStr || "").trim();
     if (!token) {
-      setErrorMsg("لم أجد رقم الطالب لإضافة استثناء الكاميرا.");
+      setErrorMsg("لم أجد رقم الطالب لتحديث استثناء الكاميرا.");
       return;
     }
+    let isRemoved = false;
     const updatedExams = candidateExams.map((targetExam: any) => {
       const currentConfig = normalizeLocalVisionConfig(targetExam);
       const current = currentConfig.cameraExceptions || [];
       const exists = current.some(
         (item: string) => String(item || "").trim().toLowerCase() === token.toLowerCase(),
       );
-      const nextExceptions = exists ? current : [...current, token];
+      let nextExceptions: string[];
+      if (exists) {
+        nextExceptions = current.filter(
+          (item: string) => String(item || "").trim().toLowerCase() !== token.toLowerCase()
+        );
+        isRemoved = true;
+      } else {
+        nextExceptions = [...current, token];
+      }
       return {
         ...targetExam,
         antiCheat: {
@@ -21067,7 +21087,6 @@ ${rows
         silentCameraExceptionUpdate: true,
       };
     });
-    const changedIds = new Set(updatedExams.map((exam: any) => String(exam.id || "")));
     setTeacherCreatedExams((prev) =>
       prev.map((exam: any) => {
         const replacement = updatedExams.find((item: any) => String(item.id || "") === String(exam.id || ""));
@@ -21086,10 +21105,10 @@ ${rows
           }),
         ),
       );
-      setSuccessMsg("تم السماح");
+      setSuccessMsg(isRemoved ? "تم إلغاء الاستثناء للكاميرا" : "تم السماح بدون كاميرا");
       window.setTimeout(() => void fetchTeacherExams(activeTeacherEmail()), 80);
     } catch {
-      setErrorMsg("تعذر السماح");
+      setErrorMsg("تعذر تحديث استثناء الكاميرا");
       await fetchTeacherExams(activeTeacherEmail()).catch(() => {});
     }
   };
@@ -30673,13 +30692,17 @@ ${rows
                                             const byId = (id: any) => examPools.find((exam: any) => String(exam.id || "") === String(id || ""));
                                             const selectedExam = pulseExamFilter !== "all" ? byId(pulseExamFilter) : null;
                                             const rowExam = rowExamId ? byId(rowExamId) : null;
+                                            const enabledDayCameraExams = examDayExams.filter((exam: any) => mirasExamUsesCamera(exam));
+                                            const enabledCourseCameraExams = activeCourseExams.filter((exam: any) => mirasExamUsesCamera(exam));
                                             const visibleCameraExams = (selectedExam
                                               ? [selectedExam]
                                               : rowExam
                                                 ? [rowExam]
-                                                : examDayExams.filter((exam: any) => mirasExamUsesCamera(exam)).length === 1
-                                                  ? examDayExams.filter((exam: any) => mirasExamUsesCamera(exam))
-                                                  : []
+                                                : enabledDayCameraExams.length > 0
+                                                  ? enabledDayCameraExams
+                                                  : enabledCourseCameraExams.length > 0
+                                                    ? enabledCourseCameraExams
+                                                    : []
                                             ).filter((exam: any) => mirasExamUsesCamera(exam));
                                             const cfg = normalizeLocalVisionConfig(visibleCameraExams[0]);
                                             const ids = [
@@ -30703,13 +30726,12 @@ ${rows
                                             return (
                                               <button
                                                 type="button"
-                                                title={isExempt ? "مسموح" : "بدون كاميرا"}
+                                                title={isExempt ? "مسموح (اضغط للإلغاء)" : "بدون كاميرا (اضغط للسماح)"}
                                                 aria-label={isExempt ? "استثناء كاميرا مفعل" : "السماح بدون كاميرا"}
-                                                
                                                 onClick={(event) => {
                                                   event.preventDefault();
                                                   event.stopPropagation();
-                                                  if (!isExempt) void addCameraExceptionForLivePulseStudent(row);
+                                                  void toggleCameraExceptionForLivePulseStudent(row);
                                                 }}
                                                 className={`relative z-20 mt-1 inline-flex h-7 w-7 pointer-events-auto items-center justify-center rounded-lg border text-[10px] transition ${
                                                   isExempt
