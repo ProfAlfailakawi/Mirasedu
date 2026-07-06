@@ -476,17 +476,17 @@ const extractApiErrorReason = (
   )
     return "تعذر تحميل المرفق من الخادم.";
   if (/timeout|ETIMEDOUT|وقتًا طويلًا|استغرق/i.test(combined))
-    return "استغرق الطلب وقتًا طويلًا. حاول مرة أخرى.";
+    return "الطلب تأخر";
   if (
     /Failed to fetch|NetworkError|Load failed|fetch failed|network|CORS|تعذر الاتصال|الاتصال بالخادم|عطل في الاتصال/i.test(
       combined,
     )
   ) {
     if (isUploadContext)
-      return "تعذر رفع الملف. تأكد من الإنترنت ثم حاول مرة أخرى.";
+      return "تعذر رفع الملف";
     if (isProjectSubmitContext)
-      return "تعذر حفظ التسليم. لم يصل العمل للأستاذ، حاول مرة أخرى.";
-    return "تعذر الاتصال بالخادم. تأكد من الإنترنت ثم حاول مرة أخرى.";
+      return "تعذر حفظ التسليم";
+    return "تعذر الاتصال";
   }
 
   const genericText =
@@ -494,15 +494,15 @@ const extractApiErrorReason = (
   if (rawMessage && !genericText.test(rawMessage)) return rawMessage;
 
   if (status === 400) return "البيانات المدخلة غير صحيحة.";
-  if (status === 401) return "انتهت الجلسة، سجّل الدخول مرة أخرى.";
-  if (status === 403) return "لا تملك صلاحية تنفيذ هذا الإجراء.";
-  if (status === 404) return "العنصر المطلوب غير موجود.";
-  if (status === 409) return "لا يمكن تنفيذ الإجراء بسبب تعارض في البيانات.";
-  if (status === 422) return "توجد بيانات ناقصة أو غير صحيحة.";
+  if (status === 401) return "انتهت الجلسة";
+  if (status === 403) return "لا تملك صلاحية";
+  if (status === 404) return "غير موجود";
+  if (status === 409) return "تعارض في البيانات";
+  if (status === 422) return "أكمل البيانات";
   if (status >= 500) {
     if (isUploadContext) return "تعذر رفع الملف. حاول مرة أخرى.";
     if (isProjectSubmitContext) return "تعذر حفظ التسليم. حاول مرة أخرى.";
-    return "واجه الخادم مشكلة أثناء معالجة الطلب.";
+    return "تعذر التنفيذ";
   }
 
   return `تعذّر ${context}. حاول مرة أخرى بعد قليل.`;
@@ -527,11 +527,11 @@ const simplifyStudentMessage = (
       "تم تسليم المشروع",
     )
   )
-    return "تم تسليم المشروع بنجاح";
+    return "تم تسليم المشروع";
   if (any("تعذر حفظ التسليم"))
-    return "تعذر حفظ التسليم. لم يصل العمل للأستاذ، حاول مرة أخرى.";
-  if (has("المشروع", "تعذر")) return "تعذر تسليم المشروع. حاول مرة أخرى.";
-  if (has("المشروع", "خطأ")) return "تعذر تسليم المشروع. حاول مرة أخرى.";
+    return "تعذر حفظ التسليم";
+  if (has("المشروع", "تعذر")) return "تعذر تسليم المشروع";
+  if (has("المشروع", "خطأ")) return "تعذر تسليم المشروع";
   if (any("تم تشغيل محرك التخصيص", "توليد مسودة مشروعك"))
     return "تم تجهيز المشروع";
   if (any("محرك التوليد", "فشل توليد")) return "تعذر تجهيز المشروع";
@@ -603,9 +603,9 @@ const simplifyStudentMessage = (
   if (any("تعذر إلغاء ثقة الجهاز")) return "تعذر إلغاء الجهاز";
 
   if (any("تم تغيير كلمة المرور")) return "تم تغيير كلمة المرور";
-  if (any("اكتب كلمة مرور جديدة")) return "اكتب كلمة مرور جديدة";
+  if (any("اكتب كلمة مرور جديدة")) return "اكتب كلمة المرور";
   if (any("كلمة المرور وتأكيدها غير متطابقين"))
-    return "كلمتا المرور غير متطابقتين";
+    return "كلمة المرور غير متطابقة";
   if (any("رابط إعادة التعيين غير صالح")) return "الرابط غير صالح";
   if (any("نسيت كلمة المرور")) return "اكتب الرقم الجامعي";
   if (any("تم تسجيل طلب الاسترجاع")) return "تم إرسال الطلب";
@@ -621,7 +621,7 @@ const simplifyStudentMessage = (
       : "حجم الملف كبير. الحد الأقصى المسموح 25 ميجابايت.";
   if (any("الحد الأقصى لعدد الملفات")) return "الحد الأقصى 10 ملفات";
   if (any("تعذر رفع الملف", "فشل رفع الملف", "تعثر رفع الملف"))
-    return "تعذر رفع الملف. تأكد من الإنترنت ثم حاول مرة أخرى.";
+    return "تعذر رفع الملف";
   if (any("ملف Excel فارغ")) return "الملف فارغ";
   if (any("تعذر قراءة ملف Excel", "تعذر قراءة الملف"))
     return "تعذر قراءة الملف";
@@ -664,7 +664,7 @@ const simplifyStudentMessage = (
       "لا يمكن نقل نفس كود التفعيل",
     )
   ) {
-    return "هذا الحساب يعمل على الجهاز الأصلي فقط. افتحه من جهاز التفعيل أو راجع أستاذ المقرر.";
+    return "استخدم جهاز التفعيل";
   }
 
   if (
@@ -711,7 +711,7 @@ const simplifyStudentMessage = (
     if (any("السماح", "إذن", "رفض", "permission", "NotAllowed"))
       return "اسمح للكاميرا ثم أعد المحاولة";
     if (any("غير مدعومة", "غير متاحة", "unsupported", "NotFound"))
-      return "الكاميرا غير متاحة، اكتب الكود يدويًا";
+      return "اكتب الكود يدويًا";
     return "تعذر تشغيل الكاميرا";
   }
 
@@ -724,7 +724,7 @@ const simplifyStudentMessage = (
       "تعذر الاتصال",
     )
   )
-    return "تعذر الاتصال. تأكد من الإنترنت ثم حاول مرة أخرى.";
+    return "تعذر الاتصال";
   if (any("عطل", "خطأ ميكانيكي", "خطأ مستودع"))
     return extractApiErrorReason(text, "تنفيذ الإجراء");
   if (
@@ -3258,25 +3258,9 @@ export default function App() {
   const previewBlobUrlCacheRef = useRef<Record<string, string>>({});
   const submissionAttachmentWarmupRef = useRef<Record<string, boolean>>({});
   useEffect(() => {
-    if (!selectedSubmissionDetail?.attachments?.length) return;
-    const warmable = (selectedSubmissionDetail.attachments || []).slice(0, 3);
-    warmable.forEach((att: any) => {
-      const safe = normalizeSubmissionAttachmentForSave(att) || att || {};
-      const name = mirasCleanAttachmentName(safe.originalName || safe.name, "مرفق");
-      const ext = name.slice(name.lastIndexOf(".")).toLowerCase();
-      const isOfficeConvertible = [".ppt", ".pptx", ".doc", ".rtf"].includes(ext);
-      const isPdf = ext === ".pdf" || String(safe.mimeType || "") === "application/pdf";
-      if (!isOfficeConvertible && !isPdf) return;
-      const baseUrl = attachmentDisplayUrl(safe);
-      if (!baseUrl || baseUrl.startsWith("data:")) return;
-      const warmUrl = isOfficeConvertible ? `${baseUrl}${baseUrl.includes("?") ? "&" : "?"}as=pdf` : baseUrl;
-      const key = `${attachmentLoadKey(safe) || name}:${warmUrl}`;
-      if (submissionAttachmentWarmupRef.current[key]) return;
-      submissionAttachmentWarmupRef.current[key] = true;
-      window.setTimeout(() => {
-        fetch(warmUrl, { headers: jsonHeaders() }).catch(() => {});
-      }, 80);
-    });
+    // لا نُسخّن أو نحوّل المرفقات تلقائياً عند فتح حل الطالب.
+    // سرعة ظهور الملف أهم: نبدأ التحميل فقط عند ضغط المعاينة كما كان سابقاً.
+    return;
   }, [selectedSubmissionDetail]);
   useEffect(() => {
     setPdfViewerSrc("");
@@ -7908,31 +7892,16 @@ export default function App() {
                     }}
                   />
                 ) : isPdf ? (
-                  <div className="flex h-28 items-center justify-center bg-gradient-to-br from-rose-50 to-white px-4">
-                    <div className="w-full max-w-[8rem] space-y-1.5 rounded-xl border border-rose-100 bg-white p-3 shadow-sm">
-                      <span className="block h-2 rounded-full bg-rose-100" />
-                      <span className="block h-2 w-4/5 rounded-full bg-slate-100" />
-                      <span className="block h-2 w-2/3 rounded-full bg-slate-100" />
-                      <span className="mt-2 block h-8 rounded-lg bg-slate-50" />
-                    </div>
+                  <div className="flex h-20 items-center justify-center bg-gradient-to-br from-rose-50 to-white">
+                    <FileText className="h-8 w-8 text-rose-500" />
                   </div>
                 ) : [".ppt", ".pptx"].includes(ext) ? (
-                  <div className="grid h-28 grid-cols-3 gap-2 bg-gradient-to-br from-amber-50 to-white p-3">
-                    {[0, 1, 2].map((n) => (
-                      <span key={n} className="rounded-xl border border-amber-100 bg-white p-1 shadow-sm">
-                        <i className="mb-1 block h-2 rounded-full bg-amber-100" />
-                        <i className="block h-14 rounded-lg bg-slate-50" />
-                      </span>
-                    ))}
+                  <div className="flex h-20 items-center justify-center bg-gradient-to-br from-amber-50 to-white">
+                    <Presentation className="h-8 w-8 text-amber-500" />
                   </div>
                 ) : [".doc", ".docx", ".rtf"].includes(ext) ? (
-                  <div className="flex h-28 items-center justify-center bg-gradient-to-br from-blue-50 to-white px-4">
-                    <div className="w-full max-w-[8rem] space-y-1.5 rounded-xl border border-blue-100 bg-white p-3 shadow-sm">
-                      <span className="block h-2 rounded-full bg-blue-100" />
-                      <span className="block h-2 rounded-full bg-slate-100" />
-                      <span className="block h-2 w-5/6 rounded-full bg-slate-100" />
-                      <span className="block h-2 w-2/3 rounded-full bg-slate-100" />
-                    </div>
+                  <div className="flex h-20 items-center justify-center bg-gradient-to-br from-blue-50 to-white">
+                    <FileText className="h-8 w-8 text-blue-500" />
                   </div>
                 ) : (
                   <div className="flex h-20 items-center justify-center bg-gradient-to-br from-slate-50 to-white">
@@ -21474,6 +21443,19 @@ ${rows
       dockLongPressTimerRef.current = null;
     }
   };
+  useEffect(() => {
+    setDockQuickMenu(null);
+  }, [teacherTab]);
+  useEffect(() => {
+    if (!dockQuickMenu || typeof document === "undefined") return;
+    const close = (event: PointerEvent) => {
+      const target = event.target as HTMLElement | null;
+      if (target?.closest?.(".miras-dock-quick-menu") || target?.closest?.(".miras-dock-codes-btn")) return;
+      setDockQuickMenu(null);
+    };
+    document.addEventListener("pointerdown", close, true);
+    return () => document.removeEventListener("pointerdown", close, true);
+  }, [dockQuickMenu]);
 
   const normalizeTeacherCommandText = (value: any) =>
     normalizeArabicDigits(value)
@@ -22256,7 +22238,7 @@ ${rows
   // ([[shouldShowStudentNotificationsButton]]). يُحافظ على نفس قواعد الإشعارات
   // و FCM؛ مجرد إخفاء زر فارغ.
   const shouldShowTeacherImportantNotificationsButton = useMemo(() => {
-    return !!teacherSession && criticalTeacherNotifications.length > 0;
+    return !!teacherSession;
   }, [teacherSession?.id, criticalTeacherNotifications.length]);
 
   const persistTeacherImportantReadKeys = (keys: Set<string>) => {
@@ -29619,7 +29601,7 @@ ${rows
                 <button
                   title="المقررات"
                   aria-label="المقررات"
-                  onClick={() => openTeacherTab("sections")}
+                  onClick={() => { setDockQuickMenu(null); openTeacherTab("sections"); }}
                   className={`inline-flex h-12 w-12 items-center justify-center rounded-[1.2rem] border shadow-sm transition-all hover:-translate-y-0.5 ${teacherTab === "sections" ? "border-indigo-200 bg-gradient-to-br from-indigo-600 to-blue-600 text-white shadow-indigo-200" : "border-slate-200 bg-white/90 text-slate-700 hover:bg-indigo-50 hover:text-indigo-700"}`}
                 >
                   <Compass className="h-5 w-5" />
@@ -29627,23 +29609,25 @@ ${rows
                 <button
                   title="الطلبة"
                   aria-label="الطلبة"
-                  onClick={() => openTeacherTab("students")}
-                  className={`inline-flex h-12 w-12 items-center justify-center rounded-[1.2rem] border shadow-sm transition-all hover:-translate-y-0.5 ${teacherTab === "students" ? "border-emerald-200 bg-gradient-to-br from-emerald-600 to-teal-500 text-white shadow-emerald-200" : "border-slate-200 bg-white/90 text-slate-700 hover:bg-emerald-50 hover:text-emerald-700"}`}
+                  onClick={() => { setDockQuickMenu(null); openTeacherTab("students"); }}
+                  className={`relative inline-flex h-12 w-12 items-center justify-center rounded-[1.2rem] border shadow-sm transition-all hover:-translate-y-0.5 ${teacherTab === "students" ? "border-emerald-200 bg-gradient-to-br from-emerald-600 to-teal-500 text-white shadow-emerald-200" : "border-slate-200 bg-white/90 text-slate-700 hover:bg-emerald-50 hover:text-emerald-700"}`}
                 >
                   <User className="h-5 w-5" />
+                  {pendingActivationRows.length > 0 && (<span className="absolute -left-0.5 -top-0.5 h-2.5 w-2.5 rounded-full bg-emerald-500 ring-2 ring-white" />)}
                 </button>
                 <button
                   title="بنك الأسئلة والاختبارات والمشاريع"
                   aria-label="بنك الأسئلة والاختبارات والمشاريع"
-                  onClick={() => openTeacherTab("questions")}
-                  className={`inline-flex h-12 w-12 items-center justify-center rounded-[1.2rem] border shadow-sm transition-all hover:-translate-y-0.5 ${teacherTab === "questions" ? "border-violet-200 bg-gradient-to-br from-violet-600 to-indigo-600 text-white shadow-violet-200" : "border-slate-200 bg-white/90 text-slate-700 hover:bg-violet-50 hover:text-violet-700"}`}
+                  onClick={() => { setDockQuickMenu(null); openTeacherTab("questions"); }}
+                  className={`relative inline-flex h-12 w-12 items-center justify-center rounded-[1.2rem] border shadow-sm transition-all hover:-translate-y-0.5 ${teacherTab === "questions" ? "border-violet-200 bg-gradient-to-br from-violet-600 to-indigo-600 text-white shadow-violet-200" : "border-slate-200 bg-white/90 text-slate-700 hover:bg-violet-50 hover:text-violet-700"}`}
                 >
                   <Layers className="h-5 w-5" />
+                  {examDayExams.length > 0 && (<span className="absolute -left-0.5 -top-0.5 h-2.5 w-2.5 rounded-full bg-violet-500 ring-2 ring-white" />)}
                 </button>
                 <button
                   title="تسليمات الاختبارات والمشاريع"
                   aria-label="تسليمات الاختبارات والمشاريع"
-                  onClick={() => openTeacherTab("submissions")}
+                  onClick={() => { setDockQuickMenu(null); openTeacherTab("submissions"); }}
                   className={`relative inline-flex h-12 w-12 items-center justify-center rounded-[1.2rem] border shadow-sm transition-all hover:-translate-y-0.5 ${teacherTab === "submissions" ? "border-blue-200 bg-gradient-to-br from-blue-600 to-indigo-600 text-white shadow-blue-200" : "border-slate-200 bg-white/90 text-slate-700 hover:bg-blue-50 hover:text-blue-700"}`}
                 >
                   <Award className="h-5 w-5" />
@@ -29666,7 +29650,7 @@ ${rows
                     setTeacherCodesOpen(true);
                     fetchJoinCodes();
                   }}
-                  className={`relative inline-flex h-10 w-10 items-center justify-center rounded-2xl border shadow-sm transition-all ${teacherTab === "codes" ? "border-indigo-200 bg-indigo-500 text-white" : "border-indigo-100 bg-white/90 text-indigo-700 hover:bg-indigo-50"}`}
+                  className={`miras-dock-codes-btn relative inline-flex h-10 w-10 items-center justify-center rounded-2xl border shadow-sm transition-all ${teacherTab === "codes" ? "border-indigo-200 bg-indigo-500 text-white" : "border-indigo-100 bg-white/90 text-indigo-700 hover:bg-indigo-50"}`}
                 >
                   <Key className="h-4 w-4" />
                   {(passwordResetRequestsState.length > 0 || deviceProblemAttempts.length > 0) && (
@@ -29677,18 +29661,20 @@ ${rows
                   title="مركز المتابعة"
                   aria-label="مركز المتابعة"
                   onClick={() => {
+                    setDockQuickMenu(null);
                     openTeacherTab("analytics");
                     fetchLogs();
                   }}
-                  className={`inline-flex h-10 w-10 items-center justify-center rounded-2xl border shadow-sm transition-all ${teacherTab === "analytics" ? "border-amber-200 bg-amber-500 text-white" : "border-amber-100 bg-white/90 text-amber-700 hover:bg-amber-50"}`}
+                  className={`relative inline-flex h-10 w-10 items-center justify-center rounded-2xl border shadow-sm transition-all ${teacherTab === "analytics" ? "border-amber-200 bg-amber-500 text-white" : "border-amber-100 bg-white/90 text-amber-700 hover:bg-amber-50"}`}
                 >
                   <ShieldAlert className="h-4 w-4" />
+                  {deviceProblemAttempts.length > 0 && (<span className="absolute -left-0.5 -top-0.5 h-2.5 w-2.5 rounded-full bg-rose-500 ring-2 ring-white" />)}
                 </button>
               </div>
             </nav>
             {dockQuickMenu === "codes" && (
               <div
-                className="fixed bottom-[6.3rem] right-4 z-[80] w-[15.5rem] overflow-hidden rounded-[1.55rem] border border-white/80 bg-white/96 p-2 text-right shadow-[0_24px_70px_rgba(15,23,42,0.16)] backdrop-blur-2xl sm:bottom-auto sm:right-auto sm:top-[10.5rem]"
+                className="miras-dock-quick-menu fixed bottom-[6.3rem] right-4 z-[80] w-[15.5rem] overflow-hidden rounded-[1.55rem] border border-white/80 bg-white/96 p-2 text-right shadow-[0_24px_70px_rgba(15,23,42,0.16)] backdrop-blur-2xl sm:bottom-auto sm:right-auto sm:top-[10.5rem]"
                 dir="rtl"
                 onPointerDown={(e) => e.stopPropagation()}
               >
@@ -29723,7 +29709,7 @@ ${rows
                   type="button"
                   title="الرئيسية"
                   aria-label="الرئيسية"
-                  onClick={() => openTeacherTab("home")}
+                  onClick={() => { setDockQuickMenu(null); openTeacherTab("home"); }}
                   className="miras-zero-action-btn"
                 >
                   <Home className="h-5 w-5" />
@@ -29739,6 +29725,41 @@ ${rows
                 </button>
               </div>
             </header>
+
+            <div className="miras-mobile-command-bar relative z-30 mx-3 mb-3 rounded-[1.35rem] border border-slate-200/80 bg-white/94 p-2 shadow-[0_14px_34px_rgba(15,23,42,0.08)] backdrop-blur-xl sm:hidden" onClick={(e) => e.stopPropagation()}>
+              <div className="flex items-center gap-2 rounded-2xl bg-slate-50 px-3 py-2">
+                <Search className="h-4 w-4 text-slate-400" />
+                <input
+                  value={teacherSmartSearchQuery}
+                  onFocus={() => setTeacherSmartSearchOpen(true)}
+                  onChange={(e) => { setTeacherSmartSearchQuery(e.target.value); setTeacherSmartSearchOpen(true); }}
+                  onKeyDown={(e) => { if (e.key === "Enter") runTeacherSmartCommand(); if (e.key === "Escape") setTeacherSmartSearchOpen(false); }}
+                  placeholder="ابحث أو اكتب أمراً"
+                  className="h-8 w-full bg-transparent text-right text-[12px] font-black text-slate-700 outline-none placeholder:text-slate-400"
+                  inputMode="search"
+                />
+                <button type="button" onClick={runTeacherSmartCommand} className="inline-flex h-8 w-8 items-center justify-center rounded-xl bg-indigo-600 text-white" aria-label="تنفيذ">
+                  <Sparkles className="h-3.5 w-3.5" />
+                </button>
+              </div>
+              {teacherSmartSearchOpen && teacherSmartSearchQuery.trim() && (
+                <div className="absolute left-0 right-0 top-[calc(100%+0.35rem)] z-[90] max-h-[50vh] overflow-y-auto rounded-[1.25rem] border border-slate-100 bg-white/98 p-2 text-right shadow-[0_24px_70px_rgba(15,23,42,0.15)] backdrop-blur-2xl">
+                  {teacherSmartSearchResults.length > 0 ? teacherSmartSearchResults.slice(0, 8).map((item: any) => (
+                    <button key={`m-${item.key}`} type="button" onClick={() => { item.action?.(); setTeacherSmartSearchOpen(false); }} className="flex w-full items-center justify-between gap-2 rounded-2xl px-3 py-2.5 text-right hover:bg-slate-50">
+                      <span className="min-w-0 flex-1">
+                        <span className="block truncate text-[12px] font-black text-slate-900">{item.title}</span>
+                        <span className="block truncate text-[10px] font-bold text-slate-400">{item.type} • {item.meta}</span>
+                      </span>
+                      <span className="rounded-full bg-slate-900 px-2.5 py-1 text-[9px] font-black text-white">{item.actionLabel}</span>
+                    </button>
+                  )) : (
+                    <button type="button" onClick={runTeacherSmartCommand} className="flex w-full items-center justify-between rounded-2xl bg-slate-50 px-3 py-3 text-[11px] font-black text-slate-600">
+                      <span>تنفيذ ذكي</span><Sparkles className="h-4 w-4 text-indigo-600" />
+                    </button>
+                  )}
+                </div>
+              )}
+            </div>
 
             <main className="teacher-command-main miras-teacher-v5-main mx-auto flex w-full max-w-7xl flex-col px-3 pb-3 pt-0 sm:px-6 lg:px-8">
               {firestoreQuotaExceededState && (
@@ -29809,7 +29830,7 @@ ${rows
                             if (e.key === "Enter") runTeacherSmartCommand();
                             if (e.key === "Escape") setTeacherSmartSearchOpen(false);
                           }}
-                          placeholder="ابحث أو اكتب أمراً: طالب، كود، مقرر، تسليم، جهاز، فعّل أحمد..."
+                          placeholder="ابحث أو اكتب أمراً"
                           className="h-9 w-full bg-transparent text-right text-[12px] font-bold text-slate-700 outline-none placeholder:text-slate-400"
                           inputMode="search"
                         />
@@ -29854,7 +29875,7 @@ ${rows
                             </div>
                           ) : (
                             <button type="button" onClick={runTeacherSmartCommand} className="flex w-full items-center justify-between rounded-2xl bg-slate-50 px-3 py-3 text-right text-[11px] font-bold text-slate-500">
-                              <span>لا توجد نتيجة مباشرة، اضغط Enter للتوجيه الذكي.</span><Sparkles className="h-4 w-4 text-indigo-500" />
+                              <span>تنفيذ ذكي</span><Sparkles className="h-4 w-4 text-indigo-500" />
                             </button>
                           )}
                         </div>
@@ -29867,7 +29888,7 @@ ${rows
                       >
                         <button
                           title="الرئيسية"
-                          onClick={() => openTeacherTab("home")}
+                          onClick={() => { setDockQuickMenu(null); openTeacherTab("home"); }}
                           className="student-icon-btn text-slate-700 relative bg-gradient-to-br from-white to-slate-50 border-slate-200 transition-all duration-200"
                         >
                           <Home className="h-5 w-5" />
@@ -30148,7 +30169,7 @@ ${rows
                       <button
                         title="المقررات"
                         aria-label="المقررات"
-                        onClick={() => openTeacherTab("sections")}
+                        onClick={() => { setDockQuickMenu(null); openTeacherTab("sections"); }}
                         className={`inline-flex h-12 w-12 items-center justify-center rounded-[1.2rem] border shadow-sm transition-all hover:-translate-y-0.5 ${teacherTab === "sections" ? "border-indigo-200 bg-gradient-to-br from-indigo-600 to-blue-600 text-white shadow-indigo-200" : "border-slate-200 bg-white/90 text-slate-700 hover:bg-indigo-50 hover:text-indigo-700"}`}
                       >
                         <Compass className="h-5 w-5" />
@@ -30156,23 +30177,25 @@ ${rows
                       <button
                         title="الطلبة"
                         aria-label="الطلبة"
-                        onClick={() => openTeacherTab("students")}
-                        className={`inline-flex h-12 w-12 items-center justify-center rounded-[1.2rem] border shadow-sm transition-all hover:-translate-y-0.5 ${teacherTab === "students" ? "border-emerald-200 bg-gradient-to-br from-emerald-600 to-teal-500 text-white shadow-emerald-200" : "border-slate-200 bg-white/90 text-slate-700 hover:bg-emerald-50 hover:text-emerald-700"}`}
+                        onClick={() => { setDockQuickMenu(null); openTeacherTab("students"); }}
+                        className={`relative inline-flex h-12 w-12 items-center justify-center rounded-[1.2rem] border shadow-sm transition-all hover:-translate-y-0.5 ${teacherTab === "students" ? "border-emerald-200 bg-gradient-to-br from-emerald-600 to-teal-500 text-white shadow-emerald-200" : "border-slate-200 bg-white/90 text-slate-700 hover:bg-emerald-50 hover:text-emerald-700"}`}
                       >
                         <User className="h-5 w-5" />
+                        {pendingActivationRows.length > 0 && (<span className="absolute -left-0.5 -top-0.5 h-2.5 w-2.5 rounded-full bg-emerald-500 ring-2 ring-white" />)}
                       </button>
                       <button
                         title="بنك الأسئلة والاختبارات والمشاريع"
                         aria-label="بنك الأسئلة والاختبارات والمشاريع"
-                        onClick={() => openTeacherTab("questions")}
-                        className={`inline-flex h-12 w-12 items-center justify-center rounded-[1.2rem] border shadow-sm transition-all hover:-translate-y-0.5 ${teacherTab === "questions" ? "border-violet-200 bg-gradient-to-br from-violet-600 to-indigo-600 text-white shadow-violet-200" : "border-slate-200 bg-white/90 text-slate-700 hover:bg-violet-50 hover:text-violet-700"}`}
+                        onClick={() => { setDockQuickMenu(null); openTeacherTab("questions"); }}
+                        className={`relative inline-flex h-12 w-12 items-center justify-center rounded-[1.2rem] border shadow-sm transition-all hover:-translate-y-0.5 ${teacherTab === "questions" ? "border-violet-200 bg-gradient-to-br from-violet-600 to-indigo-600 text-white shadow-violet-200" : "border-slate-200 bg-white/90 text-slate-700 hover:bg-violet-50 hover:text-violet-700"}`}
                       >
                         <Layers className="h-5 w-5" />
+                        {examDayExams.length > 0 && (<span className="absolute -left-0.5 -top-0.5 h-2.5 w-2.5 rounded-full bg-violet-500 ring-2 ring-white" />)}
                       </button>
                       <button
                         title="تسليمات الاختبارات والمشاريع"
                         aria-label="تسليمات الاختبارات والمشاريع"
-                        onClick={() => openTeacherTab("submissions")}
+                        onClick={() => { setDockQuickMenu(null); openTeacherTab("submissions"); }}
                         className={`relative inline-flex h-12 w-12 items-center justify-center rounded-[1.2rem] border shadow-sm transition-all hover:-translate-y-0.5 ${teacherTab === "submissions" ? "border-blue-200 bg-gradient-to-br from-blue-600 to-indigo-600 text-white shadow-blue-200" : "border-slate-200 bg-white/90 text-slate-700 hover:bg-blue-50 hover:text-blue-700"}`}
                       >
                         <Award className="h-5 w-5" />
@@ -30195,7 +30218,7 @@ ${rows
                           setTeacherCodesOpen(true);
                           fetchJoinCodes();
                         }}
-                        className={`relative inline-flex h-10 w-10 items-center justify-center rounded-2xl border shadow-sm transition-all ${teacherTab === "codes" ? "border-indigo-200 bg-indigo-500 text-white" : "border-indigo-100 bg-white/90 text-indigo-700 hover:bg-indigo-50"}`}
+                        className={`miras-dock-codes-btn relative inline-flex h-10 w-10 items-center justify-center rounded-2xl border shadow-sm transition-all ${teacherTab === "codes" ? "border-indigo-200 bg-indigo-500 text-white" : "border-indigo-100 bg-white/90 text-indigo-700 hover:bg-indigo-50"}`}
                       >
                         <Key className="h-4 w-4" />
                         {(passwordResetRequestsState.length > 0 || deviceProblemAttempts.length > 0) && (
@@ -30206,12 +30229,14 @@ ${rows
                         title="مركز المتابعة"
                         aria-label="مركز المتابعة"
                         onClick={() => {
+                          setDockQuickMenu(null);
                           openTeacherTab("analytics");
                           fetchLogs();
                         }}
-                        className={`inline-flex h-10 w-10 items-center justify-center rounded-2xl border shadow-sm transition-all ${teacherTab === "analytics" ? "border-amber-200 bg-amber-500 text-white" : "border-amber-100 bg-white/90 text-amber-700 hover:bg-amber-50"}`}
+                        className={`relative inline-flex h-10 w-10 items-center justify-center rounded-2xl border shadow-sm transition-all ${teacherTab === "analytics" ? "border-amber-200 bg-amber-500 text-white" : "border-amber-100 bg-white/90 text-amber-700 hover:bg-amber-50"}`}
                       >
                         <ShieldAlert className="h-4 w-4" />
+                        {deviceProblemAttempts.length > 0 && (<span className="absolute -left-0.5 -top-0.5 h-2.5 w-2.5 rounded-full bg-rose-500 ring-2 ring-white" />)}
                       </button>
                     </div>
                   </nav>
@@ -30303,11 +30328,10 @@ ${rows
                         <div>
                           <h3 className="flex items-center gap-2 text-sm font-black text-amber-900">
                             <Key className="h-4 w-4" />
-                            طلبات استرجاع كلمة المرور
+                            استرجاع
                           </h3>
                           <p className="mt-1 text-[11px] font-bold text-amber-700">
-                            تظهر هنا الطلبات الجديدة فقط؛ أما الطلبات المنتهية
-                            ففي السجل الأمني.
+                            طلبات جديدة فقط
                           </p>
                         </div>
                         <span className="rounded-full bg-white px-3 py-1 text-[11px] font-black text-amber-700 shadow-sm">
@@ -30351,7 +30375,7 @@ ${rows
                                   <span className="relative inline-flex rounded-full h-3 w-3 !p-0 bg-slate-400"></span>
                                 )}
                               </span>
-                              نبض قاعة الاختبار الآمن — Live Pulse Grid
+                              نبض الاختبار
                             </h3>
                           </div>
                         </div>
@@ -30407,7 +30431,7 @@ ${rows
                           {examDayExams.length > 0 && (
                             <div className="flex flex-col gap-2 text-right bg-slate-50 border border-slate-150 p-4 rounded-2xl">
                               <span className="text-[10px] font-black text-indigo-700 block">
-                                الاختبار المقرر تتبعه:
+                                الاختبار
                               </span>
                               <span className="text-xs font-light tracking-tight text-indigo-700">
                                 {examDayExams.length === 1
@@ -30421,7 +30445,7 @@ ${rows
                           {examDayExams.length > 1 && (
                             <div className="p-4 bg-indigo-50/40 border border-indigo-100 rounded-2xl space-y-3">
                               <span className="text-xs font-black text-slate-800 block">
-                                ⚠️ تم رصد اختبارين في نفس اليوم لهذا المقرر:
+                                ⚠️ اختباران اليوم
                               </span>
                               <div className="flex flex-wrap gap-2">
                                 <button
@@ -30463,9 +30487,7 @@ ${rows
                             </div>
                           ) : livePulseStudentRows.length === 0 ? (
                             <div className="p-4 text-center rounded-2xl border border-dashed border-emerald-100 bg-emerald-50/50 text-emerald-700 text-xs font-bold">
-                              لا توجد حالات نشطة أو إنذارات حالية؛ جميع الطلبة
-                              أنهوا الاختبار بأمان أو لا توجد مشكلة تحتاج
-                              متابعة.
+                              لا توجد حالات نشطة
                             </div>
                           ) : (
                             <>
@@ -30560,12 +30582,12 @@ ${rows
                                                 ids.includes(String(item || "").trim().toLowerCase()),
                                               );
                                             });
-                                            if (!visibleCameraExams.length || !cfg.enabled) return null;
+                                            const canSetCameraException = visibleCameraExams.length > 0 && cfg.enabled;
                                             return (
                                               <button
                                                 type="button"
-                                                title={isExempt ? "استثناء كاميرا مفعل" : "إضافة استثناء كاميرا"}
-                                                aria-label={isExempt ? "استثناء كاميرا مفعل" : "إضافة استثناء كاميرا"}
+                                                title={isExempt ? "استثناء كاميرا مفعل" : canSetCameraException ? "استثناء كاميرا" : "اختر اختباراً بالكاميرا"}
+                                                aria-label={isExempt ? "استثناء كاميرا مفعل" : "استثناء كاميرا"}
                                                 onClick={(event) => {
                                                   event.stopPropagation();
                                                   if (!isExempt) void addCameraExceptionForLivePulseStudent(row);
@@ -30573,7 +30595,9 @@ ${rows
                                                 className={`mt-1.5 inline-flex h-7 w-7 items-center justify-center rounded-xl border text-[11px] transition ${
                                                   isExempt
                                                     ? "border-emerald-500 bg-emerald-500 text-white shadow-[0_8px_18px_rgba(16,185,129,0.22)]"
-                                                    : "border-slate-200 bg-white/85 text-slate-400 hover:border-emerald-200 hover:bg-emerald-50 hover:text-emerald-700"
+                                                    : canSetCameraException
+                                                      ? "border-slate-200 bg-white/85 text-slate-500 hover:border-emerald-200 hover:bg-emerald-50 hover:text-emerald-700"
+                                                      : "border-slate-200 bg-white/70 text-slate-300 hover:bg-slate-50"
                                                 }`}
                                               >
                                                 {isExempt ? <Check className="h-3.5 w-3.5" /> : <Camera className="h-3.5 w-3.5" />}
@@ -31228,6 +31252,33 @@ ${rows
                                 </div>
                               </div>
 
+                              <div className="mt-2 grid grid-cols-[auto_1fr_auto] items-center gap-2 rounded-[1.25rem] border border-slate-100 bg-slate-50/70 p-2">
+                                <button
+                                  type="button"
+                                  onClick={() => openAdjacentSubmissionDetail(1)}
+                                  disabled={detailActivitySubmissions.length < 2}
+                                  className="inline-flex h-9 w-9 items-center justify-center rounded-2xl bg-white text-slate-700 shadow-sm disabled:opacity-35"
+                                  title="السابق"
+                                  aria-label="السابق"
+                                >
+                                  <ChevronRight className="h-4 w-4" />
+                                </button>
+                                <div className="min-w-0 text-center">
+                                  <span className="block truncate text-[10px] font-black text-indigo-600">بحث وتنقل</span>
+                                  <span className="block truncate text-[9px] font-bold text-slate-400">{selectedSubmissionDetailIndex + 1} / {detailActivitySubmissions.length || 1}</span>
+                                </div>
+                                <button
+                                  type="button"
+                                  onClick={() => openAdjacentSubmissionDetail(-1)}
+                                  disabled={detailActivitySubmissions.length < 2}
+                                  className="inline-flex h-9 w-9 items-center justify-center rounded-2xl bg-white text-slate-700 shadow-sm disabled:opacity-35"
+                                  title="التالي"
+                                  aria-label="التالي"
+                                >
+                                  <ChevronLeft className="h-4 w-4" />
+                                </button>
+                              </div>
+
                               <div className="mt-2">
                                 <div className="relative">
                                   <Search className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
@@ -31243,7 +31294,7 @@ ${rows
                                     className="h-10 w-full rounded-2xl border border-slate-200 bg-white pr-10 pl-3 text-right text-[11px] font-bold text-slate-700 outline-none transition placeholder:text-slate-400 focus:border-indigo-300 focus:ring-2 focus:ring-indigo-100"
                                   />
                                 </div>
-                                {(detailStudentRows.length > 0 || submissionDetailStudentSearch.trim()) && (
+                                {submissionDetailStudentSearch.trim() && (
                                   <div className="mt-2 flex max-h-28 gap-1.5 overflow-x-auto overflow-y-auto pr-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
                                     {detailStudentRows.map((row: any) => {
                                       const isActive =
