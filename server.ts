@@ -801,6 +801,24 @@ function acquireExamLockForRequest(
           });
         });
       } else {
+        const incomingDeviceId = String(
+          (req.body as any)?.deviceId ||
+            (req.body as any)?.deviceToken ||
+            "",
+        ).trim();
+        const activeSessionDeviceId = String(activeSession.deviceId || "").trim();
+        if (incomingDeviceId && activeSessionDeviceId && incomingDeviceId === activeSessionDeviceId) {
+          const refreshed = {
+            ...activeSession,
+            lastHeartbeatAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
+            userAgent: String(req.headers["user-agent"] || activeSession.userAgent || "").slice(0, 220),
+            displayMode: requestExamDisplayMode(req),
+          };
+          dbInstance.upsertExamSession(refreshed);
+          return { ok: true, session: refreshed };
+        }
+
         recordExamSessionConflict(
           req,
           student,
