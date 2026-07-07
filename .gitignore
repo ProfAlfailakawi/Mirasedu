@@ -1,5 +1,9 @@
 node_modules/
 build/
+# محرّك PDF.js (public/pdfjs/build/pdf.mjs + pdf.worker.mjs) لازم للنشر حتى
+# تُعرض معاينة PowerPoint/PDF. قاعدة build/ أعلاه كانت تستبعده فيُحذف من الموقع
+# ويظهر العارض فارغًا. لا تُزل هذا الاستثناء.
+!public/pdfjs/build/
 dist/
 coverage/
 .DS_Store
