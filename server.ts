@@ -10991,11 +10991,15 @@ function validateSessionFingerprint(
     // لذلك نسمح فقط بطلب دخول صريح أن يطالب بالجهاز الجديد، أما polling/live-state
     // للجلسة القديمة فيبقى مرفوضاً أعلاه ولا يستطيع خطف الاعتماد.
     (student as any).devices = [currentFingerprint];
+    const transferCompletedAt = new Date().toISOString();
     dbInstance.updateStudent(student.id, {
       devices: [currentFingerprint],
       pendingDeviceTransfer: false,
       retiredDeviceFingerprints: [],
       retiredDeviceTokens: [],
+      accessResetAt: transferCompletedAt,
+      deviceTransferCompletedAt: transferCompletedAt,
+      lastLoginDate: transferCompletedAt,
     } as any);
     const transferActivationCode = (student as any).activationCode;
     if (transferActivationCode && isUnifiedJoinCode(transferActivationCode)) {
