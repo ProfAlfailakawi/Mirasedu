@@ -22434,6 +22434,34 @@ ${rows
     setTeacherImportantNotificationsOpen(false);
   };
 
+
+  const toggleTeacherImportantNotificationsPanel = async (
+    forceOpen?: boolean,
+  ) => {
+    const willOpen =
+      typeof forceOpen === "boolean"
+        ? forceOpen
+        : !teacherImportantNotificationsOpen;
+    closeWorkspaceDrawers();
+    try {
+      (document.activeElement as HTMLElement | null)?.blur?.();
+    } catch {}
+    setTeacherImportantNotificationsOpen(willOpen);
+    if (willOpen) {
+      const perm = readBrowserNotifPermission();
+      setBrowserNotifPermission(perm);
+      if (perm === "granted" && !notificationState.token) {
+        registerFcmToken(false);
+      }
+      await fetchInAppNotifications();
+      await Promise.allSettled([
+        fetchLogs(),
+        fetchCodeIntegrity(),
+        fetchPasswordResetRequests(),
+      ]);
+    }
+  };
+
   const hiddenGradeSubmissions = activeCourseExamSubmissions.filter(
     (sub: any) =>
       String(sub.grade ?? sub.score ?? "").trim() !== "" &&
@@ -30280,41 +30308,21 @@ ${rows
                 >
                   <Home className="h-5 w-5" />
                 </button>
-                <button
-                  type="button"
-                  title="بحث ذكي"
-                  aria-label="بحث ذكي"
-                  onPointerDown={(e) => { e.stopPropagation(); }}
-                  onPointerUp={(e) => { e.preventDefault(); e.stopPropagation(); openTeacherSmartSearchBox(); }}
-                  onClick={(e) => { e.preventDefault(); e.stopPropagation(); openTeacherSmartSearchBox(); }}
-                  className="miras-zero-action-btn miras-zero-action-command"
-                >
-                  <Search className="h-5 w-5" />
-                </button>
                 {shouldShowTeacherImportantNotificationsButton && (
                   <button
                     type="button"
                     title="التنبيهات المهمة"
                     aria-label="التنبيهات المهمة"
                     onPointerDown={(e) => e.stopPropagation()}
-                    onClick={async (e) => {
+                    onPointerUp={(e) => {
                       e.preventDefault();
                       e.stopPropagation();
-                      const willOpen = !teacherImportantNotificationsOpen;
-                      closeWorkspaceDrawers();
-                      setTeacherImportantNotificationsOpen(willOpen);
-                      if (willOpen) {
-                        const perm = readBrowserNotifPermission();
-                        setBrowserNotifPermission(perm);
-                        if (perm === "granted" && !notificationState.token)
-                          registerFcmToken(false);
-                        await fetchInAppNotifications();
-                        await Promise.allSettled([
-                          fetchLogs(),
-                          fetchCodeIntegrity(),
-                          fetchPasswordResetRequests(),
-                        ]);
-                      }
+                      void toggleTeacherImportantNotificationsPanel();
+                    }}
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      void toggleTeacherImportantNotificationsPanel();
                     }}
                     className={`miras-zero-action-btn miras-zero-action-notifications ${criticalTeacherNotifications.length ? "notification-alert-glowing-btn" : ""}`}
                   >
@@ -30340,7 +30348,7 @@ ${rows
               </div>
             </header>
 
-            <div className={`miras-mobile-command-bar fixed left-3 right-3 top-[calc(env(safe-area-inset-top,0px)+5.75rem)] z-[99998] rounded-[1.25rem] border border-slate-200/80 bg-white/98 p-2 shadow-[0_18px_48px_rgba(15,23,42,0.14)] backdrop-blur-2xl sm:hidden ${teacherSmartSearchOpen ? "" : "hidden"}`} onPointerDown={(e) => e.stopPropagation()} onClick={(e) => e.stopPropagation()}>
+            <div className="hidden" onPointerDown={(e) => e.stopPropagation()} onClick={(e) => e.stopPropagation()}>
               <div className="flex items-center gap-2 rounded-[1.05rem] bg-white px-3 py-2 shadow-inner ring-1 ring-slate-100">
                 <Search className="h-4 w-4 text-indigo-500" />
                 <form
@@ -30565,34 +30573,15 @@ ${rows
                                   : "التنبيهات المهمة وتفعيل الإشعارات"
                               }
                               aria-label="التنبيهات المهمة"
-                              onClick={async () => {
-                                const willOpen =
-                                  !teacherImportantNotificationsOpen;
-                                closeWorkspaceDrawers();
-                                try {
-                                  (
-                                    document.activeElement as HTMLElement | null
-                                  )?.blur?.();
-                                } catch {}
-                                setTeacherImportantNotificationsOpen(willOpen);
-                                if (willOpen) {
-                                  // البوابة الأنيقة تتولى طلب الإذن؛ لا نطلق
-                                  // طلب المتصفح تلقائيًا. نكتفي بتحديث الحالة
-                                  // ورمز FCM إن كان الإذن ممنوحًا.
-                                  const perm = readBrowserNotifPermission();
-                                  setBrowserNotifPermission(perm);
-                                  if (
-                                    perm === "granted" &&
-                                    !notificationState.token
-                                  )
-                                    registerFcmToken(false);
-                                  await fetchInAppNotifications();
-                                  await Promise.allSettled([
-                                    fetchLogs(),
-                                    fetchCodeIntegrity(),
-                                    fetchPasswordResetRequests(),
-                                  ]);
-                                }
+                              onPointerUp={(e) => {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                void toggleTeacherImportantNotificationsPanel();
+                              }}
+                              onClick={(e) => {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                void toggleTeacherImportantNotificationsPanel();
                               }}
                               className={`student-icon-btn relative ${criticalTeacherNotifications.length ? "text-indigo-700 bg-gradient-to-br from-white to-indigo-50 notification-alert-glowing-btn ring-1 ring-indigo-200" : "text-indigo-700 bg-gradient-to-br from-white to-indigo-50"}`}
                             >
@@ -30632,16 +30621,6 @@ ${rows
                                       : "لا تنبيهات"}
                                   </span>
                                   <div className="flex shrink-0 items-center justify-end gap-1.5 ml-0.5">
-                                    <button
-                                      type="button"
-                                      aria-label="تحديد الكل كمقروء"
-                                      onClick={
-                                        markAllTeacherImportantNotificationsRead
-                                      }
-                                      className="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-emerald-150 bg-emerald-50 text-emerald-700 shadow-sm hover:bg-emerald-100 hover:text-emerald-800 transition-all"
-                                    >
-                                      <CheckCircle2 className="h-5 w-5" />
-                                    </button>
                                     <button
                                       type="button"
                                       aria-label="إغلاق التنبيهات"
@@ -31582,24 +31561,6 @@ ${rows
                         </div>
                       </div>
                       <div className="rounded-[2rem] border border-white/80 bg-white/85 p-3 shadow-[0_18px_60px_rgba(15,23,42,0.07)] backdrop-blur-xl">
-                        <div className="mb-2 flex items-center justify-between rounded-2xl border border-indigo-100 bg-indigo-50/70 px-3 py-2 md:hidden">
-                          <span className="text-[10px] font-black text-indigo-900">
-                            تحديد كل الطلاب
-                          </span>
-                          <button
-                            type="button"
-                            onClick={() =>
-                              setAllVisibleSubmissionsSelected(
-                                !allVisibleSubmissionsSelected,
-                              )
-                            }
-                            className={`inline-flex h-9 w-9 items-center justify-center rounded-full border shadow-sm ${allVisibleSubmissionsSelected ? "border-indigo-300 bg-indigo-600 text-white" : "border-slate-200 bg-white text-slate-500"}`}
-                            title="اختيار كل الطلاب"
-                            aria-label="اختيار كل الطلاب"
-                          >
-                            <CheckCircle2 className="h-5 w-5" />
-                          </button>
-                        </div>
                         <div className="grid grid-cols-1 gap-2 md:hidden">
                           {filteredDrilledSubmissions.map((sub: any) => (
                             <div
@@ -31679,10 +31640,7 @@ ${rows
                                   ⚠️ كان الجهاز غير متصل بالإنترنت لحظة الخروج
                                 </p>
                               )}
-                              {(sub?.originalGrade ||
-                                sub?.reviewedGrade ||
-                                gradeAuditTrailForSubmission(sub).length >
-                                  0) && (
+                              {false && (
                                 <div className="mt-2 inline-flex rounded-full border border-emerald-100 bg-emerald-50 px-2 py-0.5 text-[8.5px] font-black text-emerald-700">
                                   بصمة عدالة: {sub.originalGrade || "—"} /{" "}
                                   {sub.reviewedGrade ||
@@ -31710,19 +31668,7 @@ ${rows
                           <table className="min-w-[900px] w-full text-right text-xs">
                             <thead className="bg-slate-50 text-slate-500">
                               <tr>
-                                <th className="p-3 text-center">
-                                  <input
-                                    type="checkbox"
-                                    checked={allVisibleSubmissionsSelected}
-                                    onChange={(e) =>
-                                      setAllVisibleSubmissionsSelected(
-                                        e.target.checked,
-                                      )
-                                    }
-                                    className="h-4 w-4 rounded border-slate-300 accent-indigo-600"
-                                    aria-label="اختيار كل الطلاب"
-                                  />
-                                </th>
+                                <th className="p-3 text-center" />
                                 <th className="p-3">الطالب</th>
                                 <th className="p-3">تسليم الطالب</th>
                                 <th className="p-3">تعديل الدرجة</th>
@@ -32035,11 +31981,7 @@ ${rows
                                         : "غير متوفر"}
                                     </span>
                                   </div>
-                                  {(selectedSubmissionDetail.originalGrade ||
-                                    selectedSubmissionDetail.reviewedGrade ||
-                                    gradeAuditTrailForSubmission(
-                                      selectedSubmissionDetail,
-                                    ).length > 0) && (
+                                  {false && (
                                     <div className="rounded-2xl border border-emerald-100 bg-white px-3 py-2 text-[10px] font-black text-emerald-700 shadow-sm">
                                       بصمة عدالة: أصلية{" "}
                                       {selectedSubmissionDetail.originalGrade ||
@@ -32099,9 +32041,7 @@ ${rows
                                   </div>
                                 )}
 
-                                {gradeAuditTrailForSubmission(
-                                  selectedSubmissionDetail,
-                                ).length > 0 && (
+                                {false && (
                                   <div className="rounded-[1.25rem] border border-emerald-100 bg-emerald-50/35 p-3">
                                     <div className="mb-2 text-[11px] font-black text-emerald-800">
                                       بصمة عدالة الدرجة
@@ -32398,9 +32338,7 @@ ${rows
                                 )}
                               </div>
                             )}
-                            {returnedActivityNeedsException(
-                              pendingReturnSubmission,
-                            ) && (
+                            {false && (
                               <div className="miras-return-exception relative mt-3 rounded-[1.25rem] border border-amber-100 bg-amber-50/75 p-3.5 shadow-sm">
                                 <div className="flex items-start justify-between gap-3">
                                   <div>
@@ -32494,9 +32432,7 @@ ${rows
                                 type="button"
                                 onClick={async () => {
                                   const target = pendingReturnSubmission;
-                                  const grantException =
-                                    returnExceptionEnabled &&
-                                    returnedActivityNeedsException(target);
+                                  const grantException = false;
                                   const hours = clampedReturnExceptionHours();
                                   setPendingReturnSubmission(null);
                                   await returnSubmissionToStudent(target, {
