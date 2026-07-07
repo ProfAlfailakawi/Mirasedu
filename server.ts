@@ -10666,7 +10666,7 @@ function prepareMirasImportData(
 }
 
 function isExamReturnedForStudent(examId: any, studentId: any): boolean {
-  return dbInstance.getTeacherSubmissions().some((item: any) => {
+  const teacherReturned = dbInstance.getTeacherSubmissions().some((item: any) => {
     if (
       String(item.kind || "").toLowerCase() !== "exam" ||
       String(item.activityId ?? item.examId ?? "") !== String(examId) ||
@@ -10681,6 +10681,17 @@ function isExamReturnedForStudent(examId: any, studentId: any): boolean {
       Boolean(item.returnExceptionUntil) ||
       /معاد|إرجاع|ارجاع|returned|reopen/.test(`${status} ${note}`)
     );
+  });
+  if (teacherReturned) return true;
+
+  return dbInstance.getQuizSubmissions().some((item: any) => {
+    if (
+      String(item.chapterId) !== String(examId) ||
+      String(item.studentId) !== String(studentId)
+    )
+      return false;
+    const status = String(item.status || "").trim().toLowerCase();
+    return ["معاد للطالب", "معاد لك", "returned", "return", "reopened"].includes(status) || Boolean(item.returnedAt);
   });
 }
 
@@ -19612,6 +19623,18 @@ app.post("/api/teacher/submissions/return", (req, res) => {
         isViolationWarning: false,
       });
     }
+  }
+
+  if (normalizedKind === "exam" || normalizedKind === "quiz") {
+    getExamSessionsFor(normalizedStudentId, normalizedActivityId).forEach((session: any) => {
+      dbInstance.upsertExamSession({
+        ...session,
+        status: "finished",
+        reason: "teacher-authorized-return",
+        updatedAt: returnedAt,
+        closedAt: session.closedAt || returnedAt,
+      });
+    });
   }
 
   if (kind === "exercise") {

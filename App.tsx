@@ -1496,9 +1496,10 @@ const hasMirasSebAttemptContext = () => {
     const params = new URLSearchParams(window.location.search);
     const token = getMirasSebPass();
     const hasUrlMarker = params.get("miras_seb") === "1" || params.get("seb") === "1";
-    const storedInfoRaw = sessionStorage.getItem("mirasSebSessionInfo") || "";
-    const storedInfoHasToken = !!storedInfoRaw && /"token"\s*:/.test(storedInfoRaw);
-    return !!token && (hasUrlMarker || sessionStorage.getItem("mirasSebSession") === "1" || storedInfoHasToken || isActualSafeExamBrowserRuntime());
+    // Do NOT rely purely on sessionStorage because normal browser tabs can retain these values
+    // if the user navigates around or if they were set incorrectly previously.
+    // Rely strictly on URL markers (used by our iOS PWA flow) or actual SEB runtime checks.
+    return !!token && (hasUrlMarker || isActualSafeExamBrowserRuntime());
   } catch {}
   return isActualSafeExamBrowserRuntime() && !!getMirasSebPass();
 };
