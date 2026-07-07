@@ -799,7 +799,23 @@ const simplifyStudentMessage = (
   if (text.length <= 42) return text;
   if (tone === "success") return "تمت العملية بنجاح";
   if (tone === "error") return extractApiErrorReason(text, "عرض الرسالة");
-  return text.slice(0, 42).replace(/[،.؛:：\-–—\s]+$/, "");
+  return truncateMirasMessage(text, 120);
+};
+
+// كان قص أي رسالة غير مطابقة لأنماط الاختصار أعلاه يتم بقطعها عند حرف رقم ٣٤
+// بالضبط (بلا نقاط حذف)، فتظهر الرسالة مبتورة في منتصف كلمة (كما في مربع "هذا
+// الاختبار يتطلب جلسة SEB آمنة م..."). هذا الحد كان مناسبًا لتصميم قديم لشريط
+// تنبيه بسطر واحد؛ شريط التنبيه الحالي يلتف تلقائياً لعدة أسطر (whitespace-
+// normal break-words)، فلم تعد هناك حاجة لقصّ عدواني كهذا. نقصّ الآن عند حد
+// كلمة كاملة وبحد أقصى أوسع يناسب سطرين إلى ثلاثة، ونضيف "…" فقط إذا قُصّت
+// الرسالة فعلاً، بدل قطعها في أي مكان بلا أي إشارة أنها غير مكتملة.
+const truncateMirasMessage = (text: string, max = 120) => {
+  const clean = String(text || "").trim();
+  if (clean.length <= max) return clean;
+  const cut = clean.slice(0, max);
+  const lastSpace = cut.lastIndexOf(" ");
+  const atWordBoundary = lastSpace > max * 0.6 ? cut.slice(0, lastSpace) : cut;
+  return `${atWordBoundary.replace(/[،.؛:：\-–—\s]+$/, "")}…`;
 };
 
 const simplifyMirasMessage = (
@@ -915,14 +931,14 @@ const simplifyMirasMessage = (
       if (any("كلمة المرور", "استرجاع")) return "تعذر الاسترجاع";
       return "تعذر التنفيذ";
     }
-    if (t.length > 34) return extractApiErrorReason(t, "تنفيذ الإجراء").slice(0, 34).replace(/[،.؛:：\-–—\s]+$/, "");
+    if (t.length > 120) return truncateMirasMessage(extractApiErrorReason(t, "تنفيذ الإجراء"), 120);
   }
 
   const simplified = simplifyStudentMessage(text, tone);
-  if (simplified.length > 34) {
+  if (simplified.length > 120) {
     if (tone === "success") return "تم";
-    if (tone === "error") return extractApiErrorReason(simplified, "تنفيذ الإجراء").slice(0, 34).replace(/[،.؛:：\-–—\s]+$/, "");
-    return simplified.slice(0, 34).replace(/[،.؛:：\-–—\s]+$/, "");
+    if (tone === "error") return truncateMirasMessage(extractApiErrorReason(simplified, "تنفيذ الإجراء"), 120);
+    return truncateMirasMessage(simplified, 120);
   }
   return simplified;
 };

@@ -7778,12 +7778,21 @@ app.use((req, res, next) => {
       (req as any).mirasPublicStudentStatePreview = true;
       return next();
     }
-    if (!sessionStudentId && requestedStudentId && pathname.startsWith("/api/quizzes")) {
+    // جلسة SEB المؤقتة: كان هذا الاستثناء محصورًا بمسارات /api/quizzes فقط، فكان
+    // الطالب يدخل الاختبار الآمن (SEB يفتح التطبيق في متصفح/تخزين منفصل بلا كوكي
+    // الجلسة العادية) ثم تُرفض أول طلبات تحميل حالته (session-status/live-state
+    // وغيرها) بخطأ STUDENT_SESSION_REQUIRED قبل الوصول للاختبار أصلاً. التصريح هنا
+    // ما زال ضيقًا تمامًا كسابقه: يتطلب توكن SEB صالحًا غير منتهٍ (getValidSebPass)
+    // صادرًا لهذا الطالب تحديدًا وتم التحقق أنه فعليًا من بيئة SEB
+    // (hasActualSebRuntimeHint) — فقط اتسع نطاقه ليغطي كل مسارات الطالب المطلوبة
+    // أثناء جلسة SEB، لا مسارات الاختبارات فقط، دون أن يصبح تجاوزًا عامًا.
+    if (!sessionStudentId && requestedStudentId) {
       const sebStudent = dbInstance
         .getStudents()
         .find((s: any) => normalizeStudentId(s.id) === requestedStudentId);
       const sebPass = sebStudent ? getValidSebPass(req, sebStudent) : null;
       if (sebPass && normalizeStudentId(sebPass.studentId) === requestedStudentId) {
+        (req as any).mirasSebPass = sebPass;
         return next();
       }
     }
@@ -13041,7 +13050,7 @@ app.get("/api/quizzes/generate", (req, res) => {
         .status(403)
         .json({
           error:
-            "هذا الاختبار يتطلب جلسة SEB آمنة مفعلة لهذا الطالب وهذا الاختبار. اضغط زر تشغيل SEB من بطاقة الاختبار؛ إذا كنت داخل SEB اضغط متابعة الاختبار ولا تحمّل ملف إعدادات جديد.",
+            "هذا الاختبار يتطلب SEB. اضغط زر تشغيل SEB في بطاقة الاختبار.",
         });
     }
     const now = Date.now();
@@ -14816,18 +14825,62 @@ async function convertOfficeFileToPdf(filePath: string): Promise<Buffer> {
   }
 
   const workDir = fs.mkdtempSync(path.join(os.tmpdir(), "miras-lo-out-"));
+  const sofficeWorkDir = fs.mkdtempSync(path.join(os.tmpdir(), "miras-lo-out2-"));
   try {
+    // جذر بطء "أكثر من ٤ دقائق": كان المسار السابق تتابعياً بحتاً — ينتظر
+    // unoconvert حتى مهلته الكاملة (٣٠ث) أولاً، ولا يبدأ soffice إلا بعد فشله.
+    // unoserver يشغّل نسخة LibreOffice واحدة تعالج التحويلات بالتتابع، فعندما
+    // يكون مشغولاً بتحويلات خلفية أخرى (تسخين مسبق لمرفقات طلاب آخرين) كانت
+    // نقرة المعلم تنتظر دورها في هذا الطابور المشترك، ثم تنتظر مهلة الـ٣٠ث
+    // كاملة قبل حتى تجربة البديل — فيتضاعف الانتظار مع كل إعادة محاولة من
+    // الواجهة. هنا نمنح unoconvert (السريع عادة، ~١ث عند عدم الازدحام) مهلة
+    // قصيرة فقط؛ إن لم يستجب خلالها نُشغّل soffice المستقل (نسخة LibreOffice
+    // منفصلة بملفها الشخصي الخاص، لا تتزاحم مع unoserver) بالتوازي معه فوراً،
+    // ونأخذ أيهما يُنجز أولاً. الحالة الشائعة (unoserver خامل) تبقى بنفس سرعة
+    // السابق (~١ث، بلا أي حمل إضافي)؛ حالة الازدحام تُحدّ بحد أقصى تقريبي
+    // ٣ث + مدة تحويل soffice نفسها بدل عشرات الثواني أو دقائق.
+    const unoPromise = convertViaUnoconvert(filePath, workDir);
+    unoPromise.catch(() => {}); // لا نريد unhandled rejection إن خسر السباق لاحقاً
     let buffer: Buffer;
     try {
-      buffer = await convertViaUnoconvert(filePath, workDir); // السريع (~١ث)
+      buffer = await Promise.race([
+        unoPromise,
+        new Promise<Buffer>((_, reject) =>
+          setTimeout(() => reject(new Error("uno-slow")), 3000),
+        ),
+      ]);
     } catch {
-      buffer = await convertViaSoffice(filePath, workDir); // fallback آمن
+      // لم يستجب unoconvert خلال المهلة القصيرة: نأخذ أيهما ينجز أولاً بين
+      // استمرار unoconvert (قد يكون قارب الانتهاء فعلاً) و soffice المستقل
+      // بدل الانتظار حتى فشل الاثنين معاً.
+      buffer = await raceFirstResolved([
+        unoPromise,
+        convertViaSoffice(filePath, sofficeWorkDir),
+      ]);
     }
     fs.writeFileSync(cachePath, buffer);
     return buffer;
   } finally {
     fs.rmSync(workDir, { recursive: true, force: true });
+    fs.rmSync(sofficeWorkDir, { recursive: true, force: true });
   }
+}
+
+// مثل Promise.any لكن بلا الاعتماد على دعم TS/lib له: يرجع أول نتيجة ناجحة
+// من القائمة، ولا يرفض إلا إذا فشلت كل الوعود.
+function raceFirstResolved<T>(promises: Promise<T>[]): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    let remaining = promises.length;
+    let lastError: any;
+    if (!remaining) return reject(new Error("no promises"));
+    promises.forEach((p) => {
+      p.then(resolve).catch((err) => {
+        lastError = err;
+        remaining -= 1;
+        if (remaining === 0) reject(lastError);
+      });
+    });
+  });
 }
 
 // إزالة الازدواج أثناء التنفيذ: التسخين المسبق (٣ مرفقات) + نقرة المعلم على
