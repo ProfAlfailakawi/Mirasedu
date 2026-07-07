@@ -3360,15 +3360,7 @@ export default function App() {
     if (isImage) return;
     const url = attachmentDisplayUrl(previewAttachment);
     if (!url || url.startsWith("data:")) return;
-    const isOfficeQuickOpen = [
-      ".ppt",
-      ".pptx",
-      ".doc",
-      ".docx",
-      ".xls",
-      ".xlsx",
-      ".rtf",
-    ].includes(ext);
+    const isOfficeQuickOpen = [".ppt", ".pptx", ".doc", ".rtf"].includes(ext);
     if (isOfficeQuickOpen) return;
     let cancelled = false;
     // يجب إرسال ترويسة الجلسة (Authorization) صراحة: تحميل مورد عادي (iframe/
@@ -3438,6 +3430,14 @@ export default function App() {
       isOfficeConvertible && !baseUrl.startsWith("data:")
         ? `${baseUrl}${baseUrl.includes("?") ? "&" : "?"}as=pdf`
         : baseUrl;
+    // أسرع مسار: للملفات المخزنة على نفس الخادم نمرر الرابط مباشرة إلى PDF.js.
+    // هذا يلغي جلب blob كامل من React قبل العرض، ويرجع إحساس الفتح الصاروخي خصوصاً للـ PowerPoint.
+    if (!url.startsWith("data:")) {
+      setPdfViewerSrc(
+        `/pdfjs/web/viewer.html?file=${encodeURIComponent(url)}#zoom=page-width`,
+      );
+      return;
+    }
     const previewCacheKey = `${attachmentLoadKey(previewAttachment) || name}:${isOfficeConvertible ? "pdf" : ext}:${url.startsWith("data:") ? String(url.length) : url}`;
     const cachedBlobUrl = previewBlobUrlCacheRef.current[previewCacheKey];
     if (cachedBlobUrl) {
@@ -3486,7 +3486,7 @@ export default function App() {
           .catch(() => {
             if (!cancelled)
               setDocumentPreviewError(
-                "تعذر تجهيز معاينة هذا المرفق الآن. أعد المحاولة بعد قليل.",
+                "تعذر تجهيز معاينة لهذا المرفق. جرّب تنزيله بدلاً من ذلك.",
               );
           });
         return () => {
@@ -3531,19 +3531,7 @@ export default function App() {
           );
           return null;
         }
-        const contentType = String(resp.headers.get("Content-Type") || "").toLowerCase();
-        const blob = await resp.blob();
-        if (
-          !blob.size ||
-          ((isPdf || isOfficeConvertible) &&
-            contentType &&
-            !contentType.includes("pdf") &&
-            !contentType.includes("octet-stream"))
-        ) {
-          setDocumentPreviewError("تعذر تجهيز معاينة المستند الآن. أعد المحاولة بعد قليل.");
-          return null;
-        }
-        return blob;
+        return resp.blob();
       })
       .then((blob) => {
         if (cancelled || !blob) return;
@@ -3580,8 +3568,8 @@ export default function App() {
       "مرفق",
     );
     const ext = name.slice(name.lastIndexOf(".")).toLowerCase();
-    const isSpreadsheet = ext === ".csv";
-    const isWordDoc = false;
+    const isSpreadsheet = [".xls", ".xlsx", ".csv"].includes(ext);
+    const isWordDoc = ext === ".docx";
     const isPlainText = [".txt", ".md"].includes(ext);
     if (!isSpreadsheet && !isWordDoc && !isPlainText) return;
     const url = attachmentDisplayUrl(previewAttachment);
@@ -3642,7 +3630,7 @@ export default function App() {
       const result = await mammoth.convertToHtml({ arrayBuffer: buffer });
       const safeHtml = DOMPurify.sanitize(result.value);
       if (!cancelled) setOfficeDocPreview({ kind: "html", html: safeHtml });
-    })().catch(() => fail("تعذر عرض المستند الآن. أعد المحاولة بعد قليل."));
+    })().catch(() => fail("تعذر عرض المستند. جرّب فتحه كاملًا بدلًا من ذلك."));
     return () => {
       cancelled = true;
     };
@@ -7814,9 +7802,6 @@ export default function App() {
       ".ppt",
       ".pptx",
       ".doc",
-      ".docx",
-      ".xls",
-      ".xlsx",
       ".rtf",
     ].includes(ext);
     const stableUrl = url && !isTemporaryAttachmentUrl(url) ? url : "";
@@ -13226,9 +13211,10 @@ ${rows
         setOtpInput("");
       } else if (resp.ok && data.pendingDeviceApproval) {
         resetActivationGrace();
-        setSuccessMsg("");
-        setErrorMsg(
-          "هذا الجهاز مستخدم ومفعّل لطالب آخر. حفاظًا على عدالة الدخول، تواصل مع أستاذ المقرر لاعتماد جهازك الشخصي أو الموافقة على تبديل الجهاز.",
+        setErrorMsg("");
+        setSuccessMsg(
+          data.message ||
+            "هذا الجهاز سبق استخدامه في النظام. تم إرسال طلب اعتماد للأستاذ.",
         );
       } else {
         resetActivationGrace();
@@ -13324,11 +13310,11 @@ ${rows
       );
       const data = await resp.json().catch(() => ({}));
       if (resp.ok && data.pendingDeviceApproval) {
-        resetActivationGrace();
-        setSuccessMsg("");
-        setErrorMsg(
-          "هذا الجهاز مستخدم ومفعّل لطالب آخر. حفاظًا على عدالة الدخول، تواصل مع أستاذ المقرر لاعتماد جهازك الشخصي أو الموافقة على تبديل الجهاز.",
+        setSuccessMsg(
+          data.message ||
+            "هذا الجهاز سبق استخدامه في النظام. تم إرسال طلب اعتماد للأستاذ.",
         );
+        setErrorMsg("");
         return;
       }
       if (!resp.ok) {
@@ -14363,8 +14349,6 @@ ${rows
       courseCode,
       ownerEmail,
       deviceToken: getMirasDeviceId(),
-      displayMode: readMirasDisplayMode(),
-      authToken: activeMirasAuthToken("student"),
     };
     if (!alreadyInsideSeb && isAppleMobileDevice()) {
       setSuccessMsg(
@@ -14671,11 +14655,11 @@ ${rows
       });
       const data = await resp.json().catch(() => ({}));
       if (resp.ok && data.pendingDeviceApproval) {
-        resetActivationGrace();
-        setSuccessMsg("");
-        setErrorMsg(
-          "هذا الجهاز مستخدم ومفعّل لطالب آخر. حفاظًا على عدالة الدخول، تواصل مع أستاذ المقرر لاعتماد جهازك الشخصي أو الموافقة على تبديل الجهاز.",
+        setSuccessMsg(
+          data.message ||
+            "هذا الجهاز سبق استخدامه في النظام. تم إرسال طلب اعتماد للأستاذ.",
         );
+        setErrorMsg("");
         try {
           await fetchCodeIntegrity();
         } catch {}
@@ -26574,6 +26558,21 @@ ${rows
                       <p className="max-w-full break-words text-[12px] font-bold text-slate-500">
                         {name || "مرفق بلا اسم"}
                       </p>
+                      {url && (
+                        <a
+                          href={url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          download={
+                            String(url).startsWith("data:")
+                              ? name || "مرفق"
+                              : undefined
+                          }
+                          className="mt-1 rounded-2xl bg-indigo-600 px-5 py-2.5 text-[12px] font-black text-white hover:bg-indigo-700"
+                        >
+                          تنزيل الملف
+                        </a>
+                      )}
                     </div>
                   );
                 if (!url || loadFailed)
