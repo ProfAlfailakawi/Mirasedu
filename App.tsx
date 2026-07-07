@@ -9221,7 +9221,7 @@ export default function App() {
     options: { auth?: MirasAuthMode; session?: any } = {},
   ) => {
     const sebPass = getMirasSebPass();
-    const sebContext = hasMirasSebAttemptContext();
+    const sebContext = isActualSafeExamBrowserRuntime() && hasMirasSebAttemptContext();
     const authToken = activeMirasAuthToken(
       options.auth || "auto",
       options.session,
@@ -9491,8 +9491,10 @@ export default function App() {
     if (!cutoff) return true;
     const created = notificationCreatedTimeMs(n);
     if (!created) return true;
-    // سماحية قصيرة لفرق الساعة بين حفظ التفعيل والتنبيه المتزامن معه.
-    return created + 30 * 1000 >= cutoff;
+    // We allow any notification created after the cutoff (with 30s grace)
+    // OR any notification created within the last 30 days.
+    const thirtyDaysMs = 30 * 24 * 60 * 60 * 1000;
+    return (created + 30 * 1000 >= cutoff) || (Date.now() - created <= thirtyDaysMs);
   };
 
   const notificationTargetsStudent = (n: any) => {
@@ -9554,8 +9556,7 @@ export default function App() {
       n?.userId || data.userId || data.studentId || n?.studentId || "",
     ).trim();
     if (directUserId) {
-      if (directUserId !== String(studentSession.id)) return false;
-      return isFreshForCourse;
+      return directUserId === String(studentSession.id);
     }
 
     // نطابق ضد جميع مقررات الطالب: شعبته الحالية + كل التحاقاته (بما فيها مقررات المعاد المغلقة)
@@ -9593,7 +9594,7 @@ export default function App() {
         String(item?.id || item?.studentId || item) ===
         String(studentSession.id),
     );
-    if (targetsThisStudent) return isFreshForCourse;
+    if (targetsThisStudent) return true;
     if (targetList.length) return false;
     if (targetRole && targetRole !== "student" && targetRole !== "students")
       return false;
@@ -14150,7 +14151,7 @@ ${rows
     setErrorMsg("");
     setSuccessMsg("");
     const alreadyInsideSeb =
-      isActualSafeExamBrowserRuntime() || hasMirasSebAttemptContext();
+      isActualSafeExamBrowserRuntime() && hasMirasSebAttemptContext();
     const existingSebToken = getMirasSebPass();
     if (alreadyInsideSeb && existingSebToken) {
       setSuccessMsg(
@@ -14936,7 +14937,7 @@ ${rows
       selectedChapterQuiz
     )
       return;
-    if (!hasMirasSebAttemptContext()) return;
+    if (!isActualSafeExamBrowserRuntime() || !hasMirasSebAttemptContext()) return;
     if (sebAutoStartInFlightRef.current) return;
     sebAutoStartInFlightRef.current = true;
     setStudentTab("practice");
@@ -14968,6 +14969,7 @@ ${rows
   useEffect(() => {
     if (
       !sebSessionInfo?.token ||
+      !isActualSafeExamBrowserRuntime() ||
       !hasMirasSebAttemptContext() ||
       currentView !== "student_workspace"
     )
@@ -19085,7 +19087,7 @@ ${rows
                   );
                   return;
                 }
-                if (requiresSeb && !isReturned && !isActualSafeExamBrowserRuntime() && !hasMirasSebAttemptContext()) {
+                if (requiresSeb && !isReturned && !isActualSafeExamBrowserRuntime()) {
                   await launchSebExam(
                     exam.id,
                     exam.courseCode || studentCourseCode,
@@ -19207,7 +19209,8 @@ ${rows
       exam.points || exam.totalPoints || "",
     );
     const hasSebAttemptForThisExam =
-      (isActualSafeExamBrowserRuntime() || hasMirasSebAttemptContext()) &&
+      isActualSafeExamBrowserRuntime() &&
+      hasMirasSebAttemptContext() &&
       (!sebSessionInfo?.examId ||
         String(sebSessionInfo.examId) === String(exam.id));
     const canStartSeb =
@@ -29293,7 +29296,8 @@ ${rows
                             exam.courseCode || studentCourseCode,
                           );
                           const hasSebAttemptForThisExam =
-                            (isActualSafeExamBrowserRuntime() || hasMirasSebAttemptContext()) &&
+                            isActualSafeExamBrowserRuntime() &&
+                            hasMirasSebAttemptContext() &&
                             (!sebSessionInfo?.examId ||
                               String(sebSessionInfo.examId) ===
                                 String(exam.id));
