@@ -854,9 +854,9 @@ const simplifyMirasMessage = (
     if (any("اكتب", "أدخل", "يرجى إدخال", "اختر", "حدد")) {
       if (any("درجة")) return "اكتب الدرجة";
       if (any("طالب", "طلبة")) return "اختر الطالب";
+      if (any("كلمة مرور")) return "اكتب كلمة المرور";
       if (any("مقرر")) return "اختر المقرر";
       if (any("عنوان")) return "اكتب العنوان";
-      if (any("كلمة مرور")) return "اكتب كلمة المرور";
       return "أكمل البيانات";
     }
     if (any("لا توجد", "لم يتم العثور", "لم أجد")) {
@@ -18157,7 +18157,7 @@ ${rows
   const updateSubmissionGrade = (
     id: string,
     grade: string,
-    options: { forceVisibleGrade?: boolean } = {},
+    options: { forceVisibleGrade?: boolean; notifyStudent?: boolean } = {},
   ) => {
     const itemToUpdate = teacherSubmissions.find((item: any) => item.id === id);
     const validation = validateSubmissionGradeValue(itemToUpdate || {}, grade);
@@ -18219,6 +18219,8 @@ ${rows
         originalGrade:
           itemToUpdate.originalGrade ?? previousGradeForAudit ?? "",
         reviewedGrade: safeGrade,
+        notifyStudentOnGrade: options.notifyStudent === true,
+        gradeNotificationCommitted: options.notifyStudent === true,
         gradeAuditTrail: shouldAppendGradeAudit
           ? [
               ...(Array.isArray(itemToUpdate.gradeAuditTrail)
@@ -18250,6 +18252,8 @@ ${rows
                 grade: safeGrade,
                 status: safeGrade ? "تم رصد الدرجة" : "جاهز للمراجعة",
                 gradedAt: new Date().toISOString(),
+                notifyStudentOnGrade: options.notifyStudent === true,
+                gradeNotificationCommitted: options.notifyStudent === true,
               }
             : item,
         );
@@ -19026,7 +19030,7 @@ ${rows
                   );
                   return;
                 }
-                if (requiresSeb && !isActualSafeExamBrowserRuntime()) {
+                if (requiresSeb && !isReturned && !isActualSafeExamBrowserRuntime()) {
                   await launchSebExam(
                     exam.id,
                     exam.courseCode || studentCourseCode,
@@ -20472,6 +20476,7 @@ ${rows
     pool.forEach((sub: any) =>
       updateSubmissionGrade(sub.id, normalizedGrade, {
         forceVisibleGrade: true,
+        notifyStudent: true,
       }),
     );
     setSuccessMsg(
@@ -21059,6 +21064,9 @@ ${rows
     const selectedExam = pulseExamFilter !== "all" ? byId(pulseExamFilter) : null;
     const enabledDayCameraExams = examDayExams.filter((exam: any) => mirasExamUsesCamera(exam));
     const enabledCourseCameraExams = activeCourseExams.filter((exam: any) => mirasExamUsesCamera(exam));
+    const enabledAllCameraExams = teacherCreatedExams.filter((exam: any) =>
+      mirasExamUsesCamera(exam),
+    );
     const candidateSeed =
       explicitExam && mirasExamUsesCamera(explicitExam)
         ? [explicitExam]
@@ -21068,7 +21076,7 @@ ${rows
             ? enabledDayCameraExams
             : enabledCourseCameraExams.length > 0
               ? enabledCourseCameraExams
-              : [];
+              : enabledAllCameraExams;
     const candidateExams = candidateSeed.filter((exam: any) =>
       mirasExamUsesCamera(exam),
     );
@@ -25511,7 +25519,9 @@ ${rows
           }
           .miras-submission-detail-panel { overflow: hidden; }
           .miras-submission-detail-scroll { scrollbar-width: thin; }
-          .miras-app-teacher-root.miras-teacher-viewport-v5 .miras-zero-action-command {
+          .miras-app-teacher-root.miras-teacher-viewport-v5 .miras-zero-action-command,
+          .miras-app-teacher-root.miras-teacher-viewport-v5 .miras-zero-action-notifications {
+            position: relative;
             color: #4f46e5 !important;
             background: linear-gradient(145deg, #ffffff, #eef2ff) !important;
             border-color: rgba(129,140,248,.28) !important;
@@ -26097,7 +26107,7 @@ ${rows
                       }}
                       onBlur={() => {
                         const grade = normalizeGradeChange(String(selectedSubmissionDetail.grade ?? ""));
-                        updateSubmissionGrade(selectedSubmissionDetail.id, grade);
+                        updateSubmissionGrade(selectedSubmissionDetail.id, grade, { notifyStudent: true });
                       }}
                       onKeyDown={(e) => {
                         if (e.key === "Enter") {
@@ -26197,7 +26207,7 @@ ${rows
                       }}
                       onBlur={() => {
                         const grade = normalizeGradeChange(String(selectedSubmissionDetail.grade ?? ""));
-                        updateSubmissionGrade(selectedSubmissionDetail.id, grade);
+                        updateSubmissionGrade(selectedSubmissionDetail.id, grade, { notifyStudent: true });
                       }}
                       onKeyDown={(e) => {
                         if (e.key === "Enter") {
@@ -30281,6 +30291,43 @@ ${rows
                 >
                   <Search className="h-5 w-5" />
                 </button>
+                {shouldShowTeacherImportantNotificationsButton && (
+                  <button
+                    type="button"
+                    title="التنبيهات المهمة"
+                    aria-label="التنبيهات المهمة"
+                    onPointerDown={(e) => e.stopPropagation()}
+                    onClick={async (e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      const willOpen = !teacherImportantNotificationsOpen;
+                      closeWorkspaceDrawers();
+                      setTeacherImportantNotificationsOpen(willOpen);
+                      if (willOpen) {
+                        const perm = readBrowserNotifPermission();
+                        setBrowserNotifPermission(perm);
+                        if (perm === "granted" && !notificationState.token)
+                          registerFcmToken(false);
+                        await fetchInAppNotifications();
+                        await Promise.allSettled([
+                          fetchLogs(),
+                          fetchCodeIntegrity(),
+                          fetchPasswordResetRequests(),
+                        ]);
+                      }
+                    }}
+                    className={`miras-zero-action-btn miras-zero-action-notifications ${criticalTeacherNotifications.length ? "notification-alert-glowing-btn" : ""}`}
+                  >
+                    <Bell className="h-5 w-5" />
+                    {criticalTeacherNotifications.length > 0 && (
+                      <span className="miras-notification-badge">
+                        {criticalTeacherNotifications.length > 99
+                          ? "99+"
+                          : criticalTeacherNotifications.length}
+                      </span>
+                    )}
+                  </button>
+                )}
                 <button
                   type="button"
                   title="خروج"
@@ -31172,6 +31219,9 @@ ${rows
                                             const rowExam = rowExamId ? byId(rowExamId) : null;
                                             const enabledDayCameraExams = examDayExams.filter((exam: any) => mirasExamUsesCamera(exam));
                                             const enabledCourseCameraExams = activeCourseExams.filter((exam: any) => mirasExamUsesCamera(exam));
+                                            const enabledAllCameraExams = teacherCreatedExams.filter((exam: any) =>
+                                              mirasExamUsesCamera(exam),
+                                            );
                                             const visibleCameraSeed =
                                               rowExam && mirasExamUsesCamera(rowExam)
                                                 ? [rowExam]
@@ -31181,7 +31231,7 @@ ${rows
                                                     ? enabledDayCameraExams
                                                     : enabledCourseCameraExams.length > 0
                                                       ? enabledCourseCameraExams
-                                                      : [];
+                                                      : enabledAllCameraExams;
                                             const visibleCameraExams = visibleCameraSeed.filter((exam: any) => mirasExamUsesCamera(exam));
                                             const cfg = normalizeLocalVisionConfig(visibleCameraExams[0]);
                                             const ids = [
@@ -31730,6 +31780,14 @@ ${rows
                                           );
                                           updateSubmissionGrade(sub.id, grade);
                                         }}
+                                        onBlur={(e) => {
+                                          const grade = normalizeGradeChange(
+                                            readGradeInputValue(e, sub.grade),
+                                          );
+                                          updateSubmissionGrade(sub.id, grade, {
+                                            notifyStudent: true,
+                                          });
+                                        }}
                                         type="text"
                                         dir="ltr"
                                         inputMode="decimal"
@@ -32212,9 +32270,15 @@ ${rows
                                           grade,
                                         }),
                                       );
+                                    }}
+                                    onBlur={() => {
+                                      const grade = normalizeGradeChange(
+                                        String(selectedSubmissionDetail.grade ?? ""),
+                                      );
                                       updateSubmissionGrade(
                                         selectedSubmissionDetail.id,
                                         grade,
+                                        { notifyStudent: true },
                                       );
                                     }}
                                     type="text"
@@ -32344,8 +32408,7 @@ ${rows
                                       نافذة إنصاف بعد الإغلاق
                                     </p>
                                     <p className="mt-1 text-[10px] font-bold leading-5 text-amber-700">
-                                      فعّل الاستثناء وحدّد مدته إذا أردت منح
-                                      الطالب فرصة إضافية محدودة.
+                                      اختر مدة الفرصة
                                     </p>
                                   </div>
                                   <button

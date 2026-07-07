@@ -1338,6 +1338,11 @@ function upsertRuntimeTeacherSubmission(submission: any) {
       gradedAt: previous.gradedAt || submission.gradedAt,
     };
   }
+  const notifyGradeCommit =
+    submission.notifyStudentOnGrade === true ||
+    submission.notifyStudentOnGrade === "true" ||
+    submission.gradeNotificationCommitted === true ||
+    submission.gradeNotificationCommitted === "true";
   const finalNormalizedGrade =
     submission.grade === "" ||
     submission.grade === undefined ||
@@ -1363,11 +1368,14 @@ function upsertRuntimeTeacherSubmission(submission: any) {
     submittedAt: submission.submittedAt || new Date().toISOString(),
     updatedAt: new Date().toISOString(),
   };
+  delete (saved as any).notifyStudentOnGrade;
+  delete (saved as any).gradeNotificationCommitted;
   dbInstance.upsertTeacherSubmission(saved);
   bumpLiveContentRevision();
   const prevGrade = previous?.grade ?? previous?.visibleGrade ?? "";
   const nextGrade = saved.grade ?? saved.visibleGrade ?? "";
   if (
+    notifyGradeCommit &&
     saved.studentId &&
     String(nextGrade) !== "" &&
     String(nextGrade) !== String(prevGrade)
@@ -5500,6 +5508,23 @@ function rememberInAppNotification(item: any) {
     createdAt: item.createdAt || new Date().toISOString(),
     read: false,
   };
+  const savedRole = String(
+    saved.role || saved.data?.role || saved.data?.targetRole || "",
+  )
+    .trim()
+    .toLowerCase();
+  const savedTargetRole = String(saved.data?.targetRole || "")
+    .trim()
+    .toLowerCase();
+  if (
+    (savedRole === "student" ||
+      savedRole === "students" ||
+      savedTargetRole === "student" ||
+      savedTargetRole === "students") &&
+    shouldSuppressRoutineStudentNotification(saved.title, saved.body, saved.data)
+  ) {
+    return null;
+  }
   const signature = [
     saved.userId,
     saved.role,
@@ -8494,17 +8519,34 @@ app.post("/api/notifications/course", (req, res) => {
   const safeTitle = sanitizePublicMessageText(title) || "تنبيه مقرر";
   const safeBody =
     sanitizePublicMessageText(body) || "لديك تنبيه جديد في المقرر.";
-  const saved = rememberCourseNotification(sectionCode, safeTitle, safeBody, type, {
+  const notificationPayload = { type, courseCode: sectionCode, link: "/" };
+  if (
+    shouldSuppressRoutineStudentNotification(
+      safeTitle,
+      safeBody,
+      notificationPayload,
+    )
+  ) {
+    return res.json({
+      success: true,
+      suppressed: true,
+      notification: null,
+      sent: 0,
+    });
+  }
+  const saved = rememberCourseNotification(
+    sectionCode,
+    safeTitle,
+    safeBody,
     type,
-    courseCode: sectionCode,
-    link: "/",
-  });
+    notificationPayload,
+  );
   const sent = notifyUsers(
     (token) =>
       token.role === "student" && studentTokenHasCourse(token, sectionCode),
     safeTitle,
     safeBody,
-    { type, courseCode: sectionCode, link: "/" },
+    notificationPayload,
   );
   return res.json({ success: true, notification: saved, sent });
 });
@@ -12731,17 +12773,26 @@ app.get("/api/quizzes/generate", (req, res) => {
   let activeExamSessionForResponse: ExamSession | null = null;
   if (officialExam) {
     const activeSebAttempt = getActiveSebAttempt(req, student, officialExam.id);
+    const teacherAuthorizedSebReturn = hasTeacherAuthorizedSebReturnException(
+      officialExam.id,
+      student.id,
+    );
     if (
       !studentHasEnrollmentInCourse(
         student,
         officialExam.courseCode || student.sectionCode,
-      )
+      ) &&
+      !teacherAuthorizedSebReturn
     ) {
       return res
         .status(403)
         .json({ error: "هذا الاختبار غير مخصص لأحد مقرراتك المفعلة." });
     }
-    if (officialExam.seb?.enabled && !activeSebAttempt) {
+    if (
+      officialExam.seb?.enabled &&
+      !activeSebAttempt &&
+      !teacherAuthorizedSebReturn
+    ) {
       rejectSebPass(
         req,
         getValidSebPass(req, student, officialExam.id),
@@ -12762,7 +12813,7 @@ app.get("/api/quizzes/generate", (req, res) => {
     if (
       officialExam.close &&
       new Date(officialExam.close).getTime() + 24 * 60 * 60 * 1000 < now &&
-      !getActiveReturnException("exam", officialExam.id, student.id)
+      !teacherAuthorizedSebReturn
     )
       return res.status(403).json({ error: "انتهى وقت إتاحة هذا الاختبار." });
     const lockResult = acquireExamLockForRequest(req, student, officialExam);
@@ -13386,11 +13437,16 @@ app.post("/api/quizzes/submit", (req, res) => {
   );
   if (officialExam) {
     const activeSebAttempt = getActiveSebAttempt(req, student, officialExam.id);
+    const teacherAuthorizedSebReturn = hasTeacherAuthorizedSebReturnException(
+      officialExam.id,
+      student.id,
+    );
     if (
       !studentHasEnrollmentInCourse(
         student,
         officialExam.courseCode || student.sectionCode,
-      )
+      ) &&
+      !teacherAuthorizedSebReturn
     ) {
       return res
         .status(403)
@@ -13398,7 +13454,8 @@ app.post("/api/quizzes/submit", (req, res) => {
     }
     if (
       officialExam.seb?.enabled &&
-      (!isSebRequest(req) || !activeSebAttempt)
+      (!isSebRequest(req) || !activeSebAttempt) &&
+      !teacherAuthorizedSebReturn
     ) {
       return res
         .status(403)
@@ -13412,7 +13469,7 @@ app.post("/api/quizzes/submit", (req, res) => {
     if (
       officialExam.close &&
       new Date(officialExam.close).getTime() + 24 * 60 * 60 * 1000 < now &&
-      !getActiveReturnException("exam", officialExam.id, student.id)
+      !teacherAuthorizedSebReturn
     )
       return res.status(403).json({ error: "انتهى وقت إتاحة هذا الاختبار." });
   }
