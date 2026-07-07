@@ -1428,6 +1428,7 @@ const decodeQrWithMirasJsQr = async (
 };
 const isSafeExamBrowserSession = () => {
   if (typeof navigator === "undefined") return false;
+  const actualSebRuntime = /SafeExamBrowser|SEB/i.test(navigator.userAgent);
   try {
     const params = new URLSearchParams(window.location.search);
     const sebPass = params.get("seb_token") || params.get("seb_pass");
@@ -1436,13 +1437,20 @@ const isSafeExamBrowserSession = () => {
     if (sebPass) sessionStorage.setItem("mirasSebPass", sebPass);
     if (sebExamId) sessionStorage.setItem("mirasSebExamId", sebExamId);
     if (sebCourse) sessionStorage.setItem("mirasSebCourseCode", sebCourse);
-    if (params.get("seb") === "1" || params.get("miras_seb") === "1") {
+    const hasSebMarker = params.get("seb") === "1" || params.get("miras_seb") === "1";
+    const activeSebToken = sebPass || sessionStorage.getItem("mirasSebPass") || "";
+    if (actualSebRuntime) {
+      if (hasSebMarker || activeSebToken) sessionStorage.setItem("mirasSebSession", "1");
+      return true;
+    }
+    // لا نعتبر المتصفح العادي داخل SEB لمجرد بقاء علامة قديمة في sessionStorage.
+    // يجب وجود token نشط حتى لا يظهر زر الاختبار كأنه مفتوح داخل SEB ثم يرفضه الخادم.
+    if ((hasSebMarker || sessionStorage.getItem("mirasSebSession") === "1") && activeSebToken) {
       sessionStorage.setItem("mirasSebSession", "1");
       return true;
     }
-    if (sessionStorage.getItem("mirasSebSession") === "1") return true;
   } catch {}
-  return /SafeExamBrowser|SEB/i.test(navigator.userAgent);
+  return actualSebRuntime;
 };
 const isActualSafeExamBrowserRuntime = () => {
   // Important: URL/session markers mean "SEB attempt context" only. They do NOT prove the
@@ -1470,12 +1478,13 @@ const hasMirasSebAttemptContext = () => {
   if (typeof window === "undefined") return false;
   try {
     const params = new URLSearchParams(window.location.search);
-    if (params.get("miras_seb") === "1" || params.get("seb") === "1")
-      return true;
-    if (sessionStorage.getItem("mirasSebSession") === "1") return true;
-    if (sessionStorage.getItem("mirasSebSessionInfo")) return true;
+    const token = getMirasSebPass();
+    const hasUrlMarker = params.get("miras_seb") === "1" || params.get("seb") === "1";
+    const storedInfoRaw = sessionStorage.getItem("mirasSebSessionInfo") || "";
+    const storedInfoHasToken = !!storedInfoRaw && /"token"\s*:/.test(storedInfoRaw);
+    return !!token && (hasUrlMarker || sessionStorage.getItem("mirasSebSession") === "1" || storedInfoHasToken || isActualSafeExamBrowserRuntime());
   } catch {}
-  return isSafeExamBrowserSession();
+  return isActualSafeExamBrowserRuntime() && !!getMirasSebPass();
 };
 const buildMirasSebQuitPath = (token?: string) =>
   `/seb/quit?token=${encodeURIComponent(token || getMirasSebPass() || "")}`;
@@ -3656,6 +3665,7 @@ export default function App() {
   const [teacherImportantReadKeys, setTeacherImportantReadKeys] = useState<
     Set<string>
   >(new Set());
+  const [selectedTeacherImportantNotification, setSelectedTeacherImportantNotification] = useState<any | null>(null);
 
   useEffect(() => {
     const teacherKey = String(
@@ -17467,6 +17477,10 @@ ${rows
     const raw = Number(normalizeArabicDigits(returnExceptionHours));
     if (!Number.isFinite(raw)) return 5;
     return Math.max(1, Math.min(24, Math.round(raw)));
+  };
+  const returnExceptionUntilPreviewText = () => {
+    const until = new Date(Date.now() + clampedReturnExceptionHours() * 60 * 60 * 1000);
+    return formatKwDateTime(until.toISOString());
   };
   useEffect(() => {
     if (!pendingReturnSubmission) return;
@@ -32191,6 +32205,11 @@ ${rows
                                 <span className="text-[10px] font-black text-amber-700">ساعة</span>
                               </div>
                             )}
+                            {returnedActivityNeedsException(pendingReturnSubmission) && (
+                              <div className="relative mt-2 rounded-[1.05rem] border border-emerald-100 bg-emerald-50/70 px-3 py-2 text-center text-[10.5px] font-black leading-5 text-emerald-800 shadow-sm">
+                                للطالب فرصة حتى: {returnExceptionUntilPreviewText()}
+                              </div>
+                            )}
                             <div className="miras-return-actions relative mt-4 flex justify-center gap-3">
                               <button
                                 type="button"
@@ -39613,6 +39632,14 @@ ${rows
                                   <div className="flex shrink-0 items-center justify-end gap-1.5 ml-0.5">
                                     <button
                                       type="button"
+                                      aria-label="تحديد الكل كمقروء"
+                                      onClick={markAllTeacherImportantNotificationsRead}
+                                      className="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-emerald-150 bg-emerald-50 text-emerald-700 shadow-sm hover:bg-emerald-100 hover:text-emerald-800 transition-all"
+                                    >
+                                      <CheckCircle2 className="h-5 w-5" />
+                                    </button>
+                                    <button
+                                      type="button"
                                       aria-label="إغلاق التنبيهات"
                                       onClick={() =>
                                         setTeacherImportantNotificationsOpen(
@@ -39650,27 +39677,22 @@ ${rows
                                           role="button"
                                           tabIndex={0}
                                           data-tone={item.tone}
-                                          onClick={async () => {
+                                          onClick={() => {
                                             markTeacherImportantNotificationRead(
                                               item.key,
                                             );
-                                            setTeacherImportantNotificationsOpen(
-                                              false,
-                                            );
-                                            await item.action?.();
+                                            setSelectedTeacherImportantNotification(item);
                                           }}
-                                          onKeyDown={async (e) => {
+                                          onKeyDown={(e) => {
                                             if (
                                               e.key === "Enter" ||
                                               e.key === " "
                                             ) {
+                                              e.preventDefault();
                                               markTeacherImportantNotificationRead(
                                                 item.key,
                                               );
-                                              setTeacherImportantNotificationsOpen(
-                                                false,
-                                              );
-                                              await item.action?.();
+                                              setSelectedTeacherImportantNotification(item);
                                             }
                                           }}
                                           className={`miras-teacher-alert-card miras-teacher-alert-card-clean block w-full cursor-pointer rounded-2xl border text-right transition-all hover:-translate-y-0.5 shadow-sm hover:shadow-md ${
@@ -39769,6 +39791,57 @@ ${rows
                                   </div>
                                 )}
                               </div>
+                              {selectedTeacherImportantNotification && (
+                                <div
+                                  className="fixed inset-0 z-[2147483100] flex items-center justify-center bg-slate-950/35 p-4 backdrop-blur-sm"
+                                  dir="rtl"
+                                  onClick={() => setSelectedTeacherImportantNotification(null)}
+                                >
+                                  <div
+                                    className="w-full max-w-[32rem] rounded-[2rem] border border-white/80 bg-white/98 p-4 text-right shadow-[0_28px_90px_rgba(15,23,42,0.25)] sm:p-5"
+                                    onClick={(e) => e.stopPropagation()}
+                                  >
+                                    <div className="mb-3 flex items-start justify-between gap-3">
+                                      <button
+                                        type="button"
+                                        aria-label="إغلاق تفاصيل التنبيه"
+                                        onClick={() => setSelectedTeacherImportantNotification(null)}
+                                        className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border border-slate-100 bg-slate-50 text-slate-500 hover:bg-slate-100 hover:text-slate-900"
+                                      >
+                                        <X className="h-5 w-5" />
+                                      </button>
+                                      <div className="min-w-0 flex-1">
+                                        <span className="mb-2 inline-flex rounded-full border border-emerald-100 bg-emerald-50 px-2.5 py-1 text-[10px] font-black text-emerald-700">
+                                          تم تحديده كمقروء
+                                        </span>
+                                        <h3 className="break-words text-[1.15rem] font-black leading-8 text-slate-950 sm:text-[1.3rem]">
+                                          {sanitizeCourseIdentifiersForDisplay(selectedTeacherImportantNotification.title)}
+                                        </h3>
+                                      </div>
+                                    </div>
+                                    <p className="max-h-[45vh] overflow-y-auto whitespace-pre-wrap rounded-[1.25rem] border border-slate-100 bg-slate-50/80 p-3 text-[13px] font-bold leading-7 text-slate-700">
+                                      {sanitizeCourseIdentifiersForDisplay(selectedTeacherImportantNotification.body)}
+                                    </p>
+                                    <div className="mt-3 flex items-center justify-between gap-2">
+                                      <time className="rounded-xl bg-white px-2.5 py-1 font-mono text-[10px] font-black text-slate-400 ring-1 ring-slate-100" dir="ltr">
+                                        {formatKwDateTime(selectedTeacherImportantNotification.when)}
+                                      </time>
+                                      <button
+                                        type="button"
+                                        onClick={async () => {
+                                          const note = selectedTeacherImportantNotification;
+                                          setSelectedTeacherImportantNotification(null);
+                                          setTeacherImportantNotificationsOpen(false);
+                                          await note?.action?.();
+                                        }}
+                                        className="inline-flex items-center justify-center rounded-2xl bg-slate-950 px-4 py-2.5 text-[12px] font-black text-white shadow-sm hover:bg-indigo-700"
+                                      >
+                                        فتح الإجراء المرتبط
+                                      </button>
+                                    </div>
+                                  </div>
+                                </div>
+                              )}
                               </div>,
                                 document.body,
                               )}
