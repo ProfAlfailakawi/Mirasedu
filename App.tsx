@@ -14271,7 +14271,7 @@ ${rows
     }
     setErrorMsg("");
     setSuccessMsg("");
-    const alreadyInsideSeb = isActualSafeExamBrowserRuntime();
+    const alreadyInsideSeb = isActualSafeExamBrowserRuntime() || hasMirasSebAttemptContext();
     const existingSebToken = getMirasSebPass();
     if (alreadyInsideSeb && existingSebToken) {
       setSuccessMsg(
@@ -19209,7 +19209,7 @@ ${rows
                   );
                   return;
                 }
-                if (requiresSeb && !isReturned && !isActualSafeExamBrowserRuntime()) {
+                if (requiresSeb && !isReturned && !(isActualSafeExamBrowserRuntime() || hasMirasSebAttemptContext())) {
                   await launchSebExam(
                     exam.id,
                     exam.courseCode || studentCourseCode,
@@ -19331,7 +19331,7 @@ ${rows
       exam.points || exam.totalPoints || "",
     );
     const hasSebAttemptForThisExam =
-      isActualSafeExamBrowserRuntime() &&
+      (isActualSafeExamBrowserRuntime() || hasMirasSebAttemptContext()) &&
       (!sebSessionInfo?.examId ||
         String(sebSessionInfo.examId) === String(exam.id));
     const canStartSeb =
