@@ -2251,6 +2251,7 @@ let activeQIndex=0;
 let syncTimeout=null;
 let activeExamSessionId="";
 let examHeartbeatTimer=null;
+let examFinished=false;
 
 function el(id){return document.getElementById(id);}
 function show(id){el(id).classList.remove("hidden");}
@@ -2289,10 +2290,14 @@ function stopExamHeartbeat(){
   if(examHeartbeatTimer){clearInterval(examHeartbeatTimer);examHeartbeatTimer=null;}
 }
 async function sendExamHeartbeat(){
-  if(!studentId||!examId||!activeExamSessionId) return;
+  if(examFinished||!studentId||!examId||!activeExamSessionId) return;
   try {
     const resp=await fetch("/api/exam-lock/heartbeat",{method:"POST",headers:headers(),body:JSON.stringify({studentId,examId,sessionId:activeExamSessionId,deviceId:deviceId(),displayMode:displayMode()})});
+    // بعد التسليم تُغلق الجلسة على الخادم، فقد يرجع نبض كان قيد الطريق بخطأ.
+    // إذا كان الاختبار قد سُلّم فعلاً نتجاهله تماماً حتى لا تظهر شاشة البداية
+    // ورسالة "انتهت جلسة الاختبار" فوق شاشة "تم التسليم" وتُربك الطالب.
     if(!resp.ok){
+      if(examFinished) return;
       const data=await resp.json().catch(()=>({}));
       stopExamHeartbeat();
       hide("exam");show("intro");
@@ -2523,17 +2528,26 @@ async function startExam(){
 async function submitExam(){
   try {
     if(timerId) clearInterval(timerId);
+    // نُعلن أن الاختبار في طور التسليم ونوقف النبض فوراً قبل إرسال الطلب. هكذا
+    // لا يفتح أي نبض لاحق (الجلسة تُغلق على الخادم بعد التسليم) شاشة البداية
+    // أو رسالة "انتهت جلسة الاختبار" فوق شاشة "تم التسليم" فيربك الطالب.
+    examFinished=true;
+    stopExamHeartbeat();
     el("submitBtn").disabled=true;
     const resp=await fetch("/api/quizzes/submit",{method:"POST",headers:headers(),body:JSON.stringify({studentId,chapterId:examId,answers,startTime,deviceToken:deviceId(),examSessionId:activeExamSessionId,displayMode:displayMode()})});
     const data=await resp.json().catch(()=>({}));
     if(!resp.ok) throw new Error(data.error||"تعذر تسليم الاختبار.");
     stopExamHeartbeat();
-    hide("exam");show("result");
+    hide("intro");hide("exam");show("result");
     const submission=data.submission||{};
     const savedScore=submission.score!==undefined?submission.score:(submission.percentage!==undefined?submission.percentage:"تم التسليم");
     text("resultBox",data.gradeVisible?"تم حفظ التسليم. النتيجة: "+savedScore:"تم حفظ التسليم وإغلاق المحاولة.");
   } catch(err) {
+    // فشل التسليم (انقطاع شبكة/خطأ خادم): الجلسة ما زالت قائمة، فنُعيد تفعيل
+    // النبض والزر ليُعيد الطالب المحاولة، دون إظهار أي شاشة نهاية مربكة.
+    examFinished=false;
     el("submitBtn").disabled=false;
+    startExamHeartbeat();
     alert((err&&err.message?err.message:"تعذر تسليم الاختبار.")+"\\nاستخدم خروج آمن إذا استمرت المشكلة. كلمة الخروج: Miras");
   }
 }
