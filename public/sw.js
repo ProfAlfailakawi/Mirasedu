@@ -1,5 +1,5 @@
 /* Miras PWA + FCM service worker */
-const MIRAS_CACHE_VERSION = 'miras-shell-v32-fast-assets-cache-first-20260706';
+const MIRAS_CACHE_VERSION = 'miras-shell-v33-pdfjs-cache-first-20260708';
 const MIRAS_STUDENT_LIVE_CHANNEL = 'miras-student-live-v1';
 const MIRAS_STATIC_ASSETS = [
   '/',
@@ -278,8 +278,13 @@ self.addEventListener('fetch', (event) => {
   // روابط هاش جديدة (يشير إليها index.html المُحمَّل دائماً من الشبكة)، فتفوت
   // الكاش وتُجلب مرة واحدة ثم تُخزَّن. هذا هو أكبر مكسب لسرعة "الموقع بالكامل".
   const isImmutableHashedAsset =
-    url.pathname.startsWith('/assets/') &&
-    /-[A-Za-z0-9_-]{6,}\.[a-z0-9]+$/i.test(url.pathname);
+    (url.pathname.startsWith('/assets/') &&
+      /-[A-Za-z0-9_-]{6,}\.[a-z0-9]+$/i.test(url.pathname)) ||
+    // محرّك وملفات عارض PDF.js (‎/pdfjs/build/pdf.worker.mjs ~٢.٢م.ب وغيرها):
+    // كبيرة وثابتة الاسم. نخدمها cache-first (بلا إعادة جلب في الخلفية) فلا
+    // يُعاد تنزيل ٢.٢ ميجابايت في كل فتح معاينة بوربوينت/PDF → معاينة فورية.
+    // أي تحديث لها يُلتقط عبر رفع إصدار الـ SW (يمسح الكاش القديم).
+    url.pathname.startsWith('/pdfjs/');
 
   if (isImmutableHashedAsset) {
     event.respondWith((async () => {

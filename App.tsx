@@ -9776,10 +9776,13 @@ export default function App() {
       data.notifyStudents === false ||
       data.notifyStudents === "false" ||
       data.silentCameraExceptionUpdate === true;
-    // ⚡ allowlist للطالب (default-deny): أخفِ الإداري الصريح، ولا تعرض إلا المهم.
+    // ✨ default-ALLOW: نُخفي فقط الضجيج الإداري المعروف غير المهم (تعديل أسماء،
+    // كاميرا…)؛ وكل ما عداه — خاصة المهم (اختبار/مشروع جديد، درجة، إرجاع، فتح
+    // محاولة، تنبيه…) — يُعرض دائماً حتى لا نُسقطه بالخطأ.
     if (explicitAdminSilent) return false;
     if (
-      (isRoutineStudentEdit || !isMeaningfulStudentNotice) &&
+      isRoutineStudentEdit &&
+      !isMeaningfulStudentNotice &&
       !explicitImportantForStudent
     )
       return false;
@@ -17911,7 +17914,18 @@ ${rows
       /اختبار جديد|مشروع جديد|واجب جديد|تنبيه اختبار|اختبار متاح|مشروع متاح|تسليم مطلوب|مطلوب منك|درجه|نشر درجت|نتيجتك|ارجاع|اعاده|فتح محاوله|فتح المحاوله|قبول|رفض|كلمه مرور|استرجاع|موعد جديد|اقتراب موعد|الغاء اختبار|الغاء مشروع|تنبيه مهم|مخالفه/.test(
         text,
       );
-    return !important;
+    // ✨ المهم يمرّ دائماً؛ ونكتم فقط الضجيج الإداري المعروف (default-allow) حتى
+    // لا نُسقط إشعار الإرجاع/الاختبار الجديد/الدرجة عن الطالب بالخطأ.
+    if (important) return false;
+    const adminNoise =
+      /rename|renamed|update|updated|edit|edited|camera|cleanup|reorder|dedup|duplicate|admin/.test(
+        t,
+      ) ||
+      /تعديل اسم|تغيير اسم|تحديث اسم|اعاده تسميه|اسم مكرر|مكرر|تصحيح اسم|تنظيف|ترتيب|تحديث مقرر|تحديث اختبار|تحديث مشروع|تحديث اداري|تم تحديث|تم تعديل|اضافه كاميرا|حذف كاميرا|ازاله كاميرا|تعديل كاميرا|تحديث الكاميرا/.test(
+        text,
+      ) ||
+      (/كاميرا|camera/.test(text) && !/غش|نزاهه|مخالفه|تحذير|تنبيه مهم/.test(text));
+    return adminNoise;
   };
 
   const pushLocalCourseNotification = (
