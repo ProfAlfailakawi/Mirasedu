@@ -799,7 +799,7 @@ const simplifyStudentMessage = (
   if (text.length <= 42) return text;
   if (tone === "success") return "تمت العملية بنجاح";
   if (tone === "error") return extractApiErrorReason(text, "عرض الرسالة");
-  return truncateMirasMessage(text, 120);
+  return truncateMirasMessage(text, 220);
 };
 
 // كان قص أي رسالة غير مطابقة لأنماط الاختصار أعلاه يتم بقطعها عند حرف رقم ٣٤
@@ -809,7 +809,7 @@ const simplifyStudentMessage = (
 // normal break-words)، فلم تعد هناك حاجة لقصّ عدواني كهذا. نقصّ الآن عند حد
 // كلمة كاملة وبحد أقصى أوسع يناسب سطرين إلى ثلاثة، ونضيف "…" فقط إذا قُصّت
 // الرسالة فعلاً، بدل قطعها في أي مكان بلا أي إشارة أنها غير مكتملة.
-const truncateMirasMessage = (text: string, max = 120) => {
+const truncateMirasMessage = (text: string, max = 220) => {
   const clean = String(text || "").trim();
   if (clean.length <= max) return clean;
   const cut = clean.slice(0, max);
@@ -931,14 +931,14 @@ const simplifyMirasMessage = (
       if (any("كلمة المرور", "استرجاع")) return "تعذر الاسترجاع";
       return "تعذر التنفيذ";
     }
-    if (t.length > 120) return truncateMirasMessage(extractApiErrorReason(t, "تنفيذ الإجراء"), 120);
+    if (t.length > 220) return truncateMirasMessage(extractApiErrorReason(t, "تنفيذ الإجراء"), 220);
   }
 
   const simplified = simplifyStudentMessage(text, tone);
   if (simplified.length > 120) {
     if (tone === "success") return "تم";
-    if (tone === "error") return truncateMirasMessage(extractApiErrorReason(simplified, "تنفيذ الإجراء"), 120);
-    return truncateMirasMessage(simplified, 120);
+    if (tone === "error") return truncateMirasMessage(extractApiErrorReason(simplified, "تنفيذ الإجراء"), 220);
+    return truncateMirasMessage(simplified, 220);
   }
   return simplified;
 };
@@ -9741,9 +9741,48 @@ export default function App() {
       /update|updated|rename|renamed|edit|edited|camera/.test(notificationType) ||
       /اسم مكرر|مكرر|تحديث مقرر|تحديث اختبار|تحديث مشروع|تغيير اسم|تعديل اسم|تعديل مقرر|تعديل اختبار|تعديل مشروع|تم تحديث|تم تعديل|اضافه كاميرا|إضافة كاميرا|اضافة كاميرا|حذف كاميرا|إزالة كاميرا|ازاله كاميرا|تحديث الكاميرا/.test(notificationText) ||
       (/كاميرا|camera/.test(notificationText) && !/غش|نزاهة|مخالفة|تحذير|تنبيه مهم/.test(notificationText));
+    const importantTypeForStudent =
+      [
+        "exam_new", "new_exam", "exam_available", "exam_open", "exam_published",
+        "project_new", "new_project", "project_available", "project_published",
+        "assignment_due", "submission_due", "deadline", "deadline_soon",
+        "exam_cancelled", "project_cancelled", "activity_cancelled", "calendar_event_deleted",
+        "attempt_reopened", "attempt_opened", "exam_returned", "quiz_returned",
+        "project_returned", "submission_returned", "returned",
+        "grade_published", "grade", "grade_updated", "result_published",
+        "submission_accepted", "submission_rejected", "request_accepted", "request_rejected",
+        "password_reset", "account_security", "security_action",
+        "teacher_announcement", "important_alert", "action_required", "calendar_event",
+      ].includes(notificationType) ||
+      /new_(exam|quiz|project)|(exam|quiz|project)_new|due|deadline|cancel|return|reopen|grade|result|accept|reject|password|security|announcement|action_required/.test(
+        notificationType,
+      );
     const isMeaningfulStudentNotice =
-      /اختبار جديد|مشروع جديد|اختبار متاح|مشروع متاح|تنبيه اختبار|تسليم|مطلوب|واجب|درجة|درجه|موعد جديد|إلغاء اختبار|الغاء اختبار|نشر|رفض|قبول|اعاده|إعادة|ارجاع|إرجاع|دعوه|دعوة|كلمة مرور|استرجاع/.test(notificationText);
-    if (isRoutineStudentEdit && !isMeaningfulStudentNotice) return false;
+      importantTypeForStudent ||
+      /اختبار جديد|مشروع جديد|اختبار متاح|مشروع متاح|تنبيه اختبار|تسليم|مطلوب|واجب|درجة|درجه|موعد جديد|إلغاء اختبار|الغاء اختبار|نشر|رفض|قبول|اعاده|إعادة|ارجاع|إرجاع|دعوه|دعوة|كلمة مرور|استرجاع|تنبيه مهم|مخالفة/.test(
+        notificationText,
+      );
+    const explicitImportantForStudent =
+      (data.notifyStudents === true || data.notifyStudents === "true") &&
+      (data.important === true ||
+        data.important === "true" ||
+        data.actionRequired === true ||
+        data.containsActionRequired === true);
+    const explicitAdminSilent =
+      data.silent === true ||
+      data.silent === "true" ||
+      data.onlyAdministrativeEdit === true ||
+      data.isAdministrativeEdit === true ||
+      data.notifyStudents === false ||
+      data.notifyStudents === "false" ||
+      data.silentCameraExceptionUpdate === true;
+    // ⚡ allowlist للطالب (default-deny): أخفِ الإداري الصريح، ولا تعرض إلا المهم.
+    if (explicitAdminSilent) return false;
+    if (
+      (isRoutineStudentEdit || !isMeaningfulStudentNotice) &&
+      !explicitImportantForStudent
+    )
+      return false;
 
     const course = String(
       n?.courseCode ||
@@ -17851,13 +17890,28 @@ ${rows
         .trim();
     const t = normalizeNoise(type || extraData.type || extraData.kind || "");
     const text = normalizeNoise(`${t} ${title || ""} ${body || ""} ${JSON.stringify(extraData || {})}`);
-    const routine =
-      /updated|update|renamed|rename|edit|edited|camera/.test(t) ||
-      /calendar_event_updated|project_updated|project_renamed|exam_updated|exam_renamed|course_updated|course_renamed|camera_added|camera_removed|camera_updated/.test(t) ||
-      /اسم مكرر|مكرر|تعديل اسم|تغيير اسم|تحديث اسم|تم تحديث|تم تعديل|تحديث مقرر|تحديث اختبار|تحديث مشروع|تعديل اختبار|تعديل مشروع|تعديل مقرر|اضافه كاميرا|إضافة كاميرا|اضافة كاميرا|حذف كاميرا|ازاله كاميرا|إزالة كاميرا|تحديث الكاميرا|تنظيف|ترتيب|تصحيح اسم/.test(text) ||
-      (/كاميرا|camera/.test(text) && !/غش|نزاهة|مخالفة|تحذير|تنبيه مهم/.test(text));
-    const important = /اختبار جديد|مشروع جديد|تنبيه اختبار|اختبار متاح|مشروع متاح|تسليم مطلوب|درجة|درجه|تم نشر درجتك|إرجاع|ارجاع|اعادة|إعادة|قبول|رفض|كلمة مرور|استرجاع|موعد جديد|إلغاء اختبار|الغاء اختبار/.test(text);
-    return routine && !important;
+    // ⚡ allowlist للطالب (default-deny): لا يُنشأ إشعار محلي للطالب إلا إن كان
+    // مهماً (نوع/نص مهم أو علم صريح). كل ما عداه (تعديلات إدارية، كاميرا، تنظيف،
+    // إعادة تسمية…) يُكتم من المصدر — فلا يُحفظ محلياً ولا يُرسل للخادم.
+    // (النص هنا مُطبّع: ة→ه، إأآا→ا، ى→ي.)
+    const importantType =
+      /new_(exam|quiz|project)|(exam|quiz|project)_new|due|deadline|cancel|return|reopen|grade|result|accept|reject|password|security|announcement|action_required|attempt_reopened/.test(
+        t,
+      );
+    const explicitImportant =
+      (extraData.notifyStudents === true ||
+        extraData.notifyStudents === "true") &&
+      (extraData.important === true ||
+        extraData.important === "true" ||
+        extraData.actionRequired === true ||
+        extraData.containsActionRequired === true);
+    const important =
+      importantType ||
+      explicitImportant ||
+      /اختبار جديد|مشروع جديد|واجب جديد|تنبيه اختبار|اختبار متاح|مشروع متاح|تسليم مطلوب|مطلوب منك|درجه|نشر درجت|نتيجتك|ارجاع|اعاده|فتح محاوله|فتح المحاوله|قبول|رفض|كلمه مرور|استرجاع|موعد جديد|اقتراب موعد|الغاء اختبار|الغاء مشروع|تنبيه مهم|مخالفه/.test(
+        text,
+      );
+    return !important;
   };
 
   const pushLocalCourseNotification = (

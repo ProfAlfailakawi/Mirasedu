@@ -5387,61 +5387,65 @@ function shouldSuppressRoutineStudentNotification(
   const text = normalizeNotificationNoiseText(
     `${type} ${title || ""} ${body || ""} ${JSON.stringify(data || {})}`,
   );
+  // إشارات إدارية صريحة عند الإنشاء → مكتومة دائماً عن الطالب.
   if (
     data.silentCameraExceptionUpdate === true ||
     data.notifyStudents === false ||
     data.notifyStudents === "false" ||
     data.onlyAdministrativeEdit === true ||
     data.isAdministrativeEdit === true ||
+    data.silent === true ||
+    data.silent === "true" ||
     type === "camera_exception" ||
     type === "exam_integrity_pulse" ||
     type === "teacher_camera_exception"
   ) {
     return true;
   }
-  const routineTypes = new Set([
-    "course_updated",
-    "course_renamed",
-    "course_name_updated",
-    "section_updated",
-    "section_renamed",
-    "exam_updated",
-    "exam_renamed",
-    "exam_name_updated",
-    "quiz_updated",
-    "quiz_renamed",
-    "project_updated",
-    "project_renamed",
-    "project_name_updated",
-    "camera_added",
-    "camera_removed",
-    "camera_updated",
-    "camera_deleted",
-    "course_camera_added",
-    "course_camera_removed",
-    "course_camera_updated",
-    "teacher_course_change",
-    "teacher_student_change",
-    "duplicate_name_renamed",
-    "name_duplicate_fixed",
-    "roster_cleanup",
-    "admin_cleanup",
+
+  // ⚡ allowlist (سماح صريح، default-deny): لا يصل الطالب إلا الإشعارات المهمة
+  // التي تخصّه أو تتطلب علمه/تصرّفه. أي شيء آخر (تعديل أسماء، كاميرا، تحديثات
+  // إدارية، تنظيف…) يُكتم افتراضياً — فلا تتسرّب الأحداث الإدارية حتى لو كان
+  // نوعها غير معروف. يبقى تمرير أي إشعار حمله المعلم صراحةً كمهم عبر الأعلام.
+  const importantTypes = new Set([
+    "exam_new", "new_exam", "exam_available", "exam_open", "exam_published",
+    "project_new", "new_project", "project_available", "project_published",
+    "assignment_due", "submission_due", "deadline", "deadline_soon", "due_soon",
+    "exam_cancelled", "exam_canceled", "project_cancelled", "project_canceled",
+    "activity_cancelled", "calendar_event_deleted",
+    "attempt_reopened", "attempt_opened", "exam_returned", "quiz_returned",
+    "project_returned", "submission_returned", "returned",
+    "grade_published", "grade", "grade_updated", "result_published", "result",
+    "submission_accepted", "submission_rejected",
+    "request_accepted", "request_rejected",
+    "password_reset", "password_reset_approved", "account_security",
+    "security_action", "device_approved", "device_change",
+    "teacher_announcement", "important_alert", "action_required",
+    "calendar_event", "reminder",
   ]);
-  const routineByType =
-    routineTypes.has(type) ||
-    /camera|rename|renamed|updated|update|edit|edited/.test(type);
-  const routineByText =
-    /اسم مكرر|مكرر|تعديل اسم|تغيير اسم|تحديث اسم|تعديل اسم المقرر|تعديل اسم الاختبار|تعديل اسم المشروع|تحديث مقرر|تحديث اختبار|تحديث مشروع|تم تحديث|تم تعديل|تنظيف|ترتيب|تصحيح اسم|اضافه كاميرا|إضافة كاميرا|اضافة كاميرا|حذف كاميرا|ازاله كاميرا|إزالة كاميرا|تعديل كاميرا|تحديث الكاميرا|تحديث فقط/.test(
+  const importantByType =
+    importantTypes.has(type) ||
+    /new_(exam|quiz|project)|(exam|quiz|project)_new|due|deadline|cancel|return|reopen|grade|result|accept|reject|password|security|announcement|reminder|action_required/.test(
+      type,
+    );
+  const importantByText =
+    /اختبار جديد|مشروع جديد|واجب جديد|تسليم مطلوب|مطلوب منك|درجة|درجه|نشر درجت|نتيجتك|ارجاع|إرجاع|إعادة فتح|اعاده فتح|فتح محاولة|فتح المحاولة|قبول|رفض|إلغاء اختبار|الغاء اختبار|إلغاء مشروع|الغاء مشروع|كلمة مرور|استرجاع|استرداد|موعد|اقتراب موعد|قرب موعد|متاح الآن|فتح الاختبار|إعلان|تنبيه مهم|مخالفة|تحذير مهم/.test(
       text,
     );
-  const meaningful =
-    /اختبار جديد|مشروع جديد|تنبيه اختبار|تسليم مطلوب|مطلوب|واجب|درجة|درجه|تم نشر درجتك|ارجاع|إرجاع|اعاده|إعادة|قبول|رفض|ايقاف دخول|إيقاف دخول|تفعيل|رابط إعادة|كلمة مرور|متاح الآن|فتح الاختبار|إغلاق الاختبار|اغلاق الاختبار|موعد|إعلان|تنبيه مهم/.test(
-      text,
-    );
-  const cameraAdministrativeNoise =
-    /كاميرا|camera/.test(text) &&
-    !/مخالفة|غش|محاولة|نزاهة|تحذير|تنبيه مهم/.test(text);
-  return (routineByType || routineByText || cameraAdministrativeNoise) && !meaningful;
+  const explicitImportant =
+    (data.notifyStudents === true || data.notifyStudents === "true") &&
+    (data.important === true ||
+      data.important === "true" ||
+      data.containsActionRequired === true ||
+      data.containsActionRequired === "true" ||
+      data.actionRequired === true ||
+      data.actionRequired === "true");
+
+  const isImportantForStudent =
+    importantByType || importantByText || explicitImportant;
+
+  // اكتم كل ما ليس مهماً للطالب.
+  return !isImportantForStudent;
 }
 
 function notificationTargets(filter: (token: NotificationToken) => boolean) {
@@ -8319,7 +8323,7 @@ function sendSebConfig(req: express.Request, res: express.Response) {
   <key>newBrowserWindowByScriptPolicy</key><integer>2</integer>
   <key>quitURL</key><string>${xmlEscape(quitUrl)}</string>
   <key>quitURLConfirm</key><false/>
-  <key>hashedQuitPassword</key><string>6e6aaf1c79ab85ca9de66a89fcab9d3fd4b8f4b312c66f9d56653c5d01af50ce</string>
+  <key>hashedQuitPassword</key><string>1528bd95aeb38eeb741061e63d8d9f89d993e03381f0e64090d7f81851d53f1e</string>
   <key>restartExamPasswordProtected</key><true/>
   <key>sebMode</key><integer>0</integer>
   <key>sendBrowserExamKey</key><true/>
