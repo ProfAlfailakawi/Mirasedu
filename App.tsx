@@ -19466,7 +19466,14 @@ ${rows
                   );
                   return;
                 }
-                if (requiresSeb && !isReturned && !(isActualSafeExamBrowserRuntime() || hasMirasSebAttemptContext())) {
+                // اختبار SEB يجب أن يُفتح عبر Safe Exam Browser دائماً — حتى لو
+                // أعاده المعلم للطالب. كان الشرط يستثني الاختبار المُعاد
+                // (‎!isReturned‎) فيسقط إلى مسار المتصفح العادي (توليد الأسئلة
+                // مباشرةً)، والخادم يرفض أي اختبار SEB خارج SEB بـ 403 "يتطلب SEB"،
+                // فلا يستطيع الطالب دخول اختباره المُعاد إطلاقاً. نطلق SEB لكل
+                // اختبار SEB خارج بيئة SEB سواء كان جديداً أو مُعاداً؛ ومسار
+                // التحقق في الخادم يتكفّل بحالة الإعادة (تصريح المعلم).
+                if (requiresSeb && !(isActualSafeExamBrowserRuntime() || hasMirasSebAttemptContext())) {
                   await launchSebExam(
                     exam.id,
                     exam.courseCode || studentCourseCode,
