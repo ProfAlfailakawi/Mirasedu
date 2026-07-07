@@ -787,21 +787,36 @@ function acquireExamLockForRequest(
   const activeSession = activeExamSessionFor(student.id, exam.id);
   if (activeSession) {
     if (String(activeSession.sessionId) !== requestedSessionId) {
-      recordExamSessionConflict(
-        req,
-        student,
-        exam,
-        activeSession,
-        requestedSessionId,
-      );
-      return {
-        ok: false,
-        status: 409,
-        error: EXAM_LOCK_CONFLICT_MESSAGE,
-        reason: EXAM_LOCK_CONFLICT_REASON,
-      };
-    }
-    const refreshed = {
+      if (returnedByTeacher) {
+        const nowIso = new Date().toISOString();
+        getExamSessionsFor(student.id, exam.id).forEach((session: any) => {
+          if (String(session.sessionId) === requestedSessionId) return;
+          dbInstance.upsertExamSession({
+            ...session,
+            status: "finished",
+            reason: "teacher-authorized-return",
+            updatedAt: nowIso,
+            closedAt: session.closedAt || nowIso,
+            lastHeartbeatAt: nowIso,
+          });
+        });
+      } else {
+        recordExamSessionConflict(
+          req,
+          student,
+          exam,
+          activeSession,
+          requestedSessionId,
+        );
+        return {
+          ok: false,
+          status: 409,
+          error: EXAM_LOCK_CONFLICT_MESSAGE,
+          reason: EXAM_LOCK_CONFLICT_REASON,
+        };
+      }
+    } else {
+      const refreshed = {
       ...activeSession,
       lastHeartbeatAt: new Date().toISOString(),
       deviceId: String(
@@ -813,8 +828,9 @@ function acquireExamLockForRequest(
       userAgent: String(req.headers["user-agent"] || activeSession.userAgent || "").slice(0, 220),
       displayMode: requestExamDisplayMode(req),
     };
-    dbInstance.upsertExamSession(refreshed);
-    return { ok: true, session: refreshed };
+      dbInstance.upsertExamSession(refreshed);
+      return { ok: true, session: refreshed };
+    }
   }
 
   const session = buildExamSessionFromRequest(
@@ -5242,6 +5258,8 @@ function shouldSuppressRoutineStudentNotification(
     data.silentCameraExceptionUpdate === true ||
     data.notifyStudents === false ||
     data.notifyStudents === "false" ||
+    data.onlyAdministrativeEdit === true ||
+    data.isAdministrativeEdit === true ||
     type === "camera_exception" ||
     type === "exam_integrity_pulse" ||
     type === "teacher_camera_exception"
@@ -5251,10 +5269,24 @@ function shouldSuppressRoutineStudentNotification(
   const routineTypes = new Set([
     "course_updated",
     "course_renamed",
+    "course_name_updated",
+    "section_updated",
+    "section_renamed",
     "exam_updated",
     "exam_renamed",
+    "exam_name_updated",
+    "quiz_updated",
+    "quiz_renamed",
     "project_updated",
     "project_renamed",
+    "project_name_updated",
+    "camera_added",
+    "camera_removed",
+    "camera_updated",
+    "camera_deleted",
+    "course_camera_added",
+    "course_camera_removed",
+    "course_camera_updated",
     "teacher_course_change",
     "teacher_student_change",
     "duplicate_name_renamed",
@@ -5262,16 +5294,21 @@ function shouldSuppressRoutineStudentNotification(
     "roster_cleanup",
     "admin_cleanup",
   ]);
-  const routineByType = routineTypes.has(type);
+  const routineByType =
+    routineTypes.has(type) ||
+    /camera|rename|renamed|updated|update|edit|edited/.test(type);
   const routineByText =
-    /اسم مكرر|مكرر|تعديل اسم|تغيير اسم|تحديث اسم|تحديث مقرر|تحديث اختبار|تحديث مشروع|تم تحديث|تم تعديل|تنظيف|ترتيب|تصحيح اسم/.test(
+    /اسم مكرر|مكرر|تعديل اسم|تغيير اسم|تحديث اسم|تعديل اسم المقرر|تعديل اسم الاختبار|تعديل اسم المشروع|تحديث مقرر|تحديث اختبار|تحديث مشروع|تم تحديث|تم تعديل|تنظيف|ترتيب|تصحيح اسم|اضافه كاميرا|إضافة كاميرا|اضافة كاميرا|حذف كاميرا|ازاله كاميرا|إزالة كاميرا|تعديل كاميرا|تحديث الكاميرا|تحديث فقط/.test(
       text,
     );
   const meaningful =
-    /اختبار جديد|مشروع جديد|تنبيه اختبار|تسليم مطلوب|مطلوب|واجب|درجة|درجه|تم نشر درجتك|ارجاع|ارجاع|إرجاع|اعاده|إعادة|قبول|رفض|ايقاف دخول|إيقاف دخول|تفعيل|رابط إعادة|كلمة مرور/.test(
+    /اختبار جديد|مشروع جديد|تنبيه اختبار|تسليم مطلوب|مطلوب|واجب|درجة|درجه|تم نشر درجتك|ارجاع|إرجاع|اعاده|إعادة|قبول|رفض|ايقاف دخول|إيقاف دخول|تفعيل|رابط إعادة|كلمة مرور|متاح الآن|فتح الاختبار|إغلاق الاختبار|اغلاق الاختبار|موعد|إعلان|تنبيه مهم/.test(
       text,
     );
-  return (routineByType || routineByText) && !meaningful;
+  const cameraAdministrativeNoise =
+    /كاميرا|camera/.test(text) &&
+    !/مخالفة|غش|محاولة|نزاهة|تحذير|تنبيه مهم/.test(text);
+  return (routineByType || routineByText || cameraAdministrativeNoise) && !meaningful;
 }
 
 function notificationTargets(filter: (token: NotificationToken) => boolean) {
@@ -7918,7 +7955,14 @@ app.post("/api/seb/validate", (req, res) => {
     rejectSebPass(req, pass, "فشل validate: المقرر لا يطابق مقرر الاختبار.");
     return res.status(403).json({ error: "جلسة SEB لا تطابق مقرر الاختبار." });
   }
-  if (!studentHasEnrollmentInCourse(student, pass.courseCode)) {
+  const teacherAuthorizedSebReturn = hasTeacherAuthorizedSebReturnException(
+    exam.id,
+    student.id,
+  );
+  if (
+    !studentHasEnrollmentInCourse(student, pass.courseCode) &&
+    !teacherAuthorizedSebReturn
+  ) {
     rejectSebPass(req, pass, "فشل validate: المقرر غير مفعل بالكود الأصلي.");
     return res
       .status(403)
@@ -7936,12 +7980,14 @@ app.post("/api/seb/validate", (req, res) => {
       pass.status === "active" &&
       String((existingAttempt as any).sebAttemptId || "") &&
       String((existingAttempt as any).sebAttemptId) === String(pass.attemptId);
-    if (sameSebAttempt) {
+    if (sameSebAttempt || teacherAuthorizedSebReturn) {
       logSebEvent({
         studentId: student.id,
         studentName: student.name,
         action: "استمرار نفق SEB",
-        details: `تم استكمال نفس محاولة SEB النشطة للاختبار ${pass.examId} دون فتح محاولة جديدة.`,
+        details: teacherAuthorizedSebReturn
+          ? `تم السماح للطالب بالدخول مجدداً إلى نفس الاختبار عبر تصريح إرجاع من المعلم دون كسر بوابة SEB.`
+          : `تم استكمال نفس محاولة SEB النشطة للاختبار ${pass.examId} دون فتح محاولة جديدة.`,
         req,
       });
       return res.json({
@@ -7990,7 +8036,8 @@ app.post("/api/seb/validate", (req, res) => {
   if (
     existingAttempt &&
     String(existingAttempt.status || "submitted") !== "started" &&
-    String(existingAttempt.status || "submitted") !== "returned"
+    String(existingAttempt.status || "submitted") !== "returned" &&
+    !teacherAuthorizedSebReturn
   ) {
     closeSebAttempt(pass, "attempt-already-closed");
     return res
