@@ -8178,6 +8178,8 @@ function sendSebConfig(req: express.Request, res: express.Response) {
     <dict><key>active</key><true/><key>action</key><integer>1</integer><key>expression</key><string>https://fonts.gstatic.com/*</string><key>regex</key><false/></dict>
     <dict><key>active</key><true/><key>action</key><integer>1</integer><key>expression</key><string>https://*.googleapis.com/*</string><key>regex</key><false/></dict>
     <dict><key>active</key><true/><key>action</key><integer>1</integer><key>expression</key><string>https://*.gstatic.com/*</string><key>regex</key><false/></dict>
+    <dict><key>active</key><true/><key>action</key><integer>1</integer><key>expression</key><string>https://*.firebaseapp.com/*</string><key>regex</key><false/></dict>
+    <dict><key>active</key><true/><key>action</key><integer>1</integer><key>expression</key><string>https://*.firebaseio.com/*</string><key>regex</key><false/></dict>
     <dict><key>active</key><true/><key>action</key><integer>1</integer><key>expression</key><string>data:*</string><key>regex</key><false/></dict>
     <dict><key>active</key><true/><key>action</key><integer>1</integer><key>expression</key><string>blob:*</string><key>regex</key><false/></dict>
   </array>
