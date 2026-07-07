@@ -2203,7 +2203,7 @@ function renderSebStartPage(req: express.Request, pass: SebPass) {
   </div>
     <button class="start" id="startBtn" type="button">بدء الاختبار الآن</button>
     <a class="quit" href="${xmlEscape(quitUrl)}">خروج آمن بدون بدء الاختبار</a>
-    <p class="muted">إذا ظهرت أي مشكلة، استخدم خروج آمن. كلمة الخروج للمراقب: CBE</p>
+    <p class="muted">إذا ظهرت أي مشكلة، استخدم خروج آمن. كلمة الخروج للمراقب: Miras</p>
     <div class="rescue hidden" id="rescueBox">
       <h3>تأخر تحميل الأسئلة</h3>
       <p>لم تصل الأسئلة خلال الوقت المتوقع. إذا استمرت المشكلة استخدم زر الخروج بالأعلى وأبلغ المراقب.</p>
@@ -2315,7 +2315,7 @@ function sendExamLockRelease(status,reason){
   } catch(e) {}
 }
 function setStatus(message){text("statusBox",message);show("statusBox");hide("errorBox");}
-function setError(message){text("errorBox",message+" إذا استمرت المشكلة استخدم خروج آمن وأبلغ المراقب. كلمة الخروج: CBE");show("errorBox");hide("statusBox");}
+function setError(message){text("errorBox",message+" إذا استمرت المشكلة استخدم خروج آمن وأبلغ المراقب. كلمة الخروج: Miras");show("errorBox");hide("statusBox");}
 
 function recedeTimer(){
   const timer=el("timer");
@@ -2534,7 +2534,7 @@ async function submitExam(){
     text("resultBox",data.gradeVisible?"تم حفظ التسليم. النتيجة: "+savedScore:"تم حفظ التسليم وإغلاق المحاولة.");
   } catch(err) {
     el("submitBtn").disabled=false;
-    alert((err&&err.message?err.message:"تعذر تسليم الاختبار.")+"\\nاستخدم خروج آمن إذا استمرت المشكلة. كلمة الخروج: CBE");
+    alert((err&&err.message?err.message:"تعذر تسليم الاختبار.")+"\\nاستخدم خروج آمن إذا استمرت المشكلة. كلمة الخروج: Miras");
   }
 }
 
@@ -4759,7 +4759,7 @@ function isRetiredStudentDeviceSurface(params: {
 }
 
 const STUDENT_DEVICE_ALREADY_BOUND_ERROR =
-  "هذا الجهاز مستخدم ومفعّل لطالب آخر. حفاظًا على عدالة الدخول، تواصل مع أستاذ المقرر لاعتماد جهازك الشخصي أو الموافقة على تبديل الجهاز.";
+  "هذا الجهاز مسجّل لطالب آخر. استخدم جهازك الشخصي أو اطلب من أستاذ المقرر السماح بتبديل الجهاز.";
 
 function findStudentBoundToDevice(
   deviceToken?: string,
@@ -7765,12 +7765,15 @@ app.use((req, res, next) => {
       (req as any).mirasPublicStudentStatePreview = true;
       return next();
     }
-    if (!sessionStudentId && requestedStudentId && pathname.startsWith("/api/quizzes")) {
+    if (!sessionStudentId && requestedStudentId) {
       const sebStudent = dbInstance
         .getStudents()
         .find((s: any) => normalizeStudentId(s.id) === requestedStudentId);
       const sebPass = sebStudent ? getValidSebPass(req, sebStudent) : null;
-      if (sebPass && String(sebPass.studentId) === String(sebStudent?.id)) {
+      if (sebPass && normalizeStudentId(sebPass.studentId) === requestedStudentId) {
+        // جلسة SEB الرسمية لا تحمل جلسة الطالب العادية داخل المتصفح المقفل؛
+        // توكن SEB النشط يكفي فقط لمسارات الطالب المملوكة لنفس الطالب، حتى لا
+        // تظهر STUDENT_SESSION_REQUIRED بعد ظهور الأسئلة أو أثناء الحفظ/التسليم.
         return next();
       }
     }
@@ -7942,7 +7945,7 @@ function renderSebStartErrorPage(
 <style>body{margin:0;min-height:100vh;display:grid;place-items:center;background:#020617;color:#fff;font-family:system-ui,-apple-system,Segoe UI,sans-serif;padding:22px;box-sizing:border-box}.box{max-width:560px;text-align:center;padding:32px;border:1px solid rgba(255,255,255,.12);border-radius:28px;background:rgba(255,255,255,.06)}h1{font-size:22px;margin:0 0 12px}p{line-height:1.8;color:#cbd5e1;font-size:14px}.pass{display:inline-block;margin-top:12px;border-radius:14px;background:rgba(255,255,255,.1);padding:10px 16px;font-size:22px;font-weight:900;letter-spacing:1px}a.btn{display:inline-flex;margin-top:18px;background:#2563eb;color:#fff;text-decoration:none;border-radius:16px;padding:12px 22px;font-weight:900;font-size:14px}</style>
 </head>
 <body>
-<div class="box"><h1>تعذر فتح الاختبار الآمن</h1><p>${xmlEscape(message)}</p><p>إذا بقيت داخل SEB استخدم كلمة الخروج لدى المراقب:</p><span class="pass">CBE</span>${quitUrl ? `<br><a class="btn" href="${xmlEscape(quitUrl)}">إغلاق الجلسة والخروج من SEB</a>` : ""}</div>
+<div class="box"><h1>تعذر فتح الاختبار الآمن</h1><p>${xmlEscape(message)}</p><p>إذا بقيت داخل SEB استخدم كلمة الخروج لدى المراقب:</p><span class="pass">Miras</span>${quitUrl ? `<br><a class="btn" href="${xmlEscape(quitUrl)}">إغلاق الجلسة والخروج من SEB</a>` : ""}</div>
 </body>
 </html>`;
 }
@@ -8247,7 +8250,7 @@ app.get("/seb/quit", (req, res) => {
   if (pass) closeSebAttempt(pass, "explicit-quit-url");
   res.setHeader("Content-Type", "text/html; charset=utf-8");
   return res.send(
-    `<!doctype html><html lang="ar" dir="rtl"><head><meta charset="utf-8"><title>الخروج من SEB</title><style>body{font-family:system-ui,-apple-system,Segoe UI,sans-serif;background:#020617;color:#fff;display:grid;place-items:center;min-height:100vh;margin:0}.box{max-width:560px;text-align:center;padding:32px;border:1px solid rgba(255,255,255,.12);border-radius:28px;background:rgba(255,255,255,.06)}.pass{display:inline-block;margin-top:12px;border-radius:14px;background:rgba(255,255,255,.1);padding:10px 16px;font-size:22px;font-weight:900;letter-spacing:1px}a{color:#a5b4fc;font-weight:800}</style></head><body><div class="box"><h1>تم إغلاق جلسة الاختبار الآمن</h1><p>إذا لم يُغلق Safe Exam Browser تلقائياً، استخدم زر الخروج الآمن داخل البرنامج أو أبلغ المراقب.</p><p>كلمة الخروج:</p><span class="pass">CBE</span></div></body></html>`,
+    `<!doctype html><html lang="ar" dir="rtl"><head><meta charset="utf-8"><title>الخروج من SEB</title><style>body{font-family:system-ui,-apple-system,Segoe UI,sans-serif;background:#020617;color:#fff;display:grid;place-items:center;min-height:100vh;margin:0}.box{max-width:560px;text-align:center;padding:32px;border:1px solid rgba(255,255,255,.12);border-radius:28px;background:rgba(255,255,255,.06)}.pass{display:inline-block;margin-top:12px;border-radius:14px;background:rgba(255,255,255,.1);padding:10px 16px;font-size:22px;font-weight:900;letter-spacing:1px}a{color:#a5b4fc;font-weight:800}</style></head><body><div class="box"><h1>تم إغلاق جلسة الاختبار الآمن</h1><p>إذا لم يُغلق Safe Exam Browser تلقائياً، استخدم زر الخروج الآمن داخل البرنامج أو أبلغ المراقب.</p><p>كلمة الخروج:</p><span class="pass">Miras</span></div></body></html>`,
   );
 });
 
