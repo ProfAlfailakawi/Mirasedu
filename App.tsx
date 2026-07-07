@@ -9221,7 +9221,7 @@ export default function App() {
     options: { auth?: MirasAuthMode; session?: any } = {},
   ) => {
     const sebPass = getMirasSebPass();
-    const sebContext = isActualSafeExamBrowserRuntime() && hasMirasSebAttemptContext();
+    const sebContext = isActualSafeExamBrowserRuntime() || hasMirasSebAttemptContext();
     const authToken = activeMirasAuthToken(
       options.auth || "auto",
       options.session,
@@ -14151,7 +14151,7 @@ ${rows
     setErrorMsg("");
     setSuccessMsg("");
     const alreadyInsideSeb =
-      isActualSafeExamBrowserRuntime() && hasMirasSebAttemptContext();
+      isActualSafeExamBrowserRuntime() || hasMirasSebAttemptContext();
     const existingSebToken = getMirasSebPass();
     if (alreadyInsideSeb && existingSebToken) {
       setSuccessMsg(
@@ -14937,7 +14937,7 @@ ${rows
       selectedChapterQuiz
     )
       return;
-    if (!isActualSafeExamBrowserRuntime() || !hasMirasSebAttemptContext()) return;
+    if (!hasMirasSebAttemptContext()) return;
     if (sebAutoStartInFlightRef.current) return;
     sebAutoStartInFlightRef.current = true;
     setStudentTab("practice");
@@ -14969,7 +14969,6 @@ ${rows
   useEffect(() => {
     if (
       !sebSessionInfo?.token ||
-      !isActualSafeExamBrowserRuntime() ||
       !hasMirasSebAttemptContext() ||
       currentView !== "student_workspace"
     )
@@ -19087,7 +19086,7 @@ ${rows
                   );
                   return;
                 }
-                if (requiresSeb && !isReturned && !isActualSafeExamBrowserRuntime()) {
+                if (requiresSeb && !isReturned && !isActualSafeExamBrowserRuntime() && !hasMirasSebAttemptContext()) {
                   await launchSebExam(
                     exam.id,
                     exam.courseCode || studentCourseCode,
@@ -19209,8 +19208,7 @@ ${rows
       exam.points || exam.totalPoints || "",
     );
     const hasSebAttemptForThisExam =
-      isActualSafeExamBrowserRuntime() &&
-      hasMirasSebAttemptContext() &&
+      (isActualSafeExamBrowserRuntime() || hasMirasSebAttemptContext()) &&
       (!sebSessionInfo?.examId ||
         String(sebSessionInfo.examId) === String(exam.id));
     const canStartSeb =
@@ -29296,8 +29294,7 @@ ${rows
                             exam.courseCode || studentCourseCode,
                           );
                           const hasSebAttemptForThisExam =
-                            isActualSafeExamBrowserRuntime() &&
-                            hasMirasSebAttemptContext() &&
+                            (isActualSafeExamBrowserRuntime() || hasMirasSebAttemptContext()) &&
                             (!sebSessionInfo?.examId ||
                               String(sebSessionInfo.examId) ===
                                 String(exam.id));
