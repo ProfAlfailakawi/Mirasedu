@@ -173,30 +173,30 @@ function readBearerToken(req: express.Request) {
   return String(parseCookies(req)[MIRAS_SESSION_COOKIE] || "").trim();
 }
 
-function verifyMirasSessionToken(req: express.Request): MirasVerifiedSession | null {
-  const token = readBearerToken(req);
-  if (!token) {
-    console.warn(`[AUTH_DEBUG] No token found in request: ${req.method} ${req.path}`);
-    return null;
-  }
+function verifyMirasSessionTokenValue(
+  tokenValue: any,
+  context = "session token",
+): MirasVerifiedSession | null {
+  const token = String(tokenValue || "").trim();
+  if (!token) return null;
   if (!token.includes(".")) {
-    console.warn(`[AUTH_DEBUG] Invalid token format (no dot): ${req.method} ${req.path}`);
+    console.warn(`[AUTH_DEBUG] Invalid token format (no dot): ${context}`);
     return null;
   }
   const [payload, sig] = token.split(".");
   if (!payload || !sig) {
-    console.warn(`[AUTH_DEBUG] Missing payload or signature: ${req.method} ${req.path}`);
+    console.warn(`[AUTH_DEBUG] Missing payload or signature: ${context}`);
     return null;
   }
   const computedSig = signMirasPayload(payload);
   if (computedSig !== sig) {
-    console.warn(`[AUTH_DEBUG] Signature mismatch for path ${req.method} ${req.path}. Expected: ${computedSig}, Got: ${sig}`);
+    console.warn(`[AUTH_DEBUG] Signature mismatch for ${context}. Expected: ${computedSig}, Got: ${sig}`);
     return null;
   }
   try {
     const parsed = JSON.parse(base64urlDecode(payload));
     if (!parsed) {
-      console.warn(`[AUTH_DEBUG] Failed to parse payload: ${req.method} ${req.path}`);
+      console.warn(`[AUTH_DEBUG] Failed to parse payload: ${context}`);
       return null;
     }
     if (Date.now() > Number(parsed.expiresAt || 0)) {
@@ -220,6 +220,15 @@ function verifyMirasSessionToken(req: express.Request): MirasVerifiedSession | n
     console.warn(`[AUTH_DEBUG] Exception during token verification: ${err?.message || err}`);
     return null;
   }
+}
+
+function verifyMirasSessionToken(req: express.Request): MirasVerifiedSession | null {
+  const token = readBearerToken(req);
+  if (!token) {
+    console.warn(`[AUTH_DEBUG] No token found in request: ${req.method} ${req.path}`);
+    return null;
+  }
+  return verifyMirasSessionTokenValue(token, `${req.method} ${req.path}`);
 }
 
 function attachMirasSessionCookie(req: express.Request, res: express.Response, token: string) {
@@ -264,6 +273,52 @@ function verifiedStudentIdFromSession(req: express.Request): string {
   const session = verifyMirasSessionToken(req);
   if (!session || session.role !== "student") return "";
   return normalizeStudentId(session.userId);
+}
+
+function verifySebLaunchStudentSession(req: express.Request): MirasVerifiedSession | null {
+  const headerOrCookieToken = readBearerToken(req);
+  if (headerOrCookieToken) {
+    return verifyMirasSessionTokenValue(
+      headerOrCookieToken,
+      `${req.method} ${req.path}`,
+    );
+  }
+  const bodyToken = String(
+    (req.body as any)?.authToken ||
+      (req.body as any)?.mirasAuthToken ||
+      "",
+  ).trim();
+  if (!bodyToken) return null;
+  return verifyMirasSessionTokenValue(
+    bodyToken,
+    `${req.method} ${req.path} SEB launch body token`,
+  );
+}
+
+function hasValidStudentSebLaunchSessionForDevice(
+  req: express.Request,
+  student: Student,
+): boolean {
+  const session = verifySebLaunchStudentSession(req);
+  if (!session || session.role !== "student") return false;
+  if (normalizeStudentId(session.userId) !== normalizeStudentId(student.id))
+    return false;
+  const currentDeviceToken = getRequestDeviceToken(req);
+  const currentFingerprint = getRequestDeviceFingerprint(req);
+  if (findStudentBoundToDevice(currentDeviceToken, currentFingerprint, student.id))
+    return false;
+  if (session.deviceTokenHash) {
+    return (
+      !!currentDeviceToken &&
+      hashMirasValue(currentDeviceToken) === session.deviceTokenHash
+    );
+  }
+  const registeredDevices = Array.isArray((student as any).devices)
+    ? (student as any).devices
+    : [];
+  return registeredDevices.some((device: any) =>
+    deviceFingerprintsMatch(device, currentFingerprint),
+  );
 }
 
 function clearAuthCookies(req: express.Request, res: express.Response) {
@@ -2664,7 +2719,13 @@ function createSebLaunchFromActivatedSession(req: express.Request) {
   )
     return { error: "انتهى وقت إتاحة هذا الاختبار.", status: 403 } as any;
   const sessionValidation = validateSessionFingerprint(req, checked.student);
-  if (!sessionValidation.isValid && !teacherAuthorizedSebReturn)
+  const hasLaunchSessionForSameStudent =
+    hasValidStudentSebLaunchSessionForDevice(req, checked.student);
+  if (
+    !sessionValidation.isValid &&
+    !teacherAuthorizedSebReturn &&
+    !hasLaunchSessionForSameStudent
+  )
     return {
       error:
         sessionValidation.error ||
@@ -4698,7 +4759,7 @@ function isRetiredStudentDeviceSurface(params: {
 }
 
 const STUDENT_DEVICE_ALREADY_BOUND_ERROR =
-  "هذا الجهاز مرتبط بحساب طالب آخر. يرجى استخدام جهازك الشخصي أو مراجعة أستاذ المقرر.";
+  "هذا الجهاز مستخدم ومفعّل لطالب آخر. حفاظًا على عدالة الدخول، تواصل مع أستاذ المقرر لاعتماد جهازك الشخصي أو الموافقة على تبديل الجهاز.";
 
 function findStudentBoundToDevice(
   deviceToken?: string,
@@ -7480,6 +7541,9 @@ app.post("/api/convert-data-to-pdf", async (req: any, res: any) => {
       "application/msword": ".doc",
       "application/rtf": ".rtf",
       "text/rtf": ".rtf",
+      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet":
+        ".xlsx",
+      "application/vnd.ms-excel": ".xls",
     };
     let ext = path.extname(filename || "").toLowerCase();
     if (!MIRAS_OFFICE_CONVERTIBLE_EXTS.has(ext)) {
@@ -7499,21 +7563,32 @@ app.post("/api/convert-data-to-pdf", async (req: any, res: any) => {
       return res.status(400).json({ error: "Empty file" });
     }
     const workDir = fs.mkdtempSync(path.join(os.tmpdir(), "miras-office-archive-"));
-    const tempPath = path.join(workDir, `source${ext}`);
-    fs.writeFileSync(tempPath, buffer);
-    const pdfBuffer = await convertOfficeFileToPdf(tempPath);
-    res.setHeader("Content-Type", "application/pdf");
-    res.setHeader("Cache-Control", "private, max-age=86400");
-    res.setHeader("X-Content-Type-Options", "nosniff");
-    res.send(pdfBuffer);
-    
-    // Cleanup
     try {
-      fs.rmSync(workDir, { recursive: true, force: true });
-    } catch (e) {}
+      const tempPath = path.join(workDir, `source${ext}`);
+      fs.writeFileSync(tempPath, buffer);
+      const conversionKey = crypto
+        .createHash("sha1")
+        .update(buffer)
+        .digest("hex");
+      const pdfBuffer = await convertOfficeFileToPdfDeduped(
+        tempPath,
+        `data:${conversionKey}`,
+      );
+      res.setHeader("Content-Type", "application/pdf");
+      res.setHeader("Cache-Control", "private, max-age=86400");
+      res.setHeader("X-Content-Type-Options", "nosniff");
+      res.send(pdfBuffer);
+    } finally {
+      try {
+        fs.rmSync(workDir, { recursive: true, force: true });
+      } catch (e) {}
+    }
   } catch (err: any) {
     console.error("Data to PDF conversion failed:", err);
-    res.status(500).json({ error: "Conversion failed" });
+    res.status(502).json({
+      code: "OFFICE_PREVIEW_FAILED",
+      error: "تعذر تجهيز معاينة المستند الآن. أعد المحاولة بعد قليل.",
+    });
   }
 });
 
@@ -14550,7 +14625,7 @@ app.post("/api/submissions/upload", (req: any, res: any) => {
     // تحويل مسبق (غير متزامن) لملفات Office إلى PDF وتخزينه دائماً، حتى يكون
     // أول فتح للمعلم فورياً بلا انتظار تحويل. لا يؤخّر رد الرفع للطالب، والدالة
     // تتجاهل تلقائياً أي نوع ليس PowerPoint/Word.
-    void preconvertOfficeAttachmentToPdf(fileId, fileBuffer, originalName);
+    queueOfficeAttachmentPreconversion(fileId, filePath, originalName);
 
     const attachment = {
       id: fileId,
@@ -14755,20 +14830,72 @@ function convertOfficeFileToPdfDeduped(
 // التحويل المسبق عند الرفع: جوهر جعل العرض «في ثانية» مع ١٠٠ طالب. نحوّل ملف
 // Office إلى PDF مرة واحدة لحظة الرفع (غير متزامن، الطالب لا ينتظر) ونخزّنه
 // بشكل دائم، فيصبح أول فتح للمعلم تقديماً فورياً لـ PDF جاهز بلا أي تحويل.
-async function preconvertOfficeAttachmentToPdf(
+type MirasOfficePreconvertJob = {
+  fileId: string;
+  filePath: string;
+  originalName: string;
+};
+const MIRAS_OFFICE_PRECONVERT_CONCURRENCY = 1;
+const mirasOfficePreconvertQueue: MirasOfficePreconvertJob[] = [];
+const mirasOfficeQueuedPreconversions = new Set<string>();
+let mirasOfficeActivePreconversions = 0;
+
+function queueOfficeAttachmentPreconversion(
   fileId: string,
-  buffer: Buffer,
+  filePath: string,
   originalName: string,
-): Promise<void> {
+): void {
   const id = String(fileId || "").trim();
+  const sourcePath = String(filePath || "").trim();
   const ext = path
     .extname(sanitizeAttachmentOriginalName(originalName || "attachment"))
     .toLowerCase();
-  if (!id || !buffer?.length || !MIRAS_OFFICE_CONVERTIBLE_EXTS.has(ext)) return;
+  if (!id || !sourcePath || !MIRAS_OFFICE_CONVERTIBLE_EXTS.has(ext)) return;
+  if (mirasOfficeQueuedPreconversions.has(id)) return;
+  mirasOfficeQueuedPreconversions.add(id);
+  mirasOfficePreconvertQueue.push({ fileId: id, filePath: sourcePath, originalName });
+  drainOfficePreconversionQueue();
+}
+
+function drainOfficePreconversionQueue(): void {
+  while (
+    mirasOfficeActivePreconversions < MIRAS_OFFICE_PRECONVERT_CONCURRENCY &&
+    mirasOfficePreconvertQueue.length
+  ) {
+    const job = mirasOfficePreconvertQueue.shift()!;
+    mirasOfficeActivePreconversions += 1;
+    preconvertOfficeAttachmentToPdf(job.fileId, job.filePath, job.originalName)
+      .catch(() => {})
+      .finally(() => {
+        mirasOfficeActivePreconversions -= 1;
+        mirasOfficeQueuedPreconversions.delete(job.fileId);
+        drainOfficePreconversionQueue();
+      });
+  }
+}
+
+async function preconvertOfficeAttachmentToPdf(
+  fileId: string,
+  filePath: string,
+  originalName: string,
+): Promise<void> {
+  const id = String(fileId || "").trim();
+  const sourcePath = String(filePath || "").trim();
+  const ext = path
+    .extname(sanitizeAttachmentOriginalName(originalName || "attachment"))
+    .toLowerCase();
+  if (!id || !sourcePath || !MIRAS_OFFICE_CONVERTIBLE_EXTS.has(ext)) return;
   try {
     const existing = await dbInstance.getConvertedPdfArchive(id);
     if (existing?.length) return; // محوّل ومخزّن مسبقاً
   } catch {}
+  let buffer: Buffer;
+  try {
+    buffer = fs.readFileSync(sourcePath);
+  } catch {
+    return;
+  }
+  if (!buffer.length) return;
   const workDir = fs.mkdtempSync(path.join(os.tmpdir(), "miras-preconvert-"));
   const tempPath = path.join(workDir, `source${ext}`);
   try {
@@ -14828,7 +14955,7 @@ async function respondWithPdfConversionIfRequested(
     }
   } catch (err: any) {
     console.error("⚠️ Office-to-PDF conversion failed:", err?.message || err);
-    res.status(502).json({ code: "OFFICE_PREVIEW_FAILED", error: "تعذر تجهيز معاينة المستند الآن. نزّل الملف أو جرّب مرة أخرى." });
+    res.status(502).json({ code: "OFFICE_PREVIEW_FAILED", error: "تعذر تجهيز معاينة المستند الآن. أعد المحاولة بعد قليل." });
   }
   return true;
 }
@@ -14879,7 +15006,7 @@ async function respondWithPdfConversionBufferIfRequested(
     }
   } catch (err: any) {
     console.error("⚠️ Archived Office-to-PDF conversion failed:", err?.message || err);
-    res.status(502).json({ code: "OFFICE_PREVIEW_FAILED", error: "تعذر تجهيز معاينة العرض الآن. نزّل الملف أو جرّب مرة أخرى." });
+    res.status(502).json({ code: "OFFICE_PREVIEW_FAILED", error: "تعذر تجهيز معاينة العرض الآن. أعد المحاولة بعد قليل." });
   } finally {
     fs.rmSync(workDir, { recursive: true, force: true });
   }
@@ -15694,11 +15821,11 @@ function processStudentCourseActivation(
       return res.status(202).json({
         ...activationFailurePayload(
           "DEVICE_APPROVAL_REQUIRED",
-          "هذا الجهاز سبق استخدامه في النظام. تم إرسال طلب اعتماد للأستاذ.",
+          STUDENT_DEVICE_ALREADY_BOUND_ERROR,
         ),
         pendingDeviceApproval: true,
         approvalRequestId: pendingRequest.id,
-        message: "هذا الجهاز سبق استخدامه في النظام. تم إرسال طلب اعتماد للأستاذ.",
+        message: STUDENT_DEVICE_ALREADY_BOUND_ERROR,
       });
     }
     const pendingRequest = createSecondHandDeviceApprovalRequest({
@@ -15716,11 +15843,11 @@ function processStudentCourseActivation(
     return res.status(202).json({
       ...activationFailurePayload(
         "DEVICE_APPROVAL_REQUIRED",
-        "هذا الجهاز سبق استخدامه في النظام. تم إرسال طلب اعتماد للأستاذ.",
+        STUDENT_DEVICE_ALREADY_BOUND_ERROR,
       ),
       pendingDeviceApproval: true,
       approvalRequestId: pendingRequest.id,
-      message: "هذا الجهاز سبق استخدامه في النظام. تم إرسال طلب اعتماد للأستاذ.",
+      message: STUDENT_DEVICE_ALREADY_BOUND_ERROR,
     });
   }
 
