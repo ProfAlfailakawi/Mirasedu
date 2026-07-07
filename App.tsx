@@ -11908,6 +11908,7 @@ ${rows
       if (studentSession) {
         const res = await fetch(
           `/api/exercises?studentId=${studentSession.id}`,
+          { headers: jsonHeaders({ auth: "student" }) },
         );
         const d = await res.json();
         if (d.exercises) setStudentExercises(d.exercises);
