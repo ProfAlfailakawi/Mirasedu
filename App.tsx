@@ -14255,7 +14255,9 @@ ${rows
   useEffect(() => {
     const token = getMirasSebPass();
     const sebEntryContext = hasMirasSebAttemptContext();
-    if (!token || !sebEntryContext || studentSession?.id) return;
+    if (!token || !sebEntryContext) return;
+    if (sebSessionInfo?.token === token) return;
+    if (sebAutoStartInFlightRef.current) return;
     let cancelled = false;
     const validateSebToken = async () => {
       try {
@@ -14394,7 +14396,7 @@ ${rows
     return () => {
       cancelled = true;
     };
-  }, [studentSession?.id]);
+  }, [studentSession?.id, sebSessionInfo?.token]);
 
   useEffect(() => {
     if (!sebSessionInfo?.token || !hasMirasSebAttemptContext()) return;
@@ -14867,7 +14869,7 @@ ${rows
             await fetch("/api/seb/validate", {
               method: "POST",
               headers: jsonHeaders({ auth: "none" }),
-              body: JSON.stringify({ sebToken: getMirasSebPass() }),
+              body: JSON.stringify({ sebToken: getMirasSebPass(), seb: "1", miras_seb: "1" }),
             });
             const retryResp = await fetch(
               `/api/quizzes/generate?studentId=${studentSession.id}&chapterId=${chapId}${examSessionQuery}`,
@@ -19083,7 +19085,7 @@ ${rows
                   );
                   return;
                 }
-                if (requiresSeb && !isReturned && !isActualSafeExamBrowserRuntime()) {
+                if (requiresSeb && !isReturned && !isActualSafeExamBrowserRuntime() && !hasMirasSebAttemptContext()) {
                   await launchSebExam(
                     exam.id,
                     exam.courseCode || studentCourseCode,
@@ -19205,8 +19207,7 @@ ${rows
       exam.points || exam.totalPoints || "",
     );
     const hasSebAttemptForThisExam =
-      isActualSafeExamBrowserRuntime() &&
-      hasMirasSebAttemptContext() &&
+      (isActualSafeExamBrowserRuntime() || hasMirasSebAttemptContext()) &&
       (!sebSessionInfo?.examId ||
         String(sebSessionInfo.examId) === String(exam.id));
     const canStartSeb =
@@ -19459,29 +19460,10 @@ ${rows
           text: `${n.title}: ${n.body}`,
           time: new Date(n.updatedAt || n.createdAt || 0).getTime(),
         })),
-        ...studentActivityCards.map((activity: any) => {
-          const courseDetail = isHumanCourseLabel(
-            activity.courseName,
-            activity.courseCode,
-          )
-            ? activity.courseName
-            : displayCourseLabelForCode(activity.courseCode);
-          const dateDetail = formatKwDate(activity.open || activity.due);
-          return {
-            text: `${activity.kind}: ${activity.title} — ${activity.status} — ${courseDetail} — ${dateDetail}`,
-            time: new Date(
-              activity.updatedAt ||
-                activity.createdAt ||
-                activity.open ||
-                activity.due ||
-                0,
-            ).getTime(),
-          };
-        }),
       ]
         .sort((a: any, b: any) => (b.time || 0) - (a.time || 0))
         .map((item: any) => item.text),
-    [unreadCalendarNotifications, studentActivityCards],
+    [unreadCalendarNotifications],
   );
   const conciseStudentNotifications = useMemo(() => {
     if (!studentSession) return [];
@@ -19676,7 +19658,7 @@ ${rows
     persistStudentSeenNotificationKeys(next);
   };
   const isStudentInSeb =
-    isActualSafeExamBrowserRuntime() && hasMirasSebAttemptContext();
+    isActualSafeExamBrowserRuntime() || hasMirasSebAttemptContext();
   const activeExamIds = new Set(
     teacherCreatedExams
       .filter(isActiveRecord)
@@ -29311,8 +29293,7 @@ ${rows
                             exam.courseCode || studentCourseCode,
                           );
                           const hasSebAttemptForThisExam =
-                            isActualSafeExamBrowserRuntime() &&
-                            hasMirasSebAttemptContext() &&
+                            (isActualSafeExamBrowserRuntime() || hasMirasSebAttemptContext()) &&
                             (!sebSessionInfo?.examId ||
                               String(sebSessionInfo.examId) ===
                                 String(exam.id));

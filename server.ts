@@ -4938,11 +4938,17 @@ function hasSebRuntimeHint(req: express.Request): boolean {
   const sebHeader = String(
     req.headers["x-safeexambrowser-requesthash"] ||
       req.headers["x-safe-exam-browser"] ||
+      req.headers["x-miras-seb-armed"] ||
       "",
+  );
+  const sebQuery = String(
+    req.query?.seb || req.query?.miras_seb || req.body?.seb || req.body?.miras_seb || "",
   );
   return (
     /SafeExamBrowser|SEB/i.test(userAgent) ||
-    /SafeExamBrowser|SEB/i.test(sebHeader)
+    /SafeExamBrowser|SEB/i.test(sebHeader) ||
+    sebQuery === "1" ||
+    !!getSebPassFromRequest(req)
   );
 }
 
