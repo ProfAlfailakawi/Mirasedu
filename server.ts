@@ -929,6 +929,27 @@ function markExamLockStatusForRequest(
   return updated;
 }
 
+function closeActiveExamLocksForFreshSebLaunch(
+  studentId: any,
+  examId: any,
+  reason = "fresh-seb-launch",
+) {
+  const nowIso = new Date().toISOString();
+  getExamSessionsFor(studentId, examId).forEach((session: any) => {
+    if (String(session?.status || "") !== "active") return;
+    dbInstance.upsertExamSession({
+      ...session,
+      status: "finished",
+      finishedAt: session.finishedAt || nowIso,
+      closedAt: session.closedAt || nowIso,
+      finishReason: reason,
+      closeReason: reason,
+      lastHeartbeatAt: nowIso,
+      updatedAt: nowIso,
+    });
+  });
+}
+
 // خلط Fisher-Yates: عشوائية صحيحة ومتساوية الاحتمال. يُستخدم دائماً وتلقائياً
 // عند توليد كل محاولة اختبار لترتيب الأسئلة المختارة وترتيب اختيارات الأسئلة
 // متعددة الخيارات، دون أي اعتماد على إعداد قابل للتعطيل من نموذج إنشاء
@@ -1728,6 +1749,7 @@ function getValidSebPass(
   student?: Student,
   examId?: any,
 ): SebPass | null {
+  if (!hasActualSebRuntimeHint(req)) return null;
   const token = getSebPassFromRequest(req);
   if (!token) return null;
   const pass = findSebPass(token);
@@ -1760,6 +1782,22 @@ function consumeSebPass(pass: SebPass | null) {
     pass.startedAt = pass.usedAt;
   }
   saveSebPass(pass);
+}
+function closePendingSebLaunchesForFreshAttempt(
+  studentId: any,
+  examId: any,
+  reason = "superseded-by-fresh-seb-launch",
+) {
+  const now = Date.now();
+  getRuntimeSebPasses().forEach((pass) => {
+    if (String(pass.studentId) !== String(studentId)) return;
+    if (String(pass.examId) !== String(examId)) return;
+    if (pass.status !== "launch") return;
+    pass.status = "closed";
+    pass.closedAt = now;
+    pass.closeReason = reason;
+    saveSebPass(pass);
+  });
 }
 function isSebSubmissionCloseReason(reason: any) {
   const normalizedReason = String(reason || "closed").toLowerCase();
@@ -2600,7 +2638,7 @@ function validateSebLaunchInput(req: express.Request) {
 function createSebLaunchFromActivatedSession(req: express.Request) {
   const checked: any = validateSebLaunchInput(req);
   if (checked.error) return checked;
-  if (!checked.exam?.seb?.enabled)
+  if (!examRequiresSeb(checked.exam))
     return {
       error: "هذا الاختبار غير مفعّل لاستخدام Safe Exam Browser.",
       status: 400,
@@ -2639,6 +2677,18 @@ function createSebLaunchFromActivatedSession(req: express.Request) {
       (checked.exam as any).antiCheat?.timerMinutes ??
         (checked.exam as any).timerMinutes,
     ) || 30,
+  );
+  closePendingSebLaunchesForFreshAttempt(
+    checked.studentId,
+    checked.examId,
+    "superseded-by-fresh-seb-launch",
+  );
+  closeActiveExamLocksForFreshSebLaunch(
+    checked.studentId,
+    checked.examId,
+    teacherAuthorizedSebReturn
+      ? "teacher-authorized-seb-relaunch"
+      : "fresh-seb-launch",
   );
   const pass = createSebPass({
     studentId: checked.studentId,
@@ -4579,7 +4629,10 @@ function deviceFingerprintsMatch(a: any, b: any): boolean {
   const af = deviceFingerprintBrowserSegment(aa);
   const bf = deviceFingerprintBrowserSegment(bb);
   if (!af || !bf || af === "legacy" || bf === "legacy") return true;
-  return af === bf;
+  if (af === bf) return true;
+  const withoutDisplayMode = (value: string) =>
+    value.replace(/-(?:browser|pwa)$/i, "");
+  return withoutDisplayMode(af) === withoutDisplayMode(bf);
 }
 
 function isRetiredStudentDeviceSurface(params: {
@@ -4932,42 +4985,24 @@ function releaseDeviceFromPreviousOwners(params: {
   });
 }
 
-function isSebRequest(req: express.Request): boolean {
+function examRequiresSeb(exam: any): boolean {
+  return !!(exam?.seb?.enabled || exam?.sebEnabled);
+}
+
+function hasActualSebRuntimeHint(req: express.Request): boolean {
   const userAgent = String(req.headers["user-agent"] || "");
-  const sebHeader = String(
-    req.headers["x-safeexambrowser-requesthash"] ||
-      req.headers["x-safe-exam-browser"] ||
-      req.headers["x-miras-seb-armed"] ||
-      "",
-  );
-  const sebQuery = String(
-    req.query?.seb || req.query?.miras_seb || req.body?.seb || "",
-  );
   return (
     /SafeExamBrowser|SEB/i.test(userAgent) ||
-    /SafeExamBrowser|SEB/i.test(sebHeader) ||
-    sebQuery === "1" ||
-    !!getSebPassFromRequest(req)
+    !!String(req.headers["x-safeexambrowser-requesthash"] || "").trim()
   );
 }
 
+function isSebRequest(req: express.Request): boolean {
+  return hasActualSebRuntimeHint(req) && !!getSebPassFromRequest(req);
+}
+
 function hasSebRuntimeHint(req: express.Request): boolean {
-  const userAgent = String(req.headers["user-agent"] || "");
-  const sebHeader = String(
-    req.headers["x-safeexambrowser-requesthash"] ||
-      req.headers["x-safe-exam-browser"] ||
-      req.headers["x-miras-seb-armed"] ||
-      "",
-  );
-  const sebQuery = String(
-    req.query?.seb || req.query?.miras_seb || req.body?.seb || req.body?.miras_seb || "",
-  );
-  return (
-    /SafeExamBrowser|SEB/i.test(userAgent) ||
-    /SafeExamBrowser|SEB/i.test(sebHeader) ||
-    sebQuery === "1" ||
-    !!getSebPassFromRequest(req)
-  );
+  return hasActualSebRuntimeHint(req);
 }
 
 function buildResetLink(req: express.Request, token: string): string {
@@ -7655,12 +7690,30 @@ app.use((req, res, next) => {
       (req as any).mirasPublicStudentStatePreview = true;
       return next();
     }
+    if (!sessionStudentId && requestedStudentId && pathname.startsWith("/api/quizzes")) {
+      const sebStudent = dbInstance
+        .getStudents()
+        .find((s: any) => normalizeStudentId(s.id) === requestedStudentId);
+      const sebPass = sebStudent ? getValidSebPass(req, sebStudent) : null;
+      if (sebPass && String(sebPass.studentId) === String(sebStudent?.id)) {
+        return next();
+      }
+    }
     if (!sessionStudentId || (requestedStudentId && requestedStudentId !== sessionStudentId)) {
       console.warn(`[AUTH_DEBUG] STUDENT_SESSION_REQUIRED for ${req.method} ${pathname}. sessionStudentId: ${sessionStudentId || "None"}, requestedStudentId: ${requestedStudentId || "None"}`);
       return res.status(401).json({
         error: "STUDENT_SESSION_REQUIRED",
         code: "STUDENT_SESSION_REQUIRED",
       });
+    }
+    if (requestedStudentId && pathname.startsWith("/api/quizzes")) {
+      const sebStudent = dbInstance
+        .getStudents()
+        .find((s: any) => normalizeStudentId(s.id) === requestedStudentId);
+      const sebPass = sebStudent ? getValidSebPass(req, sebStudent) : null;
+      if (sebPass && String(sebPass.studentId) === String(sebStudent?.id)) {
+        return next();
+      }
     }
     const currentDeviceToken = getRequestDeviceToken(req);
     if (
@@ -7867,12 +7920,16 @@ app.get("/seb/start", (req, res) => {
   const exam = dbInstance
     .getTeacherExams()
     .find((item: any) => String(item.id) === String(pass.examId));
+  const teacherAuthorizedSebReturn = student
+    ? hasTeacherAuthorizedSebReturnException(pass.examId, student.id)
+    : false;
   if (
     !student ||
     !exam ||
     String(exam.courseCode || "").toLowerCase() !==
       String(pass.courseCode || "").toLowerCase() ||
-    !studentHasEnrollmentInCourse(student, pass.courseCode)
+    (!studentHasEnrollmentInCourse(student, pass.courseCode) &&
+      !teacherAuthorizedSebReturn)
   ) {
     closeSebAttempt(pass, "invalid-binding-at-start");
     rejectSebPass(
@@ -7943,16 +8000,7 @@ app.post("/api/seb/validate", (req, res) => {
     // The official SEB configuration now points directly to the exam app URL.
     // Therefore the first validation request from the SEB WebView is the exact
     // moment when the launch token must become an active exam tunnel.
-    if (
-      !hasSebRuntimeHint(req) &&
-      String(
-        req.body?.seb ||
-          req.query?.seb ||
-          req.body?.miras_seb ||
-          req.query?.miras_seb ||
-          "",
-      ) !== "1"
-    ) {
+    if (!hasActualSebRuntimeHint(req)) {
       rejectSebPass(req, pass, "فشل validate: token لم يصل من سياق SEB.");
       return res
         .status(409)
@@ -11638,6 +11686,7 @@ app.post("/api/auth/register", (req, res) => {
       email: (exists as any).email || email,
       existingStudent: true,
       needsActivation: true,
+      activationComplete: false,
     });
   }
 
@@ -11647,8 +11696,10 @@ app.post("/api/auth/register", (req, res) => {
   // Return temporary register details so student enters their teacher code
   return res.json({
     success: true,
-    message: "جاهز لتفعيل الحساب",
+    message: "تم التحقق من الرقم الجامعي. أدخل رمز المقرر لإكمال التفعيل.",
     email,
+    needsActivation: true,
+    activationComplete: false,
   });
 });
 
@@ -12886,11 +12937,7 @@ app.get("/api/quizzes/generate", (req, res) => {
         .status(403)
         .json({ error: "هذا الاختبار غير مخصص لأحد مقرراتك المفعلة." });
     }
-    if (
-      officialExam.seb?.enabled &&
-      !activeSebAttempt &&
-      !teacherAuthorizedSebReturn
-    ) {
+    if (examRequiresSeb(officialExam) && !activeSebAttempt) {
       rejectSebPass(
         req,
         getValidSebPass(req, student, officialExam.id),
@@ -13278,7 +13325,7 @@ app.post("/api/quizzes/integrity-exit", (req, res) => {
     (item: any) => String(item.id) === String(chapterId),
   );
   if (!exam) return res.status(404).json({ error: "الاختبار غير موجود" });
-  if (exam.seb?.enabled || (exam as any).sebEnabled) {
+  if (examRequiresSeb(exam)) {
     return res
       .status(403)
       .json({ error: "هذا المسار مخصص للاختبار العادي فقط." });
@@ -13550,11 +13597,7 @@ app.post("/api/quizzes/submit", (req, res) => {
         .status(403)
         .json({ error: "هذا الاختبار غير مخصص لأحد مقرراتك المفعلة." });
     }
-    if (
-      officialExam.seb?.enabled &&
-      (!isSebRequest(req) || !activeSebAttempt) &&
-      !teacherAuthorizedSebReturn
-    ) {
+    if (examRequiresSeb(officialExam) && (!isSebRequest(req) || !activeSebAttempt)) {
       return res
         .status(403)
         .json({ error: "لا يمكن تسليم هذا الاختبار خارج Safe Exam Browser." });
