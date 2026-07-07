@@ -5145,7 +5145,27 @@ export default function App() {
     const activatedCourseName = String(
       data?.course?.courseName || data?.courseName || "",
     ).trim();
-    const activatedEnrollments = enrollments.map((enrollment: any) => {
+    const activatedEnrollmentsSource = enrollments.length
+      ? enrollments
+      : courseCode
+        ? [
+            {
+              courseCode,
+              sectionCode: courseCode,
+              studentSection: courseCode,
+              courseName:
+                activatedCourseName ||
+                data?.course?.title ||
+                data?.course?.name ||
+                serverStudent?.courseName ||
+                serverStudent?.sectionName ||
+                "",
+              isActive: true,
+              activatedAt: new Date().toISOString(),
+            },
+          ]
+        : [];
+    const activatedEnrollments = activatedEnrollmentsSource.map((enrollment: any) => {
       const enrollmentCode = String(
         enrollment?.courseCode ||
           enrollment?.sectionCode ||
@@ -5163,12 +5183,7 @@ export default function App() {
         serverStudent?.authToken ||
         "",
     );
-    if (
-      !serverStudent?.id ||
-      !authToken ||
-      !courseCode ||
-      activatedEnrollments.length === 0
-    ) {
+    if (!serverStudent?.id || !authToken || !courseCode) {
       throw new Error("INCOMPLETE_ACTIVATION_RESPONSE");
     }
     const activatedCourseCodes = Array.from(
@@ -9646,6 +9661,11 @@ export default function App() {
     if (targetRole && targetRole !== "student" && targetRole !== "students")
       return false;
     if (notifyStudents === false || notifyStudents === "false") return false;
+    const isTeacherDeviceReviewNotice =
+      /اعتماد جهاز|مشكلة جهاز|مراجعة جهاز|مراجعه جهاز|مراجعة او اعتماد|مراجعه او اعتماد|مراجعة أو اعتماد|مراجعه أو اعتماد|بحاجة لمراجعة|بحاجه لمراجعه|تحتاج مراجعة|يحتاج مراجعة|التعميد|السوبر ادمن|device approval|device review/i.test(
+        notificationText,
+      );
+    if (isTeacherDeviceReviewNotice) return false;
     if (course && studentCourseCodes.length && !matchesAnyStudentCourse(course))
       return false;
     if (
@@ -13053,7 +13073,9 @@ ${rows
       if (resp.ok && data.success === true) {
         setOtpSent(""); // Not used anymore
         setCurrentView("otp");
-        setSuccessMsg(data.message || "الرجاء إدخال كود المختبر للمتابعة.");
+        // هذه خطوة تحقق أولية فقط وليست تفعيلًا للحساب؛ لا نعرض رسالة نجاح
+        // حتى لا يظن الطالب أن الحساب فُعّل قبل إدخال رمز المقرر واعتماده.
+        setSuccessMsg("");
       } else if (data.alreadyActivated || data.shouldLogin) {
         // حساب مفعّل مسبقاً: لا جلسة تسجيل مؤقتة ولا شاشة كود — نوجّهه لتسجيل
         // الدخول داخل نفس شاشة الحساب (instructorMode = وضع الدخول) مع تعبئة رقمه.
@@ -14239,8 +14261,7 @@ ${rows
     }
     setErrorMsg("");
     setSuccessMsg("");
-    const alreadyInsideSeb =
-      isActualSafeExamBrowserRuntime() || hasMirasSebAttemptContext();
+    const alreadyInsideSeb = isActualSafeExamBrowserRuntime();
     const existingSebToken = getMirasSebPass();
     if (alreadyInsideSeb && existingSebToken) {
       setSuccessMsg(
@@ -14275,30 +14296,29 @@ ${rows
       );
       return;
     }
-    if (!alreadyInsideSeb) {
+    // إذا كان الطالب في المتصفح العادي نبدأ جلسة SEB جديدة دائمًا بعد تنظيف
+    // أي بقايا token قديمة من sessionStorage؛ البقايا القديمة كانت تجعل الاختبار
+    // يتصرف كأنه داخل SEB ثم يرفضه بقفل جلسة أو رسالة يتطلب SEB.
+    clearMirasSebClientSession();
+    const launchPayload = {
+      studentId: studentSession.id,
+      examId,
+      courseCode,
+      ownerEmail,
+      deviceToken: getMirasDeviceId(),
+    };
+    if (!alreadyInsideSeb && isAppleMobileDevice()) {
       setSuccessMsg(
         "تم تجهيز طلب SEB. ستظهر صفحة تشغيل آمنة؛ افتح الاختبار مرة واحدة فقط من المتصفح العادي.",
       );
-      submitSebIosOpenForm({
-        studentId: studentSession.id,
-        examId,
-        courseCode,
-        ownerEmail,
-        deviceToken: getMirasDeviceId(),
-      });
+      submitSebIosOpenForm(launchPayload);
       return;
     }
     try {
       const resp = await fetch("/api/seb/launch", {
         method: "POST",
         headers: jsonHeaders({ auth: "student" }),
-        body: JSON.stringify({
-          studentId: studentSession.id,
-          examId,
-          courseCode,
-          ownerEmail,
-          deviceToken: getMirasDeviceId(),
-        }),
+        body: JSON.stringify(launchPayload),
       });
       const data = await resp.json().catch(() => ({}));
       if (!resp.ok) {
@@ -19179,7 +19199,7 @@ ${rows
                   );
                   return;
                 }
-                if (requiresSeb && !isReturned && !isActualSafeExamBrowserRuntime() && !hasMirasSebAttemptContext()) {
+                if (requiresSeb && !isReturned && !isActualSafeExamBrowserRuntime()) {
                   await launchSebExam(
                     exam.id,
                     exam.courseCode || studentCourseCode,
@@ -19301,7 +19321,7 @@ ${rows
       exam.points || exam.totalPoints || "",
     );
     const hasSebAttemptForThisExam =
-      (isActualSafeExamBrowserRuntime() || hasMirasSebAttemptContext()) &&
+      isActualSafeExamBrowserRuntime() &&
       (!sebSessionInfo?.examId ||
         String(sebSessionInfo.examId) === String(exam.id));
     const canStartSeb =
@@ -22113,7 +22133,7 @@ ${rows
           title: isSecondHandApproval
             ? "طلب اعتماد جهاز مستخدم سابقًا"
             : "مشكلة جهاز تحتاج اعتماد السوبر أدمن",
-          body: `${attempt.linkedStudentName || attempt.studentName || "طالب"} • الرقم: ${attempt.linkedStudentId || attempt.studentId || "-"} • الجهاز بحاجة للمراجعة أو التعميد.`,
+          body: `${attempt.linkedStudentName || attempt.studentName || "طالب"} • الرقم: ${attempt.linkedStudentId || attempt.studentId || "-"} • الجهاز بحاجة لمراجعة أو اعتماد.`,
           when:
             attempt.approvalRequestedAt ||
             attempt.timestamp ||
@@ -22369,7 +22389,7 @@ ${rows
             title: isSecondHandApproval
               ? "طلب اعتماد جهاز مستخدم سابقًا"
               : "مشكلة جهاز تحتاج مراجعة",
-            body: `${attempt.linkedStudentName || attempt.studentName || "طالب"} • الرقم: ${attempt.linkedStudentId || attempt.studentId || "-"} بحاجة لمراجعة أو اعتماد جهاز.`,
+            body: `${attempt.linkedStudentName || attempt.studentName || "طالب"} • الرقم: ${attempt.linkedStudentId || attempt.studentId || "-"} يحتاج مراجعة أو اعتماد جهاز.`,
             when:
               attempt.approvalRequestedAt ||
               attempt.timestamp ||
@@ -31087,11 +31107,11 @@ ${rows
                                         st.idNumber ||
                                         studentIdStr
                                       }
-                                      className="group relative min-h-[38px] rounded-xl border border-slate-100 bg-slate-50/45 p-1.5 hover:bg-white hover:border-slate-200 hover:shadow-sm transition-all duration-200 text-right"
+                                      className="group relative min-h-[46px] rounded-xl border border-slate-100 bg-slate-50/45 p-2 hover:bg-white hover:border-slate-200 hover:shadow-sm transition-all duration-200 text-right"
                                     >
                                       <div className="flex items-start justify-between gap-1.5">
-                                        <div className="min-w-0 flex-1">
-                                          <span className="block truncate text-[10px] font-medium tracking-tight text-slate-700">
+                                        <div className="min-w-0 flex-1 pr-0 pl-7">
+                                          <span className="block truncate text-[10px] font-semibold tracking-tight text-slate-700 leading-5">
                                             {st.name}
                                           </span>
                                           {(() => {
@@ -31149,13 +31169,13 @@ ${rows
                                                   event.stopPropagation();
                                                   void toggleCameraExceptionForLivePulseStudent(row);
                                                 }}
-                                                className={`relative z-20 mt-1 inline-flex h-6 w-6 pointer-events-auto items-center justify-center rounded-lg border text-[9px] transition ${
+                                                className={`absolute bottom-1.5 left-1.5 z-20 inline-flex h-7 w-7 pointer-events-auto items-center justify-center rounded-xl border text-[9px] transition ${
                                                   isExempt
                                                     ? "border-amber-300 bg-amber-50 text-amber-700 shadow-[0_8px_18px_rgba(245,158,11,0.16)]"
-                                                    : "border-slate-200 bg-white/85 text-slate-600 hover:border-emerald-200 hover:bg-emerald-50 hover:text-emerald-700"
+                                                    : "border-slate-200 bg-white/90 text-slate-600 hover:border-emerald-200 hover:bg-emerald-50 hover:text-emerald-700"
                                                 }`}
                                               >
-                                                {isExempt ? <CameraOff className="h-3 w-3" /> : <Camera className="h-2.5 w-2.5" />}
+                                                {isExempt ? <CameraOff className="h-3.5 w-3.5" /> : <Camera className="h-3 w-3" />}
                                               </button>
                                             );
                                           })()}
@@ -31171,7 +31191,7 @@ ${rows
                                         </span>
                                       </div>
                                       <div
-                                        className="mt-1 h-0.5"
+                                        className="mt-1 h-1"
                                         aria-hidden="true"
                                       />
                                     </div>
