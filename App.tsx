@@ -3523,7 +3523,22 @@ export default function App() {
           })
           .then((directUrl) => {
             if (cancelled) return;
-            openDirectPdfjsViewer(directUrl);
+            // لا نُمرّر رابطًا يحمل ?token= إلى معامل ?file= في عارض PDF.js: العارض
+            // يُبقي علامة الاستفهام مُرمّزة (%3F) فيصل التوكن كجزء من المسار لا
+            // كمعامل، فيرفض الخادم الطلب (403) وتظهر معاينة فارغة (الصفحة البيضاء).
+            // نجلب ملف المعاينة المصادَق مباشرةً ونحوّله إلى blob قصير ثم نعرضه
+            // بنفس العارض بالضبط — بلا تغيير في البطاقة أو الأزرار.
+            return fetch(directUrl, { headers: jsonHeaders(), cache: "no-store" })
+              .then(async (resp) => {
+                if (!resp.ok) throw new Error("preview direct fetch failed");
+                return resp.blob();
+              })
+              .then((blob) => {
+                if (cancelled) return;
+                objectUrl = URL.createObjectURL(blob);
+                previewBlobUrlCacheRef.current[previewCacheKey] = objectUrl;
+                openInPdfjsViewer(objectUrl);
+              });
           })
           .catch(() => {
             // إذا تعذر رابط المعاينة القصير لأي سبب، نرجع للمسار القديم الموثوق
