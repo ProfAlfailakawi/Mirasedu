@@ -3360,7 +3360,15 @@ export default function App() {
     if (isImage) return;
     const url = attachmentDisplayUrl(previewAttachment);
     if (!url || url.startsWith("data:")) return;
-    const isOfficeQuickOpen = [".ppt", ".pptx", ".doc", ".rtf"].includes(ext);
+    const isOfficeQuickOpen = [
+      ".ppt",
+      ".pptx",
+      ".doc",
+      ".docx",
+      ".xls",
+      ".xlsx",
+      ".rtf",
+    ].includes(ext);
     if (isOfficeQuickOpen) return;
     let cancelled = false;
     // يجب إرسال ترويسة الجلسة (Authorization) صراحة: تحميل مورد عادي (iframe/
@@ -3430,14 +3438,6 @@ export default function App() {
       isOfficeConvertible && !baseUrl.startsWith("data:")
         ? `${baseUrl}${baseUrl.includes("?") ? "&" : "?"}as=pdf`
         : baseUrl;
-    // أسرع مسار: للملفات المخزنة على نفس الخادم نمرر الرابط مباشرة إلى PDF.js.
-    // هذا يلغي جلب blob كامل من React قبل العرض، ويرجع إحساس الفتح الصاروخي خصوصاً للـ PowerPoint.
-    if (!url.startsWith("data:")) {
-      setPdfViewerSrc(
-        `/pdfjs/web/viewer.html?file=${encodeURIComponent(url)}#zoom=page-width`,
-      );
-      return;
-    }
     const previewCacheKey = `${attachmentLoadKey(previewAttachment) || name}:${isOfficeConvertible ? "pdf" : ext}:${url.startsWith("data:") ? String(url.length) : url}`;
     const cachedBlobUrl = previewBlobUrlCacheRef.current[previewCacheKey];
     if (cachedBlobUrl) {
@@ -3461,6 +3461,59 @@ export default function App() {
         `/pdfjs/web/viewer.html?file=${encodeURIComponent(blobUrl)}#zoom=page-width`,
       );
     };
+    const openDirectPdfjsViewer = (directUrl: string) => {
+      if (slowPreviewTimer) window.clearTimeout(slowPreviewTimer);
+      if (cancelled) return;
+      setPdfViewerSrc(
+        `/pdfjs/web/viewer.html?file=${encodeURIComponent(directUrl)}#zoom=page-width`,
+      );
+    };
+    if (isOfficeConvertible && !url.startsWith("data:")) {
+      const rawFileId = String(
+        previewAttachment.fileId ||
+          previewAttachment.id ||
+          attachmentLoadKey(previewAttachment) ||
+          "",
+      ).trim();
+      const fileId = rawFileId.match(/file-[A-Za-z0-9_-]+-\d+/)?.[0] || rawFileId;
+      if (fileId) {
+        fetch(`/api/submission-attachments/${encodeURIComponent(fileId)}/preview-token?as=pdf`, {
+          headers: jsonHeaders(),
+          cache: "no-store",
+        })
+          .then(async (resp) => {
+            const data = await resp.json().catch(() => ({}));
+            if (!resp.ok || !data?.url) throw new Error("preview token failed");
+            return String(data.url);
+          })
+          .then((directUrl) => {
+            if (cancelled) return;
+            openDirectPdfjsViewer(directUrl);
+          })
+          .catch(() => {
+            // إذا تعذر رابط المعاينة القصير لأي سبب، نرجع للمسار القديم الموثوق
+            // أدناه عبر fetch مصادَق و blob بدون تغيير الواجهة أو الأزرار.
+            fetch(url, { headers: jsonHeaders() })
+              .then(async (resp) => {
+                if (!resp.ok) throw new Error("preview fallback failed");
+                return resp.blob();
+              })
+              .then((blob) => {
+                if (cancelled) return;
+                objectUrl = URL.createObjectURL(blob);
+                previewBlobUrlCacheRef.current[previewCacheKey] = objectUrl;
+                openInPdfjsViewer(objectUrl);
+              })
+              .catch(() => {
+                if (!cancelled)
+                  setDocumentPreviewError("تعذر تجهيز معاينة هذا العرض الآن. أعد المحاولة بعد قليل.");
+              });
+          });
+        return () => {
+          cancelled = true;
+        };
+      }
+    }
     if (url.startsWith("data:")) {
       // ملفات باوربوينت/وورد القديم(.doc)/RTF المضمّنة كرابط data: تُحوَّل إلى PDF
       // على السيرفر عبر نفس مسار LibreOffice المستخدم للملفات المخزّنة، ثم تُعرض
@@ -3486,7 +3539,7 @@ export default function App() {
           .catch(() => {
             if (!cancelled)
               setDocumentPreviewError(
-                "تعذر تجهيز معاينة لهذا المرفق. جرّب تنزيله بدلاً من ذلك.",
+                "تعذر تجهيز معاينة هذا المرفق الآن. أعد المحاولة بعد قليل.",
               );
           });
         return () => {
@@ -3531,7 +3584,19 @@ export default function App() {
           );
           return null;
         }
-        return resp.blob();
+        const contentType = String(resp.headers.get("Content-Type") || "").toLowerCase();
+        const blob = await resp.blob();
+        if (
+          !blob.size ||
+          ((isPdf || isOfficeConvertible) &&
+            contentType &&
+            !contentType.includes("pdf") &&
+            !contentType.includes("octet-stream"))
+        ) {
+          setDocumentPreviewError("تعذر تجهيز معاينة المستند الآن. أعد المحاولة بعد قليل.");
+          return null;
+        }
+        return blob;
       })
       .then((blob) => {
         if (cancelled || !blob) return;
@@ -3568,8 +3633,8 @@ export default function App() {
       "مرفق",
     );
     const ext = name.slice(name.lastIndexOf(".")).toLowerCase();
-    const isSpreadsheet = [".xls", ".xlsx", ".csv"].includes(ext);
-    const isWordDoc = ext === ".docx";
+    const isSpreadsheet = ext === ".csv";
+    const isWordDoc = false;
     const isPlainText = [".txt", ".md"].includes(ext);
     if (!isSpreadsheet && !isWordDoc && !isPlainText) return;
     const url = attachmentDisplayUrl(previewAttachment);
@@ -3630,7 +3695,7 @@ export default function App() {
       const result = await mammoth.convertToHtml({ arrayBuffer: buffer });
       const safeHtml = DOMPurify.sanitize(result.value);
       if (!cancelled) setOfficeDocPreview({ kind: "html", html: safeHtml });
-    })().catch(() => fail("تعذر عرض المستند. جرّب فتحه كاملًا بدلًا من ذلك."));
+    })().catch(() => fail("تعذر عرض المستند الآن. أعد المحاولة بعد قليل."));
     return () => {
       cancelled = true;
     };
@@ -7802,6 +7867,9 @@ export default function App() {
       ".ppt",
       ".pptx",
       ".doc",
+      ".docx",
+      ".xls",
+      ".xlsx",
       ".rtf",
     ].includes(ext);
     const stableUrl = url && !isTemporaryAttachmentUrl(url) ? url : "";
@@ -10636,7 +10704,7 @@ export default function App() {
         {
           method: "POST",
           headers: teacherHeaders(teacherSession.email),
-          body: JSON.stringify({ teacherEmail: teacherSession.email }),
+          body: JSON.stringify({ teacherEmail: teacherSession.email, force: decision === "approve" ? "1" : "" }),
         },
       );
       const d = await resp.json().catch(() => ({}));
@@ -10650,6 +10718,16 @@ export default function App() {
           ? "تم اعتماد الجهاز وربط الطالب بالمقرر."
           : "تم رفض طلب اعتماد الجهاز.",
       );
+      setCodeIntegrity((prev: any) => ({
+        ...(prev || {}),
+        attempts: Array.isArray(prev?.attempts)
+          ? prev.attempts.map((item: any) =>
+              String(item?.id || "") === id
+                ? { ...item, approvalStatus: decision === "approve" ? "approved" : "rejected" }
+                : item,
+            )
+          : prev?.attempts,
+      }));
       markTeacherImportantNotificationRead(`device-${id}`);
       await Promise.allSettled([
         fetchCodeIntegrity(),
@@ -13211,10 +13289,9 @@ ${rows
         setOtpInput("");
       } else if (resp.ok && data.pendingDeviceApproval) {
         resetActivationGrace();
-        setErrorMsg("");
-        setSuccessMsg(
-          data.message ||
-            "هذا الجهاز سبق استخدامه في النظام. تم إرسال طلب اعتماد للأستاذ.",
+        setSuccessMsg("");
+        setErrorMsg(
+          "هذا الجهاز مسجّل لطالب آخر. استخدم جهازك الشخصي أو اطلب من أستاذ المقرر السماح بتبديل الجهاز.",
         );
       } else {
         resetActivationGrace();
@@ -13310,11 +13387,11 @@ ${rows
       );
       const data = await resp.json().catch(() => ({}));
       if (resp.ok && data.pendingDeviceApproval) {
-        setSuccessMsg(
-          data.message ||
-            "هذا الجهاز سبق استخدامه في النظام. تم إرسال طلب اعتماد للأستاذ.",
+        resetActivationGrace();
+        setSuccessMsg("");
+        setErrorMsg(
+          "هذا الجهاز مسجّل لطالب آخر. استخدم جهازك الشخصي أو اطلب من أستاذ المقرر السماح بتبديل الجهاز.",
         );
-        setErrorMsg("");
         return;
       }
       if (!resp.ok) {
@@ -14349,6 +14426,8 @@ ${rows
       courseCode,
       ownerEmail,
       deviceToken: getMirasDeviceId(),
+      displayMode: readMirasDisplayMode(),
+      authToken: activeMirasAuthToken("student"),
     };
     if (!alreadyInsideSeb && isAppleMobileDevice()) {
       setSuccessMsg(
@@ -14655,11 +14734,11 @@ ${rows
       });
       const data = await resp.json().catch(() => ({}));
       if (resp.ok && data.pendingDeviceApproval) {
-        setSuccessMsg(
-          data.message ||
-            "هذا الجهاز سبق استخدامه في النظام. تم إرسال طلب اعتماد للأستاذ.",
+        resetActivationGrace();
+        setSuccessMsg("");
+        setErrorMsg(
+          "هذا الجهاز مسجّل لطالب آخر. استخدم جهازك الشخصي أو اطلب من أستاذ المقرر السماح بتبديل الجهاز.",
         );
-        setErrorMsg("");
         try {
           await fetchCodeIntegrity();
         } catch {}
@@ -26138,7 +26217,6 @@ ${rows
                       title={row.submission ? "فتح" : "لا يوجد تسليم"}
                     >
                       <span className="block truncate text-[10px] leading-tight">{row.studentName || "طالب"}</span>
-                      <span className={`mt-0.5 block text-[8px] ${isActive ? "text-indigo-100" : "text-slate-400"}`}>تسليم</span>
                     </button>
                   );
                 })}
@@ -26179,7 +26257,6 @@ ${rows
                       >
                         <span className="min-w-0">
                           <span className="block truncate text-[11px] font-black">{row.studentName || "طالب"}</span>
-                          <span className={`mt-0.5 block truncate text-[9px] ${isActive ? "text-indigo-100" : "text-slate-400"}`}>تسليم الطالب</span>
                         </span>
                         <span className={`h-2 w-2 shrink-0 rounded-full ${row.submission ? isActive ? "bg-white" : "bg-emerald-400" : "bg-slate-200"}`} />
                       </button>
@@ -26558,21 +26635,6 @@ ${rows
                       <p className="max-w-full break-words text-[12px] font-bold text-slate-500">
                         {name || "مرفق بلا اسم"}
                       </p>
-                      {url && (
-                        <a
-                          href={url}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          download={
-                            String(url).startsWith("data:")
-                              ? name || "مرفق"
-                              : undefined
-                          }
-                          className="mt-1 rounded-2xl bg-indigo-600 px-5 py-2.5 text-[12px] font-black text-white hover:bg-indigo-700"
-                        >
-                          تنزيل الملف
-                        </a>
-                      )}
                     </div>
                   );
                 if (!url || loadFailed)
@@ -31147,7 +31209,7 @@ ${rows
                                   منفصل
                                 </span>
                               </div>
-                              <div className="grid grid-cols-2 gap-1.5 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6">
+                              <div className="grid grid-cols-1 gap-1.5 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
                                 {livePulseStudentRows.map((row: any) => {
                                   const {
                                     st,
@@ -31164,11 +31226,11 @@ ${rows
                                         st.idNumber ||
                                         studentIdStr
                                       }
-                                      className="group relative min-h-[46px] rounded-xl border border-slate-100 bg-slate-50/45 p-2 hover:bg-white hover:border-slate-200 hover:shadow-sm transition-all duration-200 text-right"
+                                      className="group relative flex min-h-[38px] items-center rounded-2xl border border-slate-100 bg-white/75 px-2.5 py-1.5 shadow-[0_6px_18px_rgba(15,23,42,0.035)] hover:border-indigo-100 hover:bg-white hover:shadow-sm transition-all duration-200 text-right"
                                     >
-                                      <div className="flex items-start justify-between gap-1.5">
-                                        <div className="min-w-0 flex-1 pr-0 pl-7">
-                                          <span className="block truncate text-[10px] font-semibold tracking-tight text-slate-700 leading-5">
+                                      <div className="flex w-full items-center justify-between gap-2">
+                                        <div className="flex min-w-0 flex-1 items-center gap-1.5 pr-0">
+                                          <span className="block min-w-0 flex-1 truncate text-[10.5px] font-extrabold tracking-tight text-slate-700 leading-5">
                                             {st.name}
                                           </span>
                                           {(() => {
@@ -31226,7 +31288,7 @@ ${rows
                                                   event.stopPropagation();
                                                   void toggleCameraExceptionForLivePulseStudent(row);
                                                 }}
-                                                className={`absolute bottom-1.5 left-1.5 z-20 inline-flex h-7 w-7 pointer-events-auto items-center justify-center rounded-xl border text-[9px] transition ${
+                                                className={`inline-flex h-6 w-6 shrink-0 pointer-events-auto items-center justify-center rounded-xl border text-[9px] transition ${
                                                   isExempt
                                                     ? "border-amber-300 bg-amber-50 text-amber-700 shadow-[0_8px_18px_rgba(245,158,11,0.16)]"
                                                     : "border-slate-200 bg-white/90 text-slate-600 hover:border-emerald-200 hover:bg-emerald-50 hover:text-emerald-700"
@@ -31238,7 +31300,7 @@ ${rows
                                           })()}
                                         </div>
                                         <span
-                                          className={`relative mt-0.5 flex h-2.5 w-2.5 shrink-0 rounded-full !p-0 ${statusColor} ${pulseClass}`}
+                                          className={`relative flex h-2.5 w-2.5 shrink-0 rounded-full !p-0 ${statusColor} ${pulseClass}`}
                                         >
                                           {pulseClass && (
                                             <span
@@ -31247,10 +31309,7 @@ ${rows
                                           )}
                                         </span>
                                       </div>
-                                      <div
-                                        className="mt-1 h-1"
-                                        aria-hidden="true"
-                                      />
+                                      <div className="hidden" aria-hidden="true" />
                                     </div>
                                   );
                                 })}
@@ -31898,7 +31957,6 @@ ${rows
                                       title={row.submission ? "فتح" : "لا يوجد تسليم"}
                                     >
                                       <span className="block truncate text-[10.5px] leading-tight">{row.studentName || "طالب"}</span>
-                                      <span className={`mt-0.5 block font-mono text-[9px] ${isActive ? "text-indigo-100" : "text-slate-400"}`}>تسليم</span>
                                     </button>
                                   );
                                 })}
@@ -31940,7 +31998,6 @@ ${rows
                                       >
                                         <span className="min-w-0">
                                           <span className="block truncate text-[11px] font-black">{row.studentName || "طالب"}</span>
-                                          <span className={`mt-0.5 block truncate text-[9px] ${isActive ? "text-indigo-100" : "text-slate-400"}`}>تسليم الطالب</span>
                                         </span>
                                         <span className={`h-2 w-2 shrink-0 rounded-full ${row.submission ? isActive ? "bg-white" : "bg-emerald-400" : "bg-slate-200"}`} />
                                       </button>

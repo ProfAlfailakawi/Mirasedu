@@ -173,30 +173,30 @@ function readBearerToken(req: express.Request) {
   return String(parseCookies(req)[MIRAS_SESSION_COOKIE] || "").trim();
 }
 
-function verifyMirasSessionToken(req: express.Request): MirasVerifiedSession | null {
-  const token = readBearerToken(req);
-  if (!token) {
-    console.warn(`[AUTH_DEBUG] No token found in request: ${req.method} ${req.path}`);
-    return null;
-  }
+function verifyMirasSessionTokenValue(
+  tokenValue: any,
+  context = "session token",
+): MirasVerifiedSession | null {
+  const token = String(tokenValue || "").trim();
+  if (!token) return null;
   if (!token.includes(".")) {
-    console.warn(`[AUTH_DEBUG] Invalid token format (no dot): ${req.method} ${req.path}`);
+    console.warn(`[AUTH_DEBUG] Invalid token format (no dot): ${context}`);
     return null;
   }
   const [payload, sig] = token.split(".");
   if (!payload || !sig) {
-    console.warn(`[AUTH_DEBUG] Missing payload or signature: ${req.method} ${req.path}`);
+    console.warn(`[AUTH_DEBUG] Missing payload or signature: ${context}`);
     return null;
   }
   const computedSig = signMirasPayload(payload);
   if (computedSig !== sig) {
-    console.warn(`[AUTH_DEBUG] Signature mismatch for path ${req.method} ${req.path}. Expected: ${computedSig}, Got: ${sig}`);
+    console.warn(`[AUTH_DEBUG] Signature mismatch for ${context}. Expected: ${computedSig}, Got: ${sig}`);
     return null;
   }
   try {
     const parsed = JSON.parse(base64urlDecode(payload));
     if (!parsed) {
-      console.warn(`[AUTH_DEBUG] Failed to parse payload: ${req.method} ${req.path}`);
+      console.warn(`[AUTH_DEBUG] Failed to parse payload: ${context}`);
       return null;
     }
     if (Date.now() > Number(parsed.expiresAt || 0)) {
@@ -220,6 +220,15 @@ function verifyMirasSessionToken(req: express.Request): MirasVerifiedSession | n
     console.warn(`[AUTH_DEBUG] Exception during token verification: ${err?.message || err}`);
     return null;
   }
+}
+
+function verifyMirasSessionToken(req: express.Request): MirasVerifiedSession | null {
+  const token = readBearerToken(req);
+  if (!token) {
+    console.warn(`[AUTH_DEBUG] No token found in request: ${req.method} ${req.path}`);
+    return null;
+  }
+  return verifyMirasSessionTokenValue(token, `${req.method} ${req.path}`);
 }
 
 function attachMirasSessionCookie(req: express.Request, res: express.Response, token: string) {
@@ -264,6 +273,52 @@ function verifiedStudentIdFromSession(req: express.Request): string {
   const session = verifyMirasSessionToken(req);
   if (!session || session.role !== "student") return "";
   return normalizeStudentId(session.userId);
+}
+
+function verifySebLaunchStudentSession(req: express.Request): MirasVerifiedSession | null {
+  const headerOrCookieToken = readBearerToken(req);
+  if (headerOrCookieToken) {
+    return verifyMirasSessionTokenValue(
+      headerOrCookieToken,
+      `${req.method} ${req.path}`,
+    );
+  }
+  const bodyToken = String(
+    (req.body as any)?.authToken ||
+      (req.body as any)?.mirasAuthToken ||
+      "",
+  ).trim();
+  if (!bodyToken) return null;
+  return verifyMirasSessionTokenValue(
+    bodyToken,
+    `${req.method} ${req.path} SEB launch body token`,
+  );
+}
+
+function hasValidStudentSebLaunchSessionForDevice(
+  req: express.Request,
+  student: Student,
+): boolean {
+  const session = verifySebLaunchStudentSession(req);
+  if (!session || session.role !== "student") return false;
+  if (normalizeStudentId(session.userId) !== normalizeStudentId(student.id))
+    return false;
+  const currentDeviceToken = getRequestDeviceToken(req);
+  const currentFingerprint = getRequestDeviceFingerprint(req);
+  if (findStudentBoundToDevice(currentDeviceToken, currentFingerprint, student.id))
+    return false;
+  if (session.deviceTokenHash) {
+    return (
+      !!currentDeviceToken &&
+      hashMirasValue(currentDeviceToken) === session.deviceTokenHash
+    );
+  }
+  const registeredDevices = Array.isArray((student as any).devices)
+    ? (student as any).devices
+    : [];
+  return registeredDevices.some((device: any) =>
+    deviceFingerprintsMatch(device, currentFingerprint),
+  );
 }
 
 function clearAuthCookies(req: express.Request, res: express.Response) {
@@ -2148,7 +2203,7 @@ function renderSebStartPage(req: express.Request, pass: SebPass) {
   </div>
     <button class="start" id="startBtn" type="button">بدء الاختبار الآن</button>
     <a class="quit" href="${xmlEscape(quitUrl)}">خروج آمن بدون بدء الاختبار</a>
-    <p class="muted">إذا ظهرت أي مشكلة، استخدم خروج آمن. كلمة الخروج للمراقب: CBE</p>
+    <p class="muted">إذا ظهرت أي مشكلة، استخدم خروج آمن. كلمة الخروج للمراقب: Miras</p>
     <div class="rescue hidden" id="rescueBox">
       <h3>تأخر تحميل الأسئلة</h3>
       <p>لم تصل الأسئلة خلال الوقت المتوقع. إذا استمرت المشكلة استخدم زر الخروج بالأعلى وأبلغ المراقب.</p>
@@ -2260,7 +2315,7 @@ function sendExamLockRelease(status,reason){
   } catch(e) {}
 }
 function setStatus(message){text("statusBox",message);show("statusBox");hide("errorBox");}
-function setError(message){text("errorBox",message+" إذا استمرت المشكلة استخدم خروج آمن وأبلغ المراقب. كلمة الخروج: CBE");show("errorBox");hide("statusBox");}
+function setError(message){text("errorBox",message+" إذا استمرت المشكلة استخدم خروج آمن وأبلغ المراقب. كلمة الخروج: Miras");show("errorBox");hide("statusBox");}
 
 function recedeTimer(){
   const timer=el("timer");
@@ -2479,7 +2534,7 @@ async function submitExam(){
     text("resultBox",data.gradeVisible?"تم حفظ التسليم. النتيجة: "+savedScore:"تم حفظ التسليم وإغلاق المحاولة.");
   } catch(err) {
     el("submitBtn").disabled=false;
-    alert((err&&err.message?err.message:"تعذر تسليم الاختبار.")+"\\nاستخدم خروج آمن إذا استمرت المشكلة. كلمة الخروج: CBE");
+    alert((err&&err.message?err.message:"تعذر تسليم الاختبار.")+"\\nاستخدم خروج آمن إذا استمرت المشكلة. كلمة الخروج: Miras");
   }
 }
 
@@ -2664,7 +2719,13 @@ function createSebLaunchFromActivatedSession(req: express.Request) {
   )
     return { error: "انتهى وقت إتاحة هذا الاختبار.", status: 403 } as any;
   const sessionValidation = validateSessionFingerprint(req, checked.student);
-  if (!sessionValidation.isValid && !teacherAuthorizedSebReturn)
+  const hasLaunchSessionForSameStudent =
+    hasValidStudentSebLaunchSessionForDevice(req, checked.student);
+  if (
+    !sessionValidation.isValid &&
+    !teacherAuthorizedSebReturn &&
+    !hasLaunchSessionForSameStudent
+  )
     return {
       error:
         sessionValidation.error ||
@@ -4698,7 +4759,7 @@ function isRetiredStudentDeviceSurface(params: {
 }
 
 const STUDENT_DEVICE_ALREADY_BOUND_ERROR =
-  "هذا الجهاز مرتبط بحساب طالب آخر. يرجى استخدام جهازك الشخصي أو مراجعة أستاذ المقرر.";
+  "هذا الجهاز مرتبط بحساب طالب آخر. استخدم جهازك الشخصي أو اطلب من أستاذ المقرر اعتماد جهاز جديد.";
 
 function findStudentBoundToDevice(
   deviceToken?: string,
@@ -4991,10 +5052,23 @@ function examRequiresSeb(exam: any): boolean {
 
 function hasActualSebRuntimeHint(req: express.Request): boolean {
   const userAgent = String(req.headers["user-agent"] || "");
-  return (
-    /SafeExamBrowser|SEB/i.test(userAgent) ||
-    !!String(req.headers["x-safeexambrowser-requesthash"] || "").trim()
-  );
+  const explicitSebHeader = !!String(req.headers["x-miras-seb-armed"] || "").trim();
+  const sebRequestHash = !!String(req.headers["x-safeexambrowser-requesthash"] || "").trim();
+  if (/SafeExamBrowser|SEB/i.test(userAgent) || sebRequestHash || explicitSebHeader) return true;
+
+  // بعض إصدارات SEB/أنظمة iOS لا تُظهر SafeExamBrowser في userAgent ولا ترسل
+  // requestHash، فتفشل أول خطوة validate رغم أن الرابط لا يحمل إلا توكن SEB
+  // المؤقت الصادر من الخادم. نقبل هذه العلامة في مسار التحقق فقط، وبعدها تُفعَّل
+  // الجلسة وتُرسل الواجهة x-miras-seb-armed في بقية طلبات الاختبار. هذا لا يفتح
+  // تجاوزًا عامًا لأن التوكن نفسه لازم يكون موجودًا وصالحًا ومطابقًا للطالب/الاختبار.
+  if (req.path === "/api/seb/validate") {
+    return !!(
+      getSebPassFromRequest(req) &&
+      (String((req.body as any)?.seb || "") === "1" ||
+        String((req.body as any)?.miras_seb || "") === "1")
+    );
+  }
+  return false;
 }
 
 function isSebRequest(req: express.Request): boolean {
@@ -7480,6 +7554,9 @@ app.post("/api/convert-data-to-pdf", async (req: any, res: any) => {
       "application/msword": ".doc",
       "application/rtf": ".rtf",
       "text/rtf": ".rtf",
+      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet":
+        ".xlsx",
+      "application/vnd.ms-excel": ".xls",
     };
     let ext = path.extname(filename || "").toLowerCase();
     if (!MIRAS_OFFICE_CONVERTIBLE_EXTS.has(ext)) {
@@ -7499,21 +7576,32 @@ app.post("/api/convert-data-to-pdf", async (req: any, res: any) => {
       return res.status(400).json({ error: "Empty file" });
     }
     const workDir = fs.mkdtempSync(path.join(os.tmpdir(), "miras-office-archive-"));
-    const tempPath = path.join(workDir, `source${ext}`);
-    fs.writeFileSync(tempPath, buffer);
-    const pdfBuffer = await convertOfficeFileToPdf(tempPath);
-    res.setHeader("Content-Type", "application/pdf");
-    res.setHeader("Cache-Control", "private, max-age=86400");
-    res.setHeader("X-Content-Type-Options", "nosniff");
-    res.send(pdfBuffer);
-    
-    // Cleanup
     try {
-      fs.rmSync(workDir, { recursive: true, force: true });
-    } catch (e) {}
+      const tempPath = path.join(workDir, `source${ext}`);
+      fs.writeFileSync(tempPath, buffer);
+      const conversionKey = crypto
+        .createHash("sha1")
+        .update(buffer)
+        .digest("hex");
+      const pdfBuffer = await convertOfficeFileToPdfDeduped(
+        tempPath,
+        `data:${conversionKey}`,
+      );
+      res.setHeader("Content-Type", "application/pdf");
+      res.setHeader("Cache-Control", "private, max-age=86400");
+      res.setHeader("X-Content-Type-Options", "nosniff");
+      res.send(pdfBuffer);
+    } finally {
+      try {
+        fs.rmSync(workDir, { recursive: true, force: true });
+      } catch (e) {}
+    }
   } catch (err: any) {
     console.error("Data to PDF conversion failed:", err);
-    res.status(500).json({ error: "Conversion failed" });
+    res.status(502).json({
+      code: "OFFICE_PREVIEW_FAILED",
+      error: "تعذر تجهيز معاينة المستند الآن. أعد المحاولة بعد قليل.",
+    });
   }
 });
 
@@ -7695,7 +7783,7 @@ app.use((req, res, next) => {
         .getStudents()
         .find((s: any) => normalizeStudentId(s.id) === requestedStudentId);
       const sebPass = sebStudent ? getValidSebPass(req, sebStudent) : null;
-      if (sebPass && String(sebPass.studentId) === String(sebStudent?.id)) {
+      if (sebPass && normalizeStudentId(sebPass.studentId) === requestedStudentId) {
         return next();
       }
     }
@@ -7867,7 +7955,7 @@ function renderSebStartErrorPage(
 <style>body{margin:0;min-height:100vh;display:grid;place-items:center;background:#020617;color:#fff;font-family:system-ui,-apple-system,Segoe UI,sans-serif;padding:22px;box-sizing:border-box}.box{max-width:560px;text-align:center;padding:32px;border:1px solid rgba(255,255,255,.12);border-radius:28px;background:rgba(255,255,255,.06)}h1{font-size:22px;margin:0 0 12px}p{line-height:1.8;color:#cbd5e1;font-size:14px}.pass{display:inline-block;margin-top:12px;border-radius:14px;background:rgba(255,255,255,.1);padding:10px 16px;font-size:22px;font-weight:900;letter-spacing:1px}a.btn{display:inline-flex;margin-top:18px;background:#2563eb;color:#fff;text-decoration:none;border-radius:16px;padding:12px 22px;font-weight:900;font-size:14px}</style>
 </head>
 <body>
-<div class="box"><h1>تعذر فتح الاختبار الآمن</h1><p>${xmlEscape(message)}</p><p>إذا بقيت داخل SEB استخدم كلمة الخروج لدى المراقب:</p><span class="pass">CBE</span>${quitUrl ? `<br><a class="btn" href="${xmlEscape(quitUrl)}">إغلاق الجلسة والخروج من SEB</a>` : ""}</div>
+<div class="box"><h1>تعذر فتح الاختبار الآمن</h1><p>${xmlEscape(message)}</p><p>إذا بقيت داخل SEB استخدم كلمة الخروج لدى المراقب:</p><span class="pass">Miras</span>${quitUrl ? `<br><a class="btn" href="${xmlEscape(quitUrl)}">إغلاق الجلسة والخروج من SEB</a>` : ""}</div>
 </body>
 </html>`;
 }
@@ -8066,6 +8154,7 @@ app.post("/api/seb/validate", (req, res) => {
         success: true,
         student: {
           ...student,
+          authToken: createStudentAuthPayload(req, res, student),
           sectionCode: pass.courseCode,
           activeSebExamId: pass.examId,
           enrollments: getStudentEnrollmentDetails(student),
@@ -8131,6 +8220,7 @@ app.post("/api/seb/validate", (req, res) => {
     success: true,
     student: {
       ...student,
+      authToken: createStudentAuthPayload(req, res, student),
       sectionCode: pass.courseCode,
       activeSebExamId: pass.examId,
       enrollments: getStudentEnrollmentDetails(student),
@@ -8172,7 +8262,7 @@ app.get("/seb/quit", (req, res) => {
   if (pass) closeSebAttempt(pass, "explicit-quit-url");
   res.setHeader("Content-Type", "text/html; charset=utf-8");
   return res.send(
-    `<!doctype html><html lang="ar" dir="rtl"><head><meta charset="utf-8"><title>الخروج من SEB</title><style>body{font-family:system-ui,-apple-system,Segoe UI,sans-serif;background:#020617;color:#fff;display:grid;place-items:center;min-height:100vh;margin:0}.box{max-width:560px;text-align:center;padding:32px;border:1px solid rgba(255,255,255,.12);border-radius:28px;background:rgba(255,255,255,.06)}.pass{display:inline-block;margin-top:12px;border-radius:14px;background:rgba(255,255,255,.1);padding:10px 16px;font-size:22px;font-weight:900;letter-spacing:1px}a{color:#a5b4fc;font-weight:800}</style></head><body><div class="box"><h1>تم إغلاق جلسة الاختبار الآمن</h1><p>إذا لم يُغلق Safe Exam Browser تلقائياً، استخدم زر الخروج الآمن داخل البرنامج أو أبلغ المراقب.</p><p>كلمة الخروج:</p><span class="pass">CBE</span></div></body></html>`,
+    `<!doctype html><html lang="ar" dir="rtl"><head><meta charset="utf-8"><title>الخروج من SEB</title><style>body{font-family:system-ui,-apple-system,Segoe UI,sans-serif;background:#020617;color:#fff;display:grid;place-items:center;min-height:100vh;margin:0}.box{max-width:560px;text-align:center;padding:32px;border:1px solid rgba(255,255,255,.12);border-radius:28px;background:rgba(255,255,255,.06)}.pass{display:inline-block;margin-top:12px;border-radius:14px;background:rgba(255,255,255,.1);padding:10px 16px;font-size:22px;font-weight:900;letter-spacing:1px}a{color:#a5b4fc;font-weight:800}</style></head><body><div class="box"><h1>تم إغلاق جلسة الاختبار الآمن</h1><p>إذا لم يُغلق Safe Exam Browser تلقائياً، استخدم زر الخروج الآمن داخل البرنامج أو أبلغ المراقب.</p><p>كلمة الخروج:</p><span class="pass">Miras</span></div></body></html>`,
   );
 });
 
@@ -14547,10 +14637,15 @@ app.post("/api/submissions/upload", (req: any, res: any) => {
       });
     }
 
-    // تحويل مسبق (غير متزامن) لملفات Office إلى PDF وتخزينه دائماً، حتى يكون
-    // أول فتح للمعلم فورياً بلا انتظار تحويل. لا يؤخّر رد الرفع للطالب، والدالة
-    // تتجاهل تلقائياً أي نوع ليس PowerPoint/Word.
-    void preconvertOfficeAttachmentToPdf(fileId, fileBuffer, originalName);
+    // تجهيز معاينة Office أثناء طلب الرفع نفسه، لا بعد الرد. في بيئات Cloud Run
+    // قد تتوقف المهام الخلفية فور انتهاء الطلب، فيبقى أول فتح للمعلم ينتظر
+    // تحويل PowerPoint كاملاً. هنا ننهي التحويل ونخزن PDF قبل إرجاع نجاح الرفع،
+    // فتفتح المعاينة لاحقاً من الكاش خلال لحظات، مع بقاء الأزرار والتصميم كما هي.
+    if (MIRAS_OFFICE_CONVERTIBLE_EXTS.has(ext)) {
+      await preconvertOfficeAttachmentToPdf(fileId, filePath, originalName);
+    } else {
+      queueOfficeAttachmentPreconversion(fileId, filePath, originalName);
+    }
 
     const attachment = {
       id: fileId,
@@ -14755,20 +14850,72 @@ function convertOfficeFileToPdfDeduped(
 // التحويل المسبق عند الرفع: جوهر جعل العرض «في ثانية» مع ١٠٠ طالب. نحوّل ملف
 // Office إلى PDF مرة واحدة لحظة الرفع (غير متزامن، الطالب لا ينتظر) ونخزّنه
 // بشكل دائم، فيصبح أول فتح للمعلم تقديماً فورياً لـ PDF جاهز بلا أي تحويل.
-async function preconvertOfficeAttachmentToPdf(
+type MirasOfficePreconvertJob = {
+  fileId: string;
+  filePath: string;
+  originalName: string;
+};
+const MIRAS_OFFICE_PRECONVERT_CONCURRENCY = 1;
+const mirasOfficePreconvertQueue: MirasOfficePreconvertJob[] = [];
+const mirasOfficeQueuedPreconversions = new Set<string>();
+let mirasOfficeActivePreconversions = 0;
+
+function queueOfficeAttachmentPreconversion(
   fileId: string,
-  buffer: Buffer,
+  filePath: string,
   originalName: string,
-): Promise<void> {
+): void {
   const id = String(fileId || "").trim();
+  const sourcePath = String(filePath || "").trim();
   const ext = path
     .extname(sanitizeAttachmentOriginalName(originalName || "attachment"))
     .toLowerCase();
-  if (!id || !buffer?.length || !MIRAS_OFFICE_CONVERTIBLE_EXTS.has(ext)) return;
+  if (!id || !sourcePath || !MIRAS_OFFICE_CONVERTIBLE_EXTS.has(ext)) return;
+  if (mirasOfficeQueuedPreconversions.has(id)) return;
+  mirasOfficeQueuedPreconversions.add(id);
+  mirasOfficePreconvertQueue.push({ fileId: id, filePath: sourcePath, originalName });
+  drainOfficePreconversionQueue();
+}
+
+function drainOfficePreconversionQueue(): void {
+  while (
+    mirasOfficeActivePreconversions < MIRAS_OFFICE_PRECONVERT_CONCURRENCY &&
+    mirasOfficePreconvertQueue.length
+  ) {
+    const job = mirasOfficePreconvertQueue.shift()!;
+    mirasOfficeActivePreconversions += 1;
+    preconvertOfficeAttachmentToPdf(job.fileId, job.filePath, job.originalName)
+      .catch(() => {})
+      .finally(() => {
+        mirasOfficeActivePreconversions -= 1;
+        mirasOfficeQueuedPreconversions.delete(job.fileId);
+        drainOfficePreconversionQueue();
+      });
+  }
+}
+
+async function preconvertOfficeAttachmentToPdf(
+  fileId: string,
+  filePath: string,
+  originalName: string,
+): Promise<void> {
+  const id = String(fileId || "").trim();
+  const sourcePath = String(filePath || "").trim();
+  const ext = path
+    .extname(sanitizeAttachmentOriginalName(originalName || "attachment"))
+    .toLowerCase();
+  if (!id || !sourcePath || !MIRAS_OFFICE_CONVERTIBLE_EXTS.has(ext)) return;
   try {
     const existing = await dbInstance.getConvertedPdfArchive(id);
     if (existing?.length) return; // محوّل ومخزّن مسبقاً
   } catch {}
+  let buffer: Buffer;
+  try {
+    buffer = fs.readFileSync(sourcePath);
+  } catch {
+    return;
+  }
+  if (!buffer.length) return;
   const workDir = fs.mkdtempSync(path.join(os.tmpdir(), "miras-preconvert-"));
   const tempPath = path.join(workDir, `source${ext}`);
   try {
@@ -14828,7 +14975,7 @@ async function respondWithPdfConversionIfRequested(
     }
   } catch (err: any) {
     console.error("⚠️ Office-to-PDF conversion failed:", err?.message || err);
-    res.status(502).json({ code: "OFFICE_PREVIEW_FAILED", error: "تعذر تجهيز معاينة المستند الآن. نزّل الملف أو جرّب مرة أخرى." });
+    res.status(502).json({ code: "OFFICE_PREVIEW_FAILED", error: "تعذر تجهيز معاينة المستند الآن. أعد المحاولة بعد قليل." });
   }
   return true;
 }
@@ -14879,7 +15026,7 @@ async function respondWithPdfConversionBufferIfRequested(
     }
   } catch (err: any) {
     console.error("⚠️ Archived Office-to-PDF conversion failed:", err?.message || err);
-    res.status(502).json({ code: "OFFICE_PREVIEW_FAILED", error: "تعذر تجهيز معاينة العرض الآن. نزّل الملف أو جرّب مرة أخرى." });
+    res.status(502).json({ code: "OFFICE_PREVIEW_FAILED", error: "تعذر تجهيز معاينة العرض الآن. أعد المحاولة بعد قليل." });
   } finally {
     fs.rmSync(workDir, { recursive: true, force: true });
   }
@@ -14906,6 +15053,135 @@ async function respondWithStoredSubmissionAttachmentBuffer(
   }
   return sendStoredSubmissionAttachmentBuffer(res, archive);
 }
+
+function createSubmissionPreviewToken(fileId: string, asPdf = true): string {
+  const payload = base64urlEncode(
+    JSON.stringify({
+      kind: "submission-preview",
+      fileId: String(fileId || ""),
+      asPdf: !!asPdf,
+      exp: Date.now() + 5 * 60 * 1000,
+    }),
+  );
+  return `${payload}.${signMirasPayload(payload)}`;
+}
+
+function verifySubmissionPreviewToken(tokenValue: any, expectedFileId: string) {
+  const token = String(tokenValue || "").trim();
+  if (!token || !token.includes(".")) return null;
+  const [payload, sig] = token.split(".");
+  if (!payload || !sig || signMirasPayload(payload) !== sig) return null;
+  try {
+    const parsed = JSON.parse(base64urlDecode(payload));
+    if (parsed?.kind !== "submission-preview") return null;
+    if (String(parsed.fileId || "") !== String(expectedFileId || "")) return null;
+    if (Date.now() > Number(parsed.exp || 0)) return null;
+    return parsed;
+  } catch {
+    return null;
+  }
+}
+
+function sendPdfBufferWithRange(req: any, res: any, pdf: Buffer) {
+  const size = Number(pdf?.length || 0);
+  if (!size) return res.status(404).json({ error: "ملف المعاينة غير متوفر." });
+  res.setHeader("Content-Type", "application/pdf");
+  res.setHeader("Accept-Ranges", "bytes");
+  res.setHeader("Cache-Control", "private, max-age=300");
+  res.setHeader("X-Content-Type-Options", "nosniff");
+  const range = String(req.headers.range || "").trim();
+  if (!range) {
+    res.setHeader("Content-Length", String(size));
+    return res.send(pdf);
+  }
+  const match = range.match(/bytes=(\d*)-(\d*)/);
+  if (!match) {
+    res.setHeader("Content-Length", String(size));
+    return res.send(pdf);
+  }
+  let start = match[1] ? Number(match[1]) : 0;
+  let end = match[2] ? Number(match[2]) : size - 1;
+  if (!Number.isFinite(start) || start < 0) start = 0;
+  if (!Number.isFinite(end) || end >= size) end = size - 1;
+  if (start > end || start >= size) {
+    res.status(416).setHeader("Content-Range", `bytes */${size}`);
+    return res.end();
+  }
+  res.status(206);
+  res.setHeader("Content-Range", `bytes ${start}-${end}/${size}`);
+  res.setHeader("Content-Length", String(end - start + 1));
+  return res.end(pdf.subarray(start, end + 1));
+}
+
+app.get("/api/submission-attachments/:fileId/preview-token", async (req: any, res: any) => {
+  const requestedId = submissionAttachmentFileIdFromValue(req.params.fileId) || String(req.params.fileId || "").trim();
+  if (!requestedId) return res.status(404).json({ error: "الملف المطلوب غير موجود" });
+  const submission = findSubmissionByAttachmentId(requestedId);
+  if (!submission) return res.status(404).json({ error: "الملف المطلوب غير موجود" });
+  const teacherEmail = teacherEmailFromRequest(req);
+  const session = verifyMirasSessionToken(req);
+  if (teacherEmail) {
+    const courseCode = String(submission.courseCode || submission.sectionCode || "");
+    const submissionOwner = String(submission.teacherEmail || submission.createdBy || sectionOwnerEmail(courseCode) || "").toLowerCase();
+    if (!isAdminEmail(teacherEmail) && submissionOwner && submissionOwner !== teacherEmail) {
+      return res.status(403).json({ error: "غير مصرح لك بفتح هذا المرفق." });
+    }
+  } else if (session?.role !== "student" || normalizeStudentId(session.userId) !== normalizeStudentId(submission.studentId)) {
+    return res.status(403).json({ error: "غير مصرح لك بفتح هذا المرفق." });
+  }
+  const token = createSubmissionPreviewToken(requestedId, String(req.query.as || "pdf").toLowerCase() === "pdf");
+  return res.json({
+    success: true,
+    url: `/api/submission-attachments-preview/${encodeURIComponent(requestedId)}?token=${encodeURIComponent(token)}&as=pdf`,
+    expiresInSeconds: 300,
+  });
+});
+
+app.get("/api/submission-attachments-preview/:fileId", async (req: any, res: any) => {
+  const requestedId = submissionAttachmentFileIdFromValue(req.params.fileId) || String(req.params.fileId || "").trim();
+  const token = verifySubmissionPreviewToken(req.query.token, requestedId);
+  if (!requestedId || !token) return res.status(403).json({ error: "رابط المعاينة غير صالح أو منتهي." });
+  const submission = findSubmissionByAttachmentId(requestedId);
+  if (!submission) return res.status(404).json({ error: "الملف المطلوب غير موجود" });
+  const archive = await dbInstance.getSubmissionAttachmentArchive(requestedId);
+  const originalName = archive?.originalName || findStoredSubmissionAttachmentDataUrl(requestedId)?.originalName || requestedId;
+  const ext = path.extname(sanitizeAttachmentOriginalName(originalName || "attachment")).toLowerCase();
+  if (String(req.query.as || "pdf").toLowerCase() === "pdf" && MIRAS_OFFICE_CONVERTIBLE_EXTS.has(ext)) {
+    try {
+      const cached = await dbInstance.getConvertedPdfArchive(requestedId);
+      if (cached?.length) return sendPdfBufferWithRange(req, res, cached);
+    } catch {}
+  }
+  const uploadsDir = submissionUploadsDir();
+  if (fs.existsSync(uploadsDir)) {
+    const matchedFile = fs.readdirSync(uploadsDir).find((f) => f === requestedId || f.startsWith(`${requestedId}.`));
+    if (matchedFile) {
+      const filePath = path.join(uploadsDir, matchedFile);
+      if (String(req.query.as || "pdf").toLowerCase() === "pdf" && MIRAS_OFFICE_CONVERTIBLE_EXTS.has(path.extname(matchedFile).toLowerCase())) {
+        const pdf = await convertOfficeFileToPdfDeduped(filePath, `pdf:${requestedId}`);
+        if (pdf?.length) dbInstance.saveConvertedPdfArchive(requestedId, pdf).catch(() => {});
+        return sendPdfBufferWithRange(req, res, pdf);
+      }
+      return res.sendFile(filePath);
+    }
+  }
+  if (archive?.buffer?.length) {
+    if (String(req.query.as || "pdf").toLowerCase() === "pdf" && MIRAS_OFFICE_CONVERTIBLE_EXTS.has(ext)) {
+      const workDir = fs.mkdtempSync(path.join(os.tmpdir(), "miras-preview-token-"));
+      try {
+        const tempPath = path.join(workDir, `source${ext}`);
+        fs.writeFileSync(tempPath, archive.buffer);
+        const pdf = await convertOfficeFileToPdfDeduped(tempPath, `pdf:${requestedId}`);
+        if (pdf?.length) dbInstance.saveConvertedPdfArchive(requestedId, pdf).catch(() => {});
+        return sendPdfBufferWithRange(req, res, pdf);
+      } finally {
+        fs.rmSync(workDir, { recursive: true, force: true });
+      }
+    }
+    return sendStoredSubmissionAttachmentBuffer(res, archive);
+  }
+  return res.status(404).json({ error: "ملف المعاينة غير متوفر." });
+});
 
 async function respondWithStoredSubmissionAttachmentDataUrl(
   req: any,
@@ -15694,11 +15970,11 @@ function processStudentCourseActivation(
       return res.status(202).json({
         ...activationFailurePayload(
           "DEVICE_APPROVAL_REQUIRED",
-          "هذا الجهاز سبق استخدامه في النظام. تم إرسال طلب اعتماد للأستاذ.",
+          STUDENT_DEVICE_ALREADY_BOUND_ERROR,
         ),
         pendingDeviceApproval: true,
         approvalRequestId: pendingRequest.id,
-        message: "هذا الجهاز سبق استخدامه في النظام. تم إرسال طلب اعتماد للأستاذ.",
+        message: STUDENT_DEVICE_ALREADY_BOUND_ERROR,
       });
     }
     const pendingRequest = createSecondHandDeviceApprovalRequest({
@@ -15716,11 +15992,11 @@ function processStudentCourseActivation(
     return res.status(202).json({
       ...activationFailurePayload(
         "DEVICE_APPROVAL_REQUIRED",
-        "هذا الجهاز سبق استخدامه في النظام. تم إرسال طلب اعتماد للأستاذ.",
+        STUDENT_DEVICE_ALREADY_BOUND_ERROR,
       ),
       pendingDeviceApproval: true,
       approvalRequestId: pendingRequest.id,
-      message: "هذا الجهاز سبق استخدامه في النظام. تم إرسال طلب اعتماد للأستاذ.",
+      message: STUDENT_DEVICE_ALREADY_BOUND_ERROR,
     });
   }
 
