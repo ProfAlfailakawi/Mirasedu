@@ -8507,6 +8507,15 @@ app.get("/api/notifications/inbox", (req, res) => {
         ].includes(String(item.type || item.data?.type || "").toLowerCase());
         return isAdminDirected && !isRoutineTeacherAction;
       }
+      if (
+        role === "student" &&
+        shouldSuppressRoutineStudentNotification(
+          item.title,
+          item.body,
+          item.data || { type: item.type },
+        )
+      )
+        return false;
       const itemStudentId = String(
         item.data?.studentId || item.studentId || "",
       ).trim();
@@ -10631,17 +10640,22 @@ function prepareMirasImportData(
 }
 
 function isExamReturnedForStudent(examId: any, studentId: any): boolean {
-  return dbInstance.getTeacherSubmissions().some(
-    (item: any) =>
-      String(item.kind || "") === "exam" &&
-      String(item.activityId ?? "") === String(examId) &&
-      String(item.studentId ?? "") === String(studentId) &&
-      ["معاد للطالب", "معاد لك", "returned", "return", "reopened"].includes(
-        String(item.status || "")
-          .trim()
-          .toLowerCase(),
-      ),
-  );
+  return dbInstance.getTeacherSubmissions().some((item: any) => {
+    if (
+      String(item.kind || "").toLowerCase() !== "exam" ||
+      String(item.activityId ?? item.examId ?? "") !== String(examId) ||
+      String(item.studentId ?? item.userId ?? "") !== String(studentId)
+    )
+      return false;
+    const status = String(item.status || "").trim().toLowerCase();
+    const note = String(item.returnNote || item.answerText || "").toLowerCase();
+    return (
+      ["معاد للطالب", "معاد لك", "returned", "return", "reopened"].includes(status) ||
+      Boolean(item.returnedAt) ||
+      Boolean(item.returnExceptionUntil) ||
+      /معاد|إرجاع|ارجاع|returned|reopen/.test(`${status} ${note}`)
+    );
+  });
 }
 
 function hasTeacherAuthorizedSebReturnException(examId: any, studentId: any): boolean {
