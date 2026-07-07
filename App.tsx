@@ -30368,11 +30368,7 @@ ${rows
                     type="button"
                     title="التنبيهات المهمة"
                     aria-label="التنبيهات المهمة"
-                    onPointerUp={(e) => {
-                      e.preventDefault();
-                      e.stopPropagation();
-                      void toggleTeacherImportantNotificationsPanel(true);
-                    }}
+                    
                     onClick={(e) => {
                       e.preventDefault();
                       e.stopPropagation();
@@ -30627,11 +30623,7 @@ ${rows
                                   : "التنبيهات المهمة وتفعيل الإشعارات"
                               }
                               aria-label="التنبيهات المهمة"
-                              onPointerUp={(e) => {
-                                e.preventDefault();
-                                e.stopPropagation();
-                                void toggleTeacherImportantNotificationsPanel(true);
-                              }}
+                              
                               onClick={(e) => {
                                 e.preventDefault();
                                 e.stopPropagation();
@@ -39612,6 +39604,7 @@ ${rows
                             {teacherImportantNotificationsOpen &&
                               typeof document !== "undefined" &&
                               createPortal(
+                              <div className="meras-teacher-shell teacher-calm-shell" dir="rtl">
                               <div
                                 className="student-popover teacher-important-popover miras-teacher-alert-popover miras-student-popover miras-student-alert-popover text-right"
                                 dir="rtl"
@@ -39793,6 +39786,7 @@ ${rows
                                     )}
                                   </div>
                                 )}
+                              </div>
                               </div>,
                                 document.body,
                               )}
