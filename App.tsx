@@ -13228,7 +13228,7 @@ ${rows
         resetActivationGrace();
         setSuccessMsg("");
         setErrorMsg(
-          "هذا الجهاز مستخدم ومفعّل لطالب آخر. حفاظًا على عدالة الدخول، تواصل مع أستاذ المقرر لاعتماد جهازك الشخصي أو الموافقة على تبديل الجهاز.",
+          "هذا الجهاز مسجّل لطالب آخر. استخدم جهازك الشخصي أو اطلب من أستاذ المقرر السماح بتبديل الجهاز.",
         );
       } else {
         resetActivationGrace();
@@ -13327,7 +13327,7 @@ ${rows
         resetActivationGrace();
         setSuccessMsg("");
         setErrorMsg(
-          "هذا الجهاز مستخدم ومفعّل لطالب آخر. حفاظًا على عدالة الدخول، تواصل مع أستاذ المقرر لاعتماد جهازك الشخصي أو الموافقة على تبديل الجهاز.",
+          "هذا الجهاز مسجّل لطالب آخر. استخدم جهازك الشخصي أو اطلب من أستاذ المقرر السماح بتبديل الجهاز.",
         );
         return;
       }
@@ -14674,7 +14674,7 @@ ${rows
         resetActivationGrace();
         setSuccessMsg("");
         setErrorMsg(
-          "هذا الجهاز مستخدم ومفعّل لطالب آخر. حفاظًا على عدالة الدخول، تواصل مع أستاذ المقرر لاعتماد جهازك الشخصي أو الموافقة على تبديل الجهاز.",
+          "هذا الجهاز مسجّل لطالب آخر. استخدم جهازك الشخصي أو اطلب من أستاذ المقرر السماح بتبديل الجهاز.",
         );
         try {
           await fetchCodeIntegrity();
@@ -26154,7 +26154,6 @@ ${rows
                       title={row.submission ? "فتح" : "لا يوجد تسليم"}
                     >
                       <span className="block truncate text-[10px] leading-tight">{row.studentName || "طالب"}</span>
-                      <span className={`mt-0.5 block text-[8px] ${isActive ? "text-indigo-100" : "text-slate-400"}`}>تسليم</span>
                     </button>
                   );
                 })}
@@ -26195,7 +26194,6 @@ ${rows
                       >
                         <span className="min-w-0">
                           <span className="block truncate text-[11px] font-black">{row.studentName || "طالب"}</span>
-                          <span className={`mt-0.5 block truncate text-[9px] ${isActive ? "text-indigo-100" : "text-slate-400"}`}>تسليم الطالب</span>
                         </span>
                         <span className={`h-2 w-2 shrink-0 rounded-full ${row.submission ? isActive ? "bg-white" : "bg-emerald-400" : "bg-slate-200"}`} />
                       </button>
@@ -31168,7 +31166,7 @@ ${rows
                                       className="group relative min-h-[46px] rounded-xl border border-slate-100 bg-slate-50/45 p-2 hover:bg-white hover:border-slate-200 hover:shadow-sm transition-all duration-200 text-right"
                                     >
                                       <div className="flex items-start justify-between gap-1.5">
-                                        <div className="min-w-0 flex-1 pr-0 pl-7">
+                                        <div className="min-w-0 flex-1 pr-0">
                                           <span className="block truncate text-[10px] font-semibold tracking-tight text-slate-700 leading-5">
                                             {st.name}
                                           </span>
@@ -31227,7 +31225,7 @@ ${rows
                                                   event.stopPropagation();
                                                   void toggleCameraExceptionForLivePulseStudent(row);
                                                 }}
-                                                className={`absolute bottom-1.5 left-1.5 z-20 inline-flex h-7 w-7 pointer-events-auto items-center justify-center rounded-xl border text-[9px] transition ${
+                                                className={`mt-1 inline-flex h-7 w-7 shrink-0 pointer-events-auto items-center justify-center rounded-xl border text-[9px] transition ${
                                                   isExempt
                                                     ? "border-amber-300 bg-amber-50 text-amber-700 shadow-[0_8px_18px_rgba(245,158,11,0.16)]"
                                                     : "border-slate-200 bg-white/90 text-slate-600 hover:border-emerald-200 hover:bg-emerald-50 hover:text-emerald-700"
@@ -31899,7 +31897,6 @@ ${rows
                                       title={row.submission ? "فتح" : "لا يوجد تسليم"}
                                     >
                                       <span className="block truncate text-[10.5px] leading-tight">{row.studentName || "طالب"}</span>
-                                      <span className={`mt-0.5 block font-mono text-[9px] ${isActive ? "text-indigo-100" : "text-slate-400"}`}>تسليم</span>
                                     </button>
                                   );
                                 })}
@@ -31941,7 +31938,6 @@ ${rows
                                       >
                                         <span className="min-w-0">
                                           <span className="block truncate text-[11px] font-black">{row.studentName || "طالب"}</span>
-                                          <span className={`mt-0.5 block truncate text-[9px] ${isActive ? "text-indigo-100" : "text-slate-400"}`}>تسليم الطالب</span>
                                         </span>
                                         <span className={`h-2 w-2 shrink-0 rounded-full ${row.submission ? isActive ? "bg-white" : "bg-emerald-400" : "bg-slate-200"}`} />
                                       </button>
