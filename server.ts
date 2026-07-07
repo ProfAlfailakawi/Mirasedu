@@ -14499,7 +14499,7 @@ app.post("/api/submissions/upload", (req: any, res: any) => {
 // يضمن بقاء ملفات تسليمات الطلاب داخل خوادمنا فقط، دون رفعها لجهة ثالثة.
 const MIRAS_OFFICE_CONVERTIBLE_EXTS = new Set([".ppt", ".pptx", ".doc", ".docx", ".xls", ".xlsx", ".rtf"]);
 const MIRAS_OFFICE_CONVERSION_TIMEOUT_MS = 25_000;
-const MIRAS_UNOCONVERT_TIMEOUT_MS = 10_000;
+const MIRAS_UNOCONVERT_TIMEOUT_MS = 30_000;
 const officeConversionCacheDir = path.join(os.tmpdir(), "miras-office-pdf-cache");
 
 function officeConversionCachePath(filePath: string, mtimeMs: number): string {
@@ -18546,7 +18546,7 @@ app.post("/api/teacher/exams", async (req, res) => {
       teacherEmail,
     ),
   );
-  if (examQuestionsAvailable.length < savedQuestionsCount) {
+  if (!(exam as any).silentCameraExceptionUpdate && examQuestionsAvailable.length < savedQuestionsCount) {
     return res.status(400).json({
       error: `لا توجد أسئلة محفوظة كافية في السحابة لهذا المقرر أو التصنيف. المتاح ${examQuestionsAvailable.length} والمطلوب ${savedQuestionsCount}.`,
       availableQuestions: examQuestionsAvailable.length,
