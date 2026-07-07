@@ -9509,16 +9509,30 @@ export default function App() {
       [
         "course_updated",
         "course_renamed",
+        "course_name_updated",
+        "section_updated",
+        "section_renamed",
         "exam_updated",
         "exam_renamed",
+        "exam_name_updated",
+        "calendar_event_updated",
         "project_updated",
         "project_renamed",
+        "project_name_updated",
+        "camera_added",
+        "camera_removed",
+        "camera_updated",
+        "camera_deleted",
         "teacher_course_change",
         "teacher_student_change",
+        "duplicate_name_renamed",
+        "name_duplicate_fixed",
       ].includes(notificationType) ||
-      /تحديث مقرر|تحديث اختبار|تحديث مشروع|تغيير اسم|تعديل اسم|تم تحديث|تم تعديل/.test(notificationText);
+      /update|updated|rename|renamed|edit|edited|camera/.test(notificationType) ||
+      /اسم مكرر|مكرر|تحديث مقرر|تحديث اختبار|تحديث مشروع|تغيير اسم|تعديل اسم|تعديل مقرر|تعديل اختبار|تعديل مشروع|تم تحديث|تم تعديل|اضافه كاميرا|إضافة كاميرا|اضافة كاميرا|حذف كاميرا|إزالة كاميرا|ازاله كاميرا|تحديث الكاميرا/.test(notificationText) ||
+      (/كاميرا|camera/.test(notificationText) && !/غش|نزاهة|مخالفة|تحذير|تنبيه مهم/.test(notificationText));
     const isMeaningfulStudentNotice =
-      /اختبار جديد|مشروع جديد|تسليم|مطلوب|واجب|درجة|درجه|موعد|فتح|اغلاق|إغلاق|نشر|رفض|قبول|اعاده|إعادة|ارجاع|إرجاع|دعوه|دعوة/.test(notificationText);
+      /اختبار جديد|مشروع جديد|اختبار متاح|مشروع متاح|تنبيه اختبار|تسليم|مطلوب|واجب|درجة|درجه|موعد جديد|إلغاء اختبار|الغاء اختبار|نشر|رفض|قبول|اعاده|إعادة|ارجاع|إرجاع|دعوه|دعوة|كلمة مرور|استرجاع/.test(notificationText);
     if (isRoutineStudentEdit && !isMeaningfulStudentNotice) return false;
 
     const course = String(
@@ -17511,6 +17525,42 @@ ${rows
     setProjectBuilderOpen(false);
   };
 
+  const isRoutineStudentNotificationNoise = (
+    title: any,
+    body: any,
+    type = "course",
+    extraData: any = {},
+  ) => {
+    const targetRole = String(extraData.targetRole || "student").toLowerCase();
+    if (targetRole && targetRole !== "student" && targetRole !== "students") return false;
+    if (
+      extraData.notifyStudents === false ||
+      extraData.notifyStudents === "false" ||
+      extraData.silentCameraExceptionUpdate === true ||
+      extraData.onlyAdministrativeEdit === true ||
+      extraData.isAdministrativeEdit === true
+    )
+      return true;
+    const normalizeNoise = (value: any) =>
+      String(value || "")
+        .toLowerCase()
+        .replace(/[ًٌٍَُِّْـ]/g, "")
+        .replace(/[إأآا]/g, "ا")
+        .replace(/ى/g, "ي")
+        .replace(/ة/g, "ه")
+        .replace(/\s+/g, " ")
+        .trim();
+    const t = normalizeNoise(type || extraData.type || extraData.kind || "");
+    const text = normalizeNoise(`${t} ${title || ""} ${body || ""} ${JSON.stringify(extraData || {})}`);
+    const routine =
+      /updated|update|renamed|rename|edit|edited|camera/.test(t) ||
+      /calendar_event_updated|project_updated|project_renamed|exam_updated|exam_renamed|course_updated|course_renamed|camera_added|camera_removed|camera_updated/.test(t) ||
+      /اسم مكرر|مكرر|تعديل اسم|تغيير اسم|تحديث اسم|تم تحديث|تم تعديل|تحديث مقرر|تحديث اختبار|تحديث مشروع|تعديل اختبار|تعديل مشروع|تعديل مقرر|اضافه كاميرا|إضافة كاميرا|اضافة كاميرا|حذف كاميرا|ازاله كاميرا|إزالة كاميرا|تحديث الكاميرا|تنظيف|ترتيب|تصحيح اسم/.test(text) ||
+      (/كاميرا|camera/.test(text) && !/غش|نزاهة|مخالفة|تحذير|تنبيه مهم/.test(text));
+    const important = /اختبار جديد|مشروع جديد|تنبيه اختبار|اختبار متاح|مشروع متاح|تسليم مطلوب|درجة|درجه|تم نشر درجتك|إرجاع|ارجاع|اعادة|إعادة|قبول|رفض|كلمة مرور|استرجاع|موعد جديد|إلغاء اختبار|الغاء اختبار/.test(text);
+    return routine && !important;
+  };
+
   const pushLocalCourseNotification = (
     courseCode: string,
     title: string,
@@ -17523,6 +17573,9 @@ ${rows
     const safeTitle = sanitizeCourseIdentifiersForDisplay(title) || "مِراس";
     const safeBody =
       sanitizeCourseIdentifiersForDisplay(body) || "لديك تنبيه جديد.";
+    if (isRoutineStudentNotificationNoise(safeTitle, safeBody, type, extraData)) {
+      return;
+    }
     const eventId =
       extraData.eventId || extraData.examId || extraData.activityId || "";
     const item = normalizeLocalNotification({
@@ -24630,8 +24683,9 @@ ${rows
         activeCourseCode,
         "تعديل مشروع",
         `تم تحديث ${projectDraft.title.trim()} في مقرر ${displayCourseLabelForCode(activeCourseCode)}`,
-        "project",
+        "project_updated",
         false,
+        { notifyStudents: false, onlyAdministrativeEdit: true },
       );
       setLiveSyncInfo((prev) => ({
         ...prev,
@@ -24880,12 +24934,13 @@ ${rows
         "calendar_event_updated",
         true,
         {
+          onlyAdministrativeEdit: true,
+          notifyStudents: false,
           eventId: updatedExam.id,
           examId: updatedExam.id,
           activityId: updatedExam.id,
           updatedAt: updatedExam.updatedAt,
           targetRole: "student",
-          notifyStudents: true,
         },
       );
       setLiveSyncInfo((prev) => ({
@@ -30317,12 +30372,12 @@ ${rows
                     onPointerUp={(e) => {
                       e.preventDefault();
                       e.stopPropagation();
-                      void toggleTeacherImportantNotificationsPanel();
+                      void toggleTeacherImportantNotificationsPanel(true);
                     }}
                     onClick={(e) => {
                       e.preventDefault();
                       e.stopPropagation();
-                      void toggleTeacherImportantNotificationsPanel();
+                      void toggleTeacherImportantNotificationsPanel(true);
                     }}
                     className={`miras-zero-action-btn miras-zero-action-notifications ${criticalTeacherNotifications.length ? "notification-alert-glowing-btn" : ""}`}
                   >
@@ -30576,12 +30631,12 @@ ${rows
                               onPointerUp={(e) => {
                                 e.preventDefault();
                                 e.stopPropagation();
-                                void toggleTeacherImportantNotificationsPanel();
+                                void toggleTeacherImportantNotificationsPanel(true);
                               }}
                               onClick={(e) => {
                                 e.preventDefault();
                                 e.stopPropagation();
-                                void toggleTeacherImportantNotificationsPanel();
+                                void toggleTeacherImportantNotificationsPanel(true);
                               }}
                               className={`student-icon-btn relative ${criticalTeacherNotifications.length ? "text-indigo-700 bg-gradient-to-br from-white to-indigo-50 notification-alert-glowing-btn ring-1 ring-indigo-200" : "text-indigo-700 bg-gradient-to-br from-white to-indigo-50"}`}
                             >
@@ -31082,19 +31137,6 @@ ${rows
                                 ⚠️ اختباران اليوم
                               </span>
                               <div className="flex flex-wrap gap-2">
-                                <button
-                                  type="button"
-                                  onClick={() => setPulseExamFilter("all")}
-                                  title={`كل الغرف (${livePulseStudentRows.length})`}
-                                  aria-label={`كل الغرف (${livePulseStudentRows.length})`}
-                                  className={`inline-flex h-12 w-12 items-center justify-center rounded-2xl text-xs font-black transition-all ${
-                                    pulseExamFilter === "all"
-                                      ? "bg-slate-950 text-white shadow-md shadow-slate-200"
-                                      : "bg-white text-slate-600 hover:bg-slate-100 border border-slate-200"
-                                  }`}
-                                >
-                                  <Layers className="h-5 w-5" />
-                                </button>
                                 {examDayExams.map((exam: any) => (
                                   <button
                                     key={exam.id}
@@ -32338,84 +32380,29 @@ ${rows
                                 )}
                               </div>
                             )}
-                            {false && (
-                              <div className="miras-return-exception relative mt-3 rounded-[1.25rem] border border-amber-100 bg-amber-50/75 p-3.5 shadow-sm">
-                                <div className="flex items-start justify-between gap-3">
-                                  <div>
-                                    <p className="text-[11px] font-black text-amber-900">
-                                      نافذة إنصاف بعد الإغلاق
-                                    </p>
-                                    <p className="mt-1 text-[10px] font-bold leading-5 text-amber-700">
-                                      اختر مدة الفرصة
-                                    </p>
-                                  </div>
-                                  <button
-                                    type="button"
-                                    onClick={() =>
-                                      setReturnExceptionEnabled(
-                                        (value) => !value,
-                                      )
-                                    }
-                                    className={`inline-flex h-9 w-9 items-center justify-center rounded-xl text-[10px] font-black shadow-sm ${returnExceptionEnabled ? "bg-amber-600 text-white" : "border border-amber-100 bg-white text-amber-700"}`}
-                                    title={
-                                      returnExceptionEnabled ? "مفعل" : "متوقف"
-                                    }
-                                    aria-label={
-                                      returnExceptionEnabled ? "مفعل" : "متوقف"
-                                    }
-                                  >
-                                    {returnExceptionEnabled ? (
-                                      <CheckCircle2 className="h-4 w-4" />
-                                    ) : (
-                                      <X className="h-4 w-4" />
-                                    )}
-                                  </button>
-                                </div>
-                                {returnExceptionEnabled && (
-                                  <div className="mt-3 space-y-2">
-                                    <div className="flex flex-wrap items-center justify-center gap-2">
-                                      {["3", "5", "12"].map((hours) => (
-                                        <button
-                                          key={hours}
-                                          type="button"
-                                          onClick={() =>
-                                            setReturnExceptionHours(hours)
-                                          }
-                                          className={`miras-return-hour h-8 min-w-[3.35rem] rounded-xl px-2.5 text-[10px] font-black shadow-sm sm:h-8 sm:min-w-[3.6rem] ${returnExceptionHours === hours ? "bg-slate-950 text-white" : "border border-amber-100 bg-white text-slate-600"}`}
-                                        >
-                                          {hours} س
-                                        </button>
-                                      ))}
-                                      <input
-                                        inputMode="numeric"
-                                        value={returnExceptionHours}
-                                        onChange={(e) =>
-                                          setReturnExceptionHours(
-                                            normalizeArabicDigits(
-                                              e.target.value,
-                                            )
-                                              .replace(/\D/g, "")
-                                              .slice(0, 2),
-                                          )
-                                        }
-                                        className="miras-return-hour-input h-8 w-14 rounded-xl border border-amber-100 bg-white text-center text-[11px] font-black text-slate-900 outline-none focus:ring-4 focus:ring-amber-100"
-                                        aria-label="مدة الاستثناء بالساعات"
-                                      />
-                                    </div>
-                                    <p className="text-center text-[9px] font-bold leading-5 text-amber-700">
-                                      سينتهي الاستثناء تقريباً:{" "}
-                                      {formatKwDateTime(
-                                        new Date(
-                                          Date.now() +
-                                            clampedReturnExceptionHours() *
-                                              60 *
-                                              60 *
-                                              1000,
-                                        ).toISOString(),
-                                      )}
-                                    </p>
-                                  </div>
-                                )}
+                            {returnedActivityNeedsException(pendingReturnSubmission) && (
+                              <div className="relative mt-3 flex items-center justify-center gap-2 rounded-[1.1rem] border border-amber-100 bg-amber-50/55 px-3 py-2 shadow-sm">
+                                <span className="text-[10px] font-black text-amber-800">
+                                  مدة الفرصة
+                                </span>
+                                <input
+                                  inputMode="numeric"
+                                  value={returnExceptionHours}
+                                  onChange={(e) =>
+                                    setReturnExceptionHours(
+                                      normalizeArabicDigits(e.target.value)
+                                        .replace(/\D/g, "")
+                                        .slice(0, 2),
+                                    )
+                                  }
+                                  onBlur={() =>
+                                    setReturnExceptionHours(String(clampedReturnExceptionHours()))
+                                  }
+                                  className="miras-return-hour-input h-9 w-12 rounded-xl border border-amber-100 bg-white text-center text-[12px] font-black text-slate-900 outline-none focus:ring-4 focus:ring-amber-100"
+                                  aria-label="مدة الفرصة بالساعات"
+                                  placeholder="24"
+                                />
+                                <span className="text-[10px] font-black text-amber-700">ساعة</span>
                               </div>
                             )}
                             <div className="miras-return-actions relative mt-4 flex justify-center gap-3">
@@ -32432,7 +32419,7 @@ ${rows
                                 type="button"
                                 onClick={async () => {
                                   const target = pendingReturnSubmission;
-                                  const grantException = false;
+                                  const grantException = returnedActivityNeedsException(target);
                                   const hours = clampedReturnExceptionHours();
                                   setPendingReturnSubmission(null);
                                   await returnSubmissionToStudent(target, {
