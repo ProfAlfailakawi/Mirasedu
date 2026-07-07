@@ -545,7 +545,7 @@ const extractApiErrorReason = (
   if (status === 403) return "لا تملك صلاحية";
   if (status === 404) return "غير موجود";
   if (status === 409) return "تعارض في البيانات";
-  if (status === 422) return "أكمل البيانات";
+  if (status === 422) return "راجع الحقول المطلوبة";
   if (status >= 500) {
     if (isUploadContext) return "تعذر رفع الملف. حاول مرة أخرى.";
     if (isProjectSubmitContext) return "تعذر حفظ التسليم. حاول مرة أخرى.";
@@ -851,13 +851,19 @@ const simplifyMirasMessage = (
   }
 
   if (tone === "error") {
+    if (any("أكمل البيانات", "تعبئة جميع الحقول", "الحقول المطلوبة"))
+      return "راجع الحقول المطلوبة";
     if (any("اكتب", "أدخل", "يرجى إدخال", "اختر", "حدد")) {
+      if (any("الرقم الجامعي") && any("كلمة المرور", "كلمة مرور"))
+        return "اكتب الرقم وكلمة المرور";
       if (any("درجة")) return "اكتب الدرجة";
       if (any("طالب", "طلبة")) return "اختر الطالب";
       if (any("كلمة مرور")) return "اكتب كلمة المرور";
+      if (any("رمز", "كود") && any("مقرر", "انضمام", "تفعيل"))
+        return "اكتب رمز المقرر";
       if (any("مقرر")) return "اختر المقرر";
       if (any("عنوان")) return "اكتب العنوان";
-      return "أكمل البيانات";
+      return "راجع الحقول المطلوبة";
     }
     if (any("لا توجد", "لم يتم العثور", "لم أجد")) {
       if (any("رموز", "أكواد")) return "لا توجد أكواد";
@@ -5251,12 +5257,43 @@ export default function App() {
         JSON.stringify(activated.student),
       );
     } catch {}
-    setCurrentView(
-      activated.nextView === "payment" ? "payment" : "student_workspace",
-    );
+    const activatedTargetView =
+      activated.nextView === "payment" ? "payment" : "student_workspace";
+    setCurrentView(activatedTargetView);
     await loadActivatedStudentWorkspaceData(activated.student);
+    // تثبيت الانتقال بعد اكتمال التحميل أيضاً: بعض أجهزة iOS/PWA كانت تبقي
+    // شاشة الرمز مرئية بعد نجاح التفعيل بسبب تحديثات متأخرة للرسائل/الحالة.
+    setStudentSession((prev: any) => {
+      if (prev?.id && String(prev.id) === String(activated.student.id)) {
+        return { ...prev, ...activated.student };
+      }
+      return activated.student;
+    });
+    setStudentEnrollments(activated.enrollments);
+    setCurrentView(activatedTargetView);
+    try {
+      const url = new URL(window.location.href);
+      if (url.searchParams.has("miras_activation") || url.searchParams.has("miras_code") || url.searchParams.has("joinCode")) {
+        url.searchParams.delete("miras_activation");
+        url.searchParams.delete("miras_code");
+        url.searchParams.delete("joinCode");
+        window.history.replaceState({}, "", url.toString());
+      }
+    } catch {}
+    if (typeof window !== "undefined") {
+      window.setTimeout(() => {
+        setStudentSession((prev: any) => {
+          if (prev?.id && String(prev.id) === String(activated.student.id)) {
+            return { ...prev, ...activated.student };
+          }
+          return activated.student;
+        });
+        setStudentEnrollments(activated.enrollments);
+        setCurrentView(activatedTargetView);
+      }, 0);
+    }
     setErrorMsg("");
-    setSuccessMsg(data?.message || fallbackMessage);
+    setSuccessMsg(fallbackMessage || "تم تفعيل الحساب وفتح المسار.");
     return activated;
   };
 
@@ -12964,16 +13001,35 @@ ${rows
     resetSignupActivationTransient(true);
     setErrorMsg("");
     setSuccessMsg("");
+    const cleanIdNumber = normalizeStudentLookup(signupForm.idNumber);
     const cleanPassword = String(signupForm.password || "").trim();
-    if (
-      !cleanPassword ||
-      cleanPassword.length < 6 ||
-      cleanPassword === "123456" ||
-      cleanPassword === "000000"
-    ) {
-      setErrorMsg(
-        "اختر كلمة مرور أقوى قبل إدخال كود المقرر. لا يُسمح بكلمة مرور افتراضية أو أقل من 6 خانات.",
-      );
+    if (!cleanIdNumber) {
+      setErrorMsg("اكتب الرقم الجامعي");
+      setCurrentView("signup");
+      return;
+    }
+    if (signupLookupStatus === "loading") {
+      setErrorMsg("انتظر تحقق الكشف");
+      setCurrentView("signup");
+      return;
+    }
+    if (signupLookupStatus !== "found" || !signupForm.name || !signupForm.sectionCode) {
+      setErrorMsg("الرقم الجامعي غير موجود بالكشف");
+      setCurrentView("signup");
+      return;
+    }
+    if (!cleanPassword) {
+      setErrorMsg("اكتب كلمة المرور");
+      setCurrentView("signup");
+      return;
+    }
+    if (cleanPassword.length < 6) {
+      setErrorMsg("كلمة المرور 6 خانات على الأقل");
+      setCurrentView("signup");
+      return;
+    }
+    if (cleanPassword === "123456" || cleanPassword === "000000") {
+      setErrorMsg("اختر كلمة مرور غير افتراضية");
       setCurrentView("signup");
       return;
     }
@@ -13041,6 +13097,29 @@ ${rows
 
   const handleRegisterConfirm = async () => {
     if (signupActivationInFlightRef.current) return;
+    const cleanIdNumber = normalizeStudentLookup(signupForm.idNumber);
+    const cleanPassword = String(signupForm.password || "").trim();
+    const formattedOtp = formatJoinCode(otpInput);
+    if (!cleanIdNumber) {
+      setErrorMsg("اكتب الرقم الجامعي");
+      setCurrentView("signup");
+      return;
+    }
+    if (!cleanPassword) {
+      setErrorMsg("اكتب كلمة المرور");
+      setCurrentView("signup");
+      return;
+    }
+    if (cleanPassword.length < 6) {
+      setErrorMsg("كلمة المرور 6 خانات على الأقل");
+      setCurrentView("signup");
+      return;
+    }
+    if (!isUnifiedJoinCode(formattedOtp)) {
+      setErrorMsg("اكتب رمز المقرر كاملًا");
+      setCurrentView("otp");
+      return;
+    }
     signupActivationInFlightRef.current = true;
     setSignupActivationBusy(true);
     resetActivationGrace();
@@ -13053,7 +13132,7 @@ ${rows
         body: JSON.stringify({
           ...signupForm,
           email: normalizeArabicDigits(signupForm.email).trim().toLowerCase(),
-          otp: formatJoinCode(otpInput),
+          otp: formattedOtp,
           deviceToken: getMirasDeviceId(),
           activationTelemetry: codeActivationTelemetry("signup-code"),
         }),
@@ -30969,29 +31048,29 @@ ${rows
                             <>
                               {/* مفتاح الحالات: ثابت فوق الشبكة ومحاذى لليمين
                                   حتى يبقى مرجعاً ظاهراً مهما كثر عدد الطلبة. */}
-                              <div className="mb-3 flex flex-wrap justify-start gap-2 rounded-2xl border border-slate-100 bg-slate-50/70 px-3 py-2 text-[10px] font-black text-slate-600">
-                                <span className="inline-flex items-center gap-1.5">
-                                  <i className="h-2.5 w-2.5 rounded-full !p-0 bg-emerald-500" />{" "}
+                              <div className="mb-2 flex flex-wrap justify-start gap-1.5 rounded-xl border border-slate-100 bg-slate-50/70 px-2 py-1.5 text-[9px] font-black text-slate-600">
+                                <span className="inline-flex items-center gap-1">
+                                  <i className="h-2 w-2 rounded-full !p-0 bg-emerald-500" />{" "}
                                   يحل
                                 </span>
-                                <span className="inline-flex items-center gap-1.5">
-                                  <i className="h-2.5 w-2.5 rounded-full !p-0 bg-indigo-500" />{" "}
+                                <span className="inline-flex items-center gap-1">
+                                  <i className="h-2 w-2 rounded-full !p-0 bg-indigo-500" />{" "}
                                   مكتمل
                                 </span>
-                                <span className="inline-flex items-center gap-1.5">
-                                  <i className="h-2.5 w-2.5 rounded-full !p-0 bg-amber-500" />{" "}
+                                <span className="inline-flex items-center gap-1">
+                                  <i className="h-2 w-2 rounded-full !p-0 bg-amber-500" />{" "}
                                   متابعة
                                 </span>
-                                <span className="inline-flex items-center gap-1.5">
-                                  <i className="h-2.5 w-2.5 rounded-full !p-0 bg-rose-500" />{" "}
+                                <span className="inline-flex items-center gap-1">
+                                  <i className="h-2 w-2 rounded-full !p-0 bg-rose-500" />{" "}
                                   خروج
                                 </span>
-                                <span className="inline-flex items-center gap-1.5">
-                                  <i className="h-2.5 w-2.5 rounded-full !p-0 bg-slate-300" />{" "}
+                                <span className="inline-flex items-center gap-1">
+                                  <i className="h-2 w-2 rounded-full !p-0 bg-slate-300" />{" "}
                                   منفصل
                                 </span>
                               </div>
-                              <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6">
+                              <div className="grid grid-cols-2 gap-1.5 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6">
                                 {livePulseStudentRows.map((row: any) => {
                                   const {
                                     st,
@@ -31008,25 +31087,12 @@ ${rows
                                         st.idNumber ||
                                         studentIdStr
                                       }
-                                      className="group relative min-h-[48px] rounded-[1rem] border border-slate-100 bg-slate-50/45 p-1.5 hover:bg-white hover:border-slate-200 hover:shadow-sm transition-all duration-200 text-right"
+                                      className="group relative min-h-[38px] rounded-xl border border-slate-100 bg-slate-50/45 p-1.5 hover:bg-white hover:border-slate-200 hover:shadow-sm transition-all duration-200 text-right"
                                     >
-                                      <div className="flex items-start justify-between gap-2">
+                                      <div className="flex items-start justify-between gap-1.5">
                                         <div className="min-w-0 flex-1">
-                                          <span className="block truncate text-[10.5px] font-medium tracking-tight text-slate-700">
+                                          <span className="block truncate text-[10px] font-medium tracking-tight text-slate-700">
                                             {st.name}
-                                          </span>
-                                          <span className="mt-1 inline-flex max-w-full items-center rounded-lg bg-white/75 px-2 py-0.5 text-[9.5px] font-mono font-semibold text-slate-500 shadow-sm truncate">
-                                            {cleanCodeForDisplay(
-                                              String(
-                                                st.id ||
-                                                  st.universityId ||
-                                                  st.idNumber ||
-                                                  studentIdStr,
-                                              ),
-                                            ) ||
-                                              (studentIdStr.includes("@")
-                                                ? ""
-                                                : studentIdStr)}
                                           </span>
                                           {(() => {
                                             const rowExamId = String(
@@ -31083,19 +31149,19 @@ ${rows
                                                   event.stopPropagation();
                                                   void toggleCameraExceptionForLivePulseStudent(row);
                                                 }}
-                                                className={`relative z-20 mt-1 inline-flex h-7 w-7 pointer-events-auto items-center justify-center rounded-lg border text-[10px] transition ${
+                                                className={`relative z-20 mt-1 inline-flex h-6 w-6 pointer-events-auto items-center justify-center rounded-lg border text-[9px] transition ${
                                                   isExempt
                                                     ? "border-amber-300 bg-amber-50 text-amber-700 shadow-[0_8px_18px_rgba(245,158,11,0.16)]"
                                                     : "border-slate-200 bg-white/85 text-slate-600 hover:border-emerald-200 hover:bg-emerald-50 hover:text-emerald-700"
                                                 }`}
                                               >
-                                                {isExempt ? <CameraOff className="h-3.5 w-3.5" /> : <Camera className="h-3 w-3" />}
+                                                {isExempt ? <CameraOff className="h-3 w-3" /> : <Camera className="h-2.5 w-2.5" />}
                                               </button>
                                             );
                                           })()}
                                         </div>
                                         <span
-                                          className={`relative mt-0.5 flex h-3 w-3 shrink-0 rounded-full !p-0 ${statusColor} ${pulseClass}`}
+                                          className={`relative mt-0.5 flex h-2.5 w-2.5 shrink-0 rounded-full !p-0 ${statusColor} ${pulseClass}`}
                                         >
                                           {pulseClass && (
                                             <span
@@ -31105,7 +31171,7 @@ ${rows
                                         </span>
                                       </div>
                                       <div
-                                        className="mt-2 h-1"
+                                        className="mt-1 h-0.5"
                                         aria-hidden="true"
                                       />
                                     </div>
