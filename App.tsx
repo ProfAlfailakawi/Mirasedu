@@ -702,6 +702,15 @@ const simplifyStudentMessage = (
   )
     return "تعذر تشغيل SEB";
   if (any("داخل Safe Exam Browser")) return "افتح الاختبار من حساب الطالب";
+  if (any("الرقم الجامعي أو كلمة المرور", "بيانات الدخول غير صحيحة", "خطأ في بيانات الدخول"))
+    return "الرقم الجامعي أو كلمة المرور غير صحيحة.";
+  if (any("كلمة المرور لا تطابق", "كلمة المرور غير صحيحة")) return "كلمة المرور غير صحيحة.";
+  if (any("مرتبط بحساب طالب آخر", "مخصص لطالب آخر", "جهاز مرتبط بحساب طالب آخر", "مستقل لطالب آخر"))
+    return "هذا الجهاز لطالب آخر. اطلب اعتماد جهاز جديد.";
+  if (any("حسابك في وضع النقل", "الجهاز القديم أصبح ملغياً"))
+    return "سجّل الدخول من الجهاز الجديد لإكمال النقل.";
+  if (any("تعذر التحقق من الجهاز", "معرّف الجهاز", "معرف الجهاز"))
+    return "تعذر التحقق من الجهاز. أعد فتح مِراس.";
   if (any("يجب الدخول من الجهاز الأصلي")) return "ادخل من الجهاز الأصلي";
   if (
     any(
@@ -832,6 +841,16 @@ const simplifyMirasMessage = (
   // لا نغيّر المنطق أو البيانات؛ فقط نختصر نصوص التوست/التنبيه/الحوار.
   const t = text;
   if (/^(https?:\/\/|www\.)/i.test(t) || /^[A-Z0-9]{4,}[-_A-Z0-9]*$/i.test(t)) return t;
+
+  if (any("الرقم الجامعي أو كلمة المرور", "بيانات الدخول غير صحيحة", "خطأ في بيانات الدخول"))
+    return "الرقم الجامعي أو كلمة المرور غير صحيحة.";
+  if (any("كلمة المرور لا تطابق", "كلمة المرور غير صحيحة")) return "كلمة المرور غير صحيحة.";
+  if (any("مرتبط بحساب طالب آخر", "مخصص لطالب آخر", "جهاز مرتبط بحساب طالب آخر", "مستقل لطالب آخر"))
+    return "هذا الجهاز لطالب آخر. اطلب اعتماد جهاز جديد.";
+  if (any("حسابك في وضع النقل", "الجهاز القديم أصبح ملغياً"))
+    return "سجّل الدخول من الجهاز الجديد لإكمال النقل.";
+  if (any("تعذر التحقق من الجهاز", "معرّف الجهاز", "معرف الجهاز"))
+    return "تعذر التحقق من الجهاز. أعد فتح مِراس.";
 
   if (tone === "success") {
     if (any("نسخ", "clipboard")) return "تم النسخ";
@@ -16387,6 +16406,17 @@ ${rows
     }
   };
 
+  useEffect(() => {
+    if (currentView !== "teacher" || teacherTab !== "students") return;
+    const hasPendingDeviceTransfer = Array.isArray(teacherStudents) && teacherStudents.some((student: any) => !!student?.pendingDeviceTransfer);
+    if (!hasPendingDeviceTransfer) return;
+    const id = window.setInterval(() => {
+      fetchReports().catch(() => {});
+      fetchLogs().catch(() => {});
+    }, 5000);
+    return () => window.clearInterval(id);
+  }, [currentView, teacherTab, teacherStudents]);
+
   const routeKeyRef = useRef("");
   useEffect(() => {
     // studentCourseFilter لا يُعتبر تغيّر مسار — التغيير محلي للوحة فقط
@@ -23496,6 +23526,8 @@ ${rows
                 accessResetAt: new Date().toISOString(),
                 isAccessBlocked: false,
                 accessBlockReason: "",
+                pendingDeviceTransfer: true,
+                retiredDeviceFingerprints: Array.isArray(st.devices) ? st.devices : [],
               }
             : st,
         ),
@@ -26817,7 +26849,7 @@ ${rows
       {/* Dynamic Alerts */}
       {visibleSuccessMsg && (
         <div
-          className="miras-floating-toast fixed inset-x-3 top-3 z-[120] mx-auto flex max-w-md items-center gap-2.5 rounded-[1.35rem] border border-emerald-100/80 bg-white/95 px-3.5 py-3 text-right shadow-[0_18px_55px_rgba(15,23,42,0.14)] backdrop-blur-xl sm:inset-x-auto sm:right-4 sm:top-4 sm:mx-0 sm:px-4"
+          className="miras-floating-toast fixed inset-x-3 top-3 z-[120] mx-auto flex max-w-[42rem] items-start gap-2.5 rounded-[1.35rem] border border-emerald-100/80 bg-white/95 px-3.5 py-3 text-right shadow-[0_18px_55px_rgba(15,23,42,0.14)] backdrop-blur-xl sm:inset-x-auto sm:right-4 sm:top-4 sm:mx-0 sm:px-4"
           style={{
             position: "fixed",
             left: "0.75rem",
@@ -26830,7 +26862,7 @@ ${rows
           <span className="grid h-9 w-9 shrink-0 place-items-center rounded-2xl bg-emerald-50 text-emerald-600 shadow-inner">
             <CheckCircle className="h-4.5 w-4.5" />
           </span>
-          <span className="min-w-0 flex-1 text-[12px] font-black leading-6 text-emerald-800 sm:text-sm">
+          <span className="min-w-0 flex-1 whitespace-normal break-words text-[12px] font-black leading-6 text-emerald-800 sm:text-sm">
             {visibleSuccessMsg}
           </span>
           <button
@@ -26845,7 +26877,7 @@ ${rows
 
       {visibleErrorMsg && (
         <div
-          className="miras-floating-toast fixed inset-x-3 top-3 z-[120] mx-auto flex max-w-md items-center gap-2.5 rounded-[1.35rem] border border-amber-100/80 bg-white/95 px-3.5 py-3 text-right shadow-[0_18px_55px_rgba(15,23,42,0.14)] backdrop-blur-xl sm:inset-x-auto sm:right-4 sm:top-4 sm:mx-0 sm:px-4"
+          className="miras-floating-toast fixed inset-x-3 top-3 z-[120] mx-auto flex max-w-[42rem] items-start gap-2.5 rounded-[1.35rem] border border-amber-100/80 bg-white/95 px-3.5 py-3 text-right shadow-[0_18px_55px_rgba(15,23,42,0.14)] backdrop-blur-xl sm:inset-x-auto sm:right-4 sm:top-4 sm:mx-0 sm:px-4"
           style={{
             position: "fixed",
             left: "0.75rem",
@@ -26858,7 +26890,7 @@ ${rows
           <span className="grid h-9 w-9 shrink-0 place-items-center rounded-2xl bg-amber-50 text-amber-600 shadow-inner">
             <AlertTriangle className="h-4.5 w-4.5" />
           </span>
-          <span className="min-w-0 flex-1 text-[12px] font-black leading-6 text-amber-800 sm:text-sm">
+          <span className="min-w-0 flex-1 whitespace-normal break-words text-[12px] font-black leading-6 text-amber-800 sm:text-sm">
             {visibleErrorMsg}
           </span>
           <button
@@ -31209,7 +31241,7 @@ ${rows
                                   منفصل
                                 </span>
                               </div>
-                              <div className="grid grid-cols-1 gap-1.5 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
+                              <div className="grid grid-cols-1 gap-1.5 sm:grid-cols-2">
                                 {livePulseStudentRows.map((row: any) => {
                                   const {
                                     st,
