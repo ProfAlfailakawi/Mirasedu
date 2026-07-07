@@ -30368,7 +30368,6 @@ ${rows
                     type="button"
                     title="التنبيهات المهمة"
                     aria-label="التنبيهات المهمة"
-                    onPointerDown={(e) => e.stopPropagation()}
                     onPointerUp={(e) => {
                       e.preventDefault();
                       e.stopPropagation();
@@ -30649,193 +30648,6 @@ ${rows
                                 </span>
                               )}
                             </button>
-                            {teacherImportantNotificationsOpen &&
-                              typeof document !== "undefined" &&
-                              createPortal(
-                              <div
-                                className="student-popover teacher-important-popover miras-teacher-alert-popover miras-student-popover miras-student-alert-popover text-right"
-                                dir="rtl"
-                                style={{
-                                  position: "fixed",
-                                  top: "max(5.5rem, calc(env(safe-area-inset-top) + 4.75rem))",
-                                  left: "max(0.75rem, env(safe-area-inset-left))",
-                                  right: "max(0.75rem, env(safe-area-inset-right))",
-                                  width: "auto",
-                                  maxWidth: "min(34rem, calc(100vw - 1.5rem))",
-                                  margin: "0 auto",
-                                  zIndex: 2147483000,
-                                  maxHeight: "calc(100dvh - 6.5rem)",
-                                  overflowY: "auto",
-                                  WebkitOverflowScrolling: "touch",
-                                }}
-                              >
-                                <div className="miras-alert-toolbar mb-2 flex items-center justify-between gap-3 rounded-2xl border border-slate-100 bg-white/82 px-3 py-2 w-full">
-                                  <span className="miras-teacher-alert-count-badge whitespace-nowrap shrink-0">
-                                    {criticalTeacherNotifications.length > 0
-                                      ? `${criticalTeacherNotifications.length} تنبيه`
-                                      : "لا تنبيهات"}
-                                  </span>
-                                  <div className="flex shrink-0 items-center justify-end gap-1.5 ml-0.5">
-                                    <button
-                                      type="button"
-                                      aria-label="إغلاق التنبيهات"
-                                      onClick={() =>
-                                        setTeacherImportantNotificationsOpen(
-                                          false,
-                                        )
-                                      }
-                                      className="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-500 shadow-sm hover:bg-slate-50 hover:text-slate-800 transition-all"
-                                    >
-                                      <X className="h-5 w-5" />
-                                    </button>
-                                  </div>
-                                </div>
-                                {renderNotificationGate("teacher")}
-                                {notificationState.message && (
-                                  <div className="rounded-2xl border border-emerald-200/60 bg-gradient-to-br from-emerald-50 to-teal-50/50 text-emerald-900 p-3.5 mb-2 shadow-sm">
-                                    <span className="text-[13px] font-black block leading-relaxed">
-                                      {sanitizeCourseIdentifiersForDisplay(
-                                        notificationState.message,
-                                      )}
-                                    </span>
-                                  </div>
-                                )}
-                                {criticalTeacherNotifications.length === 0 ? (
-                                  <div className="rounded-2xl bg-slate-50/80 border border-slate-100 text-slate-500 text-center p-5">
-                                    <span className="text-[13px] font-extrabold block">
-                                      لا تنبيهات
-                                    </span>
-                                  </div>
-                                ) : (
-                                  <div className="miras-student-notice-list teacher-important-list max-h-[68vh] space-y-2.5 overflow-y-auto pr-1 pb-1">
-                                    {criticalTeacherNotifications.map(
-                                      (item: any) => (
-                                        <div
-                                          key={item.key}
-                                          role="button"
-                                          tabIndex={0}
-                                          data-tone={item.tone}
-                                          onClick={async () => {
-                                            markTeacherImportantNotificationRead(
-                                              item.key,
-                                            );
-                                            setTeacherImportantNotificationsOpen(
-                                              false,
-                                            );
-                                            await item.action?.();
-                                          }}
-                                          onKeyDown={async (e) => {
-                                            if (
-                                              e.key === "Enter" ||
-                                              e.key === " "
-                                            ) {
-                                              markTeacherImportantNotificationRead(
-                                                item.key,
-                                              );
-                                              setTeacherImportantNotificationsOpen(
-                                                false,
-                                              );
-                                              await item.action?.();
-                                            }
-                                          }}
-                                          className={`miras-teacher-alert-card miras-teacher-alert-card-clean block w-full cursor-pointer rounded-2xl border text-right transition-all hover:-translate-y-0.5 shadow-sm hover:shadow-md ${
-                                            item.tone === "rose"
-                                              ? "border-rose-200/70 bg-gradient-to-br from-rose-50/80 to-pink-50/50 text-rose-950 hover:border-rose-300/80"
-                                              : item.tone === "violet"
-                                                ? "border-violet-200/70 bg-gradient-to-br from-violet-50/80 to-purple-50/50 text-violet-950 hover:border-violet-300/80"
-                                                : item.tone === "emerald"
-                                                  ? "border-emerald-200/70 bg-gradient-to-br from-emerald-50/80 to-teal-50/50 text-emerald-950 hover:border-emerald-300/80"
-                                                  : item.tone === "sky"
-                                                    ? "border-sky-200/70 bg-gradient-to-br from-sky-50/80 to-blue-50/50 text-sky-950 hover:border-sky-300/80"
-                                                    : item.tone === "indigo"
-                                                      ? "border-indigo-200/70 bg-gradient-to-br from-indigo-50/80 to-blue-50/50 text-indigo-950 hover:border-indigo-300/80"
-                                                      : "border-amber-200/70 bg-gradient-to-br from-amber-50/80 to-orange-50/50 text-amber-950 hover:border-amber-300/80"
-                                          }`}
-                                          style={{
-                                            paddingBottom: "1.75rem",
-                                            paddingTop: "1.25rem",
-                                            height: "auto",
-                                            minHeight: "fit-content",
-                                            overflow: "visible",
-                                          }}
-                                        >
-                                          <div className="miras-teacher-alert-content">
-                                            <b className="miras-teacher-alert-title block text-[13.5px] font-extrabold leading-snug tracking-[-0.015em] text-slate-900 text-right break-words">
-                                              {sanitizeCourseIdentifiersForDisplay(
-                                                item.title,
-                                              )}
-                                            </b>
-                                            <span className="miras-teacher-alert-body mt-2 block text-[12px] font-medium leading-relaxed tracking-[-0.01em] text-slate-600 text-right break-words">
-                                              {sanitizeCourseIdentifiersForDisplay(
-                                                item.body,
-                                              )}
-                                            </span>
-                                          </div>
-                                          {item.approvalRequestId &&
-                                          String(
-                                            item.approvalStatus || "pending",
-                                          ) === "pending" ? (
-                                            <div
-                                              className="miras-teacher-alert-date-row miras-teacher-alert-meta miras-teacher-alert-meta-actions"
-                                              onClick={(e) =>
-                                                e.stopPropagation()
-                                              }
-                                            >
-                                              <div className="miras-teacher-alert-actions flex flex-wrap items-center gap-2">
-                                                <button
-                                                  type="button"
-                                                  title="اعتماد الجهاز"
-                                                  aria-label="اعتماد الجهاز"
-                                                  className="inline-flex h-11 w-11 shrink-0 -translate-y-1 items-center justify-center rounded-2xl border border-emerald-200 bg-white/90 text-emerald-700 shadow-sm transition hover:-translate-y-1.5 hover:bg-emerald-50"
-                                                  onClick={() =>
-                                                    handleSecondHandDeviceApproval(
-                                                      item.approvalRequestId,
-                                                      "approve",
-                                                    )
-                                                  }
-                                                >
-                                                  <CheckCircle2 className="h-5 w-5" />
-                                                </button>
-                                                <button
-                                                  type="button"
-                                                  title="رفض الطلب"
-                                                  aria-label="رفض الطلب"
-                                                  className="inline-flex h-11 w-11 shrink-0 -translate-y-1 items-center justify-center rounded-2xl border border-rose-200 bg-white/90 text-rose-700 shadow-sm transition hover:-translate-y-1.5 hover:bg-rose-50"
-                                                  onClick={() =>
-                                                    handleSecondHandDeviceApproval(
-                                                      item.approvalRequestId,
-                                                      "reject",
-                                                    )
-                                                  }
-                                                >
-                                                  <X className="h-5 w-5" />
-                                                </button>
-                                              </div>
-                                              <time
-                                                className="miras-teacher-alert-date"
-                                                dir="ltr"
-                                              >
-                                                {formatKwDateTime(item.when)}
-                                              </time>
-                                            </div>
-                                          ) : (
-                                            <div className="miras-teacher-alert-date-row miras-teacher-alert-meta">
-                                              <time
-                                                className="miras-teacher-alert-date"
-                                                dir="ltr"
-                                              >
-                                                {formatKwDateTime(item.when)}
-                                              </time>
-                                            </div>
-                                          )}
-                                        </div>
-                                      ),
-                                    )}
-                                  </div>
-                                )}
-                              </div>,
-                                document.body,
-                              )}
                           </div>
                         )}
                         <button
@@ -39797,6 +39609,193 @@ ${rows
                 aria-hidden="true"
               />
             </main>
+                            {teacherImportantNotificationsOpen &&
+                              typeof document !== "undefined" &&
+                              createPortal(
+                              <div
+                                className="student-popover teacher-important-popover miras-teacher-alert-popover miras-student-popover miras-student-alert-popover text-right"
+                                dir="rtl"
+                                style={{
+                                  position: "fixed",
+                                  top: "max(5.5rem, calc(env(safe-area-inset-top) + 4.75rem))",
+                                  left: "max(0.75rem, env(safe-area-inset-left))",
+                                  right: "max(0.75rem, env(safe-area-inset-right))",
+                                  width: "auto",
+                                  maxWidth: "min(34rem, calc(100vw - 1.5rem))",
+                                  margin: "0 auto",
+                                  zIndex: 2147483000,
+                                  maxHeight: "calc(100dvh - 6.5rem)",
+                                  overflowY: "auto",
+                                  WebkitOverflowScrolling: "touch",
+                                }}
+                              >
+                                <div className="miras-alert-toolbar mb-2 flex items-center justify-between gap-3 rounded-2xl border border-slate-100 bg-white/82 px-3 py-2 w-full">
+                                  <span className="miras-teacher-alert-count-badge whitespace-nowrap shrink-0">
+                                    {criticalTeacherNotifications.length > 0
+                                      ? `${criticalTeacherNotifications.length} تنبيه`
+                                      : "لا تنبيهات"}
+                                  </span>
+                                  <div className="flex shrink-0 items-center justify-end gap-1.5 ml-0.5">
+                                    <button
+                                      type="button"
+                                      aria-label="إغلاق التنبيهات"
+                                      onClick={() =>
+                                        setTeacherImportantNotificationsOpen(
+                                          false,
+                                        )
+                                      }
+                                      className="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-500 shadow-sm hover:bg-slate-50 hover:text-slate-800 transition-all"
+                                    >
+                                      <X className="h-5 w-5" />
+                                    </button>
+                                  </div>
+                                </div>
+                                {renderNotificationGate("teacher")}
+                                {notificationState.message && (
+                                  <div className="rounded-2xl border border-emerald-200/60 bg-gradient-to-br from-emerald-50 to-teal-50/50 text-emerald-900 p-3.5 mb-2 shadow-sm">
+                                    <span className="text-[13px] font-black block leading-relaxed">
+                                      {sanitizeCourseIdentifiersForDisplay(
+                                        notificationState.message,
+                                      )}
+                                    </span>
+                                  </div>
+                                )}
+                                {criticalTeacherNotifications.length === 0 ? (
+                                  <div className="rounded-2xl bg-slate-50/80 border border-slate-100 text-slate-500 text-center p-5">
+                                    <span className="text-[13px] font-extrabold block">
+                                      لا تنبيهات
+                                    </span>
+                                  </div>
+                                ) : (
+                                  <div className="miras-student-notice-list teacher-important-list max-h-[68vh] space-y-2.5 overflow-y-auto pr-1 pb-1">
+                                    {criticalTeacherNotifications.map(
+                                      (item: any) => (
+                                        <div
+                                          key={item.key}
+                                          role="button"
+                                          tabIndex={0}
+                                          data-tone={item.tone}
+                                          onClick={async () => {
+                                            markTeacherImportantNotificationRead(
+                                              item.key,
+                                            );
+                                            setTeacherImportantNotificationsOpen(
+                                              false,
+                                            );
+                                            await item.action?.();
+                                          }}
+                                          onKeyDown={async (e) => {
+                                            if (
+                                              e.key === "Enter" ||
+                                              e.key === " "
+                                            ) {
+                                              markTeacherImportantNotificationRead(
+                                                item.key,
+                                              );
+                                              setTeacherImportantNotificationsOpen(
+                                                false,
+                                              );
+                                              await item.action?.();
+                                            }
+                                          }}
+                                          className={`miras-teacher-alert-card miras-teacher-alert-card-clean block w-full cursor-pointer rounded-2xl border text-right transition-all hover:-translate-y-0.5 shadow-sm hover:shadow-md ${
+                                            item.tone === "rose"
+                                              ? "border-rose-200/70 bg-gradient-to-br from-rose-50/80 to-pink-50/50 text-rose-950 hover:border-rose-300/80"
+                                              : item.tone === "violet"
+                                                ? "border-violet-200/70 bg-gradient-to-br from-violet-50/80 to-purple-50/50 text-violet-950 hover:border-violet-300/80"
+                                                : item.tone === "emerald"
+                                                  ? "border-emerald-200/70 bg-gradient-to-br from-emerald-50/80 to-teal-50/50 text-emerald-950 hover:border-emerald-300/80"
+                                                  : item.tone === "sky"
+                                                    ? "border-sky-200/70 bg-gradient-to-br from-sky-50/80 to-blue-50/50 text-sky-950 hover:border-sky-300/80"
+                                                    : item.tone === "indigo"
+                                                      ? "border-indigo-200/70 bg-gradient-to-br from-indigo-50/80 to-blue-50/50 text-indigo-950 hover:border-indigo-300/80"
+                                                      : "border-amber-200/70 bg-gradient-to-br from-amber-50/80 to-orange-50/50 text-amber-950 hover:border-amber-300/80"
+                                          }`}
+                                          style={{
+                                            paddingBottom: "1.75rem",
+                                            paddingTop: "1.25rem",
+                                            height: "auto",
+                                            minHeight: "fit-content",
+                                            overflow: "visible",
+                                          }}
+                                        >
+                                          <div className="miras-teacher-alert-content">
+                                            <b className="miras-teacher-alert-title block text-[13.5px] font-extrabold leading-snug tracking-[-0.015em] text-slate-900 text-right break-words">
+                                              {sanitizeCourseIdentifiersForDisplay(
+                                                item.title,
+                                              )}
+                                            </b>
+                                            <span className="miras-teacher-alert-body mt-2 block text-[12px] font-medium leading-relaxed tracking-[-0.01em] text-slate-600 text-right break-words">
+                                              {sanitizeCourseIdentifiersForDisplay(
+                                                item.body,
+                                              )}
+                                            </span>
+                                          </div>
+                                          {item.approvalRequestId &&
+                                          String(
+                                            item.approvalStatus || "pending",
+                                          ) === "pending" ? (
+                                            <div
+                                              className="miras-teacher-alert-date-row miras-teacher-alert-meta miras-teacher-alert-meta-actions"
+                                              onClick={(e) =>
+                                                e.stopPropagation()
+                                              }
+                                            >
+                                              <div className="miras-teacher-alert-actions flex flex-wrap items-center gap-2">
+                                                <button
+                                                  type="button"
+                                                  title="اعتماد الجهاز"
+                                                  aria-label="اعتماد الجهاز"
+                                                  className="inline-flex h-11 w-11 shrink-0 -translate-y-1 items-center justify-center rounded-2xl border border-emerald-200 bg-white/90 text-emerald-700 shadow-sm transition hover:-translate-y-1.5 hover:bg-emerald-50"
+                                                  onClick={() =>
+                                                    handleSecondHandDeviceApproval(
+                                                      item.approvalRequestId,
+                                                      "approve",
+                                                    )
+                                                  }
+                                                >
+                                                  <CheckCircle2 className="h-5 w-5" />
+                                                </button>
+                                                <button
+                                                  type="button"
+                                                  title="رفض الطلب"
+                                                  aria-label="رفض الطلب"
+                                                  className="inline-flex h-11 w-11 shrink-0 -translate-y-1 items-center justify-center rounded-2xl border border-rose-200 bg-white/90 text-rose-700 shadow-sm transition hover:-translate-y-1.5 hover:bg-rose-50"
+                                                  onClick={() =>
+                                                    handleSecondHandDeviceApproval(
+                                                      item.approvalRequestId,
+                                                      "reject",
+                                                    )
+                                                  }
+                                                >
+                                                  <X className="h-5 w-5" />
+                                                </button>
+                                              </div>
+                                              <time
+                                                className="miras-teacher-alert-date"
+                                                dir="ltr"
+                                              >
+                                                {formatKwDateTime(item.when)}
+                                              </time>
+                                            </div>
+                                          ) : (
+                                            <div className="miras-teacher-alert-date-row miras-teacher-alert-meta">
+                                              <time
+                                                className="miras-teacher-alert-date"
+                                                dir="ltr"
+                                              >
+                                                {formatKwDateTime(item.when)}
+                                              </time>
+                                            </div>
+                                          )}
+                                        </div>
+                                      ),
+                                    )}
+                                  </div>
+                                )}
+                              </div>,
+                                document.body,
+                              )}
           </div>
         )}
       </div>
