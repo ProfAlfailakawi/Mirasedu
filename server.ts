@@ -5444,8 +5444,20 @@ function shouldSuppressRoutineStudentNotification(
   const isImportantForStudent =
     importantByType || importantByText || explicitImportant;
 
-  // اكتم كل ما ليس مهماً للطالب.
-  return !isImportantForStudent;
+  // ✨ الأهم يمرّ دائماً (شبكة أمان تمنع حجب اختبار جديد/درجة/إرجاع/تنبيه بالخطأ).
+  if (isImportantForStudent) return false;
+
+  // نحجب فقط الضجيج الإداري المعروف (تعديل أسماء، كاميرا، تنظيف، تحديث إداري)؛
+  // وكل ما عداه يُسمح به افتراضياً حتى لا نُسقط إشعاراً مهماً للطالب عن طريق الخطأ.
+  const adminNoise =
+    /rename|renamed|update|updated|edit|edited|camera|cleanup|reorder|dedup|duplicate|admin/.test(
+      type,
+    ) ||
+    /تعديل اسم|تغيير اسم|تحديث اسم|اعاده تسميه|اسم مكرر|مكرر|تصحيح اسم|تنظيف|ترتيب|تحديث مقرر|تحديث اختبار|تحديث مشروع|تحديث اداري|تم تحديث|تم تعديل|اضافه كاميرا|حذف كاميرا|ازاله كاميرا|تعديل كاميرا|تحديث الكاميرا|اعداد الكاميرا/.test(
+      text,
+    ) ||
+    (/كاميرا|camera/.test(text) && !/غش|نزاهه|مخالفه|تحذير|تنبيه مهم/.test(text));
+  return adminNoise;
 }
 
 function notificationTargets(filter: (token: NotificationToken) => boolean) {
