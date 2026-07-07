@@ -1450,20 +1450,27 @@ const isSafeExamBrowserSession = () => {
     const sebPass = params.get("seb_token") || params.get("seb_pass");
     const sebExamId = params.get("exam_id");
     const sebCourse = params.get("course");
-    if (sebPass) sessionStorage.setItem("mirasSebPass", sebPass);
-    if (sebExamId) sessionStorage.setItem("mirasSebExamId", sebExamId);
-    if (sebCourse) sessionStorage.setItem("mirasSebCourseCode", sebCourse);
     const hasSebMarker = params.get("seb") === "1" || params.get("miras_seb") === "1";
-    const activeSebToken = sebPass || sessionStorage.getItem("mirasSebPass") || "";
     if (actualSebRuntime) {
-      if (hasSebMarker || activeSebToken) sessionStorage.setItem("mirasSebSession", "1");
+      if (sebPass) sessionStorage.setItem("mirasSebPass", sebPass);
+      if (sebExamId) sessionStorage.setItem("mirasSebExamId", sebExamId);
+      if (sebCourse) sessionStorage.setItem("mirasSebCourseCode", sebCourse);
+      if (hasSebMarker || sebPass || sessionStorage.getItem("mirasSebPass"))
+        sessionStorage.setItem("mirasSebSession", "1");
       return true;
     }
-    // لا نعتبر المتصفح العادي داخل SEB لمجرد بقاء علامة قديمة في sessionStorage.
-    // يجب وجود token نشط حتى لا يظهر زر الاختبار كأنه مفتوح داخل SEB ثم يرفضه الخادم.
-    if ((hasSebMarker || sessionStorage.getItem("mirasSebSession") === "1") && activeSebToken) {
-      sessionStorage.setItem("mirasSebSession", "1");
-      return true;
+    // لا نعتبر المتصفح العادي داخل SEB لمجرد رابط/توكن. لكن لا نمسح توكن URL
+    // فوراً: بعض نسخ SEB تثبت نفسها للخادم بهيدر آمن لا يظهر في userAgent.
+    // نترك /api/seb/validate يحكم، ثم ننظف التوكن إن رفضه الخادم.
+    if (!hasSebMarker && !sebPass && sessionStorage.getItem("mirasSebSession") === "1") {
+      [
+        "mirasSebPass",
+        "mirasSebExamId",
+        "mirasSebCourseCode",
+        "mirasSebSession",
+        "mirasSebSessionInfo",
+        "mirasSebValidatedToken",
+      ].forEach((key) => sessionStorage.removeItem(key));
     }
   } catch {}
   return actualSebRuntime;
@@ -1490,18 +1497,38 @@ const getMirasSebPass = () => {
     return "";
   }
 };
-const hasMirasSebAttemptContext = () => {
+const hasMirasSebUrlContext = () => {
   if (typeof window === "undefined") return false;
   try {
     const params = new URLSearchParams(window.location.search);
+    return (
+      params.get("seb") === "1" ||
+      params.get("miras_seb") === "1" ||
+      !!params.get("seb_token") ||
+      !!params.get("seb_pass")
+    );
+  } catch {
+    return false;
+  }
+};
+const hasValidatedMirasSebToken = (token = getMirasSebPass()) => {
+  try {
+    const saved = sessionStorage.getItem("mirasSebValidatedToken") || "";
+    return !!token && saved === token;
+  } catch {
+    return false;
+  }
+};
+const hasMirasSebAttemptContext = () => {
+  if (typeof window === "undefined") return false;
+  try {
     const token = getMirasSebPass();
-    const hasUrlMarker = params.get("miras_seb") === "1" || params.get("seb") === "1";
-    // Do NOT rely purely on sessionStorage because normal browser tabs can retain these values
-    // if the user navigates around or if they were set incorrectly previously.
-    // Rely strictly on URL markers (used by our iOS PWA flow) or actual SEB runtime checks.
-    return !!token && (hasUrlMarker || isActualSafeExamBrowserRuntime());
+    return (
+      !!token &&
+      (isActualSafeExamBrowserRuntime() || hasValidatedMirasSebToken(token))
+    );
   } catch {}
-  return isActualSafeExamBrowserRuntime() && !!getMirasSebPass();
+  return false;
 };
 const buildMirasSebQuitPath = (token?: string) =>
   `/seb/quit?token=${encodeURIComponent(token || getMirasSebPass() || "")}`;
@@ -1515,6 +1542,7 @@ const clearMirasSebClientSession = () => {
       "mirasSebSessionInfo",
       "mirasSebLaunchInfo",
       "mirasSebLaunchPending",
+      "mirasSebValidatedToken",
     ].forEach((key) => {
       sessionStorage.removeItem(key);
       localStorage.removeItem(key);
@@ -5264,6 +5292,8 @@ export default function App() {
     fallbackMessage = "تم تفعيل الحساب بنجاح.",
   ) => {
     const activated = buildActivatedStudentFromResponse(data);
+    setPasskeyUnlockRequired(false);
+    setPasskeyPasswordFallback(false);
     try {
       localStorage.removeItem("miras_teacher_session");
     } catch {}
@@ -9294,7 +9324,9 @@ export default function App() {
     options: { auth?: MirasAuthMode; session?: any } = {},
   ) => {
     const sebPass = getMirasSebPass();
-    const sebContext = isActualSafeExamBrowserRuntime() || hasMirasSebAttemptContext();
+    const sebContext =
+      !!sebPass &&
+      (isActualSafeExamBrowserRuntime() || hasValidatedMirasSebToken(sebPass));
     const authToken = activeMirasAuthToken(
       options.auth || "auto",
       options.session,
@@ -14272,8 +14304,8 @@ ${rows
     }
     setErrorMsg("");
     setSuccessMsg("");
-    const alreadyInsideSeb = isActualSafeExamBrowserRuntime() || hasMirasSebAttemptContext();
-    const existingSebToken = getMirasSebPass();
+    const alreadyInsideSeb = isActualSafeExamBrowserRuntime();
+    const existingSebToken = alreadyInsideSeb ? getMirasSebPass() : "";
     if (alreadyInsideSeb && existingSebToken) {
       setSuccessMsg(
         "أنت داخل جلسة SEB بالفعل؛ سيتم فتح الاختبار مباشرة دون تحميل إعدادات جديدة.",
@@ -14376,7 +14408,13 @@ ${rows
   useEffect(() => {
     const token = getMirasSebPass();
     const sebEntryContext = hasMirasSebAttemptContext();
-    if (!token || !sebEntryContext) return;
+    const pendingSebUrlContext = token && hasMirasSebUrlContext();
+    if (token && !sebEntryContext && !isActualSafeExamBrowserRuntime() && !pendingSebUrlContext) {
+      clearMirasSebClientSession();
+      setSebSessionInfo(null);
+      return;
+    }
+    if (!token || (!sebEntryContext && !pendingSebUrlContext)) return;
     if (sebSessionInfo?.token === token) return;
     if (sebAutoStartInFlightRef.current) return;
     let cancelled = false;
@@ -14391,10 +14429,17 @@ ${rows
         if (cancelled) return;
         if (!resp.ok) {
           setErrorMsg(data.error || "جلسة SEB غير صالحة أو منتهية.");
+          clearMirasSebClientSession();
+          setSebSessionInfo(null);
           return;
         }
         if (data.student) {
           sebAutoStartInFlightRef.current = true;
+          try {
+            sessionStorage.setItem("mirasSebPass", token);
+            sessionStorage.setItem("mirasSebValidatedToken", token);
+            sessionStorage.setItem("mirasSebSession", "1");
+          } catch {}
           setStudentSession(data.student);
           if (Array.isArray(data.student.enrollments))
             setStudentEnrollments(data.student.enrollments);
@@ -14510,6 +14555,8 @@ ${rows
         }
       } catch {
         if (!cancelled) setErrorMsg("تعذر التحقق من جلسة SEB حالياً.");
+        clearMirasSebClientSession();
+        setSebSessionInfo(null);
         sebAutoStartInFlightRef.current = false;
       }
     };
@@ -19782,8 +19829,7 @@ ${rows
     setStudentSeenKeysState(next);
     persistStudentSeenNotificationKeys(next);
   };
-  const isStudentInSeb =
-    isActualSafeExamBrowserRuntime() || hasMirasSebAttemptContext();
+  const isStudentInSeb = isSafeExamBrowserSession();
   const activeExamIds = new Set(
     teacherCreatedExams
       .filter(isActiveRecord)
