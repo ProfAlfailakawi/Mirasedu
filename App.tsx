@@ -3512,50 +3512,6 @@ export default function App() {
         // نُبقي blob URL في ذاكرة الجلسة لتسريع إعادة فتح المستند.
       };
     }
-    // للملفات المخزّنة على الخادم، لا نجلب الـ PDF كاملاً كـ blob قبل فتح
-    // العارض؛ هذا كان يضيف انتظاراً كبيراً خصوصاً مع PowerPoint كبير. نطلب
-    // تذكرة معاينة قصيرة العمر ثم نعطي PDF.js الرابط مباشرة، فيبدأ العرض فوراً
-    // ويستفيد من streaming/range والكاش على الخادم، مع بقاء نفس النافذة ونفس الأزرار.
-    const serverAttachmentUrl = !url.startsWith("data:")
-      ? String(baseUrl || "").split("?")[0]
-      : "";
-    if (serverAttachmentUrl.startsWith("/api/submission-attachments/")) {
-      const ticketUrl = `${serverAttachmentUrl}/preview-ticket${
-        isOfficeConvertible ? "?as=pdf" : ""
-      }`;
-      fetch(ticketUrl, { headers: jsonHeaders() })
-        .then(async (resp) => {
-          if (!resp.ok) {
-            const body = await resp.json().catch(() => null as any);
-            const code = String(body?.code || "");
-            setDocumentPreviewError(
-              /SESSION_REQUIRED|DEVICE_LOCKED/.test(code)
-                ? "انتهت جلستك. أعد تسجيل الدخول ثم افتح المستند من جديد."
-                : "تعذر تحميل المستند من الخادم.",
-            );
-            return "";
-          }
-          const body = await resp.json().catch(() => null as any);
-          return String(body?.url || "");
-        })
-        .then((signedUrl) => {
-          if (cancelled || !signedUrl) return;
-          const absoluteUrl = signedUrl.startsWith("http")
-            ? signedUrl
-            : `${window.location.origin}${signedUrl}`;
-          setPdfViewerSrc(
-            `/pdfjs/web/viewer.html?file=${encodeURIComponent(absoluteUrl)}#zoom=page-width`,
-          );
-        })
-        .catch(() => {
-          if (!cancelled)
-            setDocumentPreviewError("تعذر الاتصال بالخادم لتحميل المستند.");
-        });
-      return () => {
-        cancelled = true;
-      };
-    }
-
     // مهم: عرض iframe مباشرة من الرابط الخام (src="/api/...") لا يرسل ترويسة
     // Authorization أبداً — هذا سلوك المتصفح لأي مصدر iframe/img عادي — فيعتمد
     // حصراً على كوكي الجلسة. حين يتأخر ضبط الكوكي أو ينتهي قبل توكن التطبيق،

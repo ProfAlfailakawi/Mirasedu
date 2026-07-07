@@ -1077,79 +1077,6 @@ function submissionAttachmentFileIdFromValue(value: any): string {
   return match ? match[1] : "";
 }
 
-
-// تذكرة معاينة قصيرة العمر: تسمح لـ PDF.js بطلب ملف المعاينة مباشرة من الخادم
-// كرابط عادي داخل iframe، بدل أن يجلب التطبيق كامل الـ PDF أولاً كـ blob.
-// النتيجة: يبدأ العارض خلال لحظات ويستفيد من Range/streaming والكاش، مع بقاء
-// الصلاحية محكومة بزمن قصير وبنفس فحص التصريح قبل إصدار الرابط.
-const MIRAS_ATTACHMENT_PREVIEW_TOKEN_TTL_MS = 10 * 60 * 1000;
-function signAttachmentPreviewToken(fileId: string): string {
-  const payload = base64urlEncode(
-    JSON.stringify({ fileId, exp: Date.now() + MIRAS_ATTACHMENT_PREVIEW_TOKEN_TTL_MS }),
-  );
-  return `${payload}.${signMirasPayload(payload)}`;
-}
-function verifyAttachmentPreviewToken(tokenValue: any, fileId: string): boolean {
-  const token = String(tokenValue || "").trim();
-  const id = String(fileId || "").trim();
-  if (!token || !id || !token.includes(".")) return false;
-  const [payload, sig] = token.split(".");
-  if (!payload || !sig || signMirasPayload(payload) !== sig) return false;
-  try {
-    const parsed = JSON.parse(base64urlDecode(payload));
-    return String(parsed?.fileId || "") === id && Number(parsed?.exp || 0) > Date.now();
-  } catch {
-    return false;
-  }
-}
-
-function teacherOrStudentCanOpenSubmissionAttachment(req: any, submission: any): boolean {
-  const teacherEmail = teacherEmailFromRequest(req);
-  const session = verifyMirasSessionToken(req);
-  if (teacherEmail) {
-    const courseCode = String(submission.courseCode || submission.sectionCode || "");
-    const submissionOwner = String(
-      submission.teacherEmail ||
-        submission.createdBy ||
-        sectionOwnerEmail(courseCode) ||
-        "",
-    ).toLowerCase();
-    return (
-      isAdminEmail(teacherEmail) ||
-      !submissionOwner ||
-      submissionOwner === teacherEmail
-    );
-  }
-  return (
-    session?.role === "student" &&
-    normalizeStudentId(session.userId) === normalizeStudentId(submission.studentId)
-  );
-}
-
-function sendPdfBufferFast(req: any, res: any, pdfBuffer: Buffer): void {
-  res.setHeader("Content-Type", "application/pdf");
-  res.setHeader("Cache-Control", "private, max-age=86400");
-  res.setHeader("X-Content-Type-Options", "nosniff");
-  res.setHeader("Accept-Ranges", "bytes");
-  const total = pdfBuffer.length;
-  const range = String(req.headers.range || "");
-  const match = range.match(/bytes=(\d*)-(\d*)/);
-  if (match && total > 0) {
-    const start = match[1] ? Number(match[1]) : 0;
-    const end = match[2] ? Number(match[2]) : total - 1;
-    if (Number.isFinite(start) && Number.isFinite(end) && start <= end && start < total) {
-      const safeEnd = Math.min(end, total - 1);
-      res.status(206);
-      res.setHeader("Content-Range", `bytes ${start}-${safeEnd}/${total}`);
-      res.setHeader("Content-Length", String(safeEnd - start + 1));
-      res.send(pdfBuffer.subarray(start, safeEnd + 1));
-      return;
-    }
-  }
-  res.setHeader("Content-Length", String(total));
-  res.send(pdfBuffer);
-}
-
 function normalizePersistentSubmissionAttachments(attachments: any): any[] {
   if (!Array.isArray(attachments)) return [];
   return attachments
@@ -7647,7 +7574,10 @@ app.post("/api/convert-data-to-pdf", async (req: any, res: any) => {
         tempPath,
         `data:${conversionKey}`,
       );
-      sendPdfBufferFast(req, res, pdfBuffer);
+      res.setHeader("Content-Type", "application/pdf");
+      res.setHeader("Cache-Control", "private, max-age=86400");
+      res.setHeader("X-Content-Type-Options", "nosniff");
+      res.send(pdfBuffer);
     } finally {
       try {
         fs.rmSync(workDir, { recursive: true, force: true });
@@ -7835,15 +7765,12 @@ app.use((req, res, next) => {
       (req as any).mirasPublicStudentStatePreview = true;
       return next();
     }
-    if (!sessionStudentId && requestedStudentId) {
+    if (!sessionStudentId && requestedStudentId && pathname.startsWith("/api/quizzes")) {
       const sebStudent = dbInstance
         .getStudents()
         .find((s: any) => normalizeStudentId(s.id) === requestedStudentId);
       const sebPass = sebStudent ? getValidSebPass(req, sebStudent) : null;
       if (sebPass && normalizeStudentId(sebPass.studentId) === requestedStudentId) {
-        // جلسة SEB الرسمية لا تحمل جلسة الطالب العادية داخل المتصفح المقفل؛
-        // توكن SEB النشط يكفي فقط لمسارات الطالب المملوكة لنفس الطالب، حتى لا
-        // تظهر STUDENT_SESSION_REQUIRED بعد ظهور الأسئلة أو أثناء الحفظ/التسليم.
         return next();
       }
     }
@@ -14695,10 +14622,15 @@ app.post("/api/submissions/upload", (req: any, res: any) => {
       });
     }
 
-    // تحويل مسبق (غير متزامن) لملفات Office إلى PDF وتخزينه دائماً، حتى يكون
-    // أول فتح للمعلم فورياً بلا انتظار تحويل. لا يؤخّر رد الرفع للطالب، والدالة
-    // تتجاهل تلقائياً أي نوع ليس PowerPoint/Word.
-    queueOfficeAttachmentPreconversion(fileId, filePath, originalName);
+    // تجهيز معاينة Office أثناء طلب الرفع نفسه، لا بعد الرد. في بيئات Cloud Run
+    // قد تتوقف المهام الخلفية فور انتهاء الطلب، فيبقى أول فتح للمعلم ينتظر
+    // تحويل PowerPoint كاملاً. هنا ننهي التحويل ونخزن PDF قبل إرجاع نجاح الرفع،
+    // فتفتح المعاينة لاحقاً من الكاش خلال لحظات، مع بقاء الأزرار والتصميم كما هي.
+    if (MIRAS_OFFICE_CONVERTIBLE_EXTS.has(ext)) {
+      await preconvertOfficeAttachmentToPdf(fileId, filePath, originalName);
+    } else {
+      queueOfficeAttachmentPreconversion(fileId, filePath, originalName);
+    }
 
     const attachment = {
       id: fileId,
@@ -15005,7 +14937,10 @@ async function respondWithPdfConversionIfRequested(
     try {
       const cached = await dbInstance.getConvertedPdfArchive(id);
       if (cached?.length) {
-        sendPdfBufferFast(req, res, cached);
+        res.setHeader("Content-Type", "application/pdf");
+        res.setHeader("Cache-Control", "private, max-age=86400");
+        res.setHeader("X-Content-Type-Options", "nosniff");
+        res.send(cached);
         return true;
       }
     } catch {}
@@ -15015,7 +14950,10 @@ async function respondWithPdfConversionIfRequested(
       filePath,
       id ? `pdf:${id}` : "",
     );
-    sendPdfBufferFast(req, res, pdfBuffer);
+    res.setHeader("Content-Type", "application/pdf");
+    res.setHeader("Cache-Control", "private, max-age=86400");
+    res.setHeader("X-Content-Type-Options", "nosniff");
+    res.send(pdfBuffer);
     // خزّن الناتج دائماً (غير متزامن) حتى تكون العروض التالية فورية.
     if (id && pdfBuffer?.length) {
       dbInstance.saveConvertedPdfArchive(id, pdfBuffer).catch(() => {});
@@ -15046,7 +14984,10 @@ async function respondWithPdfConversionBufferIfRequested(
     try {
       const cached = await dbInstance.getConvertedPdfArchive(id);
       if (cached?.length) {
-        sendPdfBufferFast(req, res, cached);
+        res.setHeader("Content-Type", "application/pdf");
+        res.setHeader("Cache-Control", "private, max-age=86400");
+        res.setHeader("X-Content-Type-Options", "nosniff");
+        res.send(cached);
         return true;
       }
     } catch {}
@@ -15060,7 +15001,10 @@ async function respondWithPdfConversionBufferIfRequested(
       tempPath,
       id ? `pdf:${id}` : "",
     );
-    sendPdfBufferFast(req, res, pdfBuffer);
+    res.setHeader("Content-Type", "application/pdf");
+    res.setHeader("Cache-Control", "private, max-age=86400");
+    res.setHeader("X-Content-Type-Options", "nosniff");
+    res.send(pdfBuffer);
     // خزّن الناتج دائماً (غير متزامن) حتى تكون العروض التالية فورية.
     if (id && pdfBuffer?.length) {
       dbInstance.saveConvertedPdfArchive(id, pdfBuffer).catch(() => {});
@@ -15121,21 +15065,6 @@ async function respondWithStoredSubmissionAttachmentDataUrl(
   return sendStoredSubmissionAttachmentDataUrl(res, fallback);
 }
 
-app.get("/api/submission-attachments/:fileId/preview-ticket", async (req: any, res: any) => {
-  const requestedId = submissionAttachmentFileIdFromValue(req.params.fileId) || String(req.params.fileId || "").trim();
-  if (!requestedId) return res.status(404).json({ error: "الملف المطلوب غير موجود" });
-  const submission = findSubmissionByAttachmentId(requestedId);
-  if (!submission) return res.status(404).json({ error: "الملف المطلوب غير موجود" });
-  if (!teacherOrStudentCanOpenSubmissionAttachment(req, submission)) {
-    return res.status(403).json({ error: "غير مصرح لك بفتح هذا المرفق." });
-  }
-  const params = new URLSearchParams();
-  if (String(req.query.as || "").toLowerCase() === "pdf") params.set("as", "pdf");
-  params.set("pt", signAttachmentPreviewToken(requestedId));
-  res.setHeader("Cache-Control", "no-store");
-  return res.json({ url: `/api/submission-attachments/${encodeURIComponent(requestedId)}?${params.toString()}` });
-});
-
 app.get("/api/submission-attachments/:fileId", async (req: any, res: any) => {
   const requestedId = submissionAttachmentFileIdFromValue(req.params.fileId) || String(req.params.fileId || "").trim();
   const uploadsDir = submissionUploadsDir();
@@ -15148,8 +15077,30 @@ app.get("/api/submission-attachments/:fileId", async (req: any, res: any) => {
   if (!submission) {
     return res.status(404).json({ error: "الملف المطلوب غير موجود" });
   }
-  const previewTokenOk = verifyAttachmentPreviewToken(req.query.pt, requestedId);
-  if (!previewTokenOk && !teacherOrStudentCanOpenSubmissionAttachment(req, submission)) {
+  const teacherEmail = teacherEmailFromRequest(req);
+  const session = verifyMirasSessionToken(req);
+  if (teacherEmail) {
+    const courseCode = String(
+      submission.courseCode || submission.sectionCode || "",
+    );
+    const submissionOwner = String(
+      submission.teacherEmail ||
+        submission.createdBy ||
+        sectionOwnerEmail(courseCode) ||
+        "",
+    ).toLowerCase();
+    if (
+      !isAdminEmail(teacherEmail) &&
+      submissionOwner &&
+      submissionOwner !== teacherEmail
+    ) {
+      return res.status(403).json({ error: "غير مصرح لك بفتح هذا المرفق." });
+    }
+  } else if (
+    session?.role !== "student" ||
+    normalizeStudentId(session.userId) !==
+      normalizeStudentId(submission.studentId)
+  ) {
     return res.status(403).json({ error: "غير مصرح لك بفتح هذا المرفق." });
   }
 
