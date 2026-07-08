@@ -3063,6 +3063,7 @@ export default function App() {
   const [dataHealBusy, setDataHealBusy] = useState(false);
   const [isLivePulseExpanded, setIsLivePulseExpanded] = useState(false);
   const [pulseExamFilter, setPulseExamFilter] = useState<string>("all");
+  const [pulseStudentSearch, setPulseStudentSearch] = useState("");
   const [pwaInstallPrompt, setPwaInstallPrompt] = useState<any>(null);
 
   // ===========================================================================
@@ -3562,6 +3563,24 @@ export default function App() {
       manualActivation: false,
     },
   );
+  // إغلاق تلقائي (Accordion): عند مغادرة تبويب المعلم تُطوى أكورديوناته المفتوحة
+  // فتبقى الواجهة نظيفة عند العودة. نطوي فقط عند "المغادرة" لا عند الدخول، حتى لا
+  // نُبطل فتح قسم محدّد قادمًا من ⌘K/اختصار (مثل تفعيل يدوي).
+  const prevTeacherTabForAccordionRef = useRef(teacherTab);
+  useEffect(() => {
+    if (prevTeacherTabForAccordionRef.current === teacherTab) return;
+    if (prevTeacherTabForAccordionRef.current === "codes") {
+      setCodesAccordion({
+        cards: false,
+        status: false,
+        activation: false,
+        integrity: false,
+        codeOperations: false,
+        manualActivation: false,
+      });
+    }
+    prevTeacherTabForAccordionRef.current = teacherTab;
+  }, [teacherTab]);
   // بحث سريع داخل "تفعيل فوري لملفات الطلبة يدوياً" بالرقم الجامعي أو الاسم —
   // ضروري عند وجود آلاف الطلبة حتى لا تُعرض القائمة كاملة.
   const [manualActivationSearch, setManualActivationSearch] = useState("");
@@ -12766,21 +12785,12 @@ ${rows
         return;
       }
     } catch (e) {}
-    setTeacherQuestions((prev) => {
-      const next = [localQuestion, ...prev];
-      try {
-        const email = activeTeacherEmail();
-        const questionsKey = `academicLabQuestionBank:${email || "anonymous"}`;
-        localStorage.setItem(questionsKey, JSON.stringify(next));
-      } catch {}
-      return next;
-    });
-    setNewQuestionText("");
-    setNewQuestionAnswer("");
-    setNewQuestionPoints("5");
-    setMcOptionDrafts(["", "", "", ""]);
-    setMcCorrectIndex(0);
-    setSuccessMsg("تمت إضافة السؤال إلى البنك محلياً بنجاح.");
+    // فشل الحفظ في الخادم: لا ندّعي النجاح إطلاقاً. السؤال المحفوظ "محلياً" فقط
+    // لا يظهر في اختبارات الطلبة (تُولَّد من الخادم)، فكانت رسالة "بنجاح" تُوهم
+    // المعلم أنه حُفظ ثم يختفي عند التحديث. نُبقي مدخلاته كما هي ونطلب الإعادة.
+    setErrorMsg(
+      'تعذّر حفظ السؤال في الخادم — تحقّق من اتصالك ثم اضغط "إضافة" مرة أخرى. (لم يُحفَظ بعد)',
+    );
   };
 
   const deleteQuestionFromBank = async (id: string) => {
@@ -30931,6 +30941,14 @@ ${rows
             >
               <div className="miras-teacher-nav-track teacher-orbit-dock-track rounded-[1.6rem] border border-white/80 bg-white/70 p-2 shadow-inner backdrop-blur-xl">
                 <button
+                  title="بحث سريع (⌘K)"
+                  aria-label="بحث سريع"
+                  onClick={() => setCmdkOpen(true)}
+                  className="miras-dock-search-btn inline-flex h-12 w-12 items-center justify-center rounded-[1.2rem] border border-indigo-200 bg-indigo-50 text-indigo-600 shadow-sm transition-all hover:-translate-y-0.5 hover:bg-indigo-100"
+                >
+                  <Search className="h-5 w-5" />
+                </button>
+                <button
                   title="المقررات"
                   aria-label="المقررات"
                   onClick={() => openTeacherDockTab("sections")}
@@ -31343,6 +31361,14 @@ ${rows
                   >
                     <div className="miras-teacher-nav-track teacher-orbit-dock-track rounded-[1.6rem] border border-white/80 bg-white/70 p-2 shadow-inner backdrop-blur-xl">
                       <button
+                        title="بحث سريع (⌘K)"
+                        aria-label="بحث سريع"
+                        onClick={() => setCmdkOpen(true)}
+                        className="miras-dock-search-btn inline-flex h-12 w-12 items-center justify-center rounded-[1.2rem] border border-indigo-200 bg-indigo-50 text-indigo-600 shadow-sm transition-all hover:-translate-y-0.5 hover:bg-indigo-100"
+                      >
+                        <Search className="h-5 w-5" />
+                      </button>
+                      <button
                         title="المقررات"
                         aria-label="المقررات"
                         onClick={() => openTeacherDockTab("sections")}
@@ -31656,6 +31682,29 @@ ${rows
                             </div>
                           ) : (
                             <>
+                              {/* بحث أنيق داخل النبض: تصفية الطلبة بالاسم أو
+                                  الرقم فورياً — ضروري عند كثرة الطلبة. */}
+                              <div className="mb-2 flex items-center gap-2 rounded-xl border border-slate-200 bg-white/80 px-3 py-1.5 transition focus-within:border-indigo-300 focus-within:bg-white">
+                                <Search className="h-3.5 w-3.5 shrink-0 text-slate-400" />
+                                <input
+                                  value={pulseStudentSearch}
+                                  onChange={(e) => setPulseStudentSearch(e.target.value)}
+                                  placeholder="ابحث عن طالب في النبض…"
+                                  dir="rtl"
+                                  spellCheck={false}
+                                  className="w-full border-0 bg-transparent p-0 text-[11px] font-bold text-slate-700 outline-none placeholder:text-slate-400"
+                                />
+                                {pulseStudentSearch && (
+                                  <button
+                                    type="button"
+                                    onClick={() => setPulseStudentSearch("")}
+                                    className="shrink-0 text-slate-400 transition hover:text-rose-500"
+                                    aria-label="مسح البحث"
+                                  >
+                                    <X className="h-3.5 w-3.5" />
+                                  </button>
+                                )}
+                              </div>
                               {/* مفتاح الحالات: ثابت فوق الشبكة ومحاذى لليمين
                                   حتى يبقى مرجعاً ظاهراً مهما كثر عدد الطلبة. */}
                               <div className="mb-2 flex flex-wrap justify-start gap-1.5 rounded-xl border border-slate-100 bg-slate-50/70 px-2 py-1.5 text-[9px] font-black text-slate-600">
@@ -31680,8 +31729,18 @@ ${rows
                                   منفصل
                                 </span>
                               </div>
-                              <div className="grid grid-cols-1 gap-1.5 sm:grid-cols-2">
-                                {livePulseStudentRows.map((row: any) => {
+                              <div className="grid grid-cols-2 gap-1.5">
+                                {livePulseStudentRows
+                                  .filter(
+                                    (row: any) =>
+                                      !pulseStudentSearch.trim() ||
+                                      cmdkNormalize(
+                                        String(row?.st?.name || "") +
+                                          " " +
+                                          String(row?.studentIdStr || ""),
+                                      ).includes(cmdkNormalize(pulseStudentSearch)),
+                                  )
+                                  .map((row: any) => {
                                   const {
                                     st,
                                     studentIdStr,
