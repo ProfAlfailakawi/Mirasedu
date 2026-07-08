@@ -3458,6 +3458,8 @@ export default function App() {
   };
   const renderMirasCmdk = () => {
     if (!cmdkOpen) return null;
+    // لا نفتح اللوحة على شاشة الدخول (لا معلم ولا طالب) — لا معنى لبحث فارغ.
+    if (!teacherSession && !studentSession) return null;
     const groups = buildCmdkGroups();
     const flat: any[] = [];
     groups.forEach((g: any) => g.items.forEach((it: any) => flat.push(it)));
@@ -12173,21 +12175,32 @@ ${rows
     }
   };
 
-  const syncChaptersToBackend = async (newChapters: any[]) => {
+  const syncChaptersToBackend = async (newChapters: any[]): Promise<boolean> => {
+    let ok = false;
     try {
-      await fetch("/api/teacher/textbook/update", {
+      const resp = await fetch("/api/teacher/textbook/update", {
         method: "POST",
         headers: { "Content-Type": "application/json", ...teacherHeaders() },
         body: JSON.stringify({ chapters: newChapters }),
       });
-      try {
-        const email = activeTeacherEmail();
-        const chaptersKey = `academicLabAvailableChapters:${email || "anonymous"}`;
-        localStorage.setItem(chaptersKey, JSON.stringify(newChapters));
-      } catch {}
+      ok = !!resp?.ok;
     } catch (err) {
       console.error("Failed to sync chapters to backend:", err);
+      ok = false;
     }
+    try {
+      const email = activeTeacherEmail();
+      const chaptersKey = `academicLabAvailableChapters:${email || "anonymous"}`;
+      localStorage.setItem(chaptersKey, JSON.stringify(newChapters));
+    } catch {}
+    // لا نُظهر "تم" كاذبًا: إن رفض الخادم الحفظ نُخبر المعلم بوضوح ليعيد المحاولة
+    // (التغيير المحفوظ محليًا فقط لا يظهر لطلابه ولا على أجهزته الأخرى).
+    if (!ok) {
+      setErrorMsg(
+        "تعذّر حفظ التغيير في الخادم — تحقّق من اتصالك ثم حاول مرة أخرى.",
+      );
+    }
+    return ok;
   };
 
   /**
@@ -34698,10 +34711,14 @@ ${rows
                                           },
                                         ];
                                         setAvailableChapters(nextChapters);
-                                        syncChaptersToBackend(nextChapters);
                                         setCategoryDraft("");
                                         setSelectedChapIdForAI(id);
-                                        setSuccessMsg("تمت إضافة التصنيف.");
+                                        syncChaptersToBackend(nextChapters).then(
+                                          (ok) => {
+                                            if (ok)
+                                              setSuccessMsg("تمت إضافة التصنيف.");
+                                          },
+                                        );
                                       }}
                                       className="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-indigo-600 text-white"
                                     >
