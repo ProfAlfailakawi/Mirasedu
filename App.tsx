@@ -6181,7 +6181,20 @@ export default function App() {
       }
     };
     poll(true);
-    notificationPollRef.current = setInterval(() => poll(false), 5000);
+    const startPolling = () => {
+      if (stopped || notificationPollRef.current) return;
+      notificationPollRef.current = setInterval(() => poll(false), 5000);
+    };
+    const stopPolling = () => {
+      if (notificationPollRef.current) {
+        clearInterval(notificationPollRef.current);
+        notificationPollRef.current = null;
+      }
+    };
+    // استطلاع فقط حين تكون الصفحة ظاهرة؛ في الخلفية نوقفه لتقليل حمل الخادم
+    // بشكل كبير (مهم مع ١٠٠٠ طالب) ونستأنف بنبضة فورية عند العودة. الإشعارات
+    // الحرجة تصل عبر FCM في الخلفية على أي حال.
+    if (document.visibilityState !== "hidden") startPolling();
     const onBridgeUpdated = () => poll(true);
     const onStorage = (event: StorageEvent) => {
       if (
@@ -6197,7 +6210,12 @@ export default function App() {
     };
     const onFocus = () => poll(true);
     const onVisibilityChange = () => {
-      if (document.visibilityState === "visible") poll(true);
+      if (document.visibilityState === "visible") {
+        startPolling();
+        poll(true);
+      } else {
+        stopPolling();
+      }
     };
     window.addEventListener("academicLabBridgeUpdated", onBridgeUpdated);
     window.addEventListener("storage", onStorage);
@@ -6266,10 +6284,22 @@ export default function App() {
       } catch {}
     };
     checkStatus();
-    const id = window.setInterval(checkStatus, 5000);
+    let id: any = window.setInterval(checkStatus, 5000);
+    // إيقاف فحص حالة الجلسة في الخلفية واستئنافه فور العودة (تقليل حمل ١٠٠٠ طالب).
+    const onVis = () => {
+      if (document.visibilityState === "visible") {
+        if (!id) id = window.setInterval(checkStatus, 5000);
+        checkStatus();
+      } else if (id) {
+        window.clearInterval(id);
+        id = null;
+      }
+    };
+    document.addEventListener("visibilitychange", onVis);
     return () => {
       stopped = true;
-      window.clearInterval(id);
+      if (id) window.clearInterval(id);
+      document.removeEventListener("visibilitychange", onVis);
     };
   }, [currentView, studentSession?.id]);
 
@@ -6288,7 +6318,7 @@ export default function App() {
       }
     };
     tick();
-    const id = window.setInterval(tick, 5000);
+    let id: any = window.setInterval(tick, 5000);
     const flushPendingStudentNotifications = () => {
       try {
         navigator.serviceWorker?.controller?.postMessage({
@@ -6307,8 +6337,14 @@ export default function App() {
     // فتح الصفحة يدوياً. visibilitychange يعمل بثبات في PWA وفي المتصفح معاً.
     const onVisible = () => {
       if (document.visibilityState === "visible") {
+        // استئناف تحديث الحالة الحية فور العودة + نبضة فورية.
+        if (!id) id = window.setInterval(tick, 5000);
         flushPendingStudentNotifications();
         tick();
+      } else if (id) {
+        // إيقاف في الخلفية لتقليل الحمل (١٠٠٠ طالب). التحديثات الحرجة عبر FCM.
+        window.clearInterval(id);
+        id = null;
       }
     };
     const onResume = () => {
