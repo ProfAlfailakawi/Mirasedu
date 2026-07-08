@@ -19901,7 +19901,10 @@ ${rows
     });
     if (hasUpcomingDeadline) {
       deadlineReminderShownRef.current = true;
-      setStudentNotificationsOpen(true);
+      // تأخير بسيط حتى تستقر عمليات التحميل (أي closeStudentPanels عند البداية)
+      // فلا يُغلق التذكير فور فتحه.
+      const t = window.setTimeout(() => setStudentNotificationsOpen(true), 450);
+      return () => window.clearTimeout(t);
     }
   }, [currentView, studentTab, studentSession?.id, displayedStudentActivities]);
   const studentVisibleExamCards = studentCourseExams.filter((exam: any) => {
