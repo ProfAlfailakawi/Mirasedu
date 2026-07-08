@@ -3707,6 +3707,15 @@ export default function App() {
   // ببعض المتصفحات؛ لذا نحوّلها إلى blob: (رابط قصير يشير لنفس البيانات) أولاً.
   const [pdfViewerSrc, setPdfViewerSrc] = useState("");
   const previewIframeRef = useRef<HTMLIFrameElement | null>(null);
+  useEffect(() => {
+    if (!previewAttachment) return;
+    // قفل تمرير الخلفية أثناء فتح معاينة الحل (تجربة جوال نظيفة، لا انزلاق خلفها).
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = prev;
+    };
+  }, [previewAttachment]);
   // حارس الضغط المزدوج المشترك: يمنع تكرار الإنشاء عند نقرتين سريعتين (الجوال).
   const mutationBusyRef = useRef<Record<string, number>>({});
   const guardDoubleTap = (key: string, ms = 1500) => {
