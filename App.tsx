@@ -29010,6 +29010,10 @@ ${rows
                               } catch {}
                               setStudentNotificationsOpen(willOpen);
                               if (willOpen) {
+                                // تحديث فوري للتنبيهات لحظة فتح الجرس بدل انتظار
+                                // دورة الاستطلاع (٥ث) — يعالج إحساس البطء.
+                                fetchInAppNotifications();
+                                refreshStudentLiveState().catch(() => undefined);
                                 // لا نطلق طلب إذن المتصفح تلقائيًا؛ البوابة الأنيقة
                                 // داخل القائمة تتولى ذلك بضغطة المستخدم. هنا فقط
                                 // نحدّث الحالة ونحدّث رمز FCM إن كان الإذن ممنوحًا.
