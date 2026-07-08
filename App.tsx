@@ -6198,7 +6198,9 @@ export default function App() {
     poll(true);
     const startPolling = () => {
       if (stopped || notificationPollRef.current) return;
-      notificationPollRef.current = setInterval(() => poll(false), 5000);
+      // استطلاع المقدّمة كل ٣ث (بدل ٥ث) لظهور أسرع للتنبيهات أثناء الاستخدام؛
+      // الحمل محدود لأن الاستطلاع يتوقف في الخلفية. الحل الجذري للخلفية = FCM (vapidKey).
+      notificationPollRef.current = setInterval(() => poll(false), 3000);
     };
     const stopPolling = () => {
       if (notificationPollRef.current) {
