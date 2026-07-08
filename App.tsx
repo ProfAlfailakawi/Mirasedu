@@ -6350,7 +6350,7 @@ export default function App() {
       }
     };
     tick();
-    let id: any = window.setInterval(tick, 5000);
+    let id: any = window.setInterval(tick, 3000);
     const flushPendingStudentNotifications = () => {
       try {
         navigator.serviceWorker?.controller?.postMessage({
@@ -6370,7 +6370,7 @@ export default function App() {
     const onVisible = () => {
       if (document.visibilityState === "visible") {
         // استئناف تحديث الحالة الحية فور العودة + نبضة فورية.
-        if (!id) id = window.setInterval(tick, 5000);
+        if (!id) id = window.setInterval(tick, 3000);
         flushPendingStudentNotifications();
         tick();
       } else if (id) {
