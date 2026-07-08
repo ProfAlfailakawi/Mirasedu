@@ -17358,3 +17358,159 @@ button[data-miras-action-busy="true"] svg {
   max-width: 100% !important;
   overflow: hidden !important;
 }
+
+/* ============================================================
+   مِراس ⌘K — لوحة الأوامر والبحث الذكي (بحث فوري أنيق بلا تلوّث بصري)
+   تُستدعى بـ Ctrl/⌘+K، مخفية تمامًا حتى تُطلب. تتبع نفس هوية مِراس
+   (Tajawal، زوايا كبيرة، زجاجي، إنديجو، ظل ناعم) وتدعم الوضعين.
+   ============================================================ */
+.miras-cmdk-overlay{
+  position:fixed; inset:0; z-index:2147483000;
+  display:flex; align-items:flex-start; justify-content:center;
+  padding:14vh 18px 18px; box-sizing:border-box;
+  background:rgba(15,23,42,.34);
+  backdrop-filter:blur(9px) saturate(1.15); -webkit-backdrop-filter:blur(9px) saturate(1.15);
+  animation:mirasCmdkFade .16s ease;
+}
+@keyframes mirasCmdkFade{from{opacity:0}to{opacity:1}}
+@keyframes mirasCmdkPop{from{opacity:0; transform:translateY(-10px) scale(.985)}to{opacity:1; transform:none}}
+.miras-cmdk{
+  width:min(640px,100%); max-height:min(66vh,560px);
+  display:flex; flex-direction:column; overflow:hidden;
+  background:rgba(255,255,255,.92);
+  border:1px solid rgba(203,213,225,.7);
+  border-radius:26px;
+  box-shadow:0 34px 90px rgba(15,23,42,.26), 0 2px 0 rgba(255,255,255,.6) inset;
+  animation:mirasCmdkPop .19s cubic-bezier(.22,1,.36,1);
+  font-family:var(--font-sans);
+}
+.miras-cmdk-search{
+  display:flex; align-items:center; gap:12px;
+  padding:16px 20px; border-bottom:1px solid rgba(226,232,240,.9);
+}
+.miras-cmdk-search svg{width:20px;height:20px;color:#4f46e5;flex:none;opacity:.9}
+.miras-cmdk-search input{
+  flex:1; border:0; outline:0; background:transparent;
+  font-family:var(--font-sans); font-size:17px; font-weight:700; color:#0b1220;
+  letter-spacing:-.01em;
+}
+.miras-cmdk-search input::placeholder{color:#94a3b8;font-weight:600}
+.miras-cmdk-esc{
+  font-size:11px;font-weight:800;color:#64748b;
+  background:rgba(148,163,184,.14); border-radius:8px; padding:4px 8px; flex:none;
+}
+.miras-cmdk-list{
+  overflow-y:auto; padding:8px; scroll-behavior:smooth; overscroll-behavior:contain;
+}
+.miras-cmdk-list::-webkit-scrollbar{width:9px}
+.miras-cmdk-list::-webkit-scrollbar-thumb{background:rgba(148,163,184,.4);border-radius:9px;border:3px solid transparent;background-clip:padding-box}
+.miras-cmdk-group{
+  font-size:10.5px; font-weight:900; letter-spacing:.08em; text-transform:uppercase;
+  color:#94a3b8; padding:12px 12px 6px; user-select:none;
+}
+.miras-cmdk-item{
+  display:flex; align-items:center; gap:13px;
+  padding:11px 12px; border-radius:15px; cursor:pointer;
+  color:#0b1220; scroll-margin:12px; transition:background .12s ease;
+}
+.miras-cmdk-item:hover{background:rgba(79,70,229,.06)}
+.miras-cmdk-item.is-active{
+  background:linear-gradient(90deg,rgba(79,70,229,.12),rgba(14,165,233,.09));
+  box-shadow:inset 0 0 0 1px rgba(79,70,229,.22);
+}
+.miras-cmdk-ico{
+  width:38px;height:38px;flex:none;border-radius:12px;
+  display:grid;place-items:center;
+  background:rgba(79,70,229,.1); color:#4f46e5;
+}
+.miras-cmdk-ico svg{width:18px;height:18px}
+.miras-cmdk-ico.tone-blue{background:rgba(14,165,233,.12);color:#0284c7}
+.miras-cmdk-ico.tone-green{background:rgba(16,185,129,.13);color:#059669}
+.miras-cmdk-ico.tone-gold{background:rgba(245,158,11,.15);color:#d97706}
+.miras-cmdk-ico.tone-slate{background:rgba(100,116,139,.14);color:#475569}
+.miras-cmdk-body{flex:1;min-width:0}
+.miras-cmdk-title{font-size:14.5px;font-weight:800;line-height:1.25;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.miras-cmdk-sub{font-size:11.5px;font-weight:600;color:#94a3b8;margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.miras-cmdk-hint{font-size:10.5px;font-weight:800;color:#cbd5e1;flex:none;letter-spacing:.03em}
+.miras-cmdk-empty{padding:40px 20px;text-align:center;color:#94a3b8;font-weight:700;font-size:13.5px}
+.miras-cmdk-foot{
+  display:flex;align-items:center;gap:16px;flex-wrap:wrap;
+  padding:10px 18px; border-top:1px solid rgba(226,232,240,.9);
+  font-size:11px;font-weight:700;color:#94a3b8;
+}
+.miras-cmdk-foot b{color:#64748b}
+.miras-cmdk-foot kbd{
+  font-family:var(--font-sans);font-size:10.5px;font-weight:800;color:#475569;
+  background:rgba(148,163,184,.16);border-radius:6px;padding:2px 6px;margin:0 2px;
+}
+/* الوضع الداكن */
+@media (prefers-color-scheme:dark){
+  .miras-cmdk{background:rgba(17,24,39,.9);border-color:rgba(51,65,85,.8);box-shadow:0 34px 90px rgba(0,0,0,.55),0 1px 0 rgba(255,255,255,.05) inset}
+  .miras-cmdk-search{border-bottom-color:rgba(51,65,85,.7)}
+  .miras-cmdk-search input{color:#f1f5f9}
+  .miras-cmdk-item{color:#e2e8f0}
+  .miras-cmdk-item:hover{background:rgba(129,140,248,.1)}
+  .miras-cmdk-item.is-active{background:linear-gradient(90deg,rgba(129,140,248,.18),rgba(56,189,248,.12));box-shadow:inset 0 0 0 1px rgba(129,140,248,.3)}
+  .miras-cmdk-foot,.miras-cmdk-group{border-color:rgba(51,65,85,.7)}
+}
+:root[data-theme="dark"] .miras-cmdk{background:rgba(17,24,39,.9);border-color:rgba(51,65,85,.8)}
+:root[data-theme="dark"] .miras-cmdk-search input{color:#f1f5f9}
+:root[data-theme="dark"] .miras-cmdk-item{color:#e2e8f0}
+:root[data-theme="light"] .miras-cmdk{background:rgba(255,255,255,.92)}
+
+/* ============================================================
+   مِراس — رسالة "مواعيد تقترب" أعلى لوحة الطالب (استرجاع أنيق).
+   ذهبي هادئ (إحساس القرب دون إزعاج)، زوايا كبيرة، Tajawal، بلا تلوّث.
+   ============================================================ */
+.miras-deadline-banner{
+  position:relative; overflow:hidden;
+  border-radius:20px;
+  border:1px solid rgba(245,158,11,.28);
+  background:linear-gradient(120deg,rgba(255,251,235,.96),rgba(255,247,237,.9));
+  box-shadow:0 12px 30px rgba(217,119,6,.08);
+  padding:13px 15px; margin-bottom:8px;
+  animation:mirasCmdkFade .3s ease;
+}
+.miras-deadline-banner-head{display:flex;align-items:center;gap:9px;margin-bottom:10px}
+.miras-deadline-banner-dot{
+  width:9px;height:9px;border-radius:50%;background:#f59e0b;flex:none;
+  box-shadow:0 0 0 4px rgba(245,158,11,.16);
+  animation:mirasDeadlinePulse 2.4s ease-in-out infinite;
+}
+@keyframes mirasDeadlinePulse{0%,100%{box-shadow:0 0 0 4px rgba(245,158,11,.16)}50%{box-shadow:0 0 0 7px rgba(245,158,11,.05)}}
+.miras-deadline-banner-title{font-family:var(--font-sans);font-size:13.5px;font-weight:900;color:#92400e;letter-spacing:-.01em}
+.miras-deadline-banner-count{
+  font-family:var(--font-sans);font-size:11px;font-weight:900;color:#b45309;
+  background:rgba(245,158,11,.16);border-radius:9px;padding:1px 8px;
+}
+.miras-deadline-banner-list{display:flex;flex-wrap:wrap;gap:8px}
+.miras-deadline-chip{
+  display:inline-flex;align-items:center;gap:9px;
+  border:1px solid rgba(245,158,11,.22);
+  background:rgba(255,255,255,.78);
+  border-radius:14px;padding:8px 12px;cursor:pointer;
+  font-family:var(--font-sans);transition:transform .16s ease,box-shadow .16s ease,background .16s ease;
+  max-width:100%;
+}
+.miras-deadline-chip:hover{transform:translateY(-1px);background:#fff;box-shadow:0 8px 20px rgba(217,119,6,.12)}
+.miras-deadline-chip:active{transform:translateY(0)}
+.miras-deadline-chip-kind{
+  font-size:10.5px;font-weight:900;border-radius:8px;padding:2px 8px;flex:none;
+  background:rgba(79,70,229,.1);color:#4338ca;
+}
+.miras-deadline-chip-kind.is-project{background:rgba(14,165,233,.12);color:#0369a1}
+.miras-deadline-chip-title{
+  font-size:12.5px;font-weight:800;color:#1f2937;
+  max-width:180px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+}
+.miras-deadline-chip-time{font-size:11px;font-weight:900;color:#b45309;flex:none}
+@media (prefers-color-scheme:dark){
+  .miras-deadline-banner{background:linear-gradient(120deg,rgba(69,26,3,.5),rgba(41,37,36,.55));border-color:rgba(245,158,11,.3)}
+  .miras-deadline-banner-title{color:#fcd34d}
+  .miras-deadline-chip{background:rgba(30,41,59,.6);border-color:rgba(245,158,11,.24)}
+  .miras-deadline-chip:hover{background:rgba(30,41,59,.85)}
+  .miras-deadline-chip-title{color:#e2e8f0}
+  .miras-deadline-chip-time{color:#fbbf24}
+}
+:root[data-theme="dark"] .miras-deadline-banner-title{color:#fcd34d}
+:root[data-theme="dark"] .miras-deadline-chip-title{color:#e2e8f0}

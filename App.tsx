@@ -3301,6 +3301,251 @@ export default function App() {
       !!(window.navigator as any).standalone);
   const [showPwaBanner, setShowPwaBanner] = useState(false);
   const [showPwaGuideModal, setShowPwaGuideModal] = useState(false);
+  // ⌘K — لوحة الأوامر والبحث الذكي (مخفية حتى تُستدعى؛ بلا تلوّث بصري).
+  const [cmdkOpen, setCmdkOpen] = useState(false);
+  const [cmdkQuery, setCmdkQuery] = useState("");
+  const [cmdkIndex, setCmdkIndex] = useState(0);
+  const cmdkInputRef = useRef<HTMLInputElement | null>(null);
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && (e.key === "k" || e.key === "K")) {
+        e.preventDefault();
+        setCmdkOpen((v) => !v);
+      } else if (e.key === "Escape") {
+        setCmdkOpen((v) => (v ? false : v));
+      }
+    };
+    window.addEventListener("keydown", onKey, true);
+    return () => window.removeEventListener("keydown", onKey, true);
+  }, []);
+  useEffect(() => {
+    if (!cmdkOpen) {
+      setCmdkQuery("");
+      setTeacherSmartSearchQuery("");
+      return;
+    }
+    setCmdkQuery("");
+    setCmdkIndex(0);
+    const t = window.setTimeout(() => cmdkInputRef.current?.focus(), 30);
+    return () => window.clearTimeout(t);
+  }, [cmdkOpen]);
+  const cmdkNormalize = (s: any) =>
+    String(s || "")
+      .toLowerCase()
+      .replace(/[أإآ]/g, "ا")
+      .replace(/ى/g, "ي")
+      .replace(/ة/g, "ه")
+      .replace(/[ًٌٍَُِّْ]/g, "")
+      .replace(/\s+/g, " ")
+      .trim();
+  const cmdkIcon = (key: string) => {
+    const p: any = {
+      viewBox: "0 0 24 24",
+      fill: "none",
+      stroke: "currentColor",
+      strokeWidth: 2,
+      strokeLinecap: "round",
+      strokeLinejoin: "round",
+    };
+    switch (key) {
+      case "home":
+        return (<svg {...p}><path d="M3 10.5 12 3l9 7.5" /><path d="M5 9.5V21h14V9.5" /></svg>);
+      case "users":
+        return (<svg {...p}><circle cx="9" cy="8" r="3.2" /><path d="M3.5 20a5.5 5.5 0 0 1 11 0" /><path d="M17 5.2a3 3 0 0 1 0 5.8" /><path d="M20.5 20a5 5 0 0 0-3.6-4.9" /></svg>);
+      case "folder":
+        return (<svg {...p}><path d="M3 7a2 2 0 0 1 2-2h4l2 2.5h6a2 2 0 0 1 2 2V17a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" /></svg>);
+      case "layers":
+        return (<svg {...p}><path d="m12 3 9 5-9 5-9-5 9-5Z" /><path d="m3 13 9 5 9-5" /></svg>);
+      case "key":
+        return (<svg {...p}><circle cx="8" cy="15" r="4" /><path d="m11 12 8-8" /><path d="m17 6 2 2" /><path d="m14 9 2 2" /></svg>);
+      case "inbox":
+        return (<svg {...p}><path d="M3 12h5l2 3h4l2-3h5" /><path d="M5 5h14l2 7v5a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-5z" /></svg>);
+      case "chart":
+        return (<svg {...p}><path d="M4 20V10" /><path d="M10 20V4" /><path d="M16 20v-7" /><path d="M22 20H2" /></svg>);
+      case "book":
+        return (<svg {...p}><path d="M5 4h11a2 2 0 0 1 2 2v14H7a2 2 0 0 1-2-2z" /><path d="M5 16h13" /></svg>);
+      case "plus":
+        return (<svg {...p}><path d="M12 5v14M5 12h14" /></svg>);
+      case "target":
+        return (<svg {...p}><circle cx="12" cy="12" r="8" /><circle cx="12" cy="12" r="3.4" /></svg>);
+      default:
+        return (<svg {...p}><circle cx="11" cy="11" r="7" /><path d="m21 21-4.3-4.3" /></svg>);
+    }
+  };
+  const cmdkIsTeacherSurface = () =>
+    !!teacherSession && !(currentView === "student_workspace" && !!studentSession);
+  const closeCmdk = () => {
+    setCmdkOpen(false);
+    if (cmdkIsTeacherSurface()) setTeacherSmartSearchQuery("");
+  };
+  const runCmdk = (fn: () => void) => {
+    closeCmdk();
+    window.setTimeout(() => {
+      try {
+        fn();
+      } catch {}
+    }, 0);
+  };
+  const cmdkToneFromAction = (t: string) => {
+    switch (String(t || "")) {
+      case "emerald":
+        return "green";
+      case "amber":
+        return "gold";
+      case "rose":
+        return "gold";
+      case "indigo":
+        return "";
+      case "slate":
+        return "slate";
+      default:
+        return "blue";
+    }
+  };
+  const cmdkIconFromType = (type: string) => {
+    const t = String(type || "");
+    if (t.includes("طالب")) return "users";
+    if (t.includes("مقرر")) return "folder";
+    if (t.includes("كود") || t.includes("تفعيل")) return "key";
+    if (t.includes("اختبار") || t.includes("سؤال") || t.includes("مشروع")) return "target";
+    if (t.includes("تسليم")) return "inbox";
+    if (t.includes("إجراء")) return "plus";
+    return "home";
+  };
+  const buildCmdkGroups = () => {
+    const q = cmdkNormalize(cmdkQuery);
+    const groups: any[] = [];
+    const isStudentSurface = currentView === "student_workspace" && !!studentSession;
+    const isTeacherSurface = cmdkIsTeacherSurface();
+    if (isTeacherSurface) {
+      // نُغذّي اللوحة من محرّك البحث الذكي الموجود أصلًا (أوامر + إجراءات
+      // حقيقية: إضافة طالب/توليد كود/تفعيل/فتح ملف…) بدل تكرار ناقص. القائمة
+      // الافتراضية (بلا بحث) = وجهات وإجراءات البرنامج؛ ومع الكتابة = نتائج
+      // البحث الذكي الكاملة (تشمل الطلبة والأكواد والمقررات والتسليمات).
+      const mapItem = (it: any) => ({
+        id: String(it.key || it.type + "-" + it.title),
+        title: it.title,
+        sub: it.meta || it.extra || "",
+        tone: cmdkToneFromAction(it.actionTone),
+        icon: cmdkIconFromType(it.type),
+        run: () => {
+          try {
+            it.action?.();
+          } catch {}
+        },
+      });
+      if (!q) {
+        const targets = teacherProgramCommandTargets() || [];
+        const dest = targets.filter((t: any) => t.type === "وجهة").map(mapItem);
+        const acts = targets.filter((t: any) => t.type !== "وجهة").map(mapItem);
+        if (dest.length) groups.push({ label: "التنقّل", items: dest });
+        if (acts.length) groups.push({ label: "إجراءات سريعة", items: acts });
+      } else {
+        const results = (teacherSmartVisibleResults || []).slice(0, 40).map(mapItem);
+        if (results.length) groups.push({ label: "النتائج", items: results });
+      }
+    } else if (isStudentSurface) {
+      const match = (text: string) => !q || cmdkNormalize(text).includes(q);
+      const nav = [
+        { id: "snav-overview", title: "نظرة عامة", tone: "", icon: "home", kw: "overview رئيسية عامة", run: () => setStudentTab("overview") },
+        { id: "snav-practice", title: "التدريب والاختبارات", tone: "gold", icon: "target", kw: "practice تدريب اختبار اختبارات", run: () => setStudentTab("practice") },
+        { id: "snav-project", title: "المشاريع", tone: "blue", icon: "folder", kw: "projects مشروع مشاريع", run: () => setStudentTab("project") },
+      ].filter((c) => match(c.title + " " + c.kw));
+      if (nav.length) groups.push({ label: "التنقّل", items: nav });
+    }
+    return groups;
+  };
+  const renderMirasCmdk = () => {
+    if (!cmdkOpen) return null;
+    const groups = buildCmdkGroups();
+    const flat: any[] = [];
+    groups.forEach((g: any) => g.items.forEach((it: any) => flat.push(it)));
+    const activeIdx = flat.length ? Math.max(0, Math.min(cmdkIndex, flat.length - 1)) : 0;
+    const onInputKey = (e: any) => {
+      if (e.key === "ArrowDown") {
+        e.preventDefault();
+        setCmdkIndex((i) => Math.min(flat.length - 1, i + 1));
+      } else if (e.key === "ArrowUp") {
+        e.preventDefault();
+        setCmdkIndex((i) => Math.max(0, i - 1));
+      } else if (e.key === "Enter") {
+        e.preventDefault();
+        const it = flat[activeIdx];
+        if (it) runCmdk(it.run);
+      }
+    };
+    let counter = -1;
+    return (
+      <div
+        className="miras-cmdk-overlay"
+        onMouseDown={(e) => {
+          if (e.target === e.currentTarget) closeCmdk();
+        }}
+      >
+        <div className="miras-cmdk" role="dialog" aria-modal="true" aria-label="بحث مِراس السريع">
+          <div className="miras-cmdk-search">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round">
+              <circle cx="11" cy="11" r="7" />
+              <path d="m21 21-4.3-4.3" />
+            </svg>
+            <input
+              ref={cmdkInputRef}
+              value={cmdkQuery}
+              onChange={(e) => {
+                const v = e.target.value;
+                setCmdkQuery(v);
+                setCmdkIndex(0);
+                if (cmdkIsTeacherSurface()) setTeacherSmartSearchQuery(v);
+              }}
+              onKeyDown={onInputKey}
+              placeholder="ابحث أو اكتب أمرًا… (طالب، مقرر، كود، تفعيل، توليد)"
+              dir="rtl"
+              spellCheck={false}
+              autoComplete="off"
+            />
+            <span className="miras-cmdk-esc">Esc</span>
+          </div>
+          <div className="miras-cmdk-list">
+            {flat.length === 0 ? (
+              <div className="miras-cmdk-empty">لا نتائج لـ «{cmdkQuery}»</div>
+            ) : (
+              groups.map((g: any) => (
+                <div key={g.label}>
+                  <div className="miras-cmdk-group">{g.label}</div>
+                  {g.items.map((it: any) => {
+                    counter++;
+                    const idx = counter;
+                    return (
+                      <div
+                        key={it.id}
+                        className={"miras-cmdk-item" + (idx === activeIdx ? " is-active" : "")}
+                        onMouseEnter={() => setCmdkIndex(idx)}
+                        onMouseDown={(e) => e.preventDefault()}
+                        onClick={() => runCmdk(it.run)}
+                      >
+                        <div className={"miras-cmdk-ico" + (it.tone ? " tone-" + it.tone : "")}>{cmdkIcon(it.icon)}</div>
+                        <div className="miras-cmdk-body">
+                          <div className="miras-cmdk-title">{it.title}</div>
+                          {it.sub ? <div className="miras-cmdk-sub">{it.sub}</div> : null}
+                        </div>
+                        {idx === activeIdx ? <span className="miras-cmdk-hint">↵</span> : null}
+                      </div>
+                    );
+                  })}
+                </div>
+              ))
+            )}
+          </div>
+          <div className="miras-cmdk-foot">
+            <span><b>↑↓</b> تنقّل</span>
+            <span><b>↵</b> فتح</span>
+            <span><b>Esc</b> إغلاق</span>
+            <span style={{ marginInlineStart: "auto" }}>مِراس ⌘K</span>
+          </div>
+        </div>
+      </div>
+    );
+  };
   const [stuckStudentsOpen, setStuckStudentsOpen] = useState(false);
   const [passwordResetRequestsOpen, setPasswordResetRequestsOpen] =
     useState(false);
@@ -19585,6 +19830,33 @@ ${rows
     (activity: any) =>
       activity.kind === "مشروع" && typeof activity.action === "function",
   );
+  // رسالة "مواعيد تقترب" الأنيقة أعلى لوحة الطالب: أقرب الاختبارات/المشاريع
+  // القابلة للتنفيذ التي يقلّ موعد إغلاقها عن ٧ أيام، مرتّبة بالأقرب. كانت هذه
+  // الرسالة قد اختفت؛ نعيدها بشكل أنيق قابل للنقر (يفتح النشاط مباشرةً).
+  const mirasRemainingText = (ms: number) => {
+    const diff = ms - Date.now();
+    if (diff <= 0) return "الآن";
+    const days = Math.floor(diff / 86400000);
+    const hours = Math.floor((diff % 86400000) / 3600000);
+    if (days >= 1)
+      return `خلال ${days} ${days === 1 ? "يوم" : days === 2 ? "يومين" : days <= 10 ? "أيام" : "يومًا"}`;
+    if (hours >= 1)
+      return `خلال ${hours} ${hours === 1 ? "ساعة" : hours === 2 ? "ساعتين" : hours <= 10 ? "ساعات" : "ساعة"}`;
+    return `خلال ${Math.max(1, Math.floor(diff / 60000))} دقيقة`;
+  };
+  const studentUpcomingDeadlines = displayedStudentActivities
+    .map((activity: any) => ({
+      activity,
+      deadlineMs: mirasDeadlineEndMs(activity.due),
+    }))
+    .filter(
+      (row: any) =>
+        Number.isFinite(row.deadlineMs) &&
+        row.deadlineMs > Date.now() &&
+        row.deadlineMs - Date.now() <= 7 * 24 * 60 * 60 * 1000,
+    )
+    .sort((a: any, b: any) => a.deadlineMs - b.deadlineMs)
+    .slice(0, 4);
   const studentVisibleExamCards = studentCourseExams.filter((exam: any) => {
     const priorExamSubmission = latestStudentSubmissionByActivity.get(
       `exam:${exam.id}`,
@@ -26700,11 +26972,11 @@ ${rows
                       e.stopPropagation();
                       setPendingReturnSubmission(selectedSubmissionDetail);
                     }}
-                    className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-amber-200 bg-amber-50 text-amber-700 hover:bg-amber-100 transition shadow-sm"
+                    className="group inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-amber-200 bg-amber-50 text-amber-700 hover:bg-amber-100 transition shadow-sm"
                     title="إرجاع للطالب"
                     aria-label="إرجاع للطالب"
                   >
-                    <RotateCw className="h-3.5 w-3.5 animate-spin-reverse" />
+                    <RotateCw className="h-3.5 w-3.5 transition-transform duration-300 ease-out group-hover:-rotate-90" />
                   </button>
                 </div>
               )}
@@ -28921,6 +29193,50 @@ ${rows
                     className="miras-student-overview-fixed-panel space-y-1.5 p-0 text-right animate-fade-in sm:p-2 lg:p-3"
                     dir="rtl"
                   >
+                    {studentUpcomingDeadlines.length > 0 && (
+                      <div className="miras-deadline-banner" dir="rtl">
+                        <div className="miras-deadline-banner-head">
+                          <span className="miras-deadline-banner-dot" />
+                          <span className="miras-deadline-banner-title">
+                            مواعيد تقترب
+                          </span>
+                          <span className="miras-deadline-banner-count">
+                            {studentUpcomingDeadlines.length}
+                          </span>
+                        </div>
+                        <div className="miras-deadline-banner-list">
+                          {studentUpcomingDeadlines.map((row: any) => (
+                            <button
+                              key={row.activity.id}
+                              type="button"
+                              onClick={() => {
+                                try {
+                                  row.activity.action?.();
+                                } catch {}
+                              }}
+                              className="miras-deadline-chip"
+                            >
+                              <span
+                                className={
+                                  "miras-deadline-chip-kind " +
+                                  (row.activity.kind === "مشروع"
+                                    ? "is-project"
+                                    : "is-exam")
+                                }
+                              >
+                                {row.activity.kind}
+                              </span>
+                              <span className="miras-deadline-chip-title">
+                                {row.activity.title}
+                              </span>
+                              <span className="miras-deadline-chip-time">
+                                {mirasRemainingText(row.deadlineMs)}
+                              </span>
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    )}
                     {/* Row 1 */}
                     <div className="grid grid-cols-12 gap-3 sm:gap-4">
                       {/* Welcome Card */}
@@ -40582,6 +40898,7 @@ ${rows
           </div>
         </div>
       )}
+      {renderMirasCmdk()}
     </div>
   );
 }
