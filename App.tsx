@@ -856,6 +856,21 @@ const simplifyMirasMessage = (
   // Miras copy system: كل رسائل المعلم والطالب تظهر كإشارات قصيرة جداً.
   // لا نغيّر المنطق أو البيانات؛ فقط نختصر نصوص التوست/التنبيه/الحوار.
   const t = text;
+  // أكواد أخطاء تقنية بصيغة UPPER_SNAKE (مثل STUDENT_SESSION_REQUIRED،
+  // TEACHER_SESSION_REQUIRED، STUDENT_DEVICE_LOCKED) يجب ألا تُعرض للمستخدم أبداً؛
+  // نترجمها لرسالة عربية نظيفة قبل قاعدة الحفاظ على الأكواد أدناه. أكواد الدخول
+  // العادية (بشرطات لا شرطات سفلية وبلا كلمات أخطاء) لا تتأثر.
+  if (
+    /^[A-Z0-9]+(_[A-Z0-9]+)+$/.test(t) &&
+    /SESSION|UNAUTHORIZED|REQUIRED|DEVICE|LOCKED|TOKEN|AUTH|FORBIDDEN|DENIED|EXPIRED|INVALID|FAILED|ERROR/i.test(
+      t,
+    )
+  ) {
+    if (tone === "success") return "تم";
+    if (/SESSION|UNAUTHORIZED|AUTH|TOKEN|DEVICE|LOCKED|FORBIDDEN|DENIED|EXPIRED/i.test(t))
+      return "انتهت جلستك أو تحتاج صلاحية. سجّل الدخول من جديد.";
+    return "تعذّر تنفيذ الإجراء. أعد المحاولة.";
+  }
   if (/^(https?:\/\/|www\.)/i.test(t) || /^[A-Z0-9]{4,}[-_A-Z0-9]*$/i.test(t)) return t;
 
   if (any("الرقم الجامعي أو كلمة المرور", "بيانات الدخول غير صحيحة", "خطأ في بيانات الدخول"))
