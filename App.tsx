@@ -3435,13 +3435,8 @@ export default function App() {
           } catch {}
         },
       });
-      if (!q) {
-        const targets = teacherProgramCommandTargets() || [];
-        const dest = targets.filter((t: any) => t.type === "وجهة").map(mapItem);
-        const acts = targets.filter((t: any) => t.type !== "وجهة").map(mapItem);
-        if (dest.length) groups.push({ label: "التنقّل", items: dest });
-        if (acts.length) groups.push({ label: "إجراءات سريعة", items: acts });
-      } else {
+      // لا قائمة طويلة افتراضية: نُظهر النتائج الذكية فقط عند الكتابة.
+      if (q) {
         const results = (teacherSmartVisibleResults || []).slice(0, 40).map(mapItem);
         if (results.length) groups.push({ label: "النتائج", items: results });
       }
@@ -3510,7 +3505,11 @@ export default function App() {
           </div>
           <div className="miras-cmdk-list">
             {flat.length === 0 ? (
-              <div className="miras-cmdk-empty">لا نتائج لـ «{cmdkQuery}»</div>
+              <div className="miras-cmdk-empty">
+                {cmdkQuery.trim()
+                  ? `لا نتائج لـ «${cmdkQuery}»`
+                  : "ابدأ الكتابة… ابحث عن طالب أو مقرر أو كود، أو اكتب إجراءً: تفعيل، توليد، إضافة"}
+              </div>
             ) : (
               groups.map((g: any) => (
                 <div key={g.label}>
@@ -22429,7 +22428,9 @@ ${rows
       addResult(target, score);
     });
 
-    scopedTeacherStudents.slice(0, 1200).forEach((student: any) => {
+    // بحث عالمي عن الطلبة: نبحث في كل طلبة المعلم (لا المقرر النشط فقط) حتى يظهر
+    // أي طالب فور كتابة اسمه/رقمه في ⌘K مهما كان المقرر المفتوح.
+    teacherStudents.slice(0, 1200).forEach((student: any) => {
       const sid = String(
         student.id || student.idNumber || student.studentId || student.universityId || "",
       );
@@ -22558,7 +22559,7 @@ ${rows
       console.error("Error calculating search results:", err);
       return [] as any[];
     }
-  }, [teacherSmartSearchTerm, teacherSmartRawTerm, scopedTeacherStudents, scopedJoinCodes, visibleTeacherSections, teacherSubmissions, deviceProblemAttempts, analyticsSubTab, integrityFocus, codesSubTab]);
+  }, [teacherSmartSearchTerm, teacherSmartRawTerm, teacherStudents, scopedTeacherStudents, scopedJoinCodes, visibleTeacherSections, teacherSubmissions, deviceProblemAttempts, analyticsSubTab, integrityFocus, codesSubTab]);
 
   const teacherSmartVisibleResults = teacherSmartSearchTerm
     ? teacherSmartSearchResults
@@ -30906,7 +30907,7 @@ ${rows
                   title="بحث سريع (⌘K)"
                   aria-label="بحث سريع"
                   onClick={() => setCmdkOpen(true)}
-                  className="miras-dock-search-btn inline-flex h-12 w-12 items-center justify-center rounded-[1.2rem] border border-indigo-200 bg-indigo-50 text-indigo-600 shadow-sm transition-all hover:-translate-y-0.5 hover:bg-indigo-100"
+                  className="miras-dock-search-btn inline-flex h-12 w-12 items-center justify-center rounded-[1.2rem] border border-indigo-300 bg-gradient-to-br from-indigo-600 to-blue-600 text-white shadow-sm shadow-indigo-200 transition-all hover:-translate-y-0.5 hover:from-indigo-700 hover:to-blue-700"
                 >
                   <Search className="h-5 w-5" />
                 </button>
@@ -31326,7 +31327,7 @@ ${rows
                         title="بحث سريع (⌘K)"
                         aria-label="بحث سريع"
                         onClick={() => setCmdkOpen(true)}
-                        className="miras-dock-search-btn inline-flex h-12 w-12 items-center justify-center rounded-[1.2rem] border border-indigo-200 bg-indigo-50 text-indigo-600 shadow-sm transition-all hover:-translate-y-0.5 hover:bg-indigo-100"
+                        className="miras-dock-search-btn inline-flex h-12 w-12 items-center justify-center rounded-[1.2rem] border border-indigo-300 bg-gradient-to-br from-indigo-600 to-blue-600 text-white shadow-sm shadow-indigo-200 transition-all hover:-translate-y-0.5 hover:from-indigo-700 hover:to-blue-700"
                       >
                         <Search className="h-5 w-5" />
                       </button>
