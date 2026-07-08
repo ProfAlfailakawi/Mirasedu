@@ -17514,3 +17514,15 @@ button[data-miras-action-busy="true"] svg {
 }
 :root[data-theme="dark"] .miras-deadline-banner-title{color:#fcd34d}
 :root[data-theme="dark"] .miras-deadline-chip-title{color:#e2e8f0}
+
+/* ⌘K — تحسينات الجوال (٨٠٪ من الاستخدام): مساحة أعلى مع لوحة المفاتيح،
+   ارتفاع أكبر للقائمة، وإخفاء تلميحات الكيبورد التي لا تلزم باللمس. */
+@media (max-width: 640px){
+  .miras-cmdk-overlay{ padding:7vh 12px 12px; }
+  .miras-cmdk{ max-height:min(80vh,620px); border-radius:22px; }
+  .miras-cmdk-search{ padding:14px 16px; }
+  .miras-cmdk-search input{ font-size:16px; } /* ≥16px يمنع تكبير iOS التلقائي */
+  .miras-cmdk-foot{ display:none; }
+  .miras-cmdk-item{ padding:12px; } /* أهداف لمس أوسع */
+  .miras-cmdk-ico{ width:40px; height:40px; }
+}
