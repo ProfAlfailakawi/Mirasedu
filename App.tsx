@@ -3700,6 +3700,28 @@ export default function App() {
   // كاملة)، وتمريرها كما هي كمعامل ?file= قد يتجاوز حد طول الروابط في iframe
   // ببعض المتصفحات؛ لذا نحوّلها إلى blob: (رابط قصير يشير لنفس البيانات) أولاً.
   const [pdfViewerSrc, setPdfViewerSrc] = useState("");
+  const previewIframeRef = useRef<HTMLIFrameElement | null>(null);
+  // حارس الضغط المزدوج المشترك: يمنع تكرار الإنشاء عند نقرتين سريعتين (الجوال).
+  const mutationBusyRef = useRef<Record<string, number>>({});
+  const guardDoubleTap = (key: string, ms = 1500) => {
+    const now = Date.now();
+    if (now - (mutationBusyRef.current[key] || 0) < ms) return false;
+    mutationBusyRef.current[key] = now;
+    return true;
+  };
+  // بحث داخل معاينة الحل: نفتح شريط بحث عارض PDF.js الأصلي داخل الإطار (نفس
+  // الأصل فالوصول مسموح). آمن تمامًا: أي فشل يُبتلع بلا كسر، ومع تركيز الإطار
+  // يعمل Ctrl+F على الكمبيوتر أيضًا.
+  const openPreviewFind = () => {
+    try {
+      const win: any = previewIframeRef.current?.contentWindow;
+      win?.focus?.();
+      const app = win?.PDFViewerApplication;
+      if (app?.findBar?.open) app.findBar.open();
+      else if (app?.eventBus?.dispatch)
+        app.eventBus.dispatch("findbaropen", { source: null });
+    } catch {}
+  };
   const previewBlobUrlCacheRef = useRef<Record<string, string>>({});
   const submissionAttachmentWarmupRef = useRef<Record<string, boolean>>({});
   useEffect(() => {
@@ -11643,6 +11665,7 @@ ${rows
   };
 
   const handleCreateJoinCodes = async () => {
+    if (!guardDoubleTap("createJoinCodes")) return;
     // رموز عامة للبيع: دفعة رموز مستقلة لا ترتبط بمقرر محدد ولا بطالب ولا بعدد
     // طلبة أي كشف. تُولَّد بالعدد المطلوب تماماً، تُحفظ في الأرشيف وتُطبع/تُصدَّر
     // للبيع، ثم تُربط باسم الطالب ومقرره وتاريخه تلقائياً لحظة تفعيله لها.
@@ -11704,6 +11727,7 @@ ${rows
   };
 
   const handleCreateSingleStudentCode = async () => {
+    if (!guardDoubleTap("createSingleCode")) return;
     const issueCourseCode = requireJoinCodeIssueCourse();
     if (!issueCourseCode) return;
     const id = singleCodeStudentId.trim();
@@ -25301,6 +25325,7 @@ ${rows
   };
 
   const createLocalProject = async () => {
+    if (!guardDoubleTap("createProject")) return;
     if (!projectDraft.title.trim()) {
       setErrorMsg("اكتب عنوان المشروع أولاً.");
       return;
@@ -25466,7 +25491,12 @@ ${rows
     }));
   };
 
+  const createLocalExamBusyRef = useRef(0);
   const createLocalExam = async () => {
+    // حارس الضغط المزدوج: نقرتان سريعتان (شائعة على الجوال) كانتا تنشئان اختبارين
+    // بمعرّفين مختلفين. نمنع أي استدعاء ثانٍ خلال ١.٥ ثانية.
+    if (Date.now() - createLocalExamBusyRef.current < 1500) return;
+    createLocalExamBusyRef.current = Date.now();
     if (!examDraft.title.trim()) {
       setErrorMsg("اكتب عنوان الاختبار أولاً.");
       return;
@@ -26999,6 +27029,37 @@ ${rows
               )}
 
               <div className="flex shrink-0 items-center gap-2">
+                {(() => {
+                  const nm = String(
+                    previewAttachment.originalName ||
+                      previewAttachment.name ||
+                      "",
+                  );
+                  const ext = nm.slice(nm.lastIndexOf(".")).toLowerCase();
+                  const isImg =
+                    [
+                      ".jpg",
+                      ".jpeg",
+                      ".png",
+                      ".webp",
+                      ".gif",
+                      ".heic",
+                      ".heif",
+                    ].includes(ext) ||
+                    String(previewAttachment.mimeType || "").startsWith("image/");
+                  if (isImg) return null;
+                  return (
+                    <button
+                      type="button"
+                      onClick={openPreviewFind}
+                      className="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-indigo-200 bg-indigo-50 text-indigo-600 transition hover:bg-indigo-100"
+                      title="بحث داخل المستند"
+                      aria-label="بحث داخل المستند"
+                    >
+                      <Search className="h-4 w-4" />
+                    </button>
+                  );
+                })()}
                 <button
                   type="button"
                   onClick={() => setPreviewAttachment(null)}
@@ -27123,6 +27184,7 @@ ${rows
                       <div className="miras-document-simple-framebox">
                         {pdfViewerSrc ? (
                           <iframe
+                            ref={previewIframeRef}
                             src={pdfViewerSrc}
                             title={name || "مرفق"}
                             className="miras-attachment-pdf-fit-frame"
