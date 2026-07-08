@@ -3327,8 +3327,14 @@ export default function App() {
     }
     setCmdkQuery("");
     setCmdkIndex(0);
+    // قفل تمرير الخلفية أثناء فتح اللوحة حتى لا تنزلق الصفحة خلفها على الجوال.
+    const prevOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
     const t = window.setTimeout(() => cmdkInputRef.current?.focus(), 30);
-    return () => window.clearTimeout(t);
+    return () => {
+      window.clearTimeout(t);
+      document.body.style.overflow = prevOverflow;
+    };
   }, [cmdkOpen]);
   const cmdkNormalize = (s: any) =>
     String(s || "")
