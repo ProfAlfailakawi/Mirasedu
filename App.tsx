@@ -19853,33 +19853,26 @@ ${rows
     (activity: any) =>
       activity.kind === "مشروع" && typeof activity.action === "function",
   );
-  // رسالة "مواعيد تقترب" الأنيقة أعلى لوحة الطالب: أقرب الاختبارات/المشاريع
-  // القابلة للتنفيذ التي يقلّ موعد إغلاقها عن ٧ أيام، مرتّبة بالأقرب. كانت هذه
-  // الرسالة قد اختفت؛ نعيدها بشكل أنيق قابل للنقر (يفتح النشاط مباشرةً).
-  const mirasRemainingText = (ms: number) => {
-    const diff = ms - Date.now();
-    if (diff <= 0) return "الآن";
-    const days = Math.floor(diff / 86400000);
-    const hours = Math.floor((diff % 86400000) / 3600000);
-    if (days >= 1)
-      return `خلال ${days} ${days === 1 ? "يوم" : days === 2 ? "يومين" : days <= 10 ? "أيام" : "يومًا"}`;
-    if (hours >= 1)
-      return `خلال ${hours} ${hours === 1 ? "ساعة" : hours === 2 ? "ساعتين" : hours <= 10 ? "ساعات" : "ساعة"}`;
-    return `خلال ${Math.max(1, Math.floor(diff / 60000))} دقيقة`;
-  };
-  const studentUpcomingDeadlines = displayedStudentActivities
-    .map((activity: any) => ({
-      activity,
-      deadlineMs: mirasDeadlineEndMs(activity.due),
-    }))
-    .filter(
-      (row: any) =>
-        Number.isFinite(row.deadlineMs) &&
-        row.deadlineMs > Date.now() &&
-        row.deadlineMs - Date.now() <= 7 * 24 * 60 * 60 * 1000,
-    )
-    .sort((a: any, b: any) => a.deadlineMs - b.deadlineMs)
-    .slice(0, 4);
+  // تذكير المواعيد "أول ما يفتح الطالب التطبيق": إن كان لديه اختبار/مشروع يقترب
+  // موعده (خلال ٧ أيام) نفتح له لوحة "المواعيد والتنبيهات" الأنيقة الموجودة أصلاً
+  // مرة واحدة في الجلسة — نُعيد سلوك ظهور الرسالة عند الفتح، بلا شريط دخيل.
+  const deadlineReminderShownRef = useRef(false);
+  useEffect(() => {
+    if (deadlineReminderShownRef.current) return;
+    if (currentView !== "student_workspace" || studentTab !== "overview") return;
+    if (!studentSession?.id) return;
+    const now = Date.now();
+    const hasUpcomingDeadline = displayedStudentActivities.some((a: any) => {
+      const ms = mirasDeadlineEndMs(a.due);
+      return (
+        Number.isFinite(ms) && ms > now && ms - now <= 7 * 24 * 60 * 60 * 1000
+      );
+    });
+    if (hasUpcomingDeadline) {
+      deadlineReminderShownRef.current = true;
+      setStudentNotificationsOpen(true);
+    }
+  }, [currentView, studentTab, studentSession?.id, displayedStudentActivities]);
   const studentVisibleExamCards = studentCourseExams.filter((exam: any) => {
     const priorExamSubmission = latestStudentSubmissionByActivity.get(
       `exam:${exam.id}`,
@@ -29216,50 +29209,6 @@ ${rows
                     className="miras-student-overview-fixed-panel space-y-1.5 p-0 text-right animate-fade-in sm:p-2 lg:p-3"
                     dir="rtl"
                   >
-                    {studentUpcomingDeadlines.length > 0 && (
-                      <div className="miras-deadline-banner" dir="rtl">
-                        <div className="miras-deadline-banner-head">
-                          <span className="miras-deadline-banner-dot" />
-                          <span className="miras-deadline-banner-title">
-                            مواعيد تقترب
-                          </span>
-                          <span className="miras-deadline-banner-count">
-                            {studentUpcomingDeadlines.length}
-                          </span>
-                        </div>
-                        <div className="miras-deadline-banner-list">
-                          {studentUpcomingDeadlines.map((row: any) => (
-                            <button
-                              key={row.activity.id}
-                              type="button"
-                              onClick={() => {
-                                try {
-                                  row.activity.action?.();
-                                } catch {}
-                              }}
-                              className="miras-deadline-chip"
-                            >
-                              <span
-                                className={
-                                  "miras-deadline-chip-kind " +
-                                  (row.activity.kind === "مشروع"
-                                    ? "is-project"
-                                    : "is-exam")
-                                }
-                              >
-                                {row.activity.kind}
-                              </span>
-                              <span className="miras-deadline-chip-title">
-                                {row.activity.title}
-                              </span>
-                              <span className="miras-deadline-chip-time">
-                                {mirasRemainingText(row.deadlineMs)}
-                              </span>
-                            </button>
-                          ))}
-                        </div>
-                      </div>
-                    )}
                     {/* Row 1 */}
                     <div className="grid grid-cols-12 gap-3 sm:gap-4">
                       {/* Welcome Card */}
@@ -31876,14 +31825,26 @@ ${rows
                         <p className="text-[10px] font-black text-indigo-500">وضع التصحيح السريع</p>
                         <h3 className="mt-0.5 text-lg font-black text-slate-950">التسليمات</h3>
                       </div>
-                      <div className="hidden">
-                        <Search className="h-4 w-4 text-slate-400" />
+                      <div className="flex w-full items-center gap-2 rounded-2xl border border-slate-200 bg-white px-3.5 py-2.5 shadow-sm transition focus-within:border-indigo-300 focus-within:ring-2 focus-within:ring-indigo-100 sm:w-80">
+                        <Search className="h-4 w-4 shrink-0 text-indigo-500" />
                         <input
                           value={submissionSearch}
                           onChange={(e) => setSubmissionSearch(e.target.value)}
-                          placeholder="ابحث عن طالب، مقرر، ملف، درجة..."
-                          className="w-full bg-transparent text-xs font-bold outline-none"
+                          placeholder="ابحث عن طالب، مقرر، ملف، درجة…"
+                          dir="rtl"
+                          spellCheck={false}
+                          className="w-full min-w-0 bg-transparent text-[13px] font-bold text-slate-700 outline-none placeholder:font-semibold placeholder:text-slate-400"
                         />
+                        {submissionSearch && (
+                          <button
+                            type="button"
+                            onClick={() => setSubmissionSearch("")}
+                            className="shrink-0 text-slate-400 transition hover:text-rose-500"
+                            aria-label="مسح البحث"
+                          >
+                            <X className="h-4 w-4" />
+                          </button>
+                        )}
                       </div>
                     </div>
                     <div className="flex flex-wrap items-end justify-end gap-2">
