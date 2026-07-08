@@ -10169,35 +10169,51 @@ export default function App() {
       .filter(shouldKeepNotification);
     if (!normalizedIncoming.length) return [] as any[];
 
-    // Synchronously check which ones are actually new using the ref to avoid state batching delay
-    const seen = new Set<string>();
-    (localNotificationsRef.current || []).forEach((n: any) => {
-      seen.add(stableNotificationId(n));
-      seen.add(stableNotificationSignature(n));
-    });
+    // منع التكرار: نطابق أولاً بالمعرّف الثابت (id). أما "البصمة" الخشنة (لا تحمل
+    // وقتاً: الدور+الطالب+المقرر+النوع+النشاط) فنستخدمها فقط ضمن نافذة زمنية قصيرة
+    // لدمج نفس الإشعار حين يصل عبر قناتين معاً (FCM فوراً + الاستطلاع بعد ثوانٍ)،
+    // دون أن تبتلع إشعاراً جديداً حقيقياً يشترك في نفس النوع/النشاط لكنه أُرسل في
+    // وقت مختلف — كان هذا سبب "لا تظهر القديمة والجديدة معاً إلا بعد عدة إشعارات".
+    const SIGNATURE_DEDUP_WINDOW_MS = 45000;
+    const seenIds = new Set<string>();
+    const signatureTimes = new Map<string, number>();
+    const rememberSeen = (n: any) => {
+      seenIds.add(stableNotificationId(n));
+      const sig = stableNotificationSignature(n);
+      const t = notificationCreatedTimeMs(n) || 0;
+      const prev = signatureTimes.get(sig);
+      if (prev === undefined || t > prev) signatureTimes.set(sig, t);
+    };
+    const isDuplicateOf = (n: any, ids: Set<string>, sigTimes: Map<string, number>) => {
+      if (ids.has(stableNotificationId(n))) return true;
+      const sig = stableNotificationSignature(n);
+      const prev = sigTimes.get(sig);
+      if (prev === undefined) return false;
+      return Math.abs((notificationCreatedTimeMs(n) || 0) - prev) <= SIGNATURE_DEDUP_WINDOW_MS;
+    };
+    (localNotificationsRef.current || []).forEach(rememberSeen);
 
     const newlyAdded = normalizedIncoming.filter((n: any) => {
-      const id = stableNotificationId(n);
-      const signature = stableNotificationSignature(n);
-      if (seen.has(id) || seen.has(signature)) return false;
-      seen.add(id);
-      seen.add(signature);
+      if (isDuplicateOf(n, seenIds, signatureTimes)) return false;
+      rememberSeen(n);
       return true;
     });
 
     if (newlyAdded.length > 0) {
       setLocalNotifications((prev) => {
-        const finalSeen = new Set<string>();
-        prev.forEach((n: any) => {
-          finalSeen.add(stableNotificationId(n));
-          finalSeen.add(stableNotificationSignature(n));
-        });
+        const finalIds = new Set<string>();
+        const finalSigTimes = new Map<string, number>();
+        const rememberFinal = (n: any) => {
+          finalIds.add(stableNotificationId(n));
+          const sig = stableNotificationSignature(n);
+          const t = notificationCreatedTimeMs(n) || 0;
+          const p = finalSigTimes.get(sig);
+          if (p === undefined || t > p) finalSigTimes.set(sig, t);
+        };
+        prev.forEach(rememberFinal);
         const finalNormalized = newlyAdded.filter((n: any) => {
-          const id = stableNotificationId(n);
-          const signature = stableNotificationSignature(n);
-          if (finalSeen.has(id) || finalSeen.has(signature)) return false;
-          finalSeen.add(id);
-          finalSeen.add(signature);
+          if (isDuplicateOf(n, finalIds, finalSigTimes)) return false;
+          rememberFinal(n);
           return true;
         });
         return finalNormalized.length
