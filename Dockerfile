@@ -33,11 +33,12 @@ COPY package*.json ./
 # NODE_ENV غير مضبوط هنا حتى يثبّت npm ci حزم التطوير (vite/esbuild) اللازمة للبناء.
 RUN npm ci
 COPY . .
-# ملف تهيئة Firestore الذي يحقنه بايبلاين AI Studio عند النشر؛ في المصدر الخام
-# يكون فارغاً (0 بايت) فيفشل JSON.parse وتبقى Firestore غير مُهيّأة → كل عملية
-# كتابة (تسجيل الدخول…) ترجّع 503. نولّده هنا بنفس قيم الإنتاج (00028) حتى تُهيّأ
-# قاعدة البيانات داخل هذه الصورة. (projectId عام و firestoreDatabaseId اسم قاعدة.)
-RUN printf '{"projectId":"meras-320eb","firestoreDatabaseId":"miras-production-v2"}' > firebase-applet-config.json
+# ملف تهيئة Firebase/Firestore. في المصدر الخام قد يكون فارغاً (0 بايت) فيفشل
+# JSON.parse وتبقى Firestore غير مُهيّأة → كل كتابة (تسجيل الدخول…) ترجّع 503.
+# لكن إن كان الملف موجوداً بمحتوى كامل (apiKey/appId/messagingSenderId/vapidKey…)
+# فيجب ألا نطمسه — فطمسه يكسر تهيئة Firebase وإشعارات FCM. لذا نُولّد النسخة
+# الدنيا فقط حين يكون الملف فارغاً/مفقوداً؛ وإلا نُبقي التهيئة الكاملة كما هي.
+RUN test -s firebase-applet-config.json || printf '{"projectId":"meras-320eb","firestoreDatabaseId":"miras-production-v2"}' > firebase-applet-config.json
 RUN npm run build
 
 # وضع الإنتاج: يخدم dist/ الثابتة ولا يشغّل Vite dev middleware (يُضبط بعد البناء
