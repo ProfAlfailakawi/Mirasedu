@@ -1,5 +1,5 @@
 /* Miras PWA + FCM service worker */
-const MIRAS_CACHE_VERSION = 'miras-shell-v61-camera-label-20260710d';
+const MIRAS_CACHE_VERSION = 'miras-shell-v62-single-notification-20260711a';
 const MIRAS_STUDENT_LIVE_CHANNEL = 'miras-student-live-v1';
 const MIRAS_STATIC_ASSETS = [
   '/',
@@ -73,6 +73,71 @@ self.addEventListener('unhandledrejection', function (e) {
 });
 
 const mirasRecentNotificationKeys = new Map();
+const MIRAS_NOTIFICATION_LEDGER_DB = 'miras-notification-delivery-ledger-v1';
+const MIRAS_NOTIFICATION_LEDGER_STORE = 'shown';
+
+// حارس دائم داخل جهاز الطالب: ذاكرة Map تختفي عندما يعيد iOS تشغيل عامل الخدمة،
+// وقد يعيد FCM تسليم الحدث بعدها. IndexedDB يجعل notificationId نفسه يُعرض مرة
+// واحدة حتى بعد إعادة تشغيل الـSW أو إغلاق التطبيق وفتحه.
+function claimMirasNotificationDelivery(key) {
+  return new Promise((resolve) => {
+    try {
+      if (!self.indexedDB || !key) return resolve(false);
+      const request = self.indexedDB.open(MIRAS_NOTIFICATION_LEDGER_DB, 1);
+      request.onupgradeneeded = () => {
+        try {
+          const db = request.result;
+          if (!db.objectStoreNames.contains(MIRAS_NOTIFICATION_LEDGER_STORE)) {
+            db.createObjectStore(MIRAS_NOTIFICATION_LEDGER_STORE, { keyPath: 'id' });
+          }
+        } catch (e) {}
+      };
+      request.onerror = () => resolve(false);
+      request.onsuccess = () => {
+        const db = request.result;
+        try {
+          const tx = db.transaction(MIRAS_NOTIFICATION_LEDGER_STORE, 'readwrite');
+          const store = tx.objectStore(MIRAS_NOTIFICATION_LEDGER_STORE);
+          const now = Date.now();
+          const get = store.get(key);
+          let duplicate = false;
+          get.onsuccess = () => {
+            const previousAt = Number(get.result && get.result.at || 0);
+            duplicate = previousAt > 0 && now - previousAt < 14 * 24 * 60 * 60 * 1000;
+            if (!duplicate) {
+              try { store.put({ id: key, at: now }); } catch (e) {}
+            }
+            try {
+              const cursor = store.openCursor();
+              cursor.onsuccess = () => {
+                const item = cursor.result;
+                if (!item) return;
+                if (now - Number(item.value && item.value.at || 0) > 14 * 24 * 60 * 60 * 1000) {
+                  try { item.delete(); } catch (e) {}
+                }
+                item.continue();
+              };
+            } catch (e) {}
+          };
+          get.onerror = () => { duplicate = false; };
+          tx.oncomplete = () => {
+            try { db.close(); } catch (e) {}
+            resolve(duplicate);
+          };
+          tx.onerror = () => {
+            try { db.close(); } catch (e) {}
+            resolve(false);
+          };
+        } catch (e) {
+          try { db.close(); } catch (err) {}
+          resolve(false);
+        }
+      };
+    } catch (e) {
+      resolve(false);
+    }
+  });
+}
 
 const MIRAS_PENDING_FCM_DB = 'miras-pending-fcm-v1';
 const MIRAS_PENDING_FCM_STORE = 'notifications';
@@ -219,6 +284,8 @@ async function showMirasNotification(payload) {
   // المنع يسبق البثّ والحفظ أيضاً؛ سابقاً كان يمنع بانر النظام فقط بينما يضيف
   // نسختين إلى قناة التطبيق وIndexedDB من نفس دفعة FCM.
   if (shouldSkipDuplicateNotification(title, body, data)) return;
+  const persistentKey = notificationDedupeKey(title, body, data || {});
+  if (await claimMirasNotificationDelivery(persistentKey)) return;
   const tag = notificationTag(title, body, data);
   try {
     const alreadyVisible = await self.registration.getNotifications({ tag });

@@ -584,6 +584,36 @@ const localVisionPulseLabel = (type: any) => {
   return map[String(type || "")] || "نبضة رادار النزاهة";
 };
 
+const localVisionGuidance = (type: any) => {
+  const map: Record<string, { title: string; detail: string }> = {
+    face_missing: {
+      title: "أعد وجهك للكاميرا",
+      detail:
+        "ضع وجهك بالكامل في منتصف المعاينة، واجعل العينين واضحتين أمام الشاشة.",
+    },
+    attention_away: {
+      title: "ارجع بنظرك للشاشة",
+      detail:
+        "وجّه وجهك ونظرك إلى منتصف الشاشة وثبّت وضعك لحظات قليلة.",
+    },
+    multiple_faces: {
+      title: "شخص واحد أمام الكاميرا",
+      detail: "تأكد أن لا يظهر شخص آخر داخل إطار الكاميرا أثناء الاختبار.",
+    },
+    camera_blocked: {
+      title: "وضّح الكاميرا",
+      detail:
+        "أزل يدك أو أي غطاء عن العدسة، وتأكد من وجود إضاءة كافية لظهور وجهك.",
+    },
+  };
+  return (
+    map[String(type || "")] || {
+      title: "لحظة تحقق",
+      detail: "أعد وجهك والجهاز للوضع الطبيعي أمام الكاميرا.",
+    }
+  );
+};
+
 const DEFAULT_ALLOWED_STUDENTS_TEXT = "";
 
 type MirasNotifPermission = "unsupported" | "default" | "granted" | "denied";
@@ -5524,6 +5554,29 @@ export default function App() {
         // إن فشل. نمنع التحليلات المتزامنة بعلم busy لأن الاستدلال قد يأخذ وقتاً.
         let blazeModel: any = null;
         let blazeBusy = false;
+        const localVisionRadarStages = new Set<string>();
+        const reportLocalVisionModelError = (stage: string, error: any) => {
+          if (localVisionRadarStages.has(stage)) return;
+          localVisionRadarStages.add(stage);
+          const errorName = String(error?.name || "Error");
+          const errorMessage = String(error?.message || error || "unknown");
+          void fetch("/api/monitor/report", {
+            method: "POST",
+            keepalive: true,
+            headers: { "content-type": "application/json" },
+            body: JSON.stringify({
+              message: `Normal exam camera model failed at ${stage}: ${errorName} — ${errorMessage}`.slice(
+                0,
+                300,
+              ),
+              stack: String(error?.stack || "").slice(0, 1500),
+              url: "/#normal-exam-camera",
+              source: "client",
+              role: "student",
+              userId: String(studentSession?.id || ""),
+            }),
+          }).catch(() => undefined);
+        };
         // تكافؤ مع SEB (بطلب المالك): لوحة فحص مصغّرة ١٦٠×١٢٠ (استدلال أسرع
         // أضعافاً من الإطار الكامل) + تسخين فوري بعد التحميل (أول فحص حقيقي
         // يصير لحظياً بدل تأخر تجميع النوى ١-٣ث).
@@ -5542,7 +5595,8 @@ export default function App() {
                 } catch {}
               }
             })
-            .catch(() => {
+            .catch((error) => {
+              reportLocalVisionModelError("load", error);
               blazeModel = null;
             });
         }
@@ -5789,7 +5843,8 @@ export default function App() {
             const avgLight = light / Math.max(1, image.length / 16);
             // تسامح الإضاءة الضعيفة مفعّل دائماً: لا نضيف خياراً بصرياً للدكتور
             // حتى لا نربك واجهة إنشاء الاختبار، ولا نُعاقب الطالب بسبب غرفة خافتة.
-            const lightFloor = 5;
+            const lightFloor =
+              activeLocalVisionConfig.mode === "strict" ? 12 : 5;
             if (avgLight < lightFloor) {
               localVisionCountersRef.current.camera_blocked =
                 Number(localVisionCountersRef.current.camera_blocked || 0) + 1;
@@ -5871,13 +5926,21 @@ export default function App() {
               if (!blazeBusy) {
                 blazeBusy = true;
                 let preds: any[] = [];
+                let estimateFailed = false;
                 try {
                   blazeCtx?.drawImage(video, 0, 0, 160, 120);
                   preds = await blazeModel.estimateFaces(blazeCanvas, false);
-                } catch {
+                } catch (error) {
+                  estimateFailed = true;
+                  reportLocalVisionModelError("estimate", error);
+                  blazeModel = null;
                   preds = [];
                 }
                 blazeBusy = false;
+                if (estimateFailed) {
+                  maybeRecoverLocalVisionLock();
+                  return;
+                }
                 if (!Array.isArray(preds)) preds = [];
                 const faceCount = preds.length;
                 if (faceCount === 0) {
@@ -5945,10 +6008,15 @@ export default function App() {
                       Number(
                         localVisionCountersRef.current.attention_away || 0,
                       ) + 1;
-                    const needed = Math.max(
-                      2,
-                      Math.ceil(activeLocalVisionConfig.gazeAwaySeconds / 1.8),
-                    );
+                    const needed =
+                      activeLocalVisionConfig.mode === "strict"
+                        ? 2
+                        : Math.max(
+                            2,
+                            Math.ceil(
+                              activeLocalVisionConfig.gazeAwaySeconds / 1.8,
+                            ),
+                          );
                     if (
                       localVisionCountersRef.current.attention_away >= needed
                     ) {
@@ -6002,10 +6070,15 @@ export default function App() {
                     Number(
                       localVisionCountersRef.current.attention_away || 0,
                     ) + 1;
-                  const needed = Math.max(
-                    2,
-                    Math.ceil(activeLocalVisionConfig.gazeAwaySeconds / 1.8),
-                  );
+                  const needed =
+                    activeLocalVisionConfig.mode === "strict"
+                      ? 2
+                      : Math.max(
+                          2,
+                          Math.ceil(
+                            activeLocalVisionConfig.gazeAwaySeconds / 1.8,
+                          ),
+                        );
                   if (
                     localVisionCountersRef.current.attention_away >= needed
                   ) {
@@ -6125,10 +6198,15 @@ export default function App() {
                 localVisionCountersRef.current.attention_away =
                   Number(localVisionCountersRef.current.attention_away || 0) +
                   1;
-                const needed = Math.max(
-                  2,
-                  Math.ceil(activeLocalVisionConfig.gazeAwaySeconds / 1.8),
-                );
+                const needed =
+                  activeLocalVisionConfig.mode === "strict"
+                    ? 2
+                    : Math.max(
+                        2,
+                        Math.ceil(
+                          activeLocalVisionConfig.gazeAwaySeconds / 1.8,
+                        ),
+                      );
                 if (localVisionCountersRef.current.attention_away >= needed) {
                   void sendLocalVisionPulse("attention_away", {
                     ratio,
@@ -11358,37 +11436,6 @@ export default function App() {
     setAllowedStudentsText(allowedRosterRowsToText(normalizedAllowed));
     setTeacherStudents(normalizedRegistered);
   };
-  const calendarNotificationSeenStorageKey = () => {
-    const identity = currentNotificationIdentity();
-    return identity
-      ? `miras-seen-calendar-notifications:${identity.role}:${identity.userId}:${identity.sectionCode || "all"}`
-      : "miras-seen-calendar-notifications:anonymous";
-  };
-
-  const seenCalendarNotificationIds = () => {
-    try {
-      return new Set<string>(
-        JSON.parse(
-          localStorage.getItem(calendarNotificationSeenStorageKey()) || "[]",
-        ),
-      );
-    } catch {
-      return new Set<string>();
-    }
-  };
-
-  const rememberSeenCalendarNotificationIds = (ids: string[]) => {
-    if (!ids.length) return;
-    try {
-      const seen = seenCalendarNotificationIds();
-      ids.forEach((id) => seen.add(String(id)));
-      localStorage.setItem(
-        calendarNotificationSeenStorageKey(),
-        JSON.stringify(Array.from(seen).slice(-240)),
-      );
-    } catch {}
-  };
-
   const stableNotificationId = (n: any) => {
     const data = n?.data || {};
     const eventId =
@@ -12113,46 +12160,9 @@ export default function App() {
           targeted,
           shouldKeepNotification,
         );
-        const calendarLike = isStudentIdentity
-          ? newlyAddedItems.filter((n: any) =>
-              /calendar|event|exam|اختبار|رزنامة|تقويم/i.test(
-                `${n.type || ""} ${n.title || ""} ${n.body || ""}`,
-              ),
-            )
-          : [];
-        if (
-          calendarLike.length &&
-          (!notificationState.token ||
-            String(notificationState.token).startsWith("inapp:")) &&
-          "Notification" in window &&
-          Notification.permission === "granted" &&
-          "serviceWorker" in navigator
-        ) {
-          try {
-            const reg =
-              (await navigator.serviceWorker.getRegistration("/")) ||
-              (await navigator.serviceWorker.register("/sw.js"));
-            const alreadySeen = seenCalendarNotificationIds();
-            const shownIds: string[] = [];
-            calendarLike.slice(0, 5).forEach((n: any) => {
-              const id = stableNotificationId(n);
-              if (alreadySeen.has(id)) return;
-              shownIds.push(id);
-              reg
-                .showNotification(n.title || "مِراس", {
-                  body: n.body || n.message || "لديك تنبيه جديد.",
-                  icon: "/ios-icon-192-v7.png",
-                  badge: "/ios-icon-192-v7.png",
-                  dir: "rtl",
-                  lang: "ar",
-                  tag: id,
-                  data: { url: n.data?.link || "/" },
-                })
-                .catch(() => {});
-            });
-            rememberSeenCalendarNotificationIds(shownIds);
-          } catch {}
-        }
+        // سجل الجرس لا يُنشئ بانر نظام أبداً. البانر مملوك حصراً لدفعة FCM داخل
+        // sw.js؛ وجود مسار عرض ثانٍ هنا كان يجعل حدثاً واحداً يظهر مرتين على iOS
+        // عندما يقرأ الاستطلاع سجل الجرس في اللحظة نفسها التي تصل فيها الدفعة.
         return newlyAddedItems.length > 0;
       }
     } catch {}
@@ -27964,7 +27974,7 @@ ${rows
             }
 
             .miras-app-teacher-root.miras-teacher-viewport-v5 .teacher-command-header .miras-teacher-heading-block > div:first-child {
-              margin-bottom: .08rem !important;
+              margin-bottom: .3rem !important;
               padding: .17rem .54rem !important;
               font-size: .61rem !important;
               line-height: 1.1 !important;
@@ -28377,6 +28387,33 @@ ${rows
 
       {/* بادج "متصل" الثابت أُزيل بقرار المالك — حلّت محله نقطة الاتصال الحية
           داخل شريحة الحساب (نقطة بلا كلام، والضغط يُظهر الحالة بأناقة). */}
+      {connectionPopoverOpen && (studentSession || teacherSession) && (
+        <div
+          className="miras-connection-status-popover fixed left-1/2 z-[125] inline-flex max-w-[calc(100vw-2rem)] -translate-x-1/2 items-center gap-2 whitespace-nowrap rounded-full border border-slate-200/80 bg-white/96 px-3.5 py-2 text-[10px] font-black text-slate-700 shadow-[0_14px_38px_rgba(15,23,42,0.14)] backdrop-blur-xl"
+          style={{ top: "max(0.8rem, calc(env(safe-area-inset-top, 0px) + 0.45rem))" }}
+          role="status"
+          aria-live="polite"
+          dir="rtl"
+        >
+          <span
+            className={`miras-account-connection-dot ${
+              isAppOffline
+                ? "bg-amber-400"
+                : liveConnectionTrouble
+                  ? "animate-pulse bg-amber-400"
+                  : "bg-emerald-500"
+            }`}
+            aria-hidden="true"
+          />
+          <span className="truncate">
+            {isAppOffline
+              ? "غير متصل — سنكمل تلقائياً عند عودة الشبكة"
+              : liveConnectionTrouble
+                ? "جارٍ إعادة المزامنة"
+                : "متصل وجميع بياناتك متزامنة"}
+          </span>
+        </div>
+      )}
 
       {activationQrScannerOpen && (
         <div
@@ -30435,12 +30472,22 @@ ${rows
                           {localVisionLock.pulseType ===
                           "camera_permission_needed"
                             ? "تشغيل الكاميرا"
-                            : "لحظة تحقق"}
+                            : localVisionGuidance(localVisionLock.pulseType)
+                                .title}
                         </h3>
                         <p className="mt-3 text-center text-sm font-black leading-7 text-slate-700">
                           {localVisionLock.reason ||
                             "أعد وجهك والجهاز للوضع الطبيعي."}
                         </p>
+                        {localVisionLock.pulseType !==
+                          "camera_permission_needed" && (
+                          <p className="mt-1.5 text-center text-[11px] font-bold leading-6 text-slate-500">
+                            {
+                              localVisionGuidance(localVisionLock.pulseType)
+                                .detail
+                            }
+                          </p>
+                        )}
                         <div className="mt-4 rounded-2xl border border-emerald-100 bg-emerald-50 px-4 py-3 text-center">
                           <div className="text-[11px] font-black text-emerald-800">
                             {localVisionLock.pulseType ===
@@ -30768,32 +30815,33 @@ ${rows
                     dir="rtl"
                   >
                     <div className="miras-student-identity min-w-0 flex flex-col items-start gap-1 pt-0.5 text-right">
-                      <div className="miras-student-account-pill relative inline-flex shrink-0 items-center gap-1.5 rounded-full bg-indigo-50 px-2.5 py-0.5 text-[9px] font-black text-indigo-700 select-none">
-                        <button
-                          type="button"
-                          aria-label="حالة الاتصال"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setConnectionPopoverOpen((v) => !v);
-                          }}
-                          className={`h-1.5 w-1.5 shrink-0 cursor-pointer rounded-full border-0 p-0 ring-[1.5px] ring-white/90 ${
+                      <div
+                        className="miras-student-account-pill relative inline-flex shrink-0 cursor-pointer items-center gap-1.5 rounded-full bg-indigo-50 px-2.5 py-0.5 text-[9px] font-black text-indigo-700 select-none"
+                        role="button"
+                        tabIndex={0}
+                        aria-label="عرض حالة الاتصال"
+                        aria-expanded={connectionPopoverOpen}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setConnectionPopoverOpen((v) => !v);
+                        }}
+                        onKeyDown={(e) => {
+                          if (e.key !== "Enter" && e.key !== " ") return;
+                          e.preventDefault();
+                          setConnectionPopoverOpen((v) => !v);
+                        }}
+                      >
+                        <span
+                          className={`miras-account-connection-dot ${
                             isAppOffline
                               ? "bg-amber-400"
                               : liveConnectionTrouble
                                 ? "animate-pulse bg-amber-400"
                                 : "bg-emerald-500"
                           }`}
+                          aria-hidden="true"
                         />
                         حساب الطالب
-                        {connectionPopoverOpen && (
-                          <span className="absolute right-0 top-full z-[60] mt-1.5 whitespace-nowrap rounded-xl border border-slate-200/90 bg-white/95 px-3 py-1.5 text-[10px] font-black text-slate-700 shadow-lg backdrop-blur-md">
-                            {isAppOffline
-                              ? "غير متصل — سنكمل تلقائياً عند عودة الشبكة"
-                              : liveConnectionTrouble
-                                ? "إعادة المزامنة الآن…"
-                                : "متصل ✓"}
-                          </span>
-                        )}
                       </div>
                       <h1
                         className="miras-student-name w-full max-w-full truncate text-right text-sm font-light leading-tight tracking-tight text-slate-950 sm:text-[15px] md:text-base"
@@ -33130,32 +33178,33 @@ ${rows
                 <div className="flex flex-col gap-5">
                   <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
                     <div className="miras-teacher-heading-block flex min-w-0 flex-1 flex-col items-end text-right">
-                      <div className="relative mb-2 inline-flex max-w-full items-center gap-2 self-end rounded-full bg-emerald-50 px-3.5 py-1.5 text-[11px] font-black text-emerald-700 shadow-sm">
-                        <button
-                          type="button"
-                          aria-label="حالة الاتصال"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setConnectionPopoverOpen((v) => !v);
-                          }}
-                          className={`h-1.5 w-1.5 shrink-0 cursor-pointer rounded-full border-0 p-0 ring-[1.5px] ring-white/90 ${
+                      <div
+                        className="miras-teacher-account-pill relative mb-3 inline-flex max-w-full cursor-pointer items-center gap-2 self-end rounded-full bg-emerald-50 px-3.5 py-1.5 text-[11px] font-black text-emerald-700 shadow-sm select-none"
+                        role="button"
+                        tabIndex={0}
+                        aria-label="عرض حالة الاتصال"
+                        aria-expanded={connectionPopoverOpen}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setConnectionPopoverOpen((v) => !v);
+                        }}
+                        onKeyDown={(e) => {
+                          if (e.key !== "Enter" && e.key !== " ") return;
+                          e.preventDefault();
+                          setConnectionPopoverOpen((v) => !v);
+                        }}
+                      >
+                        <span
+                          className={`miras-account-connection-dot ${
                             isAppOffline
                               ? "bg-amber-400"
                               : liveConnectionTrouble
                                 ? "animate-pulse bg-amber-400"
                                 : "bg-emerald-500"
                           }`}
+                          aria-hidden="true"
                         />
                         {teacherSession?.name || "حساب المعلم"}
-                        {connectionPopoverOpen && (
-                          <span className="absolute left-0 top-full z-[60] mt-1.5 whitespace-nowrap rounded-xl border border-slate-200/90 bg-white/95 px-3 py-1.5 text-[10px] font-black text-slate-700 shadow-lg backdrop-blur-md">
-                            {isAppOffline
-                              ? "غير متصل — سنكمل تلقائياً عند عودة الشبكة"
-                              : liveConnectionTrouble
-                                ? "إعادة المزامنة الآن…"
-                                : "متصل ✓"}
-                          </span>
-                        )}
                       </div>
                       <h1 className="w-full text-right text-[1.9rem] font-black tracking-tight text-slate-950 sm:text-[2.15rem]">
                         {teacherTabTitle[teacherTab]}
