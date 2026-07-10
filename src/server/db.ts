@@ -9,15 +9,10 @@ import {
   initializeApp,
 } from "firebase-admin/app";
 import { getFirestore } from "firebase-admin/firestore";
-import { getStorage } from "firebase-admin/storage";
 import type { CodeLedgerEvent, SignedJoinCodeFields } from "../shared/types";
 
 // Initialize Firebase server-side if exists
 let dbFS: any = null;
-// حاوية Cloud Storage للملفات الكبيرة (مرفقات التسليم + PDF المحوّل): كتابة واحدة
-// متدفقة للملف الخام بدل تقطيع base64 على وثائق Firestore — ملف ٢٤م.ب كان يفشل
-// بمهلة (archive-attempt-timeout) عبر Firestore، وعبر Storage يكتمل في ثوانٍ.
-let dbBucket: any = null;
 export let firestoreQuotaExceeded = false;
 export let firestoreQuotaErrorDetail = "";
 let firestoreQuotaExceededAt = 0;
@@ -68,19 +63,6 @@ try {
       "🔥 Firebase Admin Firestore initialized successfully on backend server with database:",
       config.firestoreDatabaseId,
     );
-    try {
-      // حاوية مخصّصة أنشأناها في نفس منطقة Cloud Run (us-central1) — حاوية
-      // Firebase الافتراضية (storageBucket في الإعداد) غير موجودة فعلياً في هذا
-      // المشروع (404)، لذلك لا نعتمد عليها. قابلة للتجاوز عبر متغير البيئة.
-      const bucketName = String(
-        process.env.MIRAS_ATTACHMENTS_BUCKET || "miras-files-meras-320eb",
-      );
-      dbBucket = getStorage(app).bucket(bucketName);
-      console.log("🪣 Cloud Storage bucket ready:", bucketName);
-    } catch (bucketErr) {
-      dbBucket = null;
-      console.warn("⚠️ Cloud Storage bucket unavailable:", bucketErr);
-    }
   }
 } catch (e) {
   console.error("⚠️ Failed to initialize Firebase on backend server:", e);
@@ -139,18 +121,6 @@ const MIRAS_CLOUD_ENTITY_KEYS: (keyof DatabaseState)[] = [
   "notificationSeenKeys",
   "errorReports",
 ];
-
-// ⚡ مفاتيح "وثيقة لكل كيان" (perDoc): المصفوفات الساخنة التي كان كل تعديل صغير
-// فيها يعيد كتابة المصفوفة كاملة للسحابة. سجلّ نشاط واحد جديد كان يكتب ~مئات
-// الكيلوبايت (كل السجلات المجزّأة) — الآن يكتب وثيقة واحدة صغيرة فقط.
-// ملاحظة توافق للرجوع للخلف: عند أول تحويل يُحتفَظ بآخر نسخة مجزّأة كما هي
-// (لقطة تجميد)، فإن أُرجِع الخادم لنسخة قديمة قرأها بلا أخطاء.
-const MIRAS_PERDOC_KEYS = new Set<string>([
-  "activityLogs", // كل سجل نشاط = وثيقة (كان كل سجل جديد يعيد كتابة الكل)
-  "examSessions", // نبضة كل ٣ث لكل طالب أثناء الاختبار = أسخن مفتاح في النظام
-  "inAppNotifications", // تنبيهات الجرس تُضاف باستمرار
-  "errorReports", // رادار مِراس: تقارير الأخطاء المجمّعة
-]);
 
 const MIRAS_ALLOW_EMPTY_FIRESTORE_INIT =
   String(process.env.MIRAS_ALLOW_EMPTY_FIRESTORE_INIT || "").toLowerCase() === "true";
@@ -709,10 +679,6 @@ export interface DatabaseState {
   passwordResetRequests?: PasswordResetRequest[];
   activationAttempts?: ActivationAttempt[];
   notificationTokens?: NotificationToken[];
-  // مفاتيح التنبيهات المقروءة لكل مستخدم (role:userId) — لمزامنة حالة "مقروء" عبر أجهزته.
-  notificationSeenKeys?: Record<string, { keys: string[]; updatedAt: string }>;
-  // رادار مِراس: تقارير الأخطاء المجمّعة (على غرار Sentry) — للسوبر أدمن فقط.
-  errorReports?: any[];
   // تنبيهات داخل التطبيق (الجرس) — محفوظة في قاعدة البيانات حتى لا تضيع عند إعادة تشغيل الخادم.
   inAppNotifications?: any[];
   passkeyCredentials?: PasskeyCredentialRecord[];
@@ -721,6 +687,8 @@ export interface DatabaseState {
     uploadDate: string;
     size: string;
   };
+  notificationSeenKeys?: Record<string, string[]>;
+  errorReports?: any[];
 }
 
 // Runtime data must start clean. Only teacher login accounts are retained below;
@@ -914,10 +882,6 @@ export class LocalDatabase {
   // طابع آخر كتابة دفعناها؛ يسمح للمستمع بتخطّي صدى كتابتنا بثمن رخيص (بدون مقارنة
   // كامل القاعدة عبر JSON.stringify الثقيل) بدل إعادة معالجة كل كتابة.
   private lastWrittenUpdatedAt: number = 0;
-  // آخر طابع سحابي طبّقه المستمع على الذاكرة — مع lastWrittenUpdatedAt يشكّلان
-  // "آخر حالة سحابية معروفة": إن طابق طابع الميتا أحدهما فالسحابة لم تتغيّر منذ
-  // آخر تكامل، فنكتب الفروق مباشرة بلا قراءة القاعدة كاملة (المسار السريع ⚡).
-  private lastListenerAppliedStamp: number = 0;
   private databaseGuardLocked: boolean = false;
   private databaseGuardReason: string = "";
   private databaseGuardLockedAt: number = 0;
@@ -1112,8 +1076,6 @@ export class LocalDatabase {
         console.log("☁️ Found persistent database state in cloud Firestore. Cloud is the source of truth.");
         this.data = cloudState;
         this.lastSyncedState = cloneDbValue(this.data);
-        // حالة الإقلاع هي السحابة المتكاملة بعينها ⇒ فعّل المسار السريع من أول حفظة.
-        this.lastListenerAppliedStamp = Number(cloudState.lastUpdated || 0);
         this.saveState(this.data);
         this.isFirstSync = false;
         this.unlockDatabaseGuard();
@@ -1141,7 +1103,6 @@ export class LocalDatabase {
           }
           await this.writeCloudDatabaseState(this.data);
           this.lastSyncedState = cloneDbValue(this.data);
-          this.lastWrittenUpdatedAt = Number(this.data.lastUpdated || 0);
           this.unlockDatabaseGuard();
           console.log("✨ Init cloud backup created successfully.");
         } catch (err) {
@@ -1183,64 +1144,6 @@ export class LocalDatabase {
   private cloudEntityDocRef(key: string, index = 0) {
     const docId = index ? `${key}__${index}` : key;
     return dbFS.doc("system/database").collection("entities").doc(docId);
-  }
-
-  // مجموعة "وثيقة لكل كيان" لمفتاح ساخن (مثل activityLogs).
-  private cloudPerDocCollection(key: string) {
-    return dbFS.doc("system/database").collection(`perdoc_${key}`);
-  }
-
-  // معرّف مستقر للكيان داخل مفتاح perDoc.
-  private perDocEntityId(item: any): string {
-    return String(item?.id || item?.token || item?.code || "").trim();
-  }
-
-  // يكتب فرق مفتاح perDoc: وثيقة لكل كيان متغيّر/جديد وحذف للمزال — بدل إعادة
-  // كتابة المصفوفة كاملة. previousItems=null تعني "اكتب الكل" (استعادة/تحويل أول).
-  private async writePerDocKeyDiff(
-    key: string,
-    currentItems: any[],
-    previousItems: any[] | null,
-    generation: number,
-  ): Promise<void> {
-    const col = this.cloudPerDocCollection(key);
-    const nowIso = new Date().toISOString();
-    const currentById = new Map<string, any>();
-    for (const item of currentItems || []) {
-      const id = this.perDocEntityId(item);
-      if (id) currentById.set(id, item);
-    }
-    const prevById = new Map<string, string>();
-    if (previousItems) {
-      for (const item of previousItems) {
-        const id = this.perDocEntityId(item);
-        if (id) prevById.set(id, JSON.stringify(item ?? null));
-      }
-    }
-    let batch = dbFS.batch();
-    let ops = 0;
-    const flush = async () => {
-      if (ops > 0) {
-        await batch.commit();
-        batch = dbFS.batch();
-        ops = 0;
-      }
-    };
-    for (const [id, item] of currentById) {
-      const payload = JSON.stringify(item ?? null);
-      if (previousItems && prevById.get(id) === payload) continue; // لم يتغيّر
-      batch.set(col.doc(id), { d: item, g: generation, u: nowIso });
-      ops += 1;
-      if (ops >= 400) await flush();
-    }
-    for (const id of prevById.keys()) {
-      if (!currentById.has(id)) {
-        batch.delete(col.doc(id));
-        ops += 1;
-        if (ops >= 400) await flush();
-      }
-    }
-    await flush();
   }
 
   private isChunkedCloudMeta(raw: any): boolean {
@@ -1303,21 +1206,6 @@ export class LocalDatabase {
     const entries = await Promise.all(
       keys.map(async (key) => {
         const info = manifest[key];
-        // مفتاح perDoc: اقرأ مجموعته (وثيقة لكل كيان) بدل الأجزاء المجمّدة.
-        // الترتيب: الأحدث أولاً حسب حقل الكيان الزمني (unshift الأصلي) — سجلات
-        // النشاط تحمل timestamp خاصاً بها.
-        if ((info as any)?.perDoc) {
-          const snap = await this.cloudPerDocCollection(key).get();
-          const items = snap.docs
-            .map((doc: any) => (doc.data() as any)?.d)
-            .filter((item: any) => item != null);
-          items.sort((a: any, b: any) => {
-            const ta = Date.parse(String(a?.timestamp || a?.createdAt || a?.updatedAt || 0)) || 0;
-            const tb = Date.parse(String(b?.timestamp || b?.createdAt || b?.updatedAt || 0)) || 0;
-            return tb - ta;
-          });
-          return [key, items] as const;
-        }
         const chunkCount = Math.max(1, Number(info?.chunkCount || 1));
         if (!Number.isFinite(chunkCount) || chunkCount > 250) {
           throw new Error(`Invalid chunk count for entity ${key}: ${info?.chunkCount}`);
@@ -1392,60 +1280,6 @@ export class LocalDatabase {
         dbValuesEqual(value, (previousState as any)[key] ?? null);
       if (unchanged) continue;
 
-      // ⚡ مفاتيح perDoc: فرق على مستوى الكيان (وثيقة لكل سجل) بدل إعادة كتابة
-      // المصفوفة كاملة. أول تحويل يكتب كل الكيانات ويجمّد النسخة المجزّأة القديمة
-      // كما هي (توافق رجوع)، وما بعده يكتب المتغيّر فقط.
-      if (MIRAS_PERDOC_KEYS.has(key as string) && Array.isArray(value)) {
-        const alreadyPerDoc = !!(mergedManifest as any)[key]?.perDoc;
-        const previousItems =
-          alreadyPerDoc && previousState != null
-            ? (((previousState as any)[key] as any[]) ?? [])
-            : null;
-        if (previousItems === null && alreadyPerDoc) {
-          // استعادة كاملة فوق مجموعة perDoc قائمة: نظّف الوثائق الشاردة أولاً
-          // (listDocuments لا يقرأ المحتوى — رخيص) حتى لا تبقى كيانات محذوفة.
-          try {
-            const existingRefs = await this.cloudPerDocCollection(
-              key as string,
-            ).listDocuments();
-            const keepIds = new Set(
-              value
-                .map((item: any) => this.perDocEntityId(item))
-                .filter(Boolean),
-            );
-            let cleanupBatch = dbFS.batch();
-            let cleanupOps = 0;
-            for (const ref of existingRefs) {
-              if (!keepIds.has(ref.id)) {
-                cleanupBatch.delete(ref);
-                cleanupOps += 1;
-                if (cleanupOps >= 400) {
-                  await cleanupBatch.commit();
-                  cleanupBatch = dbFS.batch();
-                  cleanupOps = 0;
-                }
-              }
-            }
-            if (cleanupOps > 0) await cleanupBatch.commit();
-          } catch {}
-        }
-        writes.push(
-          this.writePerDocKeyDiff(
-            key as string,
-            value,
-            previousItems,
-            generation,
-          ),
-        );
-        (mergedManifest as any)[key] = {
-          // نُبقي chunkCount القديم كما هو (لقطة التجميد المتوافقة مع الرجوع).
-          chunkCount: Number((mergedManifest as any)[key]?.chunkCount || 1),
-          perDoc: true,
-          count: value.length,
-        };
-        continue;
-      }
-
       const payload = JSON.stringify(value);
       const chunks: string[] = [];
       for (let i = 0; i < payload.length; i += MIRAS_CLOUD_CHUNK_SIZE) {
@@ -1512,9 +1346,8 @@ export class LocalDatabase {
       inAppNotifications: (cloudData as any).inAppNotifications || [],
       passkeyCredentials: (cloudData as any).passkeyCredentials || [],
       bookMetadata: cloudData.bookMetadata,
-      // كانت مفقودة من المزامنة السحابية كلياً — فحالة "مقروء" تضيع مع كل تدوير حاوية.
-      notificationSeenKeys: (cloudData as any).notificationSeenKeys || {},
-      errorReports: (cloudData as any).errorReports || [],
+      notificationSeenKeys: cloudData.notificationSeenKeys || {},
+      errorReports: cloudData.errorReports || [],
     };
   }
 
@@ -1584,7 +1417,6 @@ export class LocalDatabase {
           this.data = incoming;
           this.lastSyncedState = cloneDbValue(incoming);
         }
-        this.lastListenerAppliedStamp = incomingStamp;
         this.scheduleLocalSave();
         })().catch((error) => {
           console.error("⚠️ Firestore chunked live synchronization failed:", error);
@@ -1676,7 +1508,9 @@ export class LocalDatabase {
       activationAttempts: [],
       notificationTokens: [],
       inAppNotifications: [],
-      passkeyCredentials: []
+      passkeyCredentials: [],
+      notificationSeenKeys: {},
+      errorReports: []
     };
     // لا نكتب الحالة الفارغة على db.json عند الإقلاع. هذا الملف cache تشغيل فقط،
     // وكتابته فارغاً ثم رفعه للسحابة كان سبب مسح البيانات بعد التطوير/النشر.
@@ -1826,61 +1660,14 @@ export class LocalDatabase {
     try {
       let committedPayload: DatabaseState | null = null;
 
-      // ⚡ المسار السريع: كانت كل حفظة تقرأ القاعدة كاملة من السحابة (كل مفاتيح
-      // الكيانات وأجزائها) لمجرّد الدمج الثلاثي — أكبر كلفة زمن/حصة في النظام
-      // كله. الآن نقرأ وثيقة الميتا الصغيرة وحدها: إن طابق طابعها آخر كتابة لنا
-      // أو آخر لقطة طبّقها المستمع، فالسحابة لم تتغيّر منذ آخر تكامل و
-      // lastSyncedState يمثّلها تماماً — نكتب الفروق مباشرة بلا قراءة ولا دمج.
-      // أي وضع آخر (تغيير خارجي، ميتا قديمة بلا عدّادات، صيغة v2) يسقط تلقائياً
-      // للمسار الكامل القديم بنفس ضماناته حرفياً.
-      const metaSnap = await this.cloudDatabaseMetaRef().get();
-      const metaRaw = metaSnap.exists ? (metaSnap.data() as any) : null;
+      const cloudRead = await this.readCloudDatabaseState();
+      const cloudState = cloudRead.exists
+        ? cloudRead.state
+        : this.databaseStateFromCloud({});
       const localHasContent = databaseHasMeaningfulContent(localAtStart);
-      const metaCounts = metaRaw?.contentCounts;
-      const metaCloudHasContent =
-        metaCounts && typeof metaCounts === "object"
-          ? Object.values(metaCounts).some((n: any) => Number(n) > 0)
-          : null;
-      const metaStamp = Number(metaRaw?.lastUpdated || 0);
-      const cloudUnchangedSinceLastIntegration =
-        !!metaRaw &&
-        metaStamp > 0 &&
-        (metaStamp === this.lastWrittenUpdatedAt ||
-          metaStamp === this.lastListenerAppliedStamp);
+      const cloudHasContent = databaseHasMeaningfulContent(cloudState);
 
-      let cloudRead: { exists: boolean; state: DatabaseState | null };
-      if (
-        metaRaw &&
-        metaCloudHasContent === true &&
-        localHasContent &&
-        cloudUnchangedSinceLastIntegration &&
-        this.isEntityCloudMeta(metaRaw)
-      ) {
-        cloudRead = { exists: true, state: null }; // state=null ⇒ مسار سريع
-      } else {
-        const fullRead = await this.readCloudDatabaseState();
-        cloudRead = { exists: fullRead.exists, state: fullRead.state };
-      }
-      const cloudState =
-        cloudRead.state ?? this.databaseStateFromCloud({});
-      const cloudHasContent =
-        cloudRead.state === null
-          ? true
-          : databaseHasMeaningfulContent(cloudState);
-
-      if (cloudRead.state === null) {
-        // ⚡ المسار السريع: فروق مباشرة ضد آخر حالة متزامنة (= السحابة الفعلية).
-        committedPayload = cleanUndefined(localAtStart) as DatabaseState;
-        committedPayload.lastUpdated = Math.max(
-          Date.now(),
-          Number(localAtStart.lastUpdated || 0),
-        );
-        await this.writeCloudDatabaseState(
-          committedPayload,
-          baseAtStart as DatabaseState,
-        );
-        this.unlockDatabaseGuard();
-      } else if (!cloudHasContent && !localHasContent && !MIRAS_ALLOW_EMPTY_FIRESTORE_INIT) {
+      if (!cloudHasContent && !localHasContent && !MIRAS_ALLOW_EMPTY_FIRESTORE_INIT) {
         this.lockDatabaseGuard(
           cloudRead.exists
             ? "Blocked writing an empty runtime over an existing but empty Firestore system/database document."
@@ -1979,40 +1766,38 @@ export class LocalDatabase {
     size?: number;
     storedName?: string;
     base64?: string;
-    // مسار ملف على القرص: يتيح البثّ المباشر قرص→Cloud Storage بلا أي نسخة في
-    // الذاكرة. جذر "رفع ٢١م.ب يفشل": الملف كان يتنسّخ ~٦ مرات في الذاكرة (بافر
-    // الرفع + القرص + نص base64 ٢٧م.ب + أرشيف JSON محلي + Buffer جديد) فتنفجر
-    // ذاكرة الحاوية ويقتلها Cloud Run (سجل OOM حرفي: "using too much memory and
-    // was terminated") — يرى الطالب 503 رغم أن الحفظ السحابي أكمل ونجح بعدها.
     filePath?: string;
   }): Promise<boolean> {
     const fileId = String(record?.fileId || "").trim();
     let base64 = String(record?.base64 || "");
-    const srcPath = String(record?.filePath || "");
-    if (!fileId || (!base64 && !srcPath)) return false;
+    if (!base64 && record.filePath && fs.existsSync(record.filePath)) {
+      try {
+        base64 = fs.readFileSync(record.filePath, "base64");
+      } catch (err) {
+        console.error("Failed to read base64 from filePath:", err);
+      }
+    }
+    if (!fileId || !base64) return false;
 
     // أرشيف محلي خفيف بجانب قاعدة البيانات: يفيد في التشغيل المحلي أو الخادم
-    // ذي قرص دائم، ولا يعتمد عليه وحده في الإنتاج. حين يصلنا مسار قرص (ملفات
-    // كبيرة) لا نبني نصّ base64 ضخماً — الملف الخام محفوظ أصلاً في uploads/.
-    if (base64) {
-      try {
-        const archiveDir = path.join(DATA_DIR, "submission-attachment-archive");
-        if (!fs.existsSync(archiveDir)) fs.mkdirSync(archiveDir, { recursive: true });
-        fs.writeFileSync(
-          path.join(archiveDir, `${fileId}.json`),
-          JSON.stringify({
-            fileId,
-            originalName: record.originalName || "attachment",
-            mimeType: record.mimeType || "application/octet-stream",
-            size: Number(record.size || 0),
-            storedName: record.storedName || "",
-            base64,
-            updatedAt: new Date().toISOString(),
-          }),
-        );
-      } catch (err) {
-        console.warn("⚠️ Failed to write local submission attachment archive:", err);
-      }
+    // ذي قرص دائم، ولا يعتمد عليه وحده في الإنتاج.
+    try {
+      const archiveDir = path.join(DATA_DIR, "submission-attachment-archive");
+      if (!fs.existsSync(archiveDir)) fs.mkdirSync(archiveDir, { recursive: true });
+      fs.writeFileSync(
+        path.join(archiveDir, `${fileId}.json`),
+        JSON.stringify({
+          fileId,
+          originalName: record.originalName || "attachment",
+          mimeType: record.mimeType || "application/octet-stream",
+          size: Number(record.size || 0),
+          storedName: record.storedName || "",
+          base64,
+          updatedAt: new Date().toISOString(),
+        }),
+      );
+    } catch (err) {
+      console.warn("⚠️ Failed to write local submission attachment archive:", err);
     }
 
     // في بيئات Firebase/Cloud Run قد يختفي ملف data/uploads بعد تدوير الحاوية.
@@ -2026,128 +1811,35 @@ export class LocalDatabase {
     // الصور كانت تنجو لأنها غالباً تحت حد التضمين المباشر داخل سجل التسليم
     // نفسه (المُزامَن بشكل متكرر وموثوق)، بعكس أي ملف أكبر كان يعتمد فقط على
     // هذا المسار الذي يفشل بصمت بلا أي إعادة محاولة.
-    // المسار الصاروخي: Cloud Storage — رفع الملف الخام بكتابة واحدة (ثوانٍ لملف
-    // ٢٤م.ب) بدل عشرات وثائق base64 على Firestore التي كانت تنتهي بمهلة وفشل.
-    // Firestore يبقى احتياطاً كاملاً إن تعذّر Storage لأي سبب.
-    if (dbBucket) {
-      try {
-        const sizeBytes = Number(record.size || 0) ||
-          (srcPath ? (() => { try { return fs.statSync(srcPath).size; } catch { return 0; } })() : Math.round(base64.length * 0.75));
-        const gcsMeta = {
-          contentType: record.mimeType || "application/octet-stream",
-          metadata: {
-            metadata: {
-              originalName: record.originalName || "attachment",
-              storedName: record.storedName || "",
-              size: String(sizeBytes),
-            },
-          },
-        };
-        await Promise.race([
-          srcPath
-            ? // بثّ مباشر من القرص (bucket.upload يبثّ بمقاطع صغيرة): ذروة الذاكرة
-              // شبه صفرية مهما كبر الملف — لا base64 ولا Buffer كامل إطلاقاً.
-              dbBucket.upload(srcPath, {
-                destination: `submission-attachments/${fileId}`,
-                // رفع مباشر بطلب واحد حتى ٣٢م.ب (حدّنا ٥٠م.ب): البروتوكول
-                // القابل للاستئناف يضيف رحلات HTTP إضافية تبطئ الملفات المتوسطة.
-                resumable: sizeBytes > 32 * 1024 * 1024,
-                ...gcsMeta,
-              })
-            : dbBucket
-                .file(`submission-attachments/${fileId}`)
-                .save(Buffer.from(base64, "base64"), {
-                  resumable: base64.length > 10 * 1024 * 1024,
-                  ...gcsMeta,
-                }),
-          new Promise((_, reject) =>
-            setTimeout(() => reject(new Error("gcs-save-timeout")), 45_000),
-          ),
-        ]);
-        console.log(
-          `🪣 attachment ${fileId} ${srcPath ? "streamed" : "saved"} to Cloud Storage (${Math.round(sizeBytes / 1024)}KB)`,
-        );
-        return true;
-      } catch (gcsErr: any) {
-        console.warn(
-          "⚠️ Cloud Storage attachment save failed, falling back to Firestore:",
-          gcsErr?.message || gcsErr,
-        );
-      }
-    }
-
     if (!dbFS) return true;
-    // احتياط Firestore يحتاج base64: نبنيه هنا فقط (مسار نادر — Storage تعطّل
-    // وFirestore متاح) حتى لا يدفع المسار السعيد كلفة الذاكرة أبداً.
-    if (!base64 && srcPath) {
-      try {
-        base64 = fs.readFileSync(srcPath).toString("base64");
-      } catch (readErr) {
-        console.warn("⚠️ Could not read attachment file for Firestore fallback:", readErr);
-        return false;
-      }
-    }
     if (firestoreQuotaExceeded) return false; // لا فائدة من محاولة محكوم عليها بالفشل؛ صدق فوري بدل انتظار عبثي
-    const chunkSize = 700_000;
+    const chunkSize = 650_000;
     const chunks: string[] = [];
     for (let i = 0; i < base64.length; i += chunkSize) {
       chunks.push(base64.slice(i, i + chunkSize));
     }
-    const retryDelaysMs = [0, 500, 1500];
+    const retryDelaysMs = [0, 400, 900, 1800];
     let lastErr: any = null;
-    // سقف زمني لكل محاولة كاملة: التزام gRPC معلّق قد يبقى دقيقة كاملة قبل أن
-    // يفشل، و٣ محاولات كانت تتراكم لأكثر من ٤ دقائق من "الدوران" قبل ظهور الخطأ
-    // للطالب. الآن أي محاولة تتجاوز ٢٥ث تُعدّ فاشلة فوراً وننتقل للتالية — فإما
-    // نجاح سريع أو فشل سريع وواضح، لا انتظار عبثي.
-    const withAttemptTimeout = <T,>(p: Promise<T>): Promise<T> =>
-      Promise.race([
-        p,
-        new Promise<T>((_, reject) =>
-          setTimeout(() => reject(new Error("archive-attempt-timeout")), 25_000),
-        ),
-      ]);
     for (const delay of retryDelaysMs) {
       if (delay) await new Promise((resolve) => setTimeout(resolve, delay));
       try {
-        await withAttemptTimeout(
-          (async () => {
-            await dbFS.doc(`submissionAttachments/${fileId}`).set(cleanUndefined({
-              fileId,
-              originalName: record.originalName || "attachment",
-              mimeType: record.mimeType || "application/octet-stream",
-              size: Number(record.size || 0),
-              storedName: record.storedName || "",
-              chunkCount: chunks.length,
-              chunkSize,
-              updatedAt: new Date().toISOString(),
-            }));
-            // كتابة الأجزاء عبر دفعات Firestore: نُبقي كل دفعة ≤ ~٢.٨م.ب (٤ أجزاء)
-            // بعيداً تماماً عن حدود gRPC/الطلب (~٤م.ب رسالة، ١٠م.ب طلب) — الدفعات
-            // الأكبر (٨.٥م.ب سابقاً) كانت ترتد بأخطاء بطيئة فيتكرر الفشل ويطول
-            // الدوران. ملف ٢٤م.ب ≈ ١٢ التزاماً متتابعاً سريعاً (ثوانٍ قليلة).
-            let batch = dbFS.batch();
-            let batchBytes = 0;
-            let batchCount = 0;
-            for (let index = 0; index < chunks.length; index += 1) {
-              const data = chunks[index];
-              if (
-                batchCount >= 400 ||
-                (batchBytes + data.length > 2_800_000 && batchCount > 0)
-              ) {
-                await batch.commit();
-                batch = dbFS.batch();
-                batchBytes = 0;
-                batchCount = 0;
-              }
-              batch.set(
-                dbFS.doc(`submissionAttachments/${fileId}/chunks/${index}`),
-                { index, data },
-              );
-              batchBytes += data.length;
-              batchCount += 1;
-            }
-            if (batchCount > 0) await batch.commit();
-          })(),
+        await dbFS.doc(`submissionAttachments/${fileId}`).set(cleanUndefined({
+          fileId,
+          originalName: record.originalName || "attachment",
+          mimeType: record.mimeType || "application/octet-stream",
+          size: Number(record.size || 0),
+          storedName: record.storedName || "",
+          chunkCount: chunks.length,
+          chunkSize,
+          updatedAt: new Date().toISOString(),
+        }));
+        await Promise.all(
+          chunks.map((data, index) =>
+            dbFS.doc(`submissionAttachments/${fileId}/chunks/${index}`).set({
+              index,
+              data,
+            }),
+          ),
         );
         return true;
       } catch (err) {
@@ -2184,28 +1876,6 @@ export class LocalDatabase {
       }
     } catch (err) {
       console.warn("⚠️ Failed to read local submission attachment archive:", err);
-    }
-
-    // Cloud Storage (المسار الأساسي للملفات الجديدة) قبل احتياط Firestore المجزّأ.
-    if (dbBucket) {
-      try {
-        const gcsFile = dbBucket.file(`submission-attachments/${fileId}`);
-        const [exists] = await gcsFile.exists();
-        if (exists) {
-          const [buffer] = await gcsFile.download();
-          const [meta] = await gcsFile.getMetadata().catch(() => [{} as any]);
-          const custom = (meta as any)?.metadata || {};
-          return {
-            buffer,
-            originalName: String(custom.originalName || "attachment"),
-            mimeType: String(
-              (meta as any)?.contentType || "application/octet-stream",
-            ),
-          };
-        }
-      } catch (err) {
-        console.warn("⚠️ Failed to read Cloud Storage attachment:", err);
-      }
     }
 
     if (!dbFS) return null;
@@ -2265,27 +1935,6 @@ export class LocalDatabase {
 
     if (!dbFS) return true;
     if (firestoreQuotaExceeded) return false;
-    // المسار الصاروخي: Cloud Storage — كتابة واحدة للـPDF الخام (معاينة المعلم
-    // للملفات الكبيرة تصبح ثوانيَ). Firestore يبقى احتياطاً كاملاً.
-    if (dbBucket) {
-      try {
-        await Promise.race([
-          dbBucket.file(`converted-pdfs/${fileId}.pdf`).save(pdfBuffer, {
-            resumable: pdfBuffer.length > 8 * 1024 * 1024,
-            contentType: "application/pdf",
-          }),
-          new Promise((_, reject) =>
-            setTimeout(() => reject(new Error("gcs-pdf-timeout")), 30_000),
-          ),
-        ]);
-        return true;
-      } catch (gcsErr: any) {
-        console.warn(
-          "⚠️ Cloud Storage converted-pdf save failed, falling back to Firestore:",
-          gcsErr?.message || gcsErr,
-        );
-      }
-    }
     const base64 = pdfBuffer.toString("base64");
     const chunkSize = 650_000;
     const chunks: string[] = [];
@@ -2335,30 +1984,7 @@ export class LocalDatabase {
       console.warn("⚠️ Failed to read local converted-pdf cache:", err);
     }
 
-    // L2: نسخة Cloud Storage (الأساسية للملفات الجديدة — تنزيل واحد سريع).
-    if (dbBucket) {
-      try {
-        const gcsFile = dbBucket.file(`converted-pdfs/${fileId}.pdf`);
-        const [exists] = await gcsFile.exists();
-        if (exists) {
-          const [buf] = await gcsFile.download();
-          if (buf?.length) {
-            // ادفأ الكاش المحلي لهذه النسخة حتى تكون الفتحات التالية فورية.
-            try {
-              fs.writeFileSync(
-                path.join(this.convertedPdfCacheDir(), `${fileId}.pdf`),
-                buf,
-              );
-            } catch {}
-            return buf;
-          }
-        }
-      } catch (err) {
-        console.warn("⚠️ Failed to read Cloud Storage converted-pdf:", err);
-      }
-    }
-
-    // L3: نسخة Firestore الدائمة (احتياط للملفات القديمة المخزّنة مجزّأة).
+    // L2: نسخة Firestore الدائمة (تصمد عبر تدوير الحاوية وتُشارَك بين النسخ).
     if (!dbFS) return null;
     try {
       const metaSnap = await dbFS
@@ -2508,6 +2134,82 @@ export class LocalDatabase {
   public getJoinCodes(): JoinCode[] {
     if (!this.data.joinCodes) this.data.joinCodes = [];
     return this.data.joinCodes;
+  }
+
+  public getNotificationSeenKeys(userKey: string): string[] {
+    if (!this.data.notificationSeenKeys) this.data.notificationSeenKeys = {};
+    return this.data.notificationSeenKeys[userKey] || [];
+  }
+
+  public saveNotificationSeenKeys(userKey: string, keys: string[]): void {
+    if (!this.data.notificationSeenKeys) this.data.notificationSeenKeys = {};
+    this.data.notificationSeenKeys[userKey] = keys;
+    this.persist();
+  }
+
+  public getErrorReports(): any[] {
+    if (!this.data.errorReports) this.data.errorReports = [];
+    return this.data.errorReports;
+  }
+
+  public recordErrorReport(report: any): void {
+    if (!this.data.errorReports) this.data.errorReports = [];
+    const signature = report.signature;
+    const existing = this.data.errorReports.find((r: any) => r.signature === signature);
+    const nowIso = new Date().toISOString();
+    
+    if (existing) {
+      existing.count = (existing.count || 1) + 1;
+      existing.lastSeenAt = nowIso;
+      existing.resolvedAt = undefined;
+      existing.resolvedBy = undefined;
+      if (report.url) existing.url = report.url;
+      if (report.role) existing.role = report.role;
+      if (report.userId) existing.userId = report.userId;
+      if (report.browser) existing.browser = report.browser;
+      if (report.displayMode) existing.displayMode = report.displayMode;
+      if (report.bundle) existing.bundle = report.bundle;
+    } else {
+      const id = signature || `err_${Date.now()}_${Math.random().toString(36).substring(2, 11)}`;
+      this.data.errorReports.push({
+        id,
+        signature,
+        message: report.message,
+        stack: report.stack,
+        source: report.source,
+        url: report.url,
+        role: report.role,
+        userId: report.userId,
+        browser: report.browser,
+        displayMode: report.displayMode,
+        bundle: report.bundle,
+        count: 1,
+        firstSeenAt: nowIso,
+        lastSeenAt: nowIso,
+      });
+    }
+    this.persist();
+  }
+
+  public resolveErrorReport(id: string, resolvedBy: string): boolean {
+    if (!this.data.errorReports) this.data.errorReports = [];
+    const report = this.data.errorReports.find((r: any) => r.id === id || r.signature === id);
+    if (!report) return false;
+    report.resolvedAt = new Date().toISOString();
+    report.resolvedBy = resolvedBy;
+    this.persist();
+    return true;
+  }
+
+  public clearResolvedErrorReports(): number {
+    if (!this.data.errorReports) this.data.errorReports = [];
+    const initialCount = this.data.errorReports.length;
+    this.data.errorReports = this.data.errorReports.filter((r: any) => !r.resolvedAt);
+    const removed = initialCount - this.data.errorReports.length;
+    if (removed > 0) {
+      this.persist();
+    }
+    return removed;
   }
 
   public getRetiredJoinCodes(): JoinCode[] {
@@ -2774,92 +2476,6 @@ export class LocalDatabase {
     this.persist();
   }
 
-  // ── رادار مِراس: تقارير الأخطاء المجمّعة ────────────────────────────────────
-  public getErrorReports(): any[] {
-    if (!this.data.errorReports) this.data.errorReports = [];
-    return this.data.errorReports;
-  }
-  // تجميع على غرار Sentry: نفس التوقيع (signature) لخطأ نشط ⇒ زيادة العدّاد
-  // وتحديث آخر ظهور وسياقه، بدل إغراق القائمة بمئات النسخ من نفس الخطأ.
-  public recordErrorReport(report: {
-    signature: string;
-    message: string;
-    stack?: string;
-    source?: string;
-    url?: string;
-    role?: string;
-    userId?: string;
-    browser?: string;
-    displayMode?: string;
-    bundle?: string;
-  }): void {
-    if (!this.data.errorReports) this.data.errorReports = [];
-    const nowIso = new Date().toISOString();
-    const existing = this.data.errorReports.find(
-      (item: any) =>
-        String(item.signature) === report.signature && !item.resolvedAt,
-    );
-    if (existing) {
-      existing.count = Number(existing.count || 1) + 1;
-      existing.lastSeenAt = nowIso;
-      existing.updatedAt = nowIso;
-      if (report.url) existing.url = report.url;
-      if (report.userId) existing.userId = report.userId;
-      if (report.role) existing.role = report.role;
-      if (report.browser) existing.browser = report.browser;
-      if (report.displayMode) existing.displayMode = report.displayMode;
-    } else {
-      this.data.errorReports.unshift({
-        id: "err-" + Date.now().toString(36) + Math.random().toString(36).slice(2, 7),
-        signature: report.signature,
-        message: report.message,
-        stack: report.stack || "",
-        source: report.source || "client",
-        url: report.url || "",
-        role: report.role || "",
-        userId: report.userId || "",
-        browser: report.browser || "",
-        displayMode: report.displayMode || "",
-        bundle: report.bundle || "",
-        count: 1,
-        firstSeenAt: nowIso,
-        lastSeenAt: nowIso,
-        updatedAt: nowIso,
-        resolvedAt: "",
-      });
-      // سقف ٣٠٠ تقرير: نُسقط المحلولة الأقدم أولاً ثم الأقدم مطلقاً.
-      if (this.data.errorReports.length > 300) {
-        const resolvedIdx = [...this.data.errorReports]
-          .map((item: any, idx: number) => ({ item, idx }))
-          .filter((x: any) => x.item.resolvedAt)
-          .pop()?.idx;
-        if (resolvedIdx !== undefined) this.data.errorReports.splice(resolvedIdx, 1);
-        else this.data.errorReports.pop();
-      }
-    }
-    this.persist(false);
-  }
-  public resolveErrorReport(id: string, by: string): boolean {
-    const item = (this.data.errorReports || []).find(
-      (r: any) => String(r.id) === String(id),
-    );
-    if (!item) return false;
-    item.resolvedAt = new Date().toISOString();
-    item.resolvedBy = by;
-    item.updatedAt = item.resolvedAt;
-    this.persist(false);
-    return true;
-  }
-  public clearResolvedErrorReports(): number {
-    const before = (this.data.errorReports || []).length;
-    this.data.errorReports = (this.data.errorReports || []).filter(
-      (r: any) => !r.resolvedAt,
-    );
-    const removed = before - this.data.errorReports.length;
-    if (removed > 0) this.persist(false);
-    return removed;
-  }
-
   // Setters/Prunes
   public setBookMetadata(meta: any | undefined) {
     this.data.bookMetadata = meta;
@@ -3071,26 +2687,6 @@ export class LocalDatabase {
   public getInAppNotifications(): any[] {
     if (!this.data.inAppNotifications) this.data.inAppNotifications = [];
     return this.data.inAppNotifications;
-  }
-  // مفاتيح التنبيهات المقروءة لكل مستخدم — تُخزَّن على الخادم لتتزامن حالة "مقروء"
-  // بين أجهزة المعلم/الطالب (هاتف↔كمبيوتر) بدل بقائها محلية على كل جهاز.
-  public getNotificationSeenKeys(userKey: string): string[] {
-    if (!this.data.notificationSeenKeys) this.data.notificationSeenKeys = {};
-    const entry = (this.data.notificationSeenKeys as any)[String(userKey || "")];
-    return entry && Array.isArray(entry.keys) ? entry.keys : [];
-  }
-  public saveNotificationSeenKeys(userKey: string, keys: string[]): void {
-    if (!this.data.notificationSeenKeys) this.data.notificationSeenKeys = {};
-    const uk = String(userKey || "");
-    if (!uk) return;
-    const capped = Array.from(
-      new Set((keys || []).map((k) => String(k || "")).filter(Boolean)),
-    ).slice(-400);
-    (this.data.notificationSeenKeys as any)[uk] = {
-      keys: capped,
-      updatedAt: new Date().toISOString(),
-    };
-    this.persist(false);
   }
   public addInAppNotification(item: any): void {
     if (!this.data.inAppNotifications) this.data.inAppNotifications = [];
