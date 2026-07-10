@@ -3901,7 +3901,16 @@ export default function App() {
               <path d="m21 21-4.3-4.3" />
             </svg>
             <input
-              ref={cmdkInputRef}
+              ref={(el) => {
+                (cmdkInputRef as any).current = el;
+                // اللون فقط (بطلب المالك): قواعد إدخال عالمية بـ!important كانت
+                // تبيّض النص فيختفي على الحبة البيضاء. inline+important لا يُقهر.
+                if (el) {
+                  el.style.setProperty("color", "#0b1220", "important");
+                  el.style.setProperty("-webkit-text-fill-color", "#0b1220", "important");
+                  el.style.setProperty("caret-color", "#4f46e5", "important");
+                }
+              }}
               value={cmdkQuery}
               onChange={(e) => {
                 const v = e.target.value;
@@ -5515,10 +5524,23 @@ export default function App() {
         // إن فشل. نمنع التحليلات المتزامنة بعلم busy لأن الاستدلال قد يأخذ وقتاً.
         let blazeModel: any = null;
         let blazeBusy = false;
+        // تكافؤ مع SEB (بطلب المالك): لوحة فحص مصغّرة ١٦٠×١٢٠ (استدلال أسرع
+        // أضعافاً من الإطار الكامل) + تسخين فوري بعد التحميل (أول فحص حقيقي
+        // يصير لحظياً بدل تأخر تجميع النوى ١-٣ث).
+        const blazeCanvas = document.createElement("canvas");
+        blazeCanvas.width = 160;
+        blazeCanvas.height = 120;
+        const blazeCtx = blazeCanvas.getContext("2d");
         if (!isRespectful) {
           loadMirasBlazeFace()
             .then((model) => {
-              if (!cancelled) blazeModel = model;
+              if (!cancelled) {
+                blazeModel = model;
+                try {
+                  blazeCtx?.fillRect(0, 0, 160, 120);
+                  void model.estimateFaces(blazeCanvas, false).catch(() => undefined);
+                } catch {}
+              }
             })
             .catch(() => {
               blazeModel = null;
@@ -5850,7 +5872,8 @@ export default function App() {
                 blazeBusy = true;
                 let preds: any[] = [];
                 try {
-                  preds = await blazeModel.estimateFaces(video, false);
+                  blazeCtx?.drawImage(video, 0, 0, 160, 120);
+                  preds = await blazeModel.estimateFaces(blazeCanvas, false);
                 } catch {
                   preds = [];
                 }
@@ -5891,7 +5914,7 @@ export default function App() {
                 } else {
                   localVisionCountersRef.current.multiple_faces = 0;
                 }
-                if (faceCount === 1 && video.videoWidth) {
+                if (faceCount === 1) {
                   const p: any = preds[0];
                   const tl: any = p.topLeft;
                   const br: any = p.bottomRight;
@@ -5899,7 +5922,7 @@ export default function App() {
                   const x1 = Array.isArray(br) ? Number(br[0]) : Number(br?.[0] || 0);
                   const boxW = Math.max(1, x1 - x0);
                   const boxCenterX = (x0 + x1) / 2;
-                  const frameRatio = boxCenterX / Math.max(1, video.videoWidth);
+                  const frameRatio = boxCenterX / 160;
                   const nose: any = Array.isArray(p.landmarks)
                     ? p.landmarks[2]
                     : null;
@@ -6119,7 +6142,7 @@ export default function App() {
             }
             maybeRecoverLocalVisionLock();
           } catch {}
-        }, 850);
+        }, 650);
       } catch (error) {
         if (!cancelled) await failCamera(error);
       }
@@ -6360,6 +6383,14 @@ export default function App() {
   >("idle");
   const [uploadStatusFileName, setUploadStatusFileName] = useState("");
   const uploadStartRef = useRef(0);
+  // نقطة الاتصال الحية في شريحة الحساب (بطلب المالك): نقطة بلا كلام، والضغط
+  // عليها يُظهر فقاعة أنيقة بالحالة تختفي وحدها.
+  const [connectionPopoverOpen, setConnectionPopoverOpen] = useState(false);
+  useEffect(() => {
+    if (!connectionPopoverOpen) return;
+    const t = window.setTimeout(() => setConnectionPopoverOpen(false), 2600);
+    return () => window.clearTimeout(t);
+  }, [connectionPopoverOpen]);
 
   // Project generator states
   const [personalProject, setPersonalProject] = useState<any>(null);
@@ -28344,31 +28375,8 @@ ${rows
         </div>
       )}
 
-      {!showSplash && (studentSession || teacherSession) && (
-        <div
-          className={`miras-connection-status ${
-            isAppOffline
-              ? "is-offline"
-              : liveConnectionTrouble
-                ? "is-syncing"
-                : "is-online"
-          }`}
-          dir="rtl"
-          role="status"
-          aria-live="polite"
-        >
-          <span className="miras-connection-dot" aria-hidden="true" />
-          <span>
-            {isAppOffline
-              ? "غير متصل · سنكمل تلقائيًا"
-              : liveConnectionTrouble
-                ? "إعادة المزامنة"
-                : connectionRecoveredAt
-                  ? "عاد الاتصال"
-                  : "متصل"}
-          </span>
-        </div>
-      )}
+      {/* بادج "متصل" الثابت أُزيل بقرار المالك — حلّت محله نقطة الاتصال الحية
+          داخل شريحة الحساب (نقطة بلا كلام، والضغط يُظهر الحالة بأناقة). */}
 
       {activationQrScannerOpen && (
         <div
@@ -30760,9 +30768,32 @@ ${rows
                     dir="rtl"
                   >
                     <div className="miras-student-identity min-w-0 flex flex-col items-start gap-1 pt-0.5 text-right">
-                      <div className="miras-student-account-pill inline-flex shrink-0 items-center gap-1.5 rounded-full bg-indigo-50 px-2.5 py-0.5 text-[9px] font-black text-indigo-700 select-none">
-                        <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                      <div className="miras-student-account-pill relative inline-flex shrink-0 items-center gap-1.5 rounded-full bg-indigo-50 px-2.5 py-0.5 text-[9px] font-black text-indigo-700 select-none">
+                        <button
+                          type="button"
+                          aria-label="حالة الاتصال"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setConnectionPopoverOpen((v) => !v);
+                          }}
+                          className={`h-1.5 w-1.5 shrink-0 cursor-pointer rounded-full border-0 p-0 ${
+                            isAppOffline
+                              ? "bg-amber-400"
+                              : liveConnectionTrouble
+                                ? "animate-pulse bg-amber-400"
+                                : "animate-pulse bg-emerald-500"
+                          }`}
+                        />
                         حساب الطالب
+                        {connectionPopoverOpen && (
+                          <span className="absolute right-0 top-full z-[60] mt-1.5 whitespace-nowrap rounded-xl border border-slate-200/90 bg-white/95 px-3 py-1.5 text-[10px] font-black text-slate-700 shadow-lg backdrop-blur-md">
+                            {isAppOffline
+                              ? "غير متصل — سنكمل تلقائياً عند عودة الشبكة"
+                              : liveConnectionTrouble
+                                ? "إعادة المزامنة الآن…"
+                                : "متصل — كل شيء يعمل بسلاسة ✓"}
+                          </span>
+                        )}
                       </div>
                       <h1
                         className="miras-student-name w-full max-w-full truncate text-right text-sm font-light leading-tight tracking-tight text-slate-950 sm:text-[15px] md:text-base"
@@ -33111,9 +33142,32 @@ ${rows
                 <div className="flex flex-col gap-5">
                   <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
                     <div className="miras-teacher-heading-block flex min-w-0 flex-1 flex-col items-end text-right">
-                      <div className="mb-2 inline-flex max-w-full items-center gap-2 self-end rounded-full bg-emerald-50 px-3.5 py-1.5 text-[11px] font-black text-emerald-700 shadow-sm">
-                        <span className="h-2.5 w-2.5 rounded-full bg-emerald-500" />
+                      <div className="relative mb-2 inline-flex max-w-full items-center gap-2 self-end rounded-full bg-emerald-50 px-3.5 py-1.5 text-[11px] font-black text-emerald-700 shadow-sm">
+                        <button
+                          type="button"
+                          aria-label="حالة الاتصال"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setConnectionPopoverOpen((v) => !v);
+                          }}
+                          className={`h-2.5 w-2.5 shrink-0 cursor-pointer rounded-full border-0 p-0 ${
+                            isAppOffline
+                              ? "bg-amber-400"
+                              : liveConnectionTrouble
+                                ? "animate-pulse bg-amber-400"
+                                : "bg-emerald-500"
+                          }`}
+                        />
                         {teacherSession?.name || "حساب المعلم"}
+                        {connectionPopoverOpen && (
+                          <span className="absolute left-0 top-full z-[60] mt-1.5 whitespace-nowrap rounded-xl border border-slate-200/90 bg-white/95 px-3 py-1.5 text-[10px] font-black text-slate-700 shadow-lg backdrop-blur-md">
+                            {isAppOffline
+                              ? "غير متصل — سنكمل تلقائياً عند عودة الشبكة"
+                              : liveConnectionTrouble
+                                ? "إعادة المزامنة الآن…"
+                                : "متصل — كل شيء يعمل بسلاسة ✓"}
+                          </span>
+                        )}
                       </div>
                       <h1 className="w-full text-right text-[1.9rem] font-black tracking-tight text-slate-950 sm:text-[2.15rem]">
                         {teacherTabTitle[teacherTab]}
@@ -36006,20 +36060,8 @@ ${rows
                                         setExamDraft({
                                           ...(examDraft as any),
                                           localVisionEnabled: e.target.checked,
-                                          localVisionMode: e.target.checked
-                                            ? (examDraft as any)
-                                                .localVisionMode &&
-                                              !["off", "balanced"].includes(
-                                                String(
-                                                  (examDraft as any)
-                                                    .localVisionMode,
-                                                ),
-                                              )
-                                              ? (examDraft as any)
-                                                  .localVisionMode
-                                              : "strict"
-                                            : (examDraft as any)
-                                                .localVisionMode || "strict",
+                                          // بقرار المالك: لا مستويات — التفعيل = صارم دائماً
+                                          localVisionMode: "strict",
                                           localVisionCameraFailurePolicy:
                                             "block_start",
                                         })
@@ -36028,41 +36070,8 @@ ${rows
                                     <span className={`absolute top-1 inline-flex h-6 w-6 rounded-full bg-white shadow-sm transition-all duration-300 ${!!(examDraft as any).localVisionEnabled ? "left-1" : "right-1"}`} />
                                   </label>
                                 </div>
-                                {!!(examDraft as any).localVisionEnabled && (
-                                  <div className="grid grid-cols-1 gap-2">
-                                    <label className="text-[10px] font-black text-slate-500">
-                                      المستوى
-                                      <select
-                                        value={
-                                          ["respectful", "strict"].includes(
-                                            String(
-                                              (examDraft as any)
-                                                .localVisionMode,
-                                            ),
-                                          )
-                                            ? (examDraft as any).localVisionMode
-                                            : "strict"
-                                        }
-                                        onChange={(e) =>
-                                          setExamDraft({
-                                            ...(examDraft as any),
-                                            localVisionMode: e.target
-                                              .value as any,
-                                            localVisionCameraFailurePolicy:
-                                              "block_start",
-                                          })
-                                        }
-                                        className="mt-1 w-full rounded-2xl border border-slate-100 bg-slate-50 px-3 py-3 text-sm font-black text-slate-900"
-                                      >
-                                        <option value="respectful">
-                                          خصوصية
-                                        </option>
-                                        <option value="strict">صارم</option>
-                                      </select>
-                                    </label>
-
-                                  </div>
-                                )}
+                                {/* بقرار المالك: أُزيل سلكت "المستوى" — التفعيل يعني
+                                    المراقبة الصارمة دائماً، بلا خيارات إضافية. */}
                               </div>
 
                               <div className="md:col-span-4 rounded-[1.6rem] border border-slate-200 bg-slate-50/80 p-4">
