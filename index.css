@@ -6959,6 +6959,27 @@ body,
   white-space: nowrap !important;
 }
 
+.miras-account-connection-dot {
+  display: block !important;
+  width: 0.38rem !important;
+  height: 0.38rem !important;
+  min-width: 0.38rem !important;
+  min-height: 0.38rem !important;
+  max-width: 0.38rem !important;
+  max-height: 0.38rem !important;
+  flex: 0 0 0.38rem !important;
+  padding: 0 !important;
+  border: 0 !important;
+  border-radius: 999px !important;
+  box-shadow: 0 0 0 1.5px rgba(255, 255, 255, 0.92) !important;
+}
+
+.miras-student-account-pill:focus-visible,
+.miras-teacher-account-pill:focus-visible {
+  outline: 2px solid rgba(79, 70, 229, 0.5) !important;
+  outline-offset: 2px !important;
+}
+
 .workspace-calm-shell .miras-student-name {
   display: block !important;
   width: fit-content !important;

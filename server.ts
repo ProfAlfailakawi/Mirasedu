@@ -6323,26 +6323,29 @@ function notifyUsers(
       }
     }
     const deduped = [...byDevice.values(), ...rest];
-    // الطالب جهاز واحد (سياسة القفل): نرسل لأحدث جهاز فقط لكل طالب — بقايا
-    // جهاز/متصفح قديم مسجّل كانت توصل نفس الإشعار مرتين وثلاثاً لنفس الشخص.
-    const byStudent = new Map<string, any>();
-    const finalTargets: any[] = [];
+    // قناة دفع واحدة لكل هوية، لكل الأدوار. اختلاف حالة أحرف بريد الأستاذ
+    // (Ah... مقابل ah...) كان يُعامل حساباً ثانياً، وSafari/PWA على الهاتف نفسه
+    // كانا يعرضان بانرين. نختار أحدث توكن، ويبقى جرس التطبيق متاحاً بكل الأجهزة.
+    const byIdentity = new Map<string, any>();
     for (const t of deduped) {
-      if (String((t as any).role || "") !== "student") {
-        finalTargets.push(t);
-        continue;
-      }
-      const uid = String((t as any).userId || "");
-      const existingStudent = byStudent.get(uid);
+      const role = String((t as any).role || "").toLowerCase();
+      const uid =
+        role === "student"
+          ? normalizeStudentId((t as any).userId)
+          : String((t as any).userId || (t as any).teacherEmail || "")
+              .trim()
+              .toLowerCase();
+      const identityKey = `${role}:${uid || String((t as any).token || "")}`;
+      const existingIdentity = byIdentity.get(identityKey);
       if (
-        !existingStudent ||
+        !existingIdentity ||
         new Date((t as any).updatedAt || 0).getTime() >
-          new Date((existingStudent as any).updatedAt || 0).getTime()
+          new Date((existingIdentity as any).updatedAt || 0).getTime()
       ) {
-        byStudent.set(uid, t);
+        byIdentity.set(identityKey, t);
       }
     }
-    return [...finalTargets, ...byStudent.values()];
+    return [...byIdentity.values()];
   })();
   const seen = new Set<string>();
   queueNotificationAudit(
@@ -9562,30 +9565,35 @@ app.post("/api/notifications/register-token", (req, res) => {
     updatedAt: now,
   };
   dbInstance.upsertNotificationToken(saved);
-  // نظافة التوكنات: عطّل توكنات FCM القديمة لنفس الجهاز/المستخدم (تجديد FCM يخلّف
-  // توكنات قديمة، فتتراكم ويصل الإشعار مكرّراً). نُبقي الجديد فقط لكل جهاز.
+  // قناة دفع واحدة لكل حساب: جرس مِراس نفسه متزامن على كل الأجهزة، أما بانر
+  // النظام فيخرج إلى أحدث جهاز/تثبيت فقط. إبقاء Safari وPWA أو اختلاف حالة أحرف
+  // بريد الأستاذ كتوكِنين نشطين كان يصنع بانرين متطابقين للحدث نفسه.
   try {
-    const dk = String(saved.deviceToken || "").trim();
-    if (dk) {
-      // الطالب جهاز واحد بسياسة القفل → دفع لجهاز واحد: تسجيل توكن جديد يعطّل كل
-      // توكناته الأخرى أياً كان جهازها (بقايا Safari/جهاز قديم كانت توصل نفس
-      // الإشعار ٢-٣ مرات). المعلم يظل متعدد الأجهزة: نعطّل فقط قديم نفس الجهاز.
-      const studentSingleDevice = saved.role === "student";
-      dbInstance
-        .getNotificationTokens()
-        .filter(
-          (t: any) =>
-            !t.disabledAt &&
-            String(t.userId) === userId &&
-            String(t.role || "") === String(saved.role || "") &&
-            (studentSingleDevice ||
-              String(t.deviceToken || "").trim() === dk) &&
-            String(t.token) !== token,
-        )
-        .forEach((t: any) =>
-          dbInstance.disableNotificationToken(t.token, t.userId),
+    const savedIdentity =
+      saved.role === "student"
+        ? normalizeStudentId(saved.userId)
+        : String(saved.userId || saved.teacherEmail || "")
+            .trim()
+            .toLowerCase();
+    dbInstance
+      .getNotificationTokens()
+      .filter((t: any) => {
+        const tokenIdentity =
+          String(t.role || "") === "student"
+            ? normalizeStudentId(t.userId)
+            : String(t.userId || t.teacherEmail || "")
+                .trim()
+                .toLowerCase();
+        return (
+          !t.disabledAt &&
+          String(t.role || "") === String(saved.role || "") &&
+          tokenIdentity === savedIdentity &&
+          String(t.token) !== token
         );
-    }
+      })
+      .forEach((t: any) =>
+        dbInstance.disableNotificationToken(t.token, t.userId),
+      );
   } catch {}
   return res.json({
     success: true,
