@@ -9886,7 +9886,7 @@ export default function App() {
           }`}
         >
           <div
-            className={`h-full rounded-full transition-[width] duration-300 ${
+            className={`miras-upload-bar-fill h-full rounded-full transition-[width] duration-300 ${
               uploadPhase === "waiting-network"
                 ? "bg-amber-400"
                 : uploadPhase === "retrying"
@@ -30776,12 +30776,12 @@ ${rows
                             e.stopPropagation();
                             setConnectionPopoverOpen((v) => !v);
                           }}
-                          className={`h-1.5 w-1.5 shrink-0 cursor-pointer rounded-full border-0 p-0 ${
+                          className={`h-1.5 w-1.5 shrink-0 cursor-pointer rounded-full border-0 p-0 ring-[1.5px] ring-white/90 ${
                             isAppOffline
                               ? "bg-amber-400"
                               : liveConnectionTrouble
                                 ? "animate-pulse bg-amber-400"
-                                : "animate-pulse bg-emerald-500"
+                                : "bg-emerald-500"
                           }`}
                         />
                         حساب الطالب
@@ -30791,7 +30791,7 @@ ${rows
                               ? "غير متصل — سنكمل تلقائياً عند عودة الشبكة"
                               : liveConnectionTrouble
                                 ? "إعادة المزامنة الآن…"
-                                : "متصل — كل شيء يعمل بسلاسة ✓"}
+                                : "متصل ✓"}
                           </span>
                         )}
                       </div>
@@ -33138,7 +33138,7 @@ ${rows
                             e.stopPropagation();
                             setConnectionPopoverOpen((v) => !v);
                           }}
-                          className={`h-2.5 w-2.5 shrink-0 cursor-pointer rounded-full border-0 p-0 ${
+                          className={`h-1.5 w-1.5 shrink-0 cursor-pointer rounded-full border-0 p-0 ring-[1.5px] ring-white/90 ${
                             isAppOffline
                               ? "bg-amber-400"
                               : liveConnectionTrouble
@@ -33153,7 +33153,7 @@ ${rows
                               ? "غير متصل — سنكمل تلقائياً عند عودة الشبكة"
                               : liveConnectionTrouble
                                 ? "إعادة المزامنة الآن…"
-                                : "متصل — كل شيء يعمل بسلاسة ✓"}
+                                : "متصل ✓"}
                           </span>
                         )}
                       </div>
