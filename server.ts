@@ -6205,6 +6205,44 @@ function notificationEventId(
   return `miras-${crypto.createHash("sha256").update(raw).digest("hex").slice(0, 28)}`;
 }
 
+// حارس دائم للإرسال: منع التكرار في الذاكرة وحده يضيع عند تدوير Cloud Run،
+// كما أن مسارين متزامنين يستطيعان كليهما إرسال FCM قبل أن يلاحظ الآخر السجل.
+// نستخدم claim سريعاً داخل العملية، ثم نسجل النجاح في Firestore عبر dbInstance
+// حتى يبقى event + target مرّة واحدة بعد إعادة التشغيل أيضاً.
+const mirasNotificationDispatchClaims = new Set<string>();
+function notificationDispatchKey(target: any, eventData: Record<string, string>) {
+  const targetIdentity = String(
+    target?.role === "student"
+      ? target?.userId || ""
+      : target?.deviceToken || target?.token || target?.userId || "",
+  );
+  const targetHash = crypto
+    .createHash("sha256")
+    .update(targetIdentity)
+    .digest("hex")
+    .slice(0, 20);
+  return [
+    String(target?.role || ""),
+    String(target?.userId || ""),
+    targetHash,
+    String(eventData.notificationId || ""),
+  ].join(":");
+}
+function claimNotificationDispatch(key: string) {
+  if (!key || mirasNotificationDispatchClaims.has(key)) return false;
+  if (dbInstance.getNotificationDispatches()[key]) return false;
+  mirasNotificationDispatchClaims.add(key);
+  return true;
+}
+function completeNotificationDispatch(key: string) {
+  if (!key) return;
+  mirasNotificationDispatchClaims.delete(key);
+  dbInstance.rememberNotificationDispatch(key);
+}
+function releaseNotificationDispatch(key: string) {
+  if (key) mirasNotificationDispatchClaims.delete(key);
+}
+
 function notifyUsers(
   filter: (token: NotificationToken) => boolean,
   title: string,
@@ -6271,16 +6309,28 @@ function notifyUsers(
     ) {
       return;
     }
-    sendFcmToToken(target.token, safeTitle, safeBody, eventData)
+    const dispatchKey = notificationDispatchKey(target, eventData);
+    if (!claimNotificationDispatch(dispatchKey)) return;
+    try {
+      sendFcmToToken(target.token, safeTitle, safeBody, eventData)
       .then((result) => {
-        if (!result.sent) {
+        if (result.sent) completeNotificationDispatch(dispatchKey);
+        else {
+          releaseNotificationDispatch(dispatchKey);
           console.warn("FCM send skipped/failed:", result.reason);
           if (shouldDisableFcmToken(String(result.reason || ""))) {
             dbInstance.disableNotificationToken(target.token, target.userId);
           }
         }
       })
-      .catch((err) => console.warn("FCM send failed:", err?.message || err));
+      .catch((err) => {
+        releaseNotificationDispatch(dispatchKey);
+        console.warn("FCM send failed:", err?.message || err);
+      });
+    } catch (err: any) {
+      releaseNotificationDispatch(dispatchKey);
+      console.warn("FCM dispatch failed:", err?.message || err);
+    }
     const key = `${target.role}:${target.userId || ""}:${target.sectionCode || ""}:${eventData.courseCode || ""}`;
     const courseNotificationAlreadyCoversStudent =
       target.role === "student" &&
