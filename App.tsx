@@ -8,13 +8,22 @@ import {
 } from "react";
 import { createPortal } from "react-dom";
 import { motion, AnimatePresence } from "motion/react";
-import {
-  startRegistration,
-  startAuthentication,
-  browserSupportsWebAuthn,
-  platformAuthenticatorIsAvailable,
-} from "@simplewebauthn/browser";
 import logoImg from "./src/assets/images/meras_logo_1781178543060.png";
+
+// البصمة مسار اختياري؛ لا نحمل مكتبتها مع أول شاشة لكل طالب. تُجلب مرة واحدة
+// عند استخدام البصمة فقط، فتخف حزمة البداية من دون تغيير أي سلوك أمني.
+let mirasWebAuthnModulePromise: Promise<
+  typeof import("@simplewebauthn/browser")
+> | null = null;
+const loadMirasWebAuthn = () => {
+  if (!mirasWebAuthnModulePromise) {
+    mirasWebAuthnModulePromise = import("@simplewebauthn/browser").catch((err) => {
+      mirasWebAuthnModulePromise = null;
+      throw err;
+    });
+  }
+  return mirasWebAuthnModulePromise;
+};
 
 const createEmptyMirasCodeIntegrity = () => ({
   success: true,
@@ -4814,6 +4823,15 @@ export default function App() {
   }, [localNotifications]);
   const notificationPollRef = useRef<any>(null);
   const notificationRegisteringRef = useRef(false);
+  const fcmForegroundUnsubscribeRef = useRef<(() => void) | null>(null);
+  useEffect(() => {
+    return () => {
+      try {
+        fcmForegroundUnsubscribeRef.current?.();
+      } catch {}
+      fcmForegroundUnsubscribeRef.current = null;
+    };
+  }, [studentSession?.id, teacherSession?.email]);
   const lastNotificationSeenRef = useRef<string>("");
   const lastCalendarStateRefreshRef = useRef<number>(0);
   const lastTeacherNotificationRefreshRef = useRef<number>(0);
@@ -9137,12 +9155,13 @@ export default function App() {
           continue;
         }
 
-        // Prepare FormData. الملفات الكبيرة تُحفظ على الخادم برابط دائم فقط؛
-        // لا نُحوّلها إلى base64 حتى لا يكبر طلب حفظ التسليم ويفشل.
-        const persistentDataUrl =
+        // ابدأ قراءة الاحتياط المحلي والرفع الشبكي معاً. سابقاً كانت الملفات الصغيرة
+        // تنتظر اكتمال FileReader قبل إرسال أول بايت، مع أن العمليتين مستقلتان.
+        const perfT0 = Date.now();
+        const persistentDataUrlPromise =
           file.size <= MIRAS_MAX_EMBEDDED_ATTACHMENT_FILE_BYTES
-            ? await readFileAsPersistentDataUrl(file)
-            : "";
+            ? readFileAsPersistentDataUrl(file)
+            : Promise.resolve("");
         const formData = new FormData();
         formData.append("file", file);
 
@@ -9189,9 +9208,9 @@ export default function App() {
           // الجهاز — نقيس كل مرحلة على جهاز الطالب نفسه، وأي رفعة تتجاوز ١٥ث
           // ترسل تشريحها للرادار: تجهيز (قبل أول بايت — يكشف تنزيل iCloud)،
           // نقل (يكشف الشبكة)، بالسرعة الفعلية. نهاية التخمين.
-          const perfT0 = Date.now();
           let perfFirstByteAt = 0;
           let perfLastLoaded = 0;
+          let perfUploadCompleteAt = 0;
           let resp: { ok: boolean; status: number; json: () => Promise<any> };
           try {
             // 🚀 مباشرة إلى Cloud Run متجاوزين وسيط Firebase Hosting: القياس من
@@ -9225,11 +9244,14 @@ export default function App() {
                     const rate = e.loaded / elapsed;
                     setUploadEtaSec(Math.max(1, Math.round((e.total - e.loaded) / rate)));
                   } else if (e.loaded >= e.total) {
+                    if (!perfUploadCompleteAt) perfUploadCompleteAt = Date.now();
                     setUploadEtaSec(null);
                   }
                 }
               };
               xhr.onload = () => {
+                if (!perfLastLoaded) perfLastLoaded = file.size || 0;
+                if (!perfUploadCompleteAt) perfUploadCompleteAt = Date.now();
                 setUploadProgress(100);
                 setUploadEtaSec(null);
                 const status = xhr.status;
@@ -9287,25 +9309,31 @@ export default function App() {
               const totalMs = Date.now() - perfT0;
               if (totalMs > 15000) {
                 const mb = (file.size || 0) / (1024 * 1024);
+                const completedAt = perfUploadCompleteAt || Date.now();
                 const prepMs = perfFirstByteAt ? perfFirstByteAt - perfT0 : totalMs;
-                const xferMs = perfFirstByteAt ? Date.now() - perfFirstByteAt : 0;
+                const xferMs = perfFirstByteAt ? Math.max(0, completedAt - perfFirstByteAt) : 0;
+                const secureMs = perfUploadCompleteAt
+                  ? Math.max(0, Date.now() - perfUploadCompleteAt)
+                  : 0;
                 const mbps = xferMs > 0 ? ((perfLastLoaded * 8) / 1e6 / (xferMs / 1000)).toFixed(1) : "?";
                 void fetch("/api/monitor/report", {
                   method: "POST",
                   keepalive: true,
                   headers: { "content-type": "application/json" },
                   body: JSON.stringify({
-                    message: `رفع بطيء: ${mb.toFixed(1)}MB في ${Math.round(totalMs / 1000)}ث — تجهيز قبل أول بايت: ${Math.round(prepMs / 1000)}ث (iCloud؟) | نقل: ${Math.round(xferMs / 1000)}ث بسرعة ${mbps}Mbps`,
+                    message: `رفع بطيء: ${mb.toFixed(1)}MB في ${Math.round(totalMs / 1000)}ث — تجهيز قبل أول بايت: ${Math.round(prepMs / 1000)}ث (iCloud؟) | نقل: ${Math.round(xferMs / 1000)}ث بسرعة ${mbps}Mbps | تأمين سحابي: ${Math.round(secureMs / 1000)}ث`,
                     stack: "UA: " + String(navigator.userAgent || "").slice(0, 140),
                     url: "/upload-perf",
                     source: "client",
                     role: "student",
                     userId: String((studentSession as any)?.id || ""),
+                    bundle: "sw-v58",
                   }),
                 }).catch(() => undefined);
               }
             } catch {}
           }
+          const persistentDataUrl = await persistentDataUrlPromise;
           const data = await resp.json().catch(() => ({}));
           if (resp.ok && data.success) {
             const persistedAttachment = normalizeSubmissionAttachmentForSave({
@@ -11714,7 +11742,10 @@ export default function App() {
       if (!registerResp.ok) {
         throw new Error("FCM token was not accepted by the server");
       }
-      onMessage(messaging, async (payload) => {
+      try {
+        fcmForegroundUnsubscribeRef.current?.();
+      } catch {}
+      fcmForegroundUnsubscribeRef.current = onMessage(messaging, async (payload) => {
         // فلتر دفاعي على FCM foreground: لا نُدخل أي رسالة إلى صندوق التنبيهات
         // الداخلي إذا لم تكن موجَّهة فعلاً لهوية المستخدم الحالي (الطالب يرى
         // إشعاراته/مقرّراته فقط، والمعلم يرى ما يخصّه).
@@ -11736,7 +11767,10 @@ export default function App() {
           sanitizeCourseIdentifiersForDisplay(normalizedCheatingNotice.body) ||
           "لديك تنبيه جديد.";
         const fcmNotification = {
-          id: `fcm-${Date.now()}`,
+          id:
+            payload.data?.notificationId ||
+            (payload as any).messageId ||
+            `fcm-${Date.now()}`,
           title,
           body,
           userId: identity.userId,
@@ -11768,22 +11802,8 @@ export default function App() {
           announceStudentLiveSync("fcm-foreground");
           await refreshStudentLiveState();
         }
-        try {
-          const reg =
-            (await navigator.serviceWorker.getRegistration("/")) ||
-            (await navigator.serviceWorker.register("/sw.js"));
-          if (Notification.permission === "granted") {
-            await reg.showNotification(title, {
-              body,
-              icon: "/ios-icon-192-v7.png",
-              badge: "/ios-icon-192-v7.png",
-              dir: "rtl",
-              lang: "ar",
-              tag: payload.data?.type || `miras-${Date.now()}`,
-              data: { url: payload.data?.link || "/" },
-            });
-          }
-        } catch {}
+        // التطبيق ظاهر الآن؛ يكفي الجرس والتنبيه الداخلي. عرض بانر نظام من هنا
+        // كان يفتح مساراً ثانياً بجانب الـService Worker لنفس حدث FCM.
         setSuccessMsg(`${title}: ${body}`);
       });
       setNotificationState({
@@ -15193,6 +15213,15 @@ ${rows
   };
 
   const ensurePasskeyAvailable = async () => {
+    let webAuthn: typeof import("@simplewebauthn/browser");
+    try {
+      webAuthn = await loadMirasWebAuthn();
+    } catch {
+      setErrorMsg("تعذر تجهيز الدخول بالبصمة الآن.");
+      return false;
+    }
+    const { browserSupportsWebAuthn, platformAuthenticatorIsAvailable } =
+      webAuthn;
     if (!browserSupportsWebAuthn()) {
       setErrorMsg("هذا الجهاز لا يدعم الدخول بالبصمة.");
       return false;
@@ -15283,6 +15312,7 @@ ${rows
         setErrorMsg(startData.error || "تعذر بدء تفعيل البصمة.");
         return;
       }
+      const { startRegistration } = await loadMirasWebAuthn();
       const response = await startRegistration({
         optionsJSON: startData.options,
       });
@@ -15346,6 +15376,7 @@ ${rows
         }
         return;
       }
+      const { startAuthentication } = await loadMirasWebAuthn();
       const response = await startAuthentication({
         optionsJSON: startData.options,
       });
@@ -15409,6 +15440,7 @@ ${rows
             startData.error || "لا توجد بصمة مفعّلة بعد على هذا الحساب.",
           );
         }
+        const { startAuthentication } = await loadMirasWebAuthn();
         const response = await startAuthentication({
           optionsJSON: startData.options,
         });

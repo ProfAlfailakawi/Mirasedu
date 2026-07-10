@@ -12,7 +12,7 @@ export default defineConfig(() => {
       },
     },
     build: {
-      // تقسيم مكتبات الطرف الثالث الثابتة (React/Firebase/الأيقونات) إلى حزم
+      // تقسيم مكتبات الطرف الثالث الثابتة (React/Firebase/الحركة/الأيقونات) إلى حزم
       // منفصلة يُخزّنها المتصفح عبر النشرات (حزمة التطبيق تتغيّر دون هذه)، فتصغر
       // حزمة index الرئيسية (كانت ١.٢م.ب) ويصبح أول فتح أسرع على جوالات الطلبة.
       // نُبقي كل شيء آخر في الحزمة الافتراضية (الأأمن) لتفادي أي مشكلة ترتيب تحميل.
@@ -23,6 +23,7 @@ export default defineConfig(() => {
             if (!id.includes('node_modules')) return undefined;
             if (id.includes('/firebase/') || id.includes('/@firebase/')) return 'vendor-firebase';
             if (id.includes('/react-dom/') || id.includes('/react/') || id.includes('/scheduler/')) return 'vendor-react';
+            if (id.includes('/motion/')) return 'vendor-motion';
             if (id.includes('/lucide-react/')) return 'vendor-icons';
             return undefined;
           },
