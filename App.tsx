@@ -36152,12 +36152,11 @@ ${rows
                                         : "SEB غير مفعل"}
                                     </p>
                                     <p className="font-black text-emerald-700">
+                                      {/* حذفنا مفهوم المستويات — التفعيل يعني
+                                          المراقبة الكاملة، فالصيغة ببساطة: مفعلة */}
                                       الكاميرا:{" "}
                                       {normalizeLocalVisionConfig(item).enabled
-                                        ? localVisionModeLabel(
-                                            normalizeLocalVisionConfig(item)
-                                              .mode,
-                                          )
+                                        ? "مفعلة ✓"
                                         : "غير مفعلة"}
                                     </p>
                                   </div>
