@@ -137,6 +137,7 @@ const MIRAS_CLOUD_ENTITY_KEYS: (keyof DatabaseState)[] = [
   "passkeyCredentials",
   "bookMetadata",
   "notificationSeenKeys",
+  "notificationDispatches",
   "errorReports",
 ];
 
@@ -715,6 +716,8 @@ export interface DatabaseState {
   errorReports?: any[];
   // تنبيهات داخل التطبيق (الجرس) — محفوظة في قاعدة البيانات حتى لا تضيع عند إعادة تشغيل الخادم.
   inAppNotifications?: any[];
+  // حارس إرسال FCM دائم: event + target لا يُرسل مرتين بعد إعادة تشغيل الحاوية.
+  notificationDispatches?: Record<string, string>;
   passkeyCredentials?: PasskeyCredentialRecord[];
   bookMetadata?: {
     fileName: string;
@@ -1510,6 +1513,7 @@ export class LocalDatabase {
       activationAttempts: cloudData.activationAttempts || [],
       notificationTokens: cloudData.notificationTokens || [],
       inAppNotifications: (cloudData as any).inAppNotifications || [],
+      notificationDispatches: (cloudData as any).notificationDispatches || {},
       passkeyCredentials: (cloudData as any).passkeyCredentials || [],
       bookMetadata: cloudData.bookMetadata,
       // كانت مفقودة من المزامنة السحابية كلياً — فحالة "مقروء" تضيع مع كل تدوير حاوية.
@@ -1636,6 +1640,7 @@ export class LocalDatabase {
           activationAttempts: parsed.activationAttempts || [],
           notificationTokens: parsed.notificationTokens || [],
           inAppNotifications: parsed.inAppNotifications || [],
+          notificationDispatches: parsed.notificationDispatches || {},
           passkeyCredentials: parsed.passkeyCredentials || [],
           bookMetadata: parsed.bookMetadata,
           notificationSeenKeys: parsed.notificationSeenKeys || {},
@@ -1676,6 +1681,7 @@ export class LocalDatabase {
       activationAttempts: [],
       notificationTokens: [],
       inAppNotifications: [],
+      notificationDispatches: {},
       passkeyCredentials: []
     };
     // لا نكتب الحالة الفارغة على db.json عند الإقلاع. هذا الملف cache تشغيل فقط،
@@ -3098,6 +3104,34 @@ export class LocalDatabase {
     // سقف محافظ (200) لأن كامل قاعدة البيانات تُحفظ في مستند Firestore واحد بحد 1MB.
     if (this.data.inAppNotifications.length > 200) {
       this.data.inAppNotifications.length = 200;
+    }
+    this.persist(false);
+  }
+
+  public getNotificationDispatches(): Record<string, string> {
+    if (!this.data.notificationDispatches) this.data.notificationDispatches = {};
+    return this.data.notificationDispatches;
+  }
+
+  public rememberNotificationDispatch(key: string): void {
+    const cleanKey = String(key || "").trim();
+    if (!cleanKey) return;
+    const now = Date.now();
+    const dispatches = this.getNotificationDispatches();
+    Object.entries(dispatches).forEach(([oldKey, value]) => {
+      const at = new Date(value || 0).getTime();
+      if (!Number.isFinite(at) || now - at > 7 * 24 * 60 * 60 * 1000)
+        delete dispatches[oldKey];
+    });
+    dispatches[cleanKey] = new Date(now).toISOString();
+    const keys = Object.keys(dispatches);
+    if (keys.length > 2500) {
+      keys
+        .sort((a, b) =>
+          String(dispatches[a] || "").localeCompare(String(dispatches[b] || "")),
+        )
+        .slice(0, keys.length - 2500)
+        .forEach((oldKey) => delete dispatches[oldKey]);
     }
     this.persist(false);
   }
