@@ -9881,7 +9881,7 @@ export default function App() {
           </span>
         </div>
         <div
-          className={`mt-2 h-1 overflow-hidden rounded-full ${
+          className={`mt-2 h-1.5 overflow-hidden rounded-full ${
             dark ? "bg-white/10" : "bg-indigo-100"
           }`}
         >
@@ -9891,7 +9891,7 @@ export default function App() {
                 ? "bg-amber-400"
                 : uploadPhase === "retrying"
                   ? "bg-sky-500"
-                  : "bg-indigo-600"
+                  : "bg-gradient-to-l from-indigo-500 via-violet-500 to-indigo-400"
             }`}
             style={{ width: `${Math.max(2, uploadProgress)}%` }}
           />
@@ -32573,10 +32573,10 @@ ${rows
                                       </div>
                                     )}
 
-                                    {isReturned && (
-                                      <div className="mt-3 rounded-2xl bg-amber-900/40 border border-amber-900/60 px-4 py-3 text-xs font-black text-amber-200">
-                                        معاد لك: يمكنك تعديل التسليم وإرساله مرة
-                                        أخرى.
+                                    {isReturned && !isUploading && (
+                                      <div className="mt-3 flex items-center justify-between gap-3 rounded-2xl border border-amber-400/25 bg-amber-400/10 px-4 py-2.5 text-[11px] font-bold text-amber-300">
+                                        <span>معاد لك — عدّل تسليمك وأرسله من جديد</span>
+                                        <RefreshCw className="h-3.5 w-3.5 shrink-0 opacity-70" />
                                       </div>
                                     )}
                                     {isLocked ? (
@@ -32716,22 +32716,10 @@ ${rows
                                         }
                                       >
                                         {isUploading ? (
-                                          uploadProgress > 0 && uploadProgress < 100 ? (
-                                            <span className="flex flex-col items-center leading-tight">
-                                              <span className="text-[12px] font-bold tabular-nums">
-                                                {uploadProgress}%
-                                              </span>
-                                              {uploadEtaSec !== null && uploadEtaSec <= 900 && (
-                                                <span className="text-[9px] font-bold tabular-nums opacity-80">
-                                                  {uploadEtaSec >= 60
-                                                    ? `~${Math.ceil(uploadEtaSec / 60)}د`
-                                                    : `~${uploadEtaSec}ث`}
-                                                </span>
-                                              )}
-                                            </span>
-                                          ) : uploadProgress >= 100 ? (
-                                            // وصل الملف كاملاً؛ الخادم يؤمّنه سحابياً (ثوانٍ
-                                            // قليلة) — أيقونة مميزة كي لا يُقرأ كتعليق غامض.
+                                          // جمالياً: بطاقة الرفع الذكية فوق تملك كل الأرقام
+                                          // (نسبة/سرعة/متبقٍ) — الزر يكتفي بنبضه الهادئ،
+                                          // فلا يتكرر العدّاد في مكانين (كان ضجيجاً بصرياً).
+                                          uploadProgress >= 100 ? (
                                             <span className="animate-pulse text-[17px]" aria-hidden>
                                               ☁️
                                             </span>
