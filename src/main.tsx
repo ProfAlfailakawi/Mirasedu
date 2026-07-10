@@ -31,9 +31,27 @@ class MirasRenderGuard extends Component<
   }
 
   componentDidCatch(error: unknown, info: unknown) {
-    // نسجّل الخطأ في الكونسول فقط لتشخيصه لاحقاً دون إزعاج الطالب.
+    // نسجّل الخطأ في الكونسول لتشخيصه، ونبلّغ الرادار فوراً — انهيار الواجهة
+    // (الشاشة البيضاء) كان أخطر خطأ غير مرئي لأحد.
     try {
       console.error('Miras render guard caught a UI error:', error, info);
+    } catch {}
+    try {
+      void fetch('/api/monitor/report', {
+        method: 'POST',
+        keepalive: true,
+        headers: {'content-type': 'application/json'},
+        body: JSON.stringify({
+          message:
+            'انهيار واجهة (شاشة بيضاء): ' +
+            String((error as any)?.message || error).slice(0, 200),
+          stack: String((error as any)?.stack || '').slice(0, 1400),
+          url: location.pathname + '#react-crash',
+          source: 'client',
+          role: '',
+          userId: '',
+        }),
+      }).catch(() => undefined);
     } catch {}
   }
 

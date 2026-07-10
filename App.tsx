@@ -285,6 +285,176 @@ const mirasTruthyFlag = (value: any) =>
   String(value || "").trim() === "1" ||
   ["نعم", "مفعل", "مفعّل", "تشغيل", "يعمل"].includes(String(value || "").trim());
 
+// كاشف الوجه الحقيقي (BlazeFace عبر TensorFlow.js): يعمل على آيفون/سفاري حيث لا
+// تتوفر window.FaceDetector. يُحمَّل كسولاً مرة واحدة عند أول اختبار كاميرا (لا
+// يُثقل تحميل التطبيق)، وأوزانه من storage.googleapis.com (مسموح داخل SEB). أي
+// فشل في التحميل ⇒ نرجع للكشف الاحتياطي (FaceDetector/مركز الإضاءة) فلا ينكسر شيء.
+let mirasBlazeFacePromise: Promise<any> | null = null;
+async function loadMirasBlazeFace(): Promise<any> {
+  if (!mirasBlazeFacePromise) {
+    mirasBlazeFacePromise = (async () => {
+      const tf = await import("@tensorflow/tfjs");
+      const blazeface = await import("@tensorflow-models/blazeface");
+      try {
+        await tf.ready();
+      } catch {}
+      // النموذج مستضاف ذاتياً على خادمنا: الرابط الافتراضي (tfhub.dev) لم يعد
+      // موثوقاً فكان التحميل يفشل بصمت على أجهزة الطلاب ولا يعمل تتبّع الوجه
+      // إطلاقاً. النسخة المحلية مضمونة ومسموحة داخل SEB أيضاً.
+      return await blazeface.load({
+        maxFaces: 3,
+        modelUrl: "/vendor/blazeface-model/model.json",
+      });
+    })().catch((err) => {
+      mirasBlazeFacePromise = null; // اسمح بإعادة المحاولة لاحقاً
+      throw err;
+    });
+  }
+  return mirasBlazeFacePromise;
+}
+
+// ═══ شبكة الصيد النووية — طبقة العميل 🛰️ ═════════════════════════════════════
+// أربعة مجسّات صامتة تلتقط ما كان يضيع بلا أثر: فشل نداءات الخادم كما يراها
+// المستخدم، أخطاء console المبتلعة، فشل تحميل ملفات الواجهة، وانتهاكات CSP.
+// كلها مقنّنة بصرامة (حصص/جلسة + منع تكرار) كي لا تُغرق الرادار أبداً.
+(() => {
+  try {
+    if ((window as any).__mirasNuclearNet) return;
+    (window as any).__mirasNuclearNet = true;
+    const origFetch = window.fetch.bind(window);
+    let netBudget = 8;
+    const netSeen = new Map<string, number>();
+    const radarPost = (message: string, stack: string, tag: string) => {
+      if (netBudget <= 0) return;
+      netBudget -= 1;
+      void origFetch("/api/monitor/report", {
+        method: "POST",
+        keepalive: true,
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ message, stack: stack.slice(0, 1200), url: location.pathname + "#" + tag, source: "client", role: "", userId: "" }),
+      }).catch(() => undefined);
+    };
+    const onceAMinute = (key: string) => {
+      const now = Date.now();
+      const prev = netSeen.get(key);
+      if (prev && now - prev < 60_000) return false;
+      netSeen.set(key, now);
+      if (netSeen.size > 120) netSeen.clear();
+      return true;
+    };
+    // (أ) مجسّ نداءات الخادم: أي 5xx أو فشل شبكي على /api كما يعيشه المستخدم
+    window.fetch = (async (input: any, init?: any) => {
+      const url = String(typeof input === "string" ? input : input?.url || "");
+      const path = url.split("?")[0];
+      const isApi = path.includes("/api/");
+      const skip = path.includes("/api/monitor") || path.includes("/api/notifications") || path.includes("/api/live/") || path.includes("session-status");
+      try {
+        const resp = await origFetch(input, init);
+        if (isApi && !skip && resp.status >= 500 && onceAMinute(`5xx|${resp.status}|${path}`)) {
+          radarPost(`الخادم ردّ ${resp.status} على ${path}`, "", "api-5xx");
+        }
+        return resp;
+      } catch (err: any) {
+        if (isApi && !skip && navigator.onLine !== false && onceAMinute(`net|${path}`)) {
+          radarPost(`فشل شبكي على ${path}`, String(err?.message || err), "api-net");
+        }
+        throw err;
+      }
+    }) as typeof window.fetch;
+    // (ب) مجسّ console.error: الأخطاء المبتلعة في مئات كتل try/catch تصير مرئية
+    const origCE = console.error.bind(console);
+    let ceBudget = 5;
+    const ceSeen = new Set<string>();
+    console.error = (...args: any[]) => {
+      origCE(...args);
+      try {
+        if (ceBudget <= 0) return;
+        const first = String(args[0] ?? "").slice(0, 160);
+        if (!first || first.includes("monitor/report") || ceSeen.has(first)) return;
+        ceSeen.add(first);
+        ceBudget -= 1;
+        const detail = args.slice(1).map((a) => String((a as any)?.message || (a as any)?.stack || a)).join(" | ");
+        radarPost(`console.error: ${first}`, detail, "console");
+      } catch {}
+    };
+    // (ج) فشل تحميل موارد الواجهة (سكربت/تنسيق) — تطبيق مكسور بلا خطأ JS
+    window.addEventListener(
+      "error",
+      (e: any) => {
+        try {
+          const t = e?.target;
+          if (!t || !t.tagName) return;
+          const tag = String(t.tagName).toUpperCase();
+          if (tag !== "SCRIPT" && tag !== "LINK") return;
+          const src = String(t.src || t.href || "");
+          if (!src || !onceAMinute(`res|${src}`)) return;
+          radarPost(`فشل تحميل مورد: ${src.slice(0, 160)}`, "", "resource");
+        } catch {}
+      },
+      true,
+    );
+    // (د) انتهاكات سياسة الأمان (CSP) — مرة واحدة بالجلسة
+    let cspOnce = true;
+    window.addEventListener("securitypolicyviolation", (e: any) => {
+      try {
+        if (!cspOnce) return;
+        cspOnce = false;
+        radarPost(`انتهاك CSP: ${String(e?.violatedDirective || "?")} ← ${String(e?.blockedURI || "?").slice(0, 120)}`, "", "csp");
+      } catch {}
+    });
+  } catch {}
+})();
+
+// ═══ الجسر الصوتي عربي↔لاتيني للبحث 🔊 ═══════════════════════════════════════
+// تكتب "احمد" فيجد Ahmed، أو "ghanem" فيجد غانم. الفكرة: تحويل النصين إلى هيكل
+// صوتي موحّد (نُبقي الحروف الساكنة ونسقط المتحركات) فيتطابق الاسم مهما اختلفت
+// كتابته: محمد = Mohammed = Mohemd = mhmd. الأزواج اللاتينية (kh/gh/sh/th)
+// تُدمج أولاً حتى تقابل خ/غ/ش/ث، وق↔g/q، وك↔c/k.
+const MIRAS_AR2LAT: Record<string, string> = {
+  "ا": "a", "أ": "a", "إ": "a", "آ": "a", "ى": "a", "ء": "", "ئ": "y", "ؤ": "w",
+  "ب": "b", "ت": "t", "ث": "T", "ج": "j", "ح": "h", "خ": "K", "د": "d", "ذ": "T",
+  "ر": "r", "ز": "z", "س": "s", "ش": "S", "ص": "s", "ض": "d", "ط": "t", "ظ": "z",
+  "ع": "a", "غ": "G", "ف": "f", "ق": "g", "ك": "k", "ل": "l", "م": "m", "ن": "n",
+  "ه": "h", "ة": "", "و": "w", "ي": "y",
+};
+const mirasPhoneticSkeleton = (value: any): string => {
+  let s = String(value || "")
+    .toLowerCase()
+    .replace(/[ًٌٍَُِّْـ]/g, "");
+  s = s
+    .replace(/kh/g, "K")
+    .replace(/gh/g, "G")
+    .replace(/sh/g, "S")
+    .replace(/th/g, "T")
+    .replace(/ph/g, "f")
+    .replace(/ou|oo/g, "u")
+    .replace(/ee/g, "i")
+    .replace(/q/g, "g")
+    .replace(/c/g, "k")
+    .replace(/p/g, "b")
+    .replace(/v/g, "f")
+    .replace(/e/g, "i")
+    .replace(/o/g, "u");
+  s = s
+    .split("")
+    .map((ch) => (MIRAS_AR2LAT[ch] !== undefined ? MIRAS_AR2LAT[ch] : ch))
+    .join("");
+  s = s.replace(/[^a-zA-Z0-9]/g, "").toLowerCase();
+  s = s.replace(/[aiouwy]/g, "").replace(/(.)\1+/g, "$1");
+  return s;
+};
+// مطابقة صوتية بين كلمتين: هيكلاهما يتضمّن أحدهما الآخر (بحد أدنى حرفين).
+const mirasPhoneticWordMatch = (queryWord: string, textWord: string): number => {
+  const qs = mirasPhoneticSkeleton(queryWord);
+  if (qs.length < 2) return 0;
+  const ts = mirasPhoneticSkeleton(textWord);
+  if (ts.length < 2) return 0;
+  if (qs === ts) return 24;
+  if (ts.startsWith(qs) || qs.startsWith(ts)) return 18;
+  if (ts.includes(qs) || qs.includes(ts)) return 12;
+  return 0;
+};
+
 const mirasExamUsesCamera = (exam: any) => {
   if (!exam) return false;
   const raw = exam?.antiCheat?.localVision || exam?.localVision || {};
@@ -2741,6 +2911,9 @@ export default function App() {
   const [studentCalendarOpen, setStudentCalendarOpen] = useState(false);
   const [studentNotificationsOpen, setStudentNotificationsOpen] =
     useState(false);
+  // بطاقة «تنبيه مهم قبل انتهاء الوقت» الأنيقة التي تظهر عند دخول الطالب إن اقترب
+  // موعد نشاط — بديلة عن فتح لوحة التنبيهات الفارغة/المزعجة عند كل دخول.
+  const [studentDeadlineCardOpen, setStudentDeadlineCardOpen] = useState(false);
   const [studentSeenKeysState, setStudentSeenKeysState] = useState<Set<string>>(
     new Set(),
   );
@@ -3400,6 +3573,26 @@ export default function App() {
     setCmdkOpen(false);
     if (cmdkIsTeacherSurface()) setTeacherSmartSearchQuery("");
   };
+  // «الأخيرة» في ⌘K: آخر ٦ عناصر استخدمها المعلم (لكل حساب) — نقرة تعيد البحث فوراً.
+  const cmdkRecentKey = () =>
+    `miras_cmdk_recent_${String((teacherSession as any)?.email || teacherSession?.id || "t").toLowerCase()}`;
+  const readCmdkRecents = (): any[] => {
+    try {
+      return (JSON.parse(localStorage.getItem(cmdkRecentKey()) || "[]") as any[]).slice(0, 6);
+    } catch {
+      return [];
+    }
+  };
+  const rememberCmdkRecent = (entry: { title: string; sub?: string; tone?: string; icon?: string }) => {
+    try {
+      if (!entry?.title) return;
+      const current = readCmdkRecents().filter((r: any) => r.title !== entry.title);
+      localStorage.setItem(
+        cmdkRecentKey(),
+        JSON.stringify([entry, ...current].slice(0, 6)),
+      );
+    } catch {}
+  };
   const runCmdk = (fn: () => void) => {
     closeCmdk();
     window.setTimeout(() => {
@@ -3444,30 +3637,127 @@ export default function App() {
       // حقيقية: إضافة طالب/توليد كود/تفعيل/فتح ملف…) بدل تكرار ناقص. القائمة
       // الافتراضية (بلا بحث) = وجهات وإجراءات البرنامج؛ ومع الكتابة = نتائج
       // البحث الذكي الكاملة (تشمل الطلبة والأكواد والمقررات والتسليمات).
-      const mapItem = (it: any) => ({
-        id: String(it.key || it.type + "-" + it.title),
-        title: it.title,
-        sub: it.meta || it.extra || "",
-        tone: cmdkToneFromAction(it.actionTone),
-        icon: cmdkIconFromType(it.type),
-        run: () => {
-          try {
-            it.action?.();
-          } catch {}
-        },
-      });
-      // لا قائمة طويلة افتراضية: نُظهر النتائج الذكية فقط عند الكتابة.
+      const mapItem = (it: any) => {
+        const mapped = {
+          id: String(it.key || it.type + "-" + it.title),
+          title: it.title,
+          sub: it.meta || it.extra || "",
+          tone: cmdkToneFromAction(it.actionTone),
+          icon: cmdkIconFromType(it.type),
+          run: () => {
+            rememberCmdkRecent({
+              title: it.title,
+              sub: it.meta || it.extra || "",
+              tone: cmdkToneFromAction(it.actionTone),
+              icon: cmdkIconFromType(it.type),
+            });
+            try {
+              it.action?.();
+            } catch {}
+          },
+        };
+        return mapped;
+      };
       if (q) {
         const results = (teacherSmartVisibleResults || []).slice(0, 40).map(mapItem);
         if (results.length) groups.push({ label: "النتائج", items: results });
+      } else {
+        // فتح اللوحة بلا كتابة لم يعد فارغاً: «الأخيرة» (آخر ما استخدمت — نقرة
+        // تعيد البحث عنه فوراً) ثم «إجراءات سريعة» منتقاة من أوامر البرنامج.
+        const recents = readCmdkRecents();
+        if (recents.length) {
+          groups.push({
+            label: "الأخيرة",
+            items: recents.map((r: any, idx: number) => ({
+              id: `recent-${idx}-${r.title}`,
+              title: r.title,
+              sub: r.sub || "",
+              tone: r.tone || "",
+              icon: r.icon || "home",
+              run: () => {
+                setCmdkQuery(String(r.title || ""));
+                setCmdkIndex(0);
+                setTeacherSmartSearchQuery(String(r.title || ""));
+              },
+              keepOpen: true,
+            })),
+          });
+        }
+        // بطلب المالك: لا "إجراءات سريعة" — اللوحة تبقى خفيفة صافية؛ «الأخيرة»
+        // فقط إن وُجدت، وإلا صفحة نظيفة تنتظر الكتابة.
       }
     } else if (isStudentSurface) {
-      const match = (text: string) => !q || cmdkNormalize(text).includes(q);
+      const qCompact = q.replace(/\s+/g, "");
+      const isSub = (needle: string, hay: string) => {
+        if (!needle) return false;
+        let i = 0;
+        for (let j = 0; j < hay.length && i < needle.length; j += 1)
+          if (hay[j] === needle[i]) i += 1;
+        return i === needle.length;
+      };
+      // درجة مطابقة ذكية (تطابق تام/بادئة/تضمين/كلمة-بكلمة ثم تتابع حروف) —
+      // نفس روح محرّك المعلم حتى يعمل بحث الطالب فعلاً لا مجرد ٣ وجهات.
+      const scoreOf = (text: string) => {
+        const t = cmdkNormalize(text);
+        if (!q) return 1;
+        if (!t) return 0;
+        let s = 0;
+        if (t === q) s += 120;
+        else if (t.startsWith(q)) s += 70;
+        else if (t.includes(q)) s += 40;
+        q.split(" ")
+          .filter((w) => w.length > 1)
+          .forEach((w) => {
+            for (const tw of t.split(" ").filter(Boolean)) {
+              if (tw === w) s += 20;
+              else if (tw.startsWith(w)) s += 12;
+              else if (w.length > 2 && tw.includes(w)) s += 6;
+            }
+          });
+        // 🔊 الجسر الصوتي عربي↔لاتيني لبحث الطالب أيضاً.
+        if (s === 0) {
+          for (const w of q.split(" ").filter((x) => x.length > 1)) {
+            for (const tw of t.split(" ").filter(Boolean)) {
+              s = Math.max(s, mirasPhoneticWordMatch(w, tw));
+            }
+          }
+        }
+        if (s === 0 && qCompact.length >= 3 && isSub(qCompact, t.replace(/\s+/g, "")))
+          s += 10;
+        return s;
+      };
+      // محتوى الطالب الحقيقي: اختباراته ومشاريعه (كل البطاقات لا المتاحة فقط،
+      // ليجد حتى المُسلَّم/المُقيَّم). يظهر فقط عند وجود بحث.
+      if (q) {
+        const content = (studentActivityCards || [])
+          .map((a: any) => ({
+            a,
+            s: scoreOf(
+              `${a.title || ""} ${a.kind || ""} ${a.courseName || ""} ${a.courseCode || ""} ${a.status || ""}`,
+            ),
+          }))
+          .filter((x: any) => x.s > 0)
+          .sort((x: any, y: any) => y.s - x.s)
+          .slice(0, 24)
+          .map(({ a }: any) => ({
+            id: `sact-${a.kind}-${a.id}`,
+            title: a.title || (a.kind === "مشروع" ? "مشروع" : "اختبار"),
+            sub: `${a.kind || ""}${a.courseName || a.courseCode ? " • " + (a.courseName || a.courseCode) : ""}${a.status ? " • " + a.status : ""}`,
+            tone: a.kind === "اختبار" ? "gold" : "blue",
+            icon: a.kind === "اختبار" ? "target" : "folder",
+            run: () => {
+              if (typeof a.action === "function") a.action();
+              else setStudentTab(a.kind === "مشروع" ? "project" : "practice");
+            },
+          }));
+        if (content.length)
+          groups.push({ label: "اختباراتك ومشاريعك", items: content });
+      }
       const nav = [
-        { id: "snav-overview", title: "نظرة عامة", tone: "", icon: "home", kw: "overview رئيسية عامة", run: () => setStudentTab("overview") },
-        { id: "snav-practice", title: "التدريب والاختبارات", tone: "gold", icon: "target", kw: "practice تدريب اختبار اختبارات", run: () => setStudentTab("practice") },
+        { id: "snav-overview", title: "نظرة عامة", tone: "", icon: "home", kw: "overview home رئيسية عامة الرئيسية", run: () => setStudentTab("overview") },
+        { id: "snav-practice", title: "التدريب والاختبارات", tone: "gold", icon: "target", kw: "practice quiz تدريب اختبار اختبارات كويز", run: () => setStudentTab("practice") },
         { id: "snav-project", title: "المشاريع", tone: "blue", icon: "folder", kw: "projects مشروع مشاريع", run: () => setStudentTab("project") },
-      ].filter((c) => match(c.title + " " + c.kw));
+      ].filter((c) => scoreOf(c.title + " " + c.kw) > 0);
       if (nav.length) groups.push({ label: "التنقّل", items: nav });
     }
     return groups;
@@ -3490,7 +3780,7 @@ export default function App() {
       } else if (e.key === "Enter") {
         e.preventDefault();
         const it = flat[activeIdx];
-        if (it) runCmdk(it.run);
+        if (it) { if ((it as any).keepOpen) it.run(); else runCmdk(it.run); }
       }
     };
     let counter = -1;
@@ -3527,9 +3817,27 @@ export default function App() {
           <div className="miras-cmdk-list">
             {flat.length === 0 ? (
               <div className="miras-cmdk-empty">
-                {cmdkQuery.trim()
-                  ? `لا نتائج لـ «${cmdkQuery}»`
-                  : "ابدأ الكتابة… ابحث عن طالب أو مقرر أو كود، أو اكتب إجراءً: تفعيل، توليد، إضافة"}
+                {cmdkQuery.trim() ? (
+                  <div className="flex flex-col items-center gap-2 py-4 text-center">
+                    <span className="text-3xl opacity-80">🔍</span>
+                    <span className="text-[13px] font-black text-slate-500">
+                      لا نتائج لـ «{cmdkQuery}»
+                    </span>
+                    <span className="text-[11px] font-medium text-slate-400">
+                      جرّب اسم الطالب بالعربي أو الإنجليزي — البحث يفهم الاثنين
+                    </span>
+                  </div>
+                ) : (
+                  <div className="flex flex-col items-center gap-2.5 py-6 text-center">
+                    <span className="text-3xl opacity-70">✨</span>
+                    <span className="text-[13px] font-black text-slate-500">
+                      ابحث عن أي شيء في مِراس
+                    </span>
+                    <span className="text-[11px] font-medium leading-6 text-slate-400">
+                      طالب · مقرر · كود · تسليم — أو اكتب أمراً مثل «تفعيل» أو «توليد»
+                    </span>
+                  </div>
+                )}
               </div>
             ) : (
               groups.map((g: any) => (
@@ -3544,7 +3852,7 @@ export default function App() {
                         className={"miras-cmdk-item" + (idx === activeIdx ? " is-active" : "")}
                         onMouseEnter={() => setCmdkIndex(idx)}
                         onMouseDown={(e) => e.preventDefault()}
-                        onClick={() => runCmdk(it.run)}
+                        onClick={() => ((it as any).keepOpen ? it.run() : runCmdk(it.run))}
                       >
                         <div className={"miras-cmdk-ico" + (it.tone ? " tone-" + it.tone : "")}>{cmdkIcon(it.icon)}</div>
                         <div className="miras-cmdk-body">
@@ -3601,8 +3909,21 @@ export default function App() {
         manualActivation: false,
       });
     }
+    // إعادة ضبط التنقّل: أي انتقال بين تبويبات المعلم يُغلق العروض العميقة المفتوحة
+    // (تفاصيل تسليم طالب / معاينة ملف Ppt) فتعود دائمًا إلى الشاشة الرئيسية للتبويب
+    // لا داخل عرض فرعي — "يرجع للوضع الافتراضي" عند مغادرة التبويب والعودة إليه.
+    setSelectedSubmissionDetail(null);
+    setPreviewAttachment(null);
     prevTeacherTabForAccordionRef.current = teacherTab;
   }, [teacherTab]);
+  // نفس إعادة ضبط التنقّل لجهة الطالب (لكل الموقع): مغادرة أي تبويب تُغلق معاينة
+  // الملف المفتوحة فيعود دائمًا للشاشة الرئيسية للتبويب لا داخل عرض Ppt.
+  const prevStudentTabForNavResetRef = useRef(studentTab);
+  useEffect(() => {
+    if (prevStudentTabForNavResetRef.current === studentTab) return;
+    setPreviewAttachment(null);
+    prevStudentTabForNavResetRef.current = studentTab;
+  }, [studentTab]);
   // بحث سريع داخل "تفعيل فوري لملفات الطلبة يدوياً" بالرقم الجامعي أو الاسم —
   // ضروري عند وجود آلاف الطلبة حتى لا تُعرض القائمة كاملة.
   const [manualActivationSearch, setManualActivationSearch] = useState("");
@@ -3613,24 +3934,61 @@ export default function App() {
   const [teacherSmartSearchQuery, setTeacherSmartSearchQuery] = useState("");
   const [teacherSmartSearchOpen, setTeacherSmartSearchOpen] = useState(false);
   const [dockQuickMenu, setDockQuickMenu] = useState<"codes" | null>(null);
-  const [dismissedDockBadgeCounts, setDismissedDockBadgeCounts] = useState<Record<string, number>>({});
+  // ═══ النقاط الذكية للدوك 🎯 ═══════════════════════════════════════════════
+  // القاعدة: النقطة تعني شيئاً واحداً فقط — «يوجد جديد يحتاج تصرّفك ولم ترَه بعد».
+  // تفتح التبويب ⇒ تُسجَّل "شوهد حتى العدد N" على الخادم ⇒ تختفي من كل أجهزتك
+  // (هاتف وكمبيوتر معاً). يصل عنصر جديد ⇒ تعود بعدّاد صغير. لا عشوائية بعد اليوم.
+  const [dockSeenCounts, setDockSeenCounts] = useState<Record<string, number>>({});
   const dockLongPressTimerRef = useRef<number | null>(null);
   const dockBadgeCountForTab = (tab: typeof teacherTab) => {
     try {
       if (tab === "students") return Number(pendingActivationRows?.length || 0);
-      if (tab === "questions") return Number(examDayExams?.length || 0);
       if (tab === "submissions") return Number(latestSubmissionRows(teacherSubmissions).filter((sub: any) => !teacherVisibleGradeText(sub) && !isTeacherReturnedSubmission(sub)).length || 0);
       if (tab === "codes") return Number((actionablePasswordResetRequests?.length || 0) + (deviceProblemAttempts?.length || 0));
       if (tab === "analytics") return Number((deviceProblemAttempts?.length || 0) + (livePulseStudentRows || []).filter((row: any) => row?.isCheating || row?.isForcedExit || row?.hasViolation).length || 0);
+      // "questions" لا نقطة له: وجود اختبارات اليوم ليس عنصراً جديداً يحتاج تصرفاً.
     } catch {}
     return 0;
   };
-  const shouldShowDockBadge = (_tab: typeof teacherTab) => false;
+  const shouldShowDockBadge = (tab: typeof teacherTab) => {
+    const count = dockBadgeCountForTab(tab);
+    return count > 0 && count > Number(dockSeenCounts[tab] ?? 0);
+  };
   const dismissDockBadge = (tab: typeof teacherTab) => {
     const count = dockBadgeCountForTab(tab);
-    if (count <= 0) return;
-    setDismissedDockBadgeCounts((prev) =>
-      prev[tab] === count ? prev : { ...prev, [tab]: count },
+    setDockSeenCounts((prev) =>
+      Number(prev[tab] ?? -1) === count ? prev : { ...prev, [tab]: count },
+    );
+    // مزامنة "شوهد" عبر الأجهزة (نفس مخزن مفاتيح القراءة المتزامن).
+    const teacherKey = String(
+      teacherSession?.email || teacherSession?.id || "",
+    ).toLowerCase();
+    if (!teacherKey) return;
+    try {
+      void fetch("/api/notifications/mark-seen", {
+        method: "POST",
+        headers: jsonHeaders({ auth: "teacher" }),
+        body: JSON.stringify({
+          userId: teacherKey,
+          role: "teacher",
+          keys: [`dock|${tab}|${count}`],
+        }),
+        keepalive: true,
+      }).catch(() => undefined);
+    } catch {}
+  };
+  // الشارة المرئية: عدّاد صغير أنيق بنبضة ناعمة (لا وميض مزعج)، بلون التبويب.
+  const renderDockBadge = (tab: typeof teacherTab, tone: string) => {
+    if (!shouldShowDockBadge(tab)) return null;
+    const count = dockBadgeCountForTab(tab);
+    const fresh = count - Number(dockSeenCounts[tab] ?? 0);
+    return (
+      <span
+        className={`absolute -left-1.5 -top-1.5 z-10 flex h-[1.15rem] min-w-[1.15rem] items-center justify-center rounded-full px-1 text-[8.5px] font-black text-white shadow-md ring-2 ring-white ${tone}`}
+      >
+        <span className={`absolute inline-flex h-full w-full animate-pulse rounded-full ${tone} opacity-40`}></span>
+        <span className="relative tabular-nums">{fresh > 9 ? "9+" : fresh}</span>
+      </span>
     );
   };
   const openTeacherDockTab = (tab: typeof teacherTab) => {
@@ -3739,19 +4097,8 @@ export default function App() {
     mutationBusyRef.current[key] = now;
     return true;
   };
-  // بحث داخل معاينة الحل: نفتح شريط بحث عارض PDF.js الأصلي داخل الإطار (نفس
-  // الأصل فالوصول مسموح). آمن تمامًا: أي فشل يُبتلع بلا كسر، ومع تركيز الإطار
-  // يعمل Ctrl+F على الكمبيوتر أيضًا.
-  const openPreviewFind = () => {
-    try {
-      const win: any = previewIframeRef.current?.contentWindow;
-      win?.focus?.();
-      const app = win?.PDFViewerApplication;
-      if (app?.findBar?.open) app.findBar.open();
-      else if (app?.eventBus?.dispatch)
-        app.eventBus.dispatch("findbaropen", { source: null });
-    } catch {}
-  };
+  // (أُزيل زر «بحث داخل المستند» ودالته: لم يعمل بشكل موثوق داخل عارض PDF.js عبر
+  // iframe، فحُذف بطلب المستخدم. عارض PDF.js نفسه يوفّر Ctrl+F على الكمبيوتر.)
   const previewBlobUrlCacheRef = useRef<Record<string, string>>({});
   const submissionAttachmentWarmupRef = useRef<Record<string, boolean>>({});
   useEffect(() => {
@@ -4143,6 +4490,127 @@ export default function App() {
     Set<string>
   >(new Set());
   const [selectedTeacherImportantNotification, setSelectedTeacherImportantNotification] = useState<any | null>(null);
+  // ═══ رادار مِراس 🛰️ — مراقبة الأخطاء المدمجة (سوبر أدمن فقط) ═══════════════
+  const [mirasRadarAllowed, setMirasRadarAllowed] = useState(false);
+  const [mirasRadarOpen, setMirasRadarOpen] = useState(false);
+  const [mirasRadarTab, setMirasRadarTab] = useState<"active" | "resolved">("active");
+  const [mirasRadarData, setMirasRadarData] = useState<{ items: any[]; stats: any }>({ items: [], stats: null });
+  const mirasRadarCtxRef = useRef({ role: "guest", userId: "" });
+  // التقاط عالمي: أي خطأ JS أو وعد مرفوض في أي متصفح يُبلَّغ للرادار فوراً
+  // (بحد ١٠ لكل جلسة وبلا تكرار لنفس الرسالة) — لا يغيّر سلوك التطبيق إطلاقاً.
+  useEffect(() => {
+    const seen = new Set<string>();
+    let sent = 0;
+    const bundleId = (() => {
+      try {
+        const src = (document.querySelector('script[src*="assets/index-"]') as any)?.src || "";
+        return String(src.match(/index-([\w-]+)\.js/)?.[1] || "");
+      } catch {
+        return "";
+      }
+    })();
+    const report = (message: any, stack: any) => {
+      try {
+        const msg = String(message || "").slice(0, 300);
+        if (!msg || sent >= 10) return;
+        const key = msg.slice(0, 120);
+        if (seen.has(key)) return;
+        seen.add(key);
+        sent += 1;
+        void fetch("/api/monitor/report", {
+          method: "POST",
+          keepalive: true,
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({
+            message: msg,
+            stack: String(stack || "").slice(0, 1500),
+            url: String(location.pathname || "/").slice(0, 200),
+            source: "client",
+            role: mirasRadarCtxRef.current.role,
+            userId: mirasRadarCtxRef.current.userId,
+            displayMode: readMirasDisplayMode(),
+            bundle: bundleId,
+          }),
+        }).catch(() => undefined);
+      } catch {}
+    };
+    const onError = (e: ErrorEvent) =>
+      report(e?.message, (e as any)?.error?.stack || `${e?.filename || ""}:${e?.lineno || ""}`);
+    const onRejection = (e: PromiseRejectionEvent) => {
+      const r: any = (e as any)?.reason;
+      report(r?.message || String(r || "unhandled rejection"), r?.stack);
+    };
+    window.addEventListener("error", onError);
+    window.addEventListener("unhandledrejection", onRejection);
+    return () => {
+      window.removeEventListener("error", onError);
+      window.removeEventListener("unhandledrejection", onRejection);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+  useEffect(() => {
+    mirasRadarCtxRef.current = teacherSession
+      ? { role: "teacher", userId: String(teacherSession.email || teacherSession.id || "") }
+      : studentSession
+        ? { role: "student", userId: String(studentSession.id || "") }
+        : { role: "guest", userId: "" };
+  }, [teacherSession, studentSession]);
+  const fetchMirasRadar = async () => {
+    try {
+      const resp = await fetch("/api/monitor/errors", { headers: teacherHeaders() });
+      if (resp.status === 403) {
+        setMirasRadarAllowed(false);
+        return;
+      }
+      const data = await resp.json().catch(() => ({}));
+      if (resp.ok && data?.success) {
+        setMirasRadarAllowed(true);
+        setMirasRadarData({ items: data.items || [], stats: data.stats || null });
+      }
+    } catch {}
+  };
+  // فحص الصلاحية مرة عند دخول المعلم: ٢٠٠ = سوبر أدمن فيظهر زر الرادار، ٤٠٣ = يبقى مخفياً تماماً.
+  useEffect(() => {
+    if (!teacherSession) {
+      setMirasRadarAllowed(false);
+      setMirasRadarOpen(false);
+      return;
+    }
+    void fetchMirasRadar();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [teacherSession?.email, teacherSession?.id]);
+  // تحديث حيّ كل ٣٠ث أثناء فتح اللوحة.
+  useEffect(() => {
+    if (!mirasRadarOpen) return;
+    void fetchMirasRadar();
+    const t = window.setInterval(() => void fetchMirasRadar(), 30000);
+    return () => window.clearInterval(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mirasRadarOpen]);
+  const resolveMirasRadarItem = async (id: string) => {
+    setMirasRadarData((prev) => ({
+      ...prev,
+      items: prev.items.map((r: any) =>
+        r.id === id ? { ...r, resolvedAt: new Date().toISOString() } : r,
+      ),
+    }));
+    try {
+      await fetch(`/api/monitor/errors/${encodeURIComponent(id)}/resolve`, {
+        method: "POST",
+        headers: teacherHeaders(),
+      });
+    } catch {}
+    void fetchMirasRadar();
+  };
+  const clearResolvedMirasRadar = async () => {
+    try {
+      await fetch("/api/monitor/errors/clear-resolved", {
+        method: "POST",
+        headers: teacherHeaders(),
+      });
+    } catch {}
+    void fetchMirasRadar();
+  };
 
   useEffect(() => {
     const teacherKey = String(
@@ -4560,6 +5028,7 @@ export default function App() {
   }>({ enabled: false, state: "idle", message: "", mode: "off" });
   const [localVisionRetryNonce, setLocalVisionRetryNonce] = useState(0);
   const localVisionStreamRef = useRef<MediaStream | null>(null);
+  const localVisionPreviewRef = useRef<HTMLVideoElement | null>(null);
   const localVisionCountersRef = useRef<Record<string, number>>({});
   const localVisionLastPulseRef = useRef<Record<string, number>>({});
   const localVisionSoftLockRef = useRef(false);
@@ -4680,6 +5149,19 @@ export default function App() {
     } catch {}
   };
 
+  // معاينة حيّة صغيرة للطالب: نربط بثّ الكاميرا بعنصر <video> مرئي فور أن تصبح
+  // المراقبة نشطة، ليتأكّد الطالب أن كاميرته تعمل فعلاً (التحليل يبقى محليًا على
+  // جهازه بلا رفع أي صورة/فيديو). لا يغيّر منطق المراقبة، مجرّد عرض للطمأنينة.
+  useEffect(() => {
+    const el = localVisionPreviewRef.current;
+    const stream = localVisionStreamRef.current;
+    if (el && stream) {
+      try {
+        if (el.srcObject !== stream) el.srcObject = stream;
+        el.play?.().catch(() => undefined);
+      } catch {}
+    }
+  }, [localVisionStatus.state, localVisionRetryNonce]);
   useEffect(() => {
     if (
       !selectedChapterQuiz ||
@@ -4816,7 +5298,11 @@ export default function App() {
           return;
         }
         localVisionPermissionGraceUntilRef.current = Date.now() + 15000;
-        const stream = await navigator.mediaDevices.getUserMedia({
+        // iOS PWA (وضع standalone): getUserMedia قد يعلّق بلا أي ردّ (لا سماح ولا
+        // رفض) فتبقى شاشة "تجهيز الكاميرا..." للأبد بلا مخرج. مهلة ١٥ث تحوّلها
+        // لنافذة "اسمح بالكاميرا" بزر إعادة (نقرة مستخدم تُظهر طلب إذن iOS فعلاً).
+        // وإن وصل السماح متأخراً بعد المهلة نلتقطه تلقائياً بإعادة تشغيل التأثير.
+        const gumPromise = navigator.mediaDevices.getUserMedia({
           video: {
             facingMode: "user",
             width: { ideal: 320 },
@@ -4824,6 +5310,41 @@ export default function App() {
           },
           audio: false,
         });
+        gumPromise
+          .then((lateStream) => {
+            window.setTimeout(() => {
+              if (cancelled) {
+                try {
+                  lateStream.getTracks().forEach((t) => t.stop());
+                } catch {}
+                return;
+              }
+              if (!localVisionStreamRef.current) {
+                // مُنح الإذن بعد انقضاء المهلة: أوقف هذا البثّ وأعد تشغيل
+                // التأثير — المحاولة الجديدة تنجح فوراً لأن الإذن صار محفوظاً.
+                try {
+                  lateStream.getTracks().forEach((t) => t.stop());
+                } catch {}
+                setLocalVisionRetryNonce((value) => value + 1);
+              }
+            }, 1200);
+          })
+          .catch(() => undefined);
+        const stream = await Promise.race([
+          gumPromise,
+          new Promise<MediaStream>((_, reject) =>
+            window.setTimeout(
+              () =>
+                reject(
+                  Object.assign(
+                    new Error("لم يصل ردّ إذن الكاميرا خلال المهلة"),
+                    { name: "NotAllowedError" },
+                  ),
+                ),
+              15000,
+            ),
+          ),
+        ]);
         if (cancelled) {
           stream.getTracks().forEach((track) => track.stop());
           return;
@@ -4860,6 +5381,21 @@ export default function App() {
           !isRespectful && FaceDetectorCtor
             ? new FaceDetectorCtor({ fastMode: true, maxDetectedFaces: 3 })
             : null;
+
+        // كشف الوجه الحقيقي (BlazeFace): نحمّله كسولاً بلا حجب بدء الكاميرا. متى
+        // جهز صار هو الكاشف الأساسي (يعمل على آيفون)، ويتراجع تلقائياً للاحتياطي
+        // إن فشل. نمنع التحليلات المتزامنة بعلم busy لأن الاستدلال قد يأخذ وقتاً.
+        let blazeModel: any = null;
+        let blazeBusy = false;
+        if (!isRespectful) {
+          loadMirasBlazeFace()
+            .then((model) => {
+              if (!cancelled) blazeModel = model;
+            })
+            .catch(() => {
+              blazeModel = null;
+            });
+        }
 
         const buildFaceSignature = (box: any, imageData: Uint8ClampedArray) => {
           if (!box || !video || !canvas) return [] as number[];
@@ -5008,6 +5544,43 @@ export default function App() {
           return values.map((value) => Number((value - avg).toFixed(3)));
         };
 
+        // بديل تتبّع الانتباه عند غياب FaceDetector: واجهة Shape Detection غير
+        // متوفّرة في سفاري/آيفون (٨٠٪ من المستخدمين) وأُزيلت من كروم الحديث، فكانت
+        // مراقبة الوجه/النظر لا تعمل فعليًا على أجهزتهم. نحسب "مركز الإضاءة الأفقي"
+        // للمشهد كبديل خفيف بلا أي مكتبة: الالتفات الحاد يميناً/يساراً أو الخروج
+        // من الإطار يزيح هذا المركز بوضوح، فنطلق نفس تنبيه attention_away الناعم
+        // القابل للتعافي (لا قتل للاختبار) — مطابق تماماً لسلوك مسار FaceDetector.
+        // مركز الإضاءة أفقياً وعمودياً: الانحراف الأفقي = التفات يمين/يسار، والعمودي
+        // = النظر للأسفل (لأوراق/جهاز آخر) أو الخروج من الإطار — نغطّي البُعدين معاً
+        // ليقترب السلوك من تتبّع الوجه/النظر الحقيقي بلا مكتبة.
+        const computeAttentionCentroid = (imageData: Uint8ClampedArray) => {
+          if (!canvas) return null;
+          const w = canvas.width;
+          const h = canvas.height;
+          const yStart = Math.floor(h * 0.12);
+          const yEnd = Math.floor(h * 0.96);
+          let wx = 0;
+          let wy = 0;
+          let total = 0;
+          for (let py = yStart; py < yEnd; py += 1) {
+            for (let px = 0; px < w; px += 1) {
+              const idx = (py * w + px) * 4;
+              const lum =
+                (imageData[idx] || 0) +
+                (imageData[idx + 1] || 0) +
+                (imageData[idx + 2] || 0);
+              wx += lum * px;
+              wy += lum * py;
+              total += lum;
+            }
+          }
+          if (total <= 0) return null;
+          return {
+            x: wx / total / Math.max(1, w - 1),
+            y: wy / total / Math.max(1, h - 1),
+          };
+        };
+
         const handleDeviceOrientation = (event: DeviceOrientationEvent) => {
           if (cancelled || !activeLocalVisionConfig.enabled) return;
           const beta = Number(event.beta);
@@ -5041,6 +5614,12 @@ export default function App() {
           handleDeviceOrientation,
           true,
         );
+
+        let attentionCentroidBaseline: {
+          x: number;
+          y: number;
+          readyCount: number;
+        } | null = null;
 
         intervalId = window.setInterval(async () => {
           if (cancelled || !video || !ctx || !canvas || video.readyState < 2)
@@ -5130,6 +5709,174 @@ export default function App() {
                   } else {
                     localVisionCountersRef.current.camera_scene_changed = 0;
                   }
+                }
+              }
+            }
+
+            // كشف الوجه الحقيقي (BlazeFace) — الكاشف الأساسي حين يجهز (يعمل على
+            // آيفون). يغطّي: لا وجه، تعدد وجوه، والالتفات عبر إزاحة الأنف داخل
+            // صندوق الوجه + موضع الوجه في الإطار (تتبّع رأس/نظر حقيقي). كل التنبيهات
+            // ناعمة قابلة للتعافي (لا قتل للاختبار). عند غيابه نسقط للاحتياطي أدناه.
+            if (blazeModel && !isRespectful) {
+              if (!blazeBusy) {
+                blazeBusy = true;
+                let preds: any[] = [];
+                try {
+                  preds = await blazeModel.estimateFaces(video, false);
+                } catch {
+                  preds = [];
+                }
+                blazeBusy = false;
+                if (!Array.isArray(preds)) preds = [];
+                const faceCount = preds.length;
+                if (faceCount === 0) {
+                  localVisionCountersRef.current.face_missing =
+                    Number(localVisionCountersRef.current.face_missing || 0) + 1;
+                  if (
+                    localVisionCountersRef.current.face_missing >=
+                    activeLocalVisionConfig.softLockThreshold
+                  ) {
+                    void sendLocalVisionPulse("face_missing", {
+                      faceCount,
+                      engine: "blazeface",
+                      weight: 6,
+                    });
+                    engageLocalVisionLock("face_missing", "أعد وجهك للكاميرا.");
+                  }
+                } else {
+                  localVisionCountersRef.current.face_missing = 0;
+                }
+                if (faceCount > 1) {
+                  localVisionCountersRef.current.multiple_faces =
+                    Number(localVisionCountersRef.current.multiple_faces || 0) + 1;
+                  if (localVisionCountersRef.current.multiple_faces >= 2) {
+                    void sendLocalVisionPulse("multiple_faces", {
+                      faceCount,
+                      engine: "blazeface",
+                      weight: 9,
+                    });
+                    engageLocalVisionLock(
+                      "multiple_faces",
+                      "خلّك وحدك أمام الكاميرا.",
+                    );
+                  }
+                } else {
+                  localVisionCountersRef.current.multiple_faces = 0;
+                }
+                if (faceCount === 1 && video.videoWidth) {
+                  const p: any = preds[0];
+                  const tl: any = p.topLeft;
+                  const br: any = p.bottomRight;
+                  const x0 = Array.isArray(tl) ? Number(tl[0]) : Number(tl?.[0] || 0);
+                  const x1 = Array.isArray(br) ? Number(br[0]) : Number(br?.[0] || 0);
+                  const boxW = Math.max(1, x1 - x0);
+                  const boxCenterX = (x0 + x1) / 2;
+                  const frameRatio = boxCenterX / Math.max(1, video.videoWidth);
+                  const nose: any = Array.isArray(p.landmarks)
+                    ? p.landmarks[2]
+                    : null;
+                  const noseX = nose
+                    ? Array.isArray(nose)
+                      ? Number(nose[0])
+                      : Number(nose.x || boxCenterX)
+                    : boxCenterX;
+                  const noseOffset = Math.abs((noseX - boxCenterX) / boxW);
+                  const strictMargin =
+                    activeLocalVisionConfig.mode === "strict" ? 0.25 : 0.18;
+                  const noseLimit =
+                    activeLocalVisionConfig.mode === "strict" ? 0.18 : 0.28;
+                  const lookingAway =
+                    frameRatio < strictMargin ||
+                    frameRatio > 1 - strictMargin ||
+                    noseOffset > noseLimit;
+                  if (lookingAway) {
+                    localVisionCountersRef.current.attention_away =
+                      Number(
+                        localVisionCountersRef.current.attention_away || 0,
+                      ) + 1;
+                    const needed = Math.max(
+                      2,
+                      Math.ceil(activeLocalVisionConfig.gazeAwaySeconds / 1.8),
+                    );
+                    if (
+                      localVisionCountersRef.current.attention_away >= needed
+                    ) {
+                      void sendLocalVisionPulse("attention_away", {
+                        ratio: Number(frameRatio.toFixed(3)),
+                        noseOffset: Number(noseOffset.toFixed(3)),
+                        engine: "blazeface",
+                        weight: 6,
+                      });
+                      engageLocalVisionLock(
+                        "attention_away",
+                        "ارجع بنظرك للشاشة.",
+                      );
+                    }
+                  } else {
+                    localVisionCountersRef.current.attention_away = 0;
+                  }
+                }
+              }
+              maybeRecoverLocalVisionLock();
+              return;
+            }
+
+            // مسار الالتفات البديل (بلا FaceDetector): يعمل فقط على الأجهزة التي
+            // لا تدعم كشف الوجه الأصلي، فلا يتعارض أبداً مع مسار FaceDetector أدناه
+            // (يستخدمان العدّاد نفسه لكن أحدهما فقط يعمل). التنبيه ناعم وقابل للتعافي.
+            if (!detector && !isRespectful) {
+              const centroid = computeAttentionCentroid(image);
+              if (!centroid || avgLight < 12) {
+                localVisionCountersRef.current.attention_away = 0;
+              } else if (!attentionCentroidBaseline) {
+                attentionCentroidBaseline = {
+                  x: centroid.x,
+                  y: centroid.y,
+                  readyCount: 1,
+                };
+              } else if (attentionCentroidBaseline.readyCount < 4) {
+                attentionCentroidBaseline = {
+                  x: (attentionCentroidBaseline.x + centroid.x) / 2,
+                  y: (attentionCentroidBaseline.y + centroid.y) / 2,
+                  readyCount: attentionCentroidBaseline.readyCount + 1,
+                };
+              } else {
+                const driftX = Math.abs(centroid.x - attentionCentroidBaseline.x);
+                const driftY = Math.abs(centroid.y - attentionCentroidBaseline.y);
+                const drift = Math.max(driftX, driftY);
+                const driftLimit =
+                  activeLocalVisionConfig.mode === "strict" ? 0.16 : 0.22;
+                if (drift > driftLimit) {
+                  localVisionCountersRef.current.attention_away =
+                    Number(
+                      localVisionCountersRef.current.attention_away || 0,
+                    ) + 1;
+                  const needed = Math.max(
+                    2,
+                    Math.ceil(activeLocalVisionConfig.gazeAwaySeconds / 1.8),
+                  );
+                  if (
+                    localVisionCountersRef.current.attention_away >= needed
+                  ) {
+                    void sendLocalVisionPulse("attention_away", {
+                      drift: Number(drift.toFixed(3)),
+                      fallback: true,
+                      weight: 6,
+                    });
+                    engageLocalVisionLock(
+                      "attention_away",
+                      "ارجع بنظرك للشاشة.",
+                    );
+                  }
+                } else {
+                  localVisionCountersRef.current.attention_away = 0;
+                  // انجراف بطيء (تحرّك بسيط على الكرسي): حدّث الأساس تدريجياً حتى
+                  // لا نعاقب الطالب على وضعية جلوس ثابتة جديدة.
+                  attentionCentroidBaseline = {
+                    x: attentionCentroidBaseline.x * 0.92 + centroid.x * 0.08,
+                    y: attentionCentroidBaseline.y * 0.92 + centroid.y * 0.08,
+                    readyCount: attentionCentroidBaseline.readyCount,
+                  };
                 }
               }
             }
@@ -5472,6 +6219,14 @@ export default function App() {
   const [studentSubmissions, setStudentSubmissions] = useState<any[]>([]);
   const [currentAttachments, setCurrentAttachments] = useState<any[]>([]);
   const [isUploading, setIsUploading] = useState(false);
+  // نسبة تقدّم رفع الملف (٠–١٠٠). كان الطالب يرى دوراناً لا نهائياً فوق الدقائق
+  // للملفات الكبيرة بلا أي مؤشّر أنه يعمل؛ الآن نعرض النسبة الحقيقية عبر XHR.
+  const [uploadProgress, setUploadProgress] = useState(0);
+  // شفافية الرفع: الوقت المتبقي التقريبي (يُحسب من سرعة النقل الحية). القياس
+  // أثبت أن الخادم يستقبل بـ١٠٠+ Mbps والبطء = سقف رفع خط الطالب؛ إظهار
+  // السرعة/المتبقي يحوّل "معلّق وبطيء" إلى تقدم مفهوم وموثوق.
+  const [uploadEtaSec, setUploadEtaSec] = useState<number | null>(null);
+  const uploadStartRef = useRef(0);
 
   // Project generator states
   const [personalProject, setPersonalProject] = useState<any>(null);
@@ -8404,20 +9159,152 @@ export default function App() {
           // leave isUploading — and the send button's spinner — stuck
           // forever with no way for the student to recover or retry.
           const uploadTimeoutController = new AbortController();
+          // مهلة متناسبة مع حجم الملف: كانت ٤٥ث ثابتة فتُجهض رفع ملف ٢٥ ميجابايت
+          // على شبكة الجوال البطيئة قبل اكتماله (جزء من "يطول ثم خطأ"). الآن ٦ث
+          // لكل ميجابايت (٦٠ث حدّ أدنى، ٢٤٠ث حدّ أقصى) فتكتمل الملفات الكبيرة،
+          // ويبقى الاتصال المعلّق فعلاً ينتهي أخيراً بدل تعليق الزر للأبد.
+          // مهلة متناسبة أكبر: ملف ٢١م.ب على شبكة جوال بطيئة قد يتجاوز ٤ دقائق —
+          // كانت المهلة ٦ث/م.ب (سقف ٤د) فتُجهض الرفع. الآن ١٢ث/م.ب (٩٠ث حدّ أدنى،
+          // ٧د حدّ أقصى) فتكتمل الملفات الكبيرة على الاتصالات البطيئة، مع بقاء
+          // الاتصال المعلّق فعلاً ينتهي أخيرًا.
+          // مهلة أوسع للملفات الكبيرة على شبكات الجوال البطيئة: ٢٠ث/م.ب، حد أدنى
+          // دقيقتان، حد أقصى ١٠ دقائق. الحفظ السحابي صار سريعاً (دفعات Firestore)
+          // فالمهلة الآن تغطي زمن النقل الفعلي على اتصال بطيء بلا إجهاض مبكر.
+          const uploadTimeoutMs = Math.min(
+            600000,
+            Math.max(120000, Math.round((file.size || 0) / (1024 * 1024)) * 20000),
+          );
           const uploadTimeoutId = window.setTimeout(
             () => uploadTimeoutController.abort(),
-            45000,
+            uploadTimeoutMs,
           );
-          let resp: Response;
+          // نستخدم XHR بدل fetch لأن fetch لا يوفّر تقدّم الرفع. نعرض النسبة
+          // الحقيقية للطالب أثناء رفع الملفات الكبيرة بدل دوران غامض. بعد وصول
+          // ١٠٠٪ يبقى الخادم يعالج (تحويل) لثوانٍ ضمن ميزانيته، فتبقى الأيقونة
+          // تدور قليلاً ثم يكتمل — لكن الطالب رأى أن الرفع نفسه تقدّم واكتمل.
+          setUploadProgress(0);
+          setUploadEtaSec(null);
+          uploadStartRef.current = Date.now();
+          // 🔬 مجسّ أداء الرفع: الخادم يستلم في <١ث بينما المالك يعيش زحفاً على
+          // الجهاز — نقيس كل مرحلة على جهاز الطالب نفسه، وأي رفعة تتجاوز ١٥ث
+          // ترسل تشريحها للرادار: تجهيز (قبل أول بايت — يكشف تنزيل iCloud)،
+          // نقل (يكشف الشبكة)، بالسرعة الفعلية. نهاية التخمين.
+          const perfT0 = Date.now();
+          let perfFirstByteAt = 0;
+          let perfLastLoaded = 0;
+          let resp: { ok: boolean; status: number; json: () => Promise<any> };
           try {
-            resp = await fetch("/api/submissions/upload", {
-              method: "POST",
-              headers: uploadHeaders,
-              body: formData,
-              signal: uploadTimeoutController.signal,
+            // 🚀 مباشرة إلى Cloud Run متجاوزين وسيط Firebase Hosting: القياس من
+            // كروم المالك أثبت أن الوسيط يجترّ جسم ٢٠م.ب في ٦٠-٩٠ث بينما الرفع
+            // المباشر ~١ث (السجلات كانت تقيس ما بعد الوسيط فقط — لهذا "الرفع بطيء
+            // والإرسال سريع"). الخادم يسمح CORS لهذا المسار حصراً، وعند أي فشل
+            // شبكي/حجب مؤسسي للمسار المباشر نسقط تلقائياً للمسار النسبي القديم.
+            const runUploadXhr = (
+              uploadUrl: string,
+            ): Promise<{ ok: boolean; status: number; json: () => Promise<any> }> =>
+              new Promise((resolve, reject) => {
+              const xhr = new XMLHttpRequest();
+              xhr.open("POST", uploadUrl);
+              Object.entries(uploadHeaders).forEach(([k, v]) => {
+                try {
+                  xhr.setRequestHeader(k, String(v));
+                } catch {}
+              });
+              xhr.timeout = uploadTimeoutMs;
+              xhr.upload.onprogress = (e) => {
+                if (e.lengthComputable && e.total > 0) {
+                  if (!perfFirstByteAt && e.loaded > 0) perfFirstByteAt = Date.now();
+                  perfLastLoaded = e.loaded;
+                  setUploadProgress(
+                    Math.max(1, Math.min(100, Math.round((e.loaded / e.total) * 100))),
+                  );
+                  // متبقٍ تقريبي من سرعة النقل الحية (بعد ثانية على الأقل ليستقر
+                  // القياس): يطمئن الطالب أن الرفع يتقدم بأقصى سرعة خطه.
+                  const elapsed = (Date.now() - uploadStartRef.current) / 1000;
+                  if (elapsed >= 1 && e.loaded > 0 && e.loaded < e.total) {
+                    const rate = e.loaded / elapsed;
+                    setUploadEtaSec(Math.max(1, Math.round((e.total - e.loaded) / rate)));
+                  } else if (e.loaded >= e.total) {
+                    setUploadEtaSec(null);
+                  }
+                }
+              };
+              xhr.onload = () => {
+                setUploadProgress(100);
+                setUploadEtaSec(null);
+                const status = xhr.status;
+                const text = xhr.responseText || "";
+                resolve({
+                  ok: status >= 200 && status < 300,
+                  status,
+                  json: async () => {
+                    try {
+                      return JSON.parse(text);
+                    } catch {
+                      return {};
+                    }
+                  },
+                });
+              };
+              xhr.onerror = () => reject(new Error("network"));
+              xhr.ontimeout = () =>
+                reject(
+                  Object.assign(new Error("upload timed out"), {
+                    name: "AbortError",
+                  }),
+                );
+              // إلغاء المهلة الخارجية يجهض XHR أيضاً (مسار موحّد).
+              uploadTimeoutController.signal.addEventListener("abort", () => {
+                try {
+                  xhr.abort();
+                } catch {}
+                reject(
+                  Object.assign(new Error("upload aborted"), {
+                    name: "AbortError",
+                  }),
+                );
+              });
+              xhr.send(formData);
             });
+            try {
+              resp = await runUploadXhr(
+                "https://miras-api-538577909672.us-central1.run.app/api/submissions/upload",
+              );
+            } catch (directErr: any) {
+              // فشل شبكي على المسار المباشر (شبكة مؤسسية تحجب run.app مثلاً)؟
+              // احتياط فوري: المسار النسبي عبر الوسيط — أبطأ لكنه يعمل دائماً.
+              if (String(directErr?.message || "") === "network") {
+                resp = await runUploadXhr("/api/submissions/upload");
+              } else {
+                throw directErr;
+              }
+            }
           } finally {
             window.clearTimeout(uploadTimeoutId);
+            setUploadProgress(0);
+            // تقرير التشريح للرادار (رفعة بطيئة >١٥ث فقط — لا ضجيج):
+            try {
+              const totalMs = Date.now() - perfT0;
+              if (totalMs > 15000) {
+                const mb = (file.size || 0) / (1024 * 1024);
+                const prepMs = perfFirstByteAt ? perfFirstByteAt - perfT0 : totalMs;
+                const xferMs = perfFirstByteAt ? Date.now() - perfFirstByteAt : 0;
+                const mbps = xferMs > 0 ? ((perfLastLoaded * 8) / 1e6 / (xferMs / 1000)).toFixed(1) : "?";
+                void fetch("/api/monitor/report", {
+                  method: "POST",
+                  keepalive: true,
+                  headers: { "content-type": "application/json" },
+                  body: JSON.stringify({
+                    message: `رفع بطيء: ${mb.toFixed(1)}MB في ${Math.round(totalMs / 1000)}ث — تجهيز قبل أول بايت: ${Math.round(prepMs / 1000)}ث (iCloud؟) | نقل: ${Math.round(xferMs / 1000)}ث بسرعة ${mbps}Mbps`,
+                    stack: "UA: " + String(navigator.userAgent || "").slice(0, 140),
+                    url: "/upload-perf",
+                    source: "client",
+                    role: "student",
+                    userId: String((studentSession as any)?.id || ""),
+                  }),
+                }).catch(() => undefined);
+              }
+            } catch {}
           }
           const data = await resp.json().catch(() => ({}));
           if (resp.ok && data.success) {
@@ -10529,7 +11416,10 @@ export default function App() {
     // لدمج نفس الإشعار حين يصل عبر قناتين معاً (FCM فوراً + الاستطلاع بعد ثوانٍ)،
     // دون أن تبتلع إشعاراً جديداً حقيقياً يشترك في نفس النوع/النشاط لكنه أُرسل في
     // وقت مختلف — كان هذا سبب "لا تظهر القديمة والجديدة معاً إلا بعد عدة إشعارات".
-    const SIGNATURE_DEDUP_WINDOW_MS = 45000;
+    // ١٠ دقائق (كانت ٤٥ث): القناة الثانية (استرجاع FCM المؤجل عند فتح التطبيق)
+    // قد تتأخر دقائق عن نسخة الصندوق فيظهر نفس الخبر مرتين. الخادم صار يكتب
+    // كل حدث مرة واحدة مضمونة، فلا خطر ابتلاع إشعار حقيقي مختلف.
+    const SIGNATURE_DEDUP_WINDOW_MS = 600000;
     const seenIds = new Set<string>();
     const signatureTimes = new Map<string, number>();
     const rememberSeen = (n: any) => {
@@ -12175,7 +13065,7 @@ ${rows
         fetchLogs();
         try {
           // If we can reload report details or students list, do so
-          const repResp = await fetch("/api/teacher/reports", {
+          const repResp = await fetch("/api/teacher/reports?includeAll=1", {
             headers: teacherHeaders(),
           });
           const repD = await repResp.json();
@@ -13142,7 +14032,7 @@ ${rows
   const fetchReports = async (emailOverride?: string) => {
     try {
       const email = emailOverride || teacherSession?.email || "";
-      const resp = await fetch("/api/teacher/reports", {
+      const resp = await fetch("/api/teacher/reports?includeAll=1", {
         cache: "no-store",
         headers: teacherHeaders(email),
       });
@@ -19927,8 +20817,10 @@ ${rows
           isLocked || closedByTime
             ? undefined
             : () => {
+                // لا توست عند مجرد فتح الصفحة: كانت رسالة "تم فتح نموذج تسليم
+                // المشروع…" تمرّ على مبسّط رسائل الطالب (قاعدة تسليم+مشروع)
+                // فتظهر للطالب "تم تسليم المشروع" وهو لم يسلّم شيئاً — لبس خطير.
                 setStudentTab("project");
-                setSuccessMsg("تم فتح نموذج تسليم المشروع المرتبط بالمقرر.");
               },
       };
     }),
@@ -19952,29 +20844,49 @@ ${rows
     (activity: any) =>
       activity.kind === "مشروع" && typeof activity.action === "function",
   );
+  // قائمة النشاطات التي يقترب موعدها (خلال ٧ أيام) مرتّبة بالأقرب، مع أيام متبقية —
+  // تُغذّي بطاقة «تنبيه مهم قبل انتهاء الوقت» الأنيقة.
+  const studentUpcomingDeadlineCards = useMemo(() => {
+    const now = Date.now();
+    return (displayedStudentActivities || [])
+      .map((a: any) => ({ a, ms: mirasDeadlineEndMs(a.due) }))
+      .filter(
+        (x: any) =>
+          Number.isFinite(x.ms) &&
+          x.ms > now &&
+          x.ms - now <= 7 * 24 * 60 * 60 * 1000,
+      )
+      .sort((x: any, y: any) => x.ms - y.ms)
+      .slice(0, 6)
+      .map((x: any) => ({
+        ...x.a,
+        daysLeft: Math.max(
+          1,
+          Math.ceil((x.ms - now) / (24 * 60 * 60 * 1000)),
+        ),
+      }));
+  }, [displayedStudentActivities]);
   // تذكير المواعيد "أول ما يفتح الطالب التطبيق": إن كان لديه اختبار/مشروع يقترب
-  // موعده (خلال ٧ أيام) نفتح له لوحة "المواعيد والتنبيهات" الأنيقة الموجودة أصلاً
-  // مرة واحدة في الجلسة — نُعيد سلوك ظهور الرسالة عند الفتح، بلا شريط دخيل.
+  // موعده (خلال ٧ أيام) نُظهر البطاقة الأنيقة مرة واحدة في الجلسة — لا لوحة
+  // التنبيهات الفارغة/المزعجة (طلب المالك: أرجع البطاقة الجميلة قبل الدخول).
   const deadlineReminderShownRef = useRef(false);
   useEffect(() => {
     if (deadlineReminderShownRef.current) return;
     if (currentView !== "student_workspace" || studentTab !== "overview") return;
     if (!studentSession?.id) return;
-    const now = Date.now();
-    const hasUpcomingDeadline = displayedStudentActivities.some((a: any) => {
-      const ms = mirasDeadlineEndMs(a.due);
-      return (
-        Number.isFinite(ms) && ms > now && ms - now <= 7 * 24 * 60 * 60 * 1000
-      );
-    });
-    if (hasUpcomingDeadline) {
+    if (studentUpcomingDeadlineCards.length > 0) {
       deadlineReminderShownRef.current = true;
       // تأخير بسيط حتى تستقر عمليات التحميل (أي closeStudentPanels عند البداية)
-      // فلا يُغلق التذكير فور فتحه.
-      const t = window.setTimeout(() => setStudentNotificationsOpen(true), 450);
+      // فلا تُغلق البطاقة فور فتحها.
+      const t = window.setTimeout(() => setStudentDeadlineCardOpen(true), 450);
       return () => window.clearTimeout(t);
     }
-  }, [currentView, studentTab, studentSession?.id, displayedStudentActivities]);
+  }, [
+    currentView,
+    studentTab,
+    studentSession?.id,
+    studentUpcomingDeadlineCards.length,
+  ]);
   const studentVisibleExamCards = studentCourseExams.filter((exam: any) => {
     const priorExamSubmission = latestStudentSubmissionByActivity.get(
       `exam:${exam.id}`,
@@ -20435,6 +21347,19 @@ ${rows
     } catch (e) {
       console.error("Error saving seen notifications", e);
     }
+    // مزامنة الخادم: تُحفظ "مقروء" على الخادم لتظهر مقروءة على بقية أجهزة الطالب.
+    try {
+      void fetch("/api/notifications/mark-seen", {
+        method: "POST",
+        headers: jsonHeaders({ auth: "student" }),
+        body: JSON.stringify({
+          userId: studentSession.id,
+          role: "student",
+          keys: Array.from(keys).slice(-400),
+        }),
+        keepalive: true,
+      }).catch(() => undefined);
+    } catch {}
   };
 
   const markStudentNotificationRead = (key: string) => {
@@ -20451,6 +21376,30 @@ ${rows
     setStudentSeenKeysState(next);
     persistStudentSeenNotificationKeys(next);
   };
+  // مزامنة "مقروء" من الخادم عند الدخول: نجلب المفاتيح المقروءة المخزّنة ونضمّها،
+  // فما قرأه الطالب على جهاز يظهر مقروءاً على أجهزته الأخرى.
+  useEffect(() => {
+    if (!studentSession?.id) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const resp = await fetch(
+          `/api/notifications/seen?userId=${encodeURIComponent(studentSession.id)}&role=student`,
+          { headers: jsonHeaders({ auth: "student" }) },
+        );
+        const data = await resp.json().catch(() => ({}));
+        if (cancelled || !Array.isArray(data?.seenKeys)) return;
+        setStudentSeenKeysState((prev) => {
+          const next = new Set<string>(prev);
+          data.seenKeys.forEach((k: any) => next.add(String(k)));
+          return next;
+        });
+      } catch {}
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [studentSession?.id]);
   const isStudentInSeb = isSafeExamBrowserSession();
   const activeExamIds = new Set(
     teacherCreatedExams
@@ -20687,7 +21636,16 @@ ${rows
     );
   };
   const isExamInProgressSubmission = (sub: any) => {
-    return normalizedTeacherExamState(sub) === "active";
+    // نحترم liveStale (نبضة الجلسة توقّفت >٢٠ث) تماماً كما في النبض، حتى تتطابق
+    // شاشة التسليمات مع النبض: طالب انقطع/انسحب لا يظهر "يحل الآن" في الاثنين.
+    return (
+      !(sub as any)?.liveStale && normalizedTeacherExamState(sub) === "active"
+    );
+  };
+  const isDisconnectedInProgressSubmission = (sub: any) => {
+    return (
+      !!(sub as any)?.liveStale && normalizedTeacherExamState(sub) === "active"
+    );
   };
   const teacherVisibleGradeText = (sub: any) => {
     if (isTeacherReturnedSubmission(sub) || isExamInProgressSubmission(sub))
@@ -20740,6 +21698,7 @@ ${rows
     if (isCheatingAttemptSubmission(sub)) return "محاولة غش";
     if (isWithdrawnSubmission(sub)) return "منسحب";
     if (isExamInProgressSubmission(sub)) return "يحل الآن";
+    if (isDisconnectedInProgressSubmission(sub)) return "غير متصل";
     if (sub?.teacherGradeOverride) return gradeText || "تم رصد الدرجة";
     if (gradeText) return gradeText;
     if (isSubmissionGradeOfficiallyRecorded(sub)) return "درجة معتمدة";
@@ -20750,6 +21709,7 @@ ${rows
     if (isCheatingAttemptSubmission(sub)) return "محاولة غش";
     if (isWithdrawnSubmission(sub)) return "منسحب";
     if (isExamInProgressSubmission(sub)) return "يحل الآن";
+    if (isDisconnectedInProgressSubmission(sub)) return "غير متصل حالياً";
     if (sub?.teacherGradeOverride) return "تم رصد الدرجة";
     if (
       teacherVisibleGradeText(sub) ||
@@ -21423,7 +22383,11 @@ ${rows
         EXAM_EXITED_BEFORE_SUBMIT_STATUS,
         EXAM_WITHDRAWN_STATUS,
         EXAM_CHEATING_ATTEMPT_STATUS,
-      ].includes(String(sub.status || "")),
+      ].includes(String(sub.status || "")) ||
+        // اختبار أُعيد لطالب ضمن نافذة استثناء نشطة (سيُعيد المحاولة): يبقى ظاهرًا
+        // في النبض حتى يستطيع المعلم ضبط كاميرا هذا الاختبار تحديدًا قبل/أثناء
+        // الإعادة — لا أن يختفي الاختبار فيتعذّر التحكّم بكاميرته للطالب المُعاد له.
+        (isTeacherReturnedSubmission(sub) && isReturnExceptionActive(sub)),
     );
   const examDayExams = useMemo(
     () =>
@@ -21445,7 +22409,9 @@ ${rows
       examDayExams.some((exam: any) => {
         const now = Date.now();
         const close = exam.close ? new Date(exam.close).getTime() : 0;
-        return !close || close >= now;
+        // يظهر النبض أيضًا لاختبار مُعاد ضمن نافذة استثناء نشطة حتى لو انتهى وقته
+        // الأصلي، فيبقى ضبط الكاميرا للطالب المُعاد له متاحًا في النبض.
+        return !close || close >= now || examHasLiveIssue(exam);
       }),
     [examDayExams, hasActiveLivePulseExam],
   );
@@ -21743,7 +22709,14 @@ ${rows
       const safe =
         !cheating && !withdrawn && !forcedExit && isSafeSubmission(sub);
       const active =
-        !cheating && !safe && !withdrawn && !forcedExit && isActiveSolving(sub);
+        !cheating &&
+        !safe &&
+        !withdrawn &&
+        !forcedExit &&
+        // نبضة الجلسة توقّفت (>٤٥ث): الطالب خرج فعلاً، فلا يُحسب "يحلّ الآن" بل
+        // يظهر "غير متصل" — حلّ خطأ ظهور كل الكروت "يحل" رغم خروج الطلبة.
+        !(sub as any)?.liveStale &&
+        isActiveSolving(sub);
       const state = { safe, withdrawn, forcedExit, cheating, active };
       submissionStateCache.set(sub, state);
       return state;
@@ -21900,15 +22873,36 @@ ${rows
         ? [explicitExam]
         : selectedExam && mirasExamUsesCamera(selectedExam)
           ? [selectedExam]
-          : enabledDayCameraExams.length > 0
-            ? enabledDayCameraExams
-            : enabledCourseCameraExams.length > 0
-              ? enabledCourseCameraExams
-              : enabledAllCameraExams;
+          : (() => {
+              // لا اختبار محدّد (لا تسليم نشط للطالب ولا فلتر نبض على اختبار
+              // واحد). كان الكود يُطبّق التبديل على *كل* اختبارات الكاميرا هنا،
+              // فيسري تفعيل/تعطيل كاميرا طالبٍ على جميع اختباراته بدل الاختبار
+              // المقصود — وهذا الخلل. الآن: إن كان هناك اختبار كاميرا واحد فقط
+              // نستخدمه، وإلا نطلب من المعلم تحديد اختبار فلا نمسّ البقية.
+              const pool =
+                enabledDayCameraExams.length > 0
+                  ? enabledDayCameraExams
+                  : enabledCourseCameraExams.length > 0
+                    ? enabledCourseCameraExams
+                    : enabledAllCameraExams;
+              return pool.length === 1 ? pool : [];
+            })();
     const candidateExams = candidateSeed.filter((exam: any) =>
       mirasExamUsesCamera(exam),
     );
     if (!candidateExams.length) {
+      // إن تعذّر تحديد اختبار واحد لأن هناك عدة اختبارات كاميرا نشطة، نُرشد المعلم
+      // بدل الصمت أو التطبيق على الجميع.
+      const camExamCount = Math.max(
+        enabledDayCameraExams.length,
+        enabledCourseCameraExams.length,
+        enabledAllCameraExams.length,
+      );
+      if (camExamCount > 1) {
+        setErrorMsg(
+          "لديك أكثر من اختبار نشط. اختر اختبارًا محددًا من شريط الاختبارات في النبض أولاً، ثم بدّل الكاميرا — فتُطبَّق على ذلك الاختبار فقط لهذا الطالب.",
+        );
+      }
       return;
     }
     const tokens = [
@@ -22500,17 +23494,57 @@ ${rows
       const q = normalizeTeacherCommandText(teacherSmartSearchTerm);
       if (!q) return [] as any[];
     const qWords = teacherCommandNeedles(q);
+    const qCompact = q.replace(/\s+/g, "");
+    // تطابق تتابعي (subsequence): كل حروف الاستعلام تظهر بالترتيب داخل النص —
+    // يمنح تسامحًا مع الأخطاء المطبعية والأحرف الناقصة (بحث ذكي لا حرفي فقط).
+    const isSubsequence = (needle: string, hay: string) => {
+      if (!needle) return false;
+      let i = 0;
+      for (let j = 0; j < hay.length && i < needle.length; j += 1) {
+        if (hay[j] === needle[i]) i += 1;
+      }
+      return i === needle.length;
+    };
     const scoreText = (haystack: any, boost = 0) => {
       const text = normalizeTeacherCommandText(haystack);
       if (!text) return 0;
-      let score = boost;
-      if (text === q) score += 120;
-      if (text.startsWith(q)) score += 70;
-      if (text.includes(q)) score += 42;
+      // نبدأ من صفر ونضيف وزن النوع (boost) فقط عند وجود تطابق فعلي. الخلل السابق:
+      // كانت النقطة تبدأ من boost، فيحصل كل عنصر على نقاط موجبة رغم عدم تطابقه
+      // إطلاقاً — فتتسرّب عشرات العناصر غير المطابقة إلى النتائج (بحث يُظهر "كل
+      // شيء" ويبدو عشوائياً/بايخاً). الآن غير المطابق يرجع صفراً فيُستبعد تماماً.
+      let score = 0;
+      if (text === q) score += 140;
+      if (text.startsWith(q)) score += 80;
+      if (text.includes(q)) score += 44;
+      const textWords = text.split(" ").filter(Boolean);
       qWords.forEach((word: string) => {
-        if (text.includes(word)) score += word.length > 3 ? 14 : 8;
+        // مطابقة كلمة-بكلمة: تامة، ثم بادئة الكلمة (إحساس الإكمال التلقائي:
+        // "احم" ⇐ "احمد" و"تفع" ⇐ "تفعيل")، ثم تضمين جزئي.
+        let best = 0;
+        for (const tw of textWords) {
+          if (tw === word) best = Math.max(best, 26);
+          else if (tw.startsWith(word)) best = Math.max(best, word.length > 2 ? 20 : 12);
+          else if (word.length > 2 && tw.includes(word)) best = Math.max(best, 10);
+        }
+        score += best || (text.includes(word) ? (word.length > 3 ? 8 : 5) : 0);
       });
-      return score;
+      // 🔊 الجسر الصوتي عربي↔لاتيني: "احمد" يجد Ahmed و"ghanem" يجد غانم —
+      // مطابقة كلمة الاستعلام صوتياً مع كل كلمة في النص عند غياب تطابق حرفي.
+      if (score === 0) {
+        for (const word of qWords) {
+          let bestPh = 0;
+          for (const tw of textWords) {
+            bestPh = Math.max(bestPh, mirasPhoneticWordMatch(word, tw));
+            if (bestPh >= 24) break;
+          }
+          score += bestPh;
+        }
+      }
+      // احتياط تسامحي: لم يُطابق شيء أعلاه لكن حروف الاستعلام تظهر بالترتيب.
+      if (score === 0 && qCompact.length >= 3) {
+        if (isSubsequence(qCompact, text.replace(/\s+/g, ""))) score += 16;
+      }
+      return score > 0 ? score + boost : 0;
     };
     const includesQ = (...values: any[]) =>
       scoreText(values.join(" ")) > 0;
@@ -22659,7 +23693,25 @@ ${rows
       .sort((a, b) => (b.score || 0) - (a.score || 0))
       .slice(0, 18);
     } catch (err) {
+      // انهيار داخلي في محرّك البحث كان يُفرغ النتائج بصمت تامة ("أكتب اسماً
+      // ولا يظهر شيء" بلا أي أثر). الآن يبلّغ الرادار فوراً بالخطأ الحرفي.
       console.error("Error calculating search results:", err);
+      try {
+        void fetch("/api/monitor/report", {
+          method: "POST",
+          keepalive: true,
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({
+            message:
+              "Smart search crashed: " + String((err as any)?.message || err),
+            stack: String((err as any)?.stack || "").slice(0, 1500),
+            url: "/smart-search",
+            source: "client",
+            role: "teacher",
+            userId: String((teacherSession as any)?.email || ""),
+          }),
+        }).catch(() => undefined);
+      } catch {}
       return [] as any[];
     }
   }, [teacherSmartSearchTerm, teacherSmartRawTerm, teacherStudents, scopedTeacherStudents, scopedJoinCodes, visibleTeacherSections, teacherSubmissions, deviceProblemAttempts, analyticsSubTab, integrityFocus, codesSubTab]);
@@ -23243,7 +24295,69 @@ ${rows
     } catch (e) {
       console.error("Error saving teacher important notifications", e);
     }
+    // مزامنة الخادم: "مقروء" تظهر على بقية أجهزة المعلم (هاتف↔كمبيوتر).
+    try {
+      void fetch("/api/notifications/mark-seen", {
+        method: "POST",
+        headers: jsonHeaders({ auth: "teacher" }),
+        body: JSON.stringify({
+          userId: teacherKey,
+          role: "teacher",
+          keys: Array.from(keys).slice(-240),
+        }),
+        keepalive: true,
+      }).catch(() => undefined);
+    } catch {}
   };
+  // مزامنة "مقروء" من الخادم عند دخول المعلم على أي جهاز.
+  useEffect(() => {
+    const teacherKey = String(
+      teacherSession?.email || teacherSession?.id || "",
+    ).toLowerCase();
+    if (!teacherKey) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const resp = await fetch(
+          `/api/notifications/seen?userId=${encodeURIComponent(teacherKey)}&role=teacher`,
+          { headers: jsonHeaders({ auth: "teacher" }) },
+        );
+        const data = await resp.json().catch(() => ({}));
+        if (cancelled || !Array.isArray(data?.seenKeys)) return;
+        // فرز المفاتيح: dock|<tab>|<count> ⇒ عدّادات "شوهد" للنقاط الذكية
+        // (نأخذ أعلى عدد لكل تبويب)، والبقية ⇒ مفاتيح قراءة التنبيهات.
+        const dockCounts: Record<string, number> = {};
+        const readKeys: string[] = [];
+        data.seenKeys.forEach((raw: any) => {
+          const k = String(raw);
+          if (k.startsWith("dock|")) {
+            const [, tab, n] = k.split("|");
+            const num = Number(n);
+            if (tab && Number.isFinite(num))
+              dockCounts[tab] = Math.max(Number(dockCounts[tab] ?? -1), num);
+            return;
+          }
+          readKeys.push(k);
+        });
+        if (Object.keys(dockCounts).length)
+          setDockSeenCounts((prev) => {
+            const next = { ...prev };
+            Object.entries(dockCounts).forEach(([tab, n]) => {
+              next[tab] = Math.max(Number(next[tab] ?? -1), n);
+            });
+            return next;
+          });
+        setTeacherImportantReadKeys((prev) => {
+          const next = new Set<string>(prev);
+          readKeys.forEach((k) => next.add(k));
+          return next;
+        });
+      } catch {}
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [teacherSession?.email, teacherSession?.id]);
 
   const markTeacherImportantNotificationRead = (key: string) => {
     setTeacherImportantReadKeys((prev) => {
@@ -23870,10 +24984,10 @@ ${rows
               : row,
           )
         : [...existingRows, nextRow];
-      await saveAllowedRosterRows(rows);
-      // لا ننتظر إعادة تحميل كل لوحة المعلم هنا؛ كانت هذه الخطوة تجعل حفظ تعديل
-      // طالب واحد يبدو بطيئاً جداً على الجوال. نحدّث الواجهة فورياً ثم ننعش
-      // البيانات في الخلفية بهدوء.
+      // لا ننتظر رفع كامل كشف المسموح ولا إعادة تحميل لوحة المعلم هنا: الاسم عُدِّل
+      // فعلاً على السيرفر عبر update-profile، وكشف المسموح مزامنة ثانوية. كانت هاتان
+      // الخطوتان الحاجبتان تجعلان حفظ تعديل اسم طالب واحد بطيئاً جداً على الجوال.
+      // نحدّث الواجهة فورياً، ونرفع الكشف وننعش البيانات في الخلفية بهدوء.
       setTeacherStudents((prev) =>
         prev.map((student: any) => {
           const sid = String(student.id || student.idNumber || student.studentId || "");
@@ -23890,6 +25004,7 @@ ${rows
       );
       window.setTimeout(() => {
         void Promise.allSettled([
+          saveAllowedRosterRows(rows),
           reloadTeacherDashboard(),
           fetchTeacherSubmissions(),
         ]);
@@ -25014,17 +26129,40 @@ ${rows
     setStudentMirrorOpen(false);
     setStudentTimelineOpen(false);
   };
-  const formatKwDateTime = (value: any) => {
+  // دالة مُعلَنة (function) لا ثابت سهمي: كانت `const` مُعرّفة بعد محرّك البحث
+  // (useMemo أعلى الملف) فيقع في المنطقة الميتة الزمنية (TDZ) عند استدعائها داخل
+  // نتائج التسليمات → ينهار البحث كله ويُرجع [] ("أكتب اسماً ولا يظهر شيء" حتى
+  // بعد إصلاح النطاق). التصريح المُعلَن مرفوع لأعلى النطاق فيتوفّر في كل مكان.
+  function formatKwDateTime(value: any) {
     if (!value) return "-";
     const d = new Date(value);
     if (Number.isNaN(d.getTime())) return String(value);
-    const dd = String(d.getDate()).padStart(2, "0");
-    const mm = String(d.getMonth() + 1).padStart(2, "0");
-    const yyyy = d.getFullYear();
-    const hh = String(d.getHours()).padStart(2, "0");
-    const min = String(d.getMinutes()).padStart(2, "0");
-    return `${dd}/${mm}/${yyyy} ${hh}:${min}`;
-  };
+    // نُثبّت العرض على توقيت الكويت دائماً بغضّ النظر عن منطقة جهاز المستخدم.
+    // سابقاً كانت الدالة تستخدم getHours/getDate المحلية للجهاز (رغم اسمها "Kw")،
+    // فمن كان جهازه على منطقة زمنية أخرى يرى وقتاً خاطئاً. الآن Asia/Kuwait صراحةً.
+    try {
+      const parts = new Intl.DateTimeFormat("en-GB", {
+        timeZone: "Asia/Kuwait",
+        day: "2-digit",
+        month: "2-digit",
+        year: "numeric",
+        hour: "2-digit",
+        minute: "2-digit",
+        hour12: false,
+      }).formatToParts(d);
+      const get = (t: string) =>
+        parts.find((p: any) => p.type === t)?.value || "";
+      const hh = get("hour") === "24" ? "00" : get("hour");
+      return `${get("day")}/${get("month")}/${get("year")} ${hh}:${get("minute")}`;
+    } catch {
+      const dd = String(d.getDate()).padStart(2, "0");
+      const mm = String(d.getMonth() + 1).padStart(2, "0");
+      const yyyy = d.getFullYear();
+      const hh = String(d.getHours()).padStart(2, "0");
+      const min = String(d.getMinutes()).padStart(2, "0");
+      return `${dd}/${mm}/${yyyy} ${hh}:${min}`;
+    }
+  }
   const toggleAuditGroup = (key: string) =>
     setOpenAuditGroups((prev) => {
       const isOpen = !!prev[key];
@@ -26373,7 +27511,7 @@ ${rows
         }
 
 
-          .miras-teacher-v5-shell .teacher-orbit-dock-track button[class*="text-white"]::after {
+          .miras-teacher-v5-shell .teacher-orbit-dock-track button[class*="text-white"]:not(.miras-dock-search-btn)::after {
             content: "";
             position: absolute;
             left: 50%;
@@ -26453,8 +27591,8 @@ ${rows
               box-shadow: 0 22px 56px rgba(15,23,42,.17), inset 0 1px 0 rgba(255,255,255,.95) !important;
             }
 
-            .miras-app-teacher-root.miras-teacher-viewport-v5 .miras-teacher-v5-shell .teacher-orbit-dock-track button[class*="text-white"],
-            html.miras-teacher-scroll-locked .miras-teacher-v5-shell .teacher-orbit-dock-track button[class*="text-white"] {
+            .miras-app-teacher-root.miras-teacher-viewport-v5 .miras-teacher-v5-shell .teacher-orbit-dock-track button[class*="text-white"]:not(.miras-dock-search-btn),
+            html.miras-teacher-scroll-locked .miras-teacher-v5-shell .teacher-orbit-dock-track button[class*="text-white"]:not(.miras-dock-search-btn) {
               position: relative !important;
               animation: mirasTeacherDockActiveBreathV21 2.2s cubic-bezier(.2,.8,.2,1) infinite !important;
             }
@@ -26462,13 +27600,13 @@ ${rows
             /* The active tab keeps breathing only while the dock is actually
                visible/open. Left running while the dock auto-shrinks (dim +
                blurred), it read as an icon stuck animating for no reason. */
-            .miras-app-teacher-root.miras-teacher-viewport-v5 .miras-teacher-v5-shell .teacher-orbit-dock.teacher-orbit-dock-shrunk .teacher-orbit-dock-track button[class*="text-white"],
-            html.miras-teacher-scroll-locked .miras-teacher-v5-shell .teacher-orbit-dock.teacher-orbit-dock-shrunk .teacher-orbit-dock-track button[class*="text-white"] {
+            .miras-app-teacher-root.miras-teacher-viewport-v5 .miras-teacher-v5-shell .teacher-orbit-dock.teacher-orbit-dock-shrunk .teacher-orbit-dock-track button[class*="text-white"]:not(.miras-dock-search-btn),
+            html.miras-teacher-scroll-locked .miras-teacher-v5-shell .teacher-orbit-dock.teacher-orbit-dock-shrunk .teacher-orbit-dock-track button[class*="text-white"]:not(.miras-dock-search-btn) {
               animation: none !important;
             }
 
-            .miras-app-teacher-root.miras-teacher-viewport-v5 .miras-teacher-v5-shell .teacher-orbit-dock-track button[class*="text-white"]::after,
-            html.miras-teacher-scroll-locked .miras-teacher-v5-shell .teacher-orbit-dock-track button[class*="text-white"]::after {
+            .miras-app-teacher-root.miras-teacher-viewport-v5 .miras-teacher-v5-shell .teacher-orbit-dock-track button[class*="text-white"]:not(.miras-dock-search-btn)::after,
+            html.miras-teacher-scroll-locked .miras-teacher-v5-shell .teacher-orbit-dock-track button[class*="text-white"]:not(.miras-dock-search-btn)::after {
               content: "" !important;
               position: absolute !important;
               left: 50% !important;
@@ -26708,16 +27846,27 @@ ${rows
                   </div>
                 </div>
 
-                {/* Search removed from this correction view to keep navigation calm and stable. */}
-                <div className="hidden" aria-hidden="true">
+                {/* بحث سريع عن طالب — يُصفّي شريط الطلبة بالأسفل مباشرةً (على شاشة التصحيح، لا داخل المعاينة). */}
+                <div className="relative min-w-0 flex-1 max-w-[320px]">
                   <Search className="pointer-events-none absolute right-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400" />
                   <input
                     value={submissionDetailStudentSearch}
                     onChange={(e) => setSubmissionDetailStudentSearch(e.target.value)}
-                    placeholder=""
+                    placeholder="ابحث عن طالب…"
                     inputMode="search"
-                    className="h-8.5 w-full rounded-xl border border-slate-150 bg-slate-50 pr-7.5 pl-2.5 text-right text-[11px] text-slate-800 outline-none transition placeholder:text-slate-400 focus:border-indigo-300 focus:bg-white focus:ring-2 focus:ring-indigo-50"
+                    className="h-9 w-full rounded-xl border border-slate-200 bg-slate-50 pr-8 pl-8 text-right text-[11.5px] font-semibold text-slate-800 outline-none transition placeholder:font-normal placeholder:text-slate-400 focus:border-indigo-300 focus:bg-white focus:ring-2 focus:ring-indigo-100"
                   />
+                  {submissionDetailStudentSearch && (
+                    <button
+                      type="button"
+                      onClick={() => setSubmissionDetailStudentSearch("")}
+                      className="absolute left-2 top-1/2 inline-flex h-5 w-5 -translate-y-1/2 items-center justify-center rounded-full bg-slate-200 text-slate-500 transition hover:bg-rose-100 hover:text-rose-600"
+                      title="مسح"
+                      aria-label="مسح البحث"
+                    >
+                      <X className="h-3 w-3" />
+                    </button>
+                  )}
                 </div>
 
                 {/* Left section: Elegant and thin arrows */}
@@ -27108,37 +28257,9 @@ ${rows
               )}
 
               <div className="flex shrink-0 items-center gap-2">
-                {(() => {
-                  const nm = String(
-                    previewAttachment.originalName ||
-                      previewAttachment.name ||
-                      "",
-                  );
-                  const ext = nm.slice(nm.lastIndexOf(".")).toLowerCase();
-                  const isImg =
-                    [
-                      ".jpg",
-                      ".jpeg",
-                      ".png",
-                      ".webp",
-                      ".gif",
-                      ".heic",
-                      ".heif",
-                    ].includes(ext) ||
-                    String(previewAttachment.mimeType || "").startsWith("image/");
-                  if (isImg) return null;
-                  return (
-                    <button
-                      type="button"
-                      onClick={openPreviewFind}
-                      className="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-indigo-200 bg-indigo-50 text-indigo-600 transition hover:bg-indigo-100"
-                      title="بحث داخل المستند"
-                      aria-label="بحث داخل المستند"
-                    >
-                      <Search className="h-4 w-4" />
-                    </button>
-                  );
-                })()}
+                {/* أُزيل زر «بحث داخل المستند»: لم يعمل بشكل موثوق داخل عارض PDF.js
+                    عبر iframe (قيود النداء عبر الإطارات)، فحُذف بطلبك لإبقاء شريط
+                    المعاينة نظيفًا واحترافيًا. */}
                 <button
                   type="button"
                   onClick={() => setPreviewAttachment(null)}
@@ -28646,9 +29767,22 @@ ${rows
                     >
                       <div className="flex items-center justify-between gap-2">
                         <span>الكاميرا مفعّلة</span>
-                        <span className="rounded-full bg-white/70 px-2 py-1 text-[10px] text-slate-500">
-                          محلي
-                        </span>
+                        <div className="flex items-center gap-2">
+                          {(localVisionStatus.state === "active" ||
+                            localVisionStatus.state === "respectful") && (
+                            <video
+                              ref={localVisionPreviewRef}
+                              autoPlay
+                              muted
+                              playsInline
+                              className="h-9 w-12 rounded-lg object-cover bg-slate-900 ring-1 ring-emerald-200"
+                              title="معاينة كاميرتك (تُحلَّل محليًا بلا رفع)"
+                            />
+                          )}
+                          <span className="rounded-full bg-white/70 px-2 py-1 text-[10px] text-slate-500">
+                            محلي
+                          </span>
+                        </div>
                       </div>
                     </div>
                   )}
@@ -30903,17 +32037,46 @@ ${rows
                                         className={`mt-3 inline-flex h-14 w-14 items-center justify-center rounded-2xl text-white shadow-sm transition ${isUploading ? "cursor-not-allowed bg-slate-700 text-slate-300" : "bg-indigo-600 hover:bg-indigo-700"}`}
                                         title={
                                           isUploading
-                                            ? "جاري تجهيز المرفقات"
+                                            ? uploadProgress > 0 && uploadProgress < 100
+                                              ? `جاري رفع الملف ${uploadProgress}%`
+                                              : uploadProgress >= 100
+                                                ? "وصل الملف — جارٍ التأمين السحابي"
+                                                : "جاري تجهيز المرفقات"
                                             : "إرسال"
                                         }
                                         aria-label={
                                           isUploading
-                                            ? "جاري تجهيز المرفقات"
+                                            ? uploadProgress > 0 && uploadProgress < 100
+                                              ? `جاري رفع الملف ${uploadProgress} بالمئة`
+                                              : uploadProgress >= 100
+                                                ? "وصل الملف، جار التأمين السحابي"
+                                                : "جاري تجهيز المرفقات"
                                             : "إرسال"
                                         }
                                       >
                                         {isUploading ? (
-                                          <RefreshCw className="h-5 w-5 animate-spin" />
+                                          uploadProgress > 0 && uploadProgress < 100 ? (
+                                            <span className="flex flex-col items-center leading-tight">
+                                              <span className="text-[12px] font-bold tabular-nums">
+                                                {uploadProgress}%
+                                              </span>
+                                              {uploadEtaSec !== null && uploadEtaSec <= 900 && (
+                                                <span className="text-[9px] font-bold tabular-nums opacity-80">
+                                                  {uploadEtaSec >= 60
+                                                    ? `~${Math.ceil(uploadEtaSec / 60)}د`
+                                                    : `~${uploadEtaSec}ث`}
+                                                </span>
+                                              )}
+                                            </span>
+                                          ) : uploadProgress >= 100 ? (
+                                            // وصل الملف كاملاً؛ الخادم يؤمّنه سحابياً (ثوانٍ
+                                            // قليلة) — أيقونة مميزة كي لا يُقرأ كتعليق غامض.
+                                            <span className="animate-pulse text-[17px]" aria-hidden>
+                                              ☁️
+                                            </span>
+                                          ) : (
+                                            <RefreshCw className="h-5 w-5 animate-spin" />
+                                          )
                                         ) : (
                                           <Send className="h-5 w-5" />
                                         )}
@@ -31071,7 +32234,7 @@ ${rows
                   className={`relative inline-flex h-12 w-12 items-center justify-center rounded-[1.2rem] border shadow-sm transition-all hover:-translate-y-0.5 ${teacherTab === "students" ? "border-emerald-200 bg-gradient-to-br from-emerald-600 to-teal-500 text-white shadow-emerald-200" : "border-slate-200 bg-white/90 text-slate-700 hover:bg-emerald-50 hover:text-emerald-700"}`}
                 >
                   <User className="h-5 w-5" />
-                  {shouldShowDockBadge("students") && (<span className="absolute -left-0.5 -top-0.5 h-2.5 w-2.5 rounded-full bg-emerald-500 ring-2 ring-white" />)}
+                  {renderDockBadge("students", "bg-emerald-500")}
                 </button>
                 <button
                   title="بنك الأسئلة والاختبارات والمشاريع"
@@ -31080,7 +32243,7 @@ ${rows
                   className={`relative inline-flex h-12 w-12 items-center justify-center rounded-[1.2rem] border shadow-sm transition-all hover:-translate-y-0.5 ${teacherTab === "questions" ? "border-violet-200 bg-gradient-to-br from-violet-600 to-indigo-600 text-white shadow-violet-200" : "border-slate-200 bg-white/90 text-slate-700 hover:bg-violet-50 hover:text-violet-700"}`}
                 >
                   <Layers className="h-5 w-5" />
-                  {shouldShowDockBadge("questions") && (<span className="absolute -left-0.5 -top-0.5 h-2.5 w-2.5 rounded-full bg-violet-500 ring-2 ring-white" />)}
+                  {renderDockBadge("questions", "bg-violet-500")}
                 </button>
                 <button
                   title="تسليمات الاختبارات والمشاريع"
@@ -31089,9 +32252,7 @@ ${rows
                   className={`relative inline-flex h-12 w-12 items-center justify-center rounded-[1.2rem] border shadow-sm transition-all hover:-translate-y-0.5 ${teacherTab === "submissions" ? "border-blue-200 bg-gradient-to-br from-blue-600 to-indigo-600 text-white shadow-blue-200" : "border-slate-200 bg-white/90 text-slate-700 hover:bg-blue-50 hover:text-blue-700"}`}
                 >
                   <Award className="h-5 w-5" />
-                  {shouldShowDockBadge("submissions") && (
-                    <span className="absolute -left-0.5 -top-0.5 h-2.5 w-2.5 rounded-full bg-amber-400 ring-2 ring-white" />
-                  )}
+                  {renderDockBadge("submissions", "bg-amber-500")}
                 </button>
                 <span className="mx-1 h-8 w-px bg-slate-200" />
                 <button
@@ -31112,9 +32273,7 @@ ${rows
                   className={`miras-dock-codes-btn relative inline-flex h-10 w-10 items-center justify-center rounded-2xl border shadow-sm transition-all ${teacherTab === "codes" ? "border-indigo-200 bg-indigo-500 text-white" : "border-indigo-100 bg-white/90 text-indigo-700 hover:bg-indigo-50"}`}
                 >
                   <Key className="h-4 w-4" />
-                  {shouldShowDockBadge("codes") && (
-                    <span className="absolute -left-0.5 -top-0.5 h-2.5 w-2.5 rounded-full bg-rose-500 ring-2 ring-white" />
-                  )}
+                  {renderDockBadge("codes", "bg-indigo-500")}
                 </button>
                 <button
                   title="مركز المتابعة"
@@ -31128,7 +32287,7 @@ ${rows
                   className={`relative inline-flex h-10 w-10 items-center justify-center rounded-2xl border shadow-sm transition-all ${teacherTab === "analytics" ? "border-amber-200 bg-amber-500 text-white" : "border-amber-100 bg-white/90 text-amber-700 hover:bg-amber-50"}`}
                 >
                   <ShieldAlert className="h-4 w-4" />
-                  {shouldShowDockBadge("analytics") && (<span className="absolute -left-0.5 -top-0.5 h-2.5 w-2.5 rounded-full bg-rose-500 ring-2 ring-white" />)}
+                  {renderDockBadge("analytics", "bg-rose-500")}
                 </button>
               </div>
             </nav>
@@ -31193,6 +32352,27 @@ ${rows
                         {criticalTeacherNotifications.length > 99
                           ? "99+"
                           : criticalTeacherNotifications.length}
+                      </span>
+                    )}
+                  </button>
+                )}
+                {mirasRadarAllowed && (
+                  <button
+                    type="button"
+                    title="رادار مِراس — مراقبة الأخطاء"
+                    aria-label="رادار مِراس"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      setMirasRadarOpen(true);
+                    }}
+                    className="miras-zero-action-btn relative"
+                  >
+                    <ShieldAlert className="h-5 w-5" />
+                    {Number(mirasRadarData.stats?.active || 0) > 0 && (
+                      <span className="absolute -top-0.5 -left-0.5 flex h-3 w-3">
+                        <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-rose-400 opacity-70"></span>
+                        <span className="relative inline-flex h-3 w-3 rounded-full bg-rose-500"></span>
                       </span>
                     )}
                   </button>
@@ -31491,7 +32671,7 @@ ${rows
                         className={`relative inline-flex h-12 w-12 items-center justify-center rounded-[1.2rem] border shadow-sm transition-all hover:-translate-y-0.5 ${teacherTab === "students" ? "border-emerald-200 bg-gradient-to-br from-emerald-600 to-teal-500 text-white shadow-emerald-200" : "border-slate-200 bg-white/90 text-slate-700 hover:bg-emerald-50 hover:text-emerald-700"}`}
                       >
                         <User className="h-5 w-5" />
-                        {shouldShowDockBadge("students") && (<span className="absolute -left-0.5 -top-0.5 h-2.5 w-2.5 rounded-full bg-emerald-500 ring-2 ring-white" />)}
+                        {renderDockBadge("students", "bg-emerald-500")}
                       </button>
                       <button
                         title="بنك الأسئلة والاختبارات والمشاريع"
@@ -31500,7 +32680,7 @@ ${rows
                         className={`relative inline-flex h-12 w-12 items-center justify-center rounded-[1.2rem] border shadow-sm transition-all hover:-translate-y-0.5 ${teacherTab === "questions" ? "border-violet-200 bg-gradient-to-br from-violet-600 to-indigo-600 text-white shadow-violet-200" : "border-slate-200 bg-white/90 text-slate-700 hover:bg-violet-50 hover:text-violet-700"}`}
                       >
                         <Layers className="h-5 w-5" />
-                        {shouldShowDockBadge("questions") && (<span className="absolute -left-0.5 -top-0.5 h-2.5 w-2.5 rounded-full bg-violet-500 ring-2 ring-white" />)}
+                        {renderDockBadge("questions", "bg-violet-500")}
                       </button>
                       <button
                         title="تسليمات الاختبارات والمشاريع"
@@ -31532,9 +32712,7 @@ ${rows
                         className={`miras-dock-codes-btn relative inline-flex h-10 w-10 items-center justify-center rounded-2xl border shadow-sm transition-all ${teacherTab === "codes" ? "border-indigo-200 bg-indigo-500 text-white" : "border-indigo-100 bg-white/90 text-indigo-700 hover:bg-indigo-50"}`}
                       >
                         <Key className="h-4 w-4" />
-                        {shouldShowDockBadge("codes") && (
-                          <span className="absolute -left-0.5 -top-0.5 h-2.5 w-2.5 rounded-full bg-rose-500 ring-2 ring-white" />
-                        )}
+                        {renderDockBadge("codes", "bg-indigo-500")}
                       </button>
                       <button
                         title="مركز المتابعة"
@@ -31548,7 +32726,7 @@ ${rows
                         className={`relative inline-flex h-10 w-10 items-center justify-center rounded-2xl border shadow-sm transition-all ${teacherTab === "analytics" ? "border-amber-200 bg-amber-500 text-white" : "border-amber-100 bg-white/90 text-amber-700 hover:bg-amber-50"}`}
                       >
                         <ShieldAlert className="h-4 w-4" />
-                        {shouldShowDockBadge("analytics") && (<span className="absolute -left-0.5 -top-0.5 h-2.5 w-2.5 rounded-full bg-rose-500 ring-2 ring-white" />)}
+                        {renderDockBadge("analytics", "bg-rose-500")}
                       </button>
                     </div>
                   </nav>
@@ -31886,16 +33064,26 @@ ${rows
                                             const enabledAllCameraExams = teacherCreatedExams.filter((exam: any) =>
                                               mirasExamUsesCamera(exam),
                                             );
+                                            // متسقة مع منطق التبديل: الكاميرا إعداد
+                                            // خاص بكل اختبار، فنعرض حالتها لاختبار
+                                            // واحد محدّد فقط (اختبار الطالب النشط أو
+                                            // الاختبار المختار في الفلتر). عند تعدّد
+                                            // الاختبارات دون تحديد لا نعرض حالة مجمّعة
+                                            // خاطئة — يُخفى الزر حتى يختار المعلم اختبارًا.
                                             const visibleCameraSeed =
                                               rowExam && mirasExamUsesCamera(rowExam)
                                                 ? [rowExam]
                                                 : selectedExam && mirasExamUsesCamera(selectedExam)
                                                   ? [selectedExam]
-                                                  : enabledDayCameraExams.length > 0
-                                                    ? enabledDayCameraExams
-                                                    : enabledCourseCameraExams.length > 0
-                                                      ? enabledCourseCameraExams
-                                                      : enabledAllCameraExams;
+                                                  : (() => {
+                                                      const pool =
+                                                        enabledDayCameraExams.length > 0
+                                                          ? enabledDayCameraExams
+                                                          : enabledCourseCameraExams.length > 0
+                                                            ? enabledCourseCameraExams
+                                                            : enabledAllCameraExams;
+                                                      return pool.length === 1 ? pool : [];
+                                                    })();
                                             const visibleCameraExams = visibleCameraSeed.filter((exam: any) => mirasExamUsesCamera(exam));
                                             const cfg = normalizeLocalVisionConfig(visibleCameraExams[0]);
                                             const ids = [
@@ -31915,6 +33103,35 @@ ${rows
                                               );
                                             });
                                             const canSetCameraException = visibleCameraExams.length > 0 && cfg.enabled;
+                                            // نطابق فحص "أنهى الاختبار" مع الاختبار المعروض بالضبط، لا التسليم
+                                            // المجمّع للطالب عبر كل اختباراته. الخلل السابق: طالب أنهى اختبار A
+                                            // بينما يحلّ B — يختار المجمّع تسليم A المنتهي (أولوية "آمن" أعلى)
+                                            // فيُخفي زر كاميرا B الذي يجب أن يظهر (والعكس صحيح). الآن نجد تسليم
+                                            // الطالب لهذا الاختبار تحديداً ونبني القرار عليه فقط.
+                                            const targetCamExamId = String(
+                                              visibleCameraExams[0]?.id || "",
+                                            ).trim();
+                                            const scopedSubmission = targetCamExamId
+                                              ? (activeCourseExamSubmissions || []).find(
+                                                  (s: any) =>
+                                                    ids.includes(
+                                                      String(s?.studentId || "").trim().toLowerCase(),
+                                                    ) &&
+                                                    String(
+                                                      s?.activityId || s?.examId || "",
+                                                    ).trim() === targetCamExamId,
+                                                ) || null
+                                              : submission;
+                                            // لا نُظهر زر الكاميرا لطالب أنهى هذا الاختبار فعلاً (سلّم/غش/خرج/
+                                            // رُصدت درجته). أما الاختبار المُعاد للطالب (معاد للطالب) فيُعاد فتحه
+                                            // له فتظهر الكاميرا دائماً — سواء بنافذة استثناء زمني أو بدونها —
+                                            // لأن المعلم يريد مراقبته عند إعادة الحل (طلب صريح). بعد إعادة
+                                            // تسليمه تتغيّر الحالة فتُخفى من جديد.
+                                            const finishedThisExam =
+                                              !!scopedSubmission &&
+                                              String(scopedSubmission.status || "") !== EXAM_IN_PROGRESS_STATUS &&
+                                              !isTeacherReturnedSubmission(scopedSubmission);
+                                            if (finishedThisExam) return null;
                                             if (!canSetCameraException && !isExempt) return null;
                                             return (
                                               <button
@@ -31972,14 +33189,14 @@ ${rows
                         <h3 className="mt-0.5 text-lg font-black text-slate-950">التسليمات</h3>
                       </div>
                       <div className="flex w-full items-center gap-2 rounded-2xl border border-slate-200 bg-white px-3.5 py-2.5 shadow-sm transition focus-within:border-indigo-300 focus-within:ring-2 focus-within:ring-indigo-100 sm:w-80">
-                        <Search className="h-4 w-4 shrink-0 text-indigo-500" />
+                        <Search className="h-3.5 w-3.5 shrink-0 text-slate-400" />
                         <input
                           value={submissionSearch}
                           onChange={(e) => setSubmissionSearch(e.target.value)}
                           placeholder="ابحث عن طالب، مقرر، ملف، درجة…"
                           dir="rtl"
                           spellCheck={false}
-                          className="w-full min-w-0 bg-transparent text-[13px] font-bold text-slate-700 outline-none placeholder:font-semibold placeholder:text-slate-400"
+                          className="w-full min-w-0 bg-transparent text-[13px] font-normal text-slate-700 outline-none placeholder:font-normal placeholder:text-slate-400"
                         />
                         {submissionSearch && (
                           <button
@@ -41082,6 +42299,311 @@ ${rows
         </div>
       )}
       {renderMirasCmdk()}
+      {mirasRadarOpen && mirasRadarAllowed && (
+        <div
+          className="fixed inset-0 z-[140] flex items-start justify-center overflow-y-auto bg-slate-950/65 p-3 backdrop-blur-md sm:items-center sm:p-6"
+          dir="rtl"
+          onMouseDown={(e) => {
+            if (e.target === e.currentTarget) setMirasRadarOpen(false);
+          }}
+        >
+          <div className="flex max-h-[94dvh] w-full max-w-3xl flex-col overflow-hidden rounded-[30px] border border-white/10 bg-white shadow-[0_40px_120px_rgba(2,6,23,0.55)]">
+            {/* رأس الرادار */}
+            <div className="relative overflow-hidden bg-gradient-to-l from-slate-950 via-indigo-950 to-slate-900 px-5 py-5 text-white">
+              <div className="pointer-events-none absolute -left-10 -top-10 h-40 w-40 rounded-full bg-indigo-500/20 blur-3xl"></div>
+              <div className="pointer-events-none absolute -bottom-12 right-10 h-32 w-32 rounded-full bg-emerald-400/10 blur-3xl"></div>
+              <div className="relative flex items-center justify-between gap-3">
+                <div className="flex items-center gap-3">
+                  <span className="relative grid h-12 w-12 place-items-center rounded-2xl bg-white/10 ring-1 ring-white/20">
+                    <span className="absolute inline-flex h-9 w-9 animate-ping rounded-full bg-emerald-400/25"></span>
+                    <ShieldAlert className="relative h-6 w-6 text-emerald-300" />
+                  </span>
+                  <div className="leading-tight">
+                    <p className="text-[10px] font-black tracking-widest text-indigo-300">
+                      MIRAS RADAR
+                    </p>
+                    <h3 className="text-[17px] font-black">رادار مِراس</h3>
+                    <p className="mt-0.5 text-[10.5px] font-bold text-slate-300">
+                      مراقبة الأخطاء الحيّة — تظهر لك وحدك
+                    </p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  aria-label="إغلاق الرادار"
+                  onClick={() => setMirasRadarOpen(false)}
+                  className="grid h-10 w-10 place-items-center rounded-2xl bg-white/10 text-white ring-1 ring-white/15 transition hover:bg-white/20"
+                >
+                  <X className="h-5 w-5" />
+                </button>
+              </div>
+              {/* شرائح الإحصاء */}
+              <div className="relative mt-4 grid grid-cols-2 gap-2 sm:grid-cols-4">
+                {[
+                  { label: "أخطاء نشطة", value: mirasRadarData.stats?.active ?? 0, tone: "bg-rose-500/15 text-rose-200 ring-rose-400/30" },
+                  { label: "آخر ٢٤ ساعة", value: mirasRadarData.stats?.last24h ?? 0, tone: "bg-amber-500/15 text-amber-200 ring-amber-400/30" },
+                  { label: "من الخادم", value: mirasRadarData.stats?.server ?? 0, tone: "bg-indigo-500/15 text-indigo-200 ring-indigo-400/30" },
+                  { label: "إجمالي التكرار", value: mirasRadarData.stats?.totalHits ?? 0, tone: "bg-emerald-500/15 text-emerald-200 ring-emerald-400/30" },
+                ].map((chip) => (
+                  <div
+                    key={chip.label}
+                    className={`rounded-2xl px-3 py-2 text-center ring-1 ${chip.tone}`}
+                  >
+                    <div className="text-lg font-black tabular-nums">{chip.value}</div>
+                    <div className="text-[9.5px] font-bold opacity-90">{chip.label}</div>
+                  </div>
+                ))}
+              </div>
+            </div>
+            {/* التبويبات */}
+            <div className="flex items-center justify-between gap-2 border-b border-slate-100 bg-slate-50/70 px-4 py-2.5">
+              <div className="flex gap-1.5">
+                {(
+                  [
+                    { key: "active", label: "نشطة" },
+                    { key: "resolved", label: "محلولة" },
+                  ] as const
+                ).map((tab) => (
+                  <button
+                    key={tab.key}
+                    type="button"
+                    onClick={() => setMirasRadarTab(tab.key)}
+                    className={`rounded-xl px-4 py-1.5 text-[11.5px] font-black transition ${
+                      mirasRadarTab === tab.key
+                        ? "bg-slate-900 text-white shadow"
+                        : "bg-white text-slate-500 ring-1 ring-slate-200 hover:text-slate-800"
+                    }`}
+                  >
+                    {tab.label}
+                  </button>
+                ))}
+              </div>
+              {mirasRadarTab === "resolved" &&
+                mirasRadarData.items.some((r: any) => r.resolvedAt) && (
+                  <button
+                    type="button"
+                    onClick={() => void clearResolvedMirasRadar()}
+                    className="rounded-xl bg-rose-50 px-3 py-1.5 text-[10.5px] font-black text-rose-600 ring-1 ring-rose-100 transition hover:bg-rose-100"
+                  >
+                    مسح المحلولة نهائياً
+                  </button>
+                )}
+            </div>
+            {/* القائمة */}
+            <div className="flex-1 space-y-2.5 overflow-y-auto p-4">
+              {mirasRadarData.items.filter((r: any) =>
+                mirasRadarTab === "active" ? !r.resolvedAt : !!r.resolvedAt,
+              ).length === 0 ? (
+                <div className="grid place-items-center py-14 text-center">
+                  <div className="text-5xl">🛰️</div>
+                  <p className="mt-3 text-[15px] font-black text-slate-800">
+                    {mirasRadarTab === "active"
+                      ? "الرادار صافٍ — لا أخطاء نشطة"
+                      : "لا أخطاء محلولة"}
+                  </p>
+                  <p className="mt-1 text-[11.5px] font-bold text-slate-400">
+                    {mirasRadarTab === "active"
+                      ? "النظام يعمل بسلام. أي خطأ جديد سيظهر هنا لحظياً."
+                      : "حين تحلّ خطأً سينتقل إلى هنا."}
+                  </p>
+                </div>
+              ) : (
+                mirasRadarData.items
+                  .filter((r: any) =>
+                    mirasRadarTab === "active" ? !r.resolvedAt : !!r.resolvedAt,
+                  )
+                  .map((r: any) => {
+                    const sourceTone =
+                      r.source === "server"
+                        ? { border: "border-r-rose-400", chip: "bg-rose-50 text-rose-600 ring-rose-100", label: "الخادم" }
+                        : String(r.source || "").startsWith("seb")
+                          ? { border: "border-r-amber-400", chip: "bg-amber-50 text-amber-700 ring-amber-100", label: "SEB" }
+                          : { border: "border-r-indigo-400", chip: "bg-indigo-50 text-indigo-600 ring-indigo-100", label: "المتصفح" };
+                    return (
+                      <div
+                        key={r.id}
+                        className={`rounded-2xl border border-slate-100 ${sourceTone.border} border-r-4 bg-white p-3.5 shadow-sm transition hover:shadow-md ${r.resolvedAt ? "opacity-70" : ""}`}
+                      >
+                        <div className="flex items-start justify-between gap-2">
+                          <p
+                            dir="auto"
+                            className="min-w-0 flex-1 break-words text-[12px] font-black leading-6 text-slate-900"
+                          >
+                            {r.message}
+                          </p>
+                          {Number(r.count || 1) > 1 && (
+                            <span className="shrink-0 rounded-lg bg-rose-500 px-2 py-0.5 text-[10px] font-black text-white shadow-sm">
+                              ×{r.count}
+                            </span>
+                          )}
+                        </div>
+                        <div className="mt-2 flex flex-wrap items-center gap-1.5">
+                          <span className={`rounded-lg px-2 py-0.5 text-[9.5px] font-black ring-1 ${sourceTone.chip}`}>
+                            {sourceTone.label}
+                          </span>
+                          {r.browser && (
+                            <span className="rounded-lg bg-slate-50 px-2 py-0.5 text-[9.5px] font-bold text-slate-500 ring-1 ring-slate-100">
+                              {r.browser}
+                              {r.displayMode === "pwa" ? " • PWA" : ""}
+                            </span>
+                          )}
+                          {(r.role || r.userId) && (
+                            <span className="rounded-lg bg-slate-50 px-2 py-0.5 text-[9.5px] font-bold text-slate-500 ring-1 ring-slate-100">
+                              {r.role === "student" ? "طالب" : r.role === "teacher" ? "معلم" : r.role}
+                              {r.userId ? ` • ${r.userId}` : ""}
+                            </span>
+                          )}
+                          <span className="rounded-lg bg-slate-50 px-2 py-0.5 font-mono text-[9px] font-bold text-slate-400 ring-1 ring-slate-100">
+                            آخر ظهور {formatKwDateTime(r.lastSeenAt)}
+                          </span>
+                        </div>
+                        {r.stack && (
+                          <details className="mt-2">
+                            <summary className="cursor-pointer text-[10px] font-black text-indigo-500 hover:text-indigo-700">
+                              تفاصيل تقنية (Stack)
+                            </summary>
+                            <pre
+                              dir="ltr"
+                              className="mt-1.5 max-h-40 overflow-auto rounded-xl bg-slate-950 p-3 text-[9.5px] leading-5 text-emerald-300"
+                            >
+                              {r.stack}
+                            </pre>
+                          </details>
+                        )}
+                        <div className="mt-2.5 flex items-center justify-between">
+                          <span className="text-[9.5px] font-bold text-slate-400">
+                            أول ظهور {formatKwDateTime(r.firstSeenAt)}
+                          </span>
+                          {r.resolvedAt ? (
+                            <span className="rounded-lg bg-emerald-50 px-2.5 py-1 text-[10px] font-black text-emerald-600 ring-1 ring-emerald-100">
+                              ✓ محلولة
+                            </span>
+                          ) : (
+                            <div className="flex items-center gap-1.5">
+                              <button
+                                type="button"
+                                title="ينسخ تشخيصاً كاملاً جاهزاً للإرسال — ألصقه لي وأتكفّل بالإصلاح"
+                                onClick={() => {
+                                  const diag = [
+                                    "🛰️ تشخيص من رادار مِراس:",
+                                    `الرسالة: ${r.message}`,
+                                    `المصدر: ${r.source} | التكرار: ×${r.count || 1}`,
+                                    `أول ظهور: ${formatKwDateTime(r.firstSeenAt)} | آخر: ${formatKwDateTime(r.lastSeenAt)}`,
+                                    `المستخدم: ${r.role || "?"} ${r.userId || ""} | المتصفح: ${r.browser || "?"}${r.displayMode === "pwa" ? " (PWA)" : ""}`,
+                                    `الصفحة: ${r.url || "?"} | النسخة: ${r.bundle || "?"}`,
+                                    r.stack ? `Stack:\n${r.stack}` : "",
+                                  ]
+                                    .filter(Boolean)
+                                    .join("\n");
+                                  try {
+                                    void navigator.clipboard?.writeText(diag);
+                                    setSuccessMsg(
+                                      "تم نسخ التشخيص كاملاً — ألصقه في محادثتنا وأتكفّل بالإصلاح.",
+                                    );
+                                  } catch {}
+                                }}
+                                className="rounded-xl bg-indigo-600 px-3 py-1.5 text-[10.5px] font-black text-white shadow-sm transition hover:bg-indigo-700"
+                              >
+                                نسخ للإصلاح 📋
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => void resolveMirasRadarItem(r.id)}
+                                className="rounded-xl bg-emerald-600 px-3.5 py-1.5 text-[10.5px] font-black text-white shadow-sm transition hover:bg-emerald-700"
+                              >
+                                تمّ حلّها ✓
+                              </button>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+      {studentDeadlineCardOpen && studentUpcomingDeadlineCards.length > 0 && (
+        <div
+          className="fixed inset-0 z-[120] flex items-center justify-center bg-slate-900/45 p-4 backdrop-blur-sm"
+          dir="rtl"
+          onMouseDown={(e) => {
+            if (e.target === e.currentTarget) setStudentDeadlineCardOpen(false);
+          }}
+        >
+          <div className="w-full max-w-md overflow-hidden rounded-[28px] border border-slate-100 bg-white shadow-[0_30px_90px_rgba(15,23,42,0.28)]">
+            <div className="flex items-center justify-between gap-3 border-b border-slate-100 px-5 py-4">
+              <div className="flex items-center gap-2.5">
+                <span className="grid h-11 w-11 place-items-center rounded-2xl bg-indigo-50 text-indigo-600">
+                  <Bell className="h-5 w-5" />
+                </span>
+                <div className="text-right leading-tight">
+                  <p className="text-[10px] font-black tracking-wide text-indigo-500">
+                    مِراس
+                  </p>
+                  <h3 className="text-[15px] font-black text-slate-900">
+                    تنبيه مهم
+                  </h3>
+                </div>
+              </div>
+              <button
+                type="button"
+                aria-label="إغلاق"
+                onClick={() => setStudentDeadlineCardOpen(false)}
+                className="grid h-10 w-10 place-items-center rounded-2xl border border-slate-200 bg-white text-slate-500 transition hover:bg-slate-50 hover:text-slate-800"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+            <div className="space-y-3 px-5 py-4">
+              <div className="rounded-2xl bg-slate-50/80 px-4 py-3.5 text-right">
+                <p className="text-[14px] font-black text-slate-900">
+                  لديك تنبيه مهم قبل انتهاء الوقت.
+                </p>
+                <p className="mt-1 text-[12px] font-semibold leading-relaxed text-slate-500">
+                  اضغط البطاقة لفتح الصفحة المناسبة، بدون بدء أي اختبار.
+                </p>
+              </div>
+              <div className="max-h-[46dvh] space-y-2.5 overflow-y-auto pr-0.5">
+                {studentUpcomingDeadlineCards.map((item: any, idx: number) => (
+                  <button
+                    key={`${item.kind}-${item.id}-${idx}`}
+                    type="button"
+                    onClick={() => {
+                      setStudentDeadlineCardOpen(false);
+                      try {
+                        item.action?.();
+                      } catch {}
+                    }}
+                    className="flex w-full items-center justify-between gap-3 rounded-2xl border border-slate-100 bg-white px-3.5 py-3 text-right shadow-sm transition hover:-translate-y-0.5 hover:border-indigo-200 hover:shadow-md"
+                  >
+                    <span className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-indigo-50 text-indigo-600">
+                      <FileText className="h-5 w-5" />
+                    </span>
+                    <span className="min-w-0 flex-1 text-right">
+                      <span className="block truncate text-[13.5px] font-black text-slate-900">
+                        {sanitizeCourseIdentifiersForDisplay(item.title)}
+                      </span>
+                      <span className="mt-1 inline-flex items-center gap-1 text-[11px] font-bold text-amber-600">
+                        <Clock className="h-3.5 w-3.5" />
+                        {item.daysLeft === 1
+                          ? "تبقّى يوم واحد"
+                          : item.daysLeft === 2
+                            ? "تبقّى يومان"
+                            : `تبقّى ${item.daysLeft} أيام`}
+                      </span>
+                    </span>
+                    <span className="shrink-0 rounded-lg bg-indigo-50 px-2.5 py-1 text-[10px] font-black text-indigo-600">
+                      {item.kind || "نشاط"}
+                    </span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

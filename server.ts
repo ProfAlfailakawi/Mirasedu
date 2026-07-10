@@ -1921,7 +1921,17 @@ function flagExamExitedBeforeSubmit(pass: SebPass) {
       !!submission && String((submission as any).status || "") === "started";
     const teacherStillShowsInProgress =
       !!existing && String(existing.status || "") === EXAM_IN_PROGRESS_STATUS;
-    if (!quizStillInProgress && !teacherStillShowsInProgress) return;
+    // صف أستاذ بحالة فارغة = يظهر "بانتظار" للمعلم رغم أن الطالب انسحب فعلاً — نعتبره
+    // مفتوحاً أيضاً فنثبّت عليه الانسحاب (منسحب) بدل تركه "بانتظار". لا نمسّ الحالات
+    // النهائية (مسلَّم/مرصود/غش/منسحب/خرج) ولا "معاد للطالب" لأنها ليست فارغة.
+    const teacherRowEmptyStatus =
+      !!existing && String(existing.status || "").trim() === "";
+    if (
+      !quizStillInProgress &&
+      !teacherStillShowsInProgress &&
+      !teacherRowEmptyStatus
+    )
+      return;
 
     finalizeExamAttemptAsZero({} as express.Request, {
       student,
@@ -2079,10 +2089,114 @@ function renderSebLaunchPage(req: express.Request, pass: SebPass) {
 </body>
 </html>`;
 }
+// إعداد كاميرا SEB للتمهيد: يقرأ سياسة المراقبة من الاختبار ويقرّر هل يجب تشغيل
+// الكاميرا لهذا الطالب داخل صفحة SEB المُقدَّمة من الخادم (React لا يعمل هناك).
+// آمن تماماً: أي خطأ ⇒ enabled=false فلا يتعطّل الاختبار.
+
+// نموذج BlazeFace مضمَّن في صفحة SEB: فلتر محتوى SEB يمنع جلب ملف الأوزان
+// (بطاقة الرادار من جهاز الطالب: tf=true blazeface=true model=false) — التضمين
+// يلغي الجلب نهائياً. يُقرأ من القرص مرة واحدة ويُكاش (~٥٩٩ك.ب نص).
+let mirasSebBlazeInlineTag: string | null = null;
+function sebBlazeInlineModelTag(): string {
+  if (mirasSebBlazeInlineTag !== null) return mirasSebBlazeInlineTag;
+  try {
+    const dir = path.join(process.cwd(), "public", "vendor", "blazeface-model");
+    const topology = fs.readFileSync(path.join(dir, "model.json"), "utf8");
+    const weights = fs.readFileSync(path.join(dir, "group1-shard1of1.bin"));
+    mirasSebBlazeInlineTag =
+      '<script>window.__MIRAS_BLAZE={t:' +
+      topology +
+      ',w:"' +
+      weights.toString("base64") +
+      '"};</script>';
+  } catch (err) {
+    console.warn("⚠️ SEB inline blaze model unavailable:", (err as any)?.message);
+    mirasSebBlazeInlineTag = "";
+  }
+  return mirasSebBlazeInlineTag;
+}
+
+// مطابقة حرفية لمنطق العميل (mirasTruthyFlag + mirasExamUsesCamera): الكشف الخام
+// السابق كان يفوّت صيغ الحفظ الفعلية ("نعم"/"1"/cameraEnabled/localVisionEnabled/
+// وجود إعدادات الرؤية أصلاً) فتُتخطى كاميرا SEB بصمت رغم أن الاختبار العادي يشغّلها.
+function sebTruthyFlag(value: any): boolean {
+  return (
+    value === true ||
+    value === 1 ||
+    String(value || "").trim().toLowerCase() === "true" ||
+    String(value || "").trim() === "1" ||
+    ["نعم", "مفعل", "مفعّل", "تشغيل", "يعمل"].includes(String(value || "").trim())
+  );
+}
+function sebExamCameraBootConfig(
+  exam: any,
+  studentId: any,
+): { enabled: boolean; mode: string; policy: string } {
+  try {
+    if (!exam) return { enabled: false, mode: "off", policy: "notify" };
+    const lv = exam.antiCheat?.localVision || exam.localVision || {};
+    const rawMode = String(lv?.mode || exam?.localVisionMode || "")
+      .trim()
+      .toLowerCase();
+    if (rawMode === "off" || rawMode === "إيقاف" || rawMode === "ايقاف")
+      return { enabled: false, mode: "off", policy: "notify" };
+    const directFlags = [
+      lv?.enabled,
+      lv?.cameraEnabled,
+      lv?.requiresCamera,
+      lv?.cameraRequired,
+      lv?.useCamera,
+      exam?.localVisionEnabled,
+      exam?.cameraEnabled,
+      exam?.requiresCamera,
+      exam?.cameraRequired,
+      exam?.useCamera,
+      exam?.antiCheat?.localVisionEnabled,
+      exam?.antiCheat?.cameraEnabled,
+      exam?.antiCheat?.requiresCamera,
+      exam?.antiCheat?.cameraRequired,
+    ];
+    const hasLocalVisionConfig =
+      lv &&
+      typeof lv === "object" &&
+      Object.keys(lv).some((key) =>
+        [
+          "cameraFailurePolicy",
+          "cameraExceptions",
+          "cameraExceptionsText",
+          "gazeAwaySeconds",
+          "softLockThreshold",
+          "teacherEscalationThreshold",
+        ].includes(String(key)),
+      );
+    const usesCamera = directFlags.some(sebTruthyFlag) || !!hasLocalVisionConfig;
+    const mode = ["off", "respectful", "strict"].includes(rawMode)
+      ? rawMode
+      : "strict";
+    if (!usesCamera || mode === "off")
+      return { enabled: false, mode: "off", policy: "notify" };
+    const exceptions = Array.isArray(lv.cameraExceptions)
+      ? lv.cameraExceptions
+      : [];
+    const exempt = exceptions
+      .map((x: any) => String(x || "").trim().toLowerCase())
+      .includes(String(studentId || "").trim().toLowerCase());
+    if (exempt) return { enabled: false, mode, policy: "notify" };
+    const policy = String(lv.cameraFailurePolicy || "block_start");
+    return { enabled: true, mode, policy };
+  } catch {
+    return { enabled: false, mode: "off", policy: "notify" };
+  }
+}
 function renderSebStartPage(req: express.Request, pass: SebPass) {
   const quitUrl = buildSebQuitUrl(req, pass.token);
+  const sebExamForCamera: any = activeTeacherExams().find(
+    (e: any) => String(e.id) === String(pass.examId),
+  );
+  const sebCameraCfg = sebExamCameraBootConfig(sebExamForCamera, pass.studentId);
   const boot = JSON.stringify({
     token: pass.token,
+    camera: sebCameraCfg,
     examId: pass.examId,
     courseCode: pass.courseCode,
     quitUrl,
@@ -2186,6 +2300,12 @@ function renderSebStartPage(req: express.Request, pass: SebPass) {
   .submit:hover{background:#1d4ed8;box-shadow:0 4px 20px rgba(37,99,235,0.3)}
   .muted{color:#64748b;font-size:12px;line-height:1.8;text-align:center}
 </style>
+<!-- كشف الوجه الحقيقي داخل SEB (BlazeFace): مستضاف ذاتياً على mirasedu.web.app
+     (مسموح في مرشّح روابط SEB). يُحمَّل غير متزامن فلا يؤخّر بدء الاختبار، وإن لم
+     يُحمَّل يتراجع تلقائياً لكشف الحركة الاحتياطي. -->
+${sebBlazeInlineModelTag()}
+<script async src="/vendor/tf.min.js"></script>
+<script async src="/vendor/blazeface.min.js"></script>
 </head>
 <body>
 <div class="box">
@@ -2229,9 +2349,15 @@ function renderSebStartPage(req: express.Request, pass: SebPass) {
     
     <div class="actions">
       <button class="submit" id="submitBtn" type="button">تسليم الاختبار</button>
-      <a class="quit" href="${xmlEscape(quitUrl)}">انسحاب من الاختبار</a>
+      <!-- بقرار المالك: أُزيل زر «انسحاب من الاختبار» نهائياً — الاختبار بعد
+           بدئه ينتهي بالتسليم فقط (كان الانسحاب يترك بطاقة "بانتظار" مضللة
+           عند المعلم). «خروج آمن بدون بدء» قبل البدء و«الخروج الآمن» بعد
+           التسليم باقيان كما هما. -->
     </div>
   </section>
+  <!-- زر الطوارئ: مخفي افتراضياً — بقرار المالك يظهر فقط في الحالات التي لا
+       مخرج فيها (صفحة بيضاء/عطل)؛ الشاشات الطبيعية فيها تسليم/خروج أصلاً. -->
+  <a id="sebGlobalQuit" href="${xmlEscape(quitUrl)}" style="display:none;position:fixed;bottom:10px;right:10px;z-index:2147483000;background:rgba(15,23,42,.55);color:#fca5a5;font-weight:800;font-size:11px;padding:6px 12px;border-radius:999px;text-decoration:none;border:1px solid rgba(252,165,165,.35);backdrop-filter:blur(6px)">خروج طوارئ</a>
   <section id="result" class="hidden">
     <div class="shield">✓</div>
     <h1>تم تسليم الاختبار</h1>
@@ -2241,6 +2367,28 @@ function renderSebStartPage(req: express.Request, pass: SebPass) {
 </div>
 <script>
 const boot=${boot};
+// مصيدة الصفحة البيضاء (عطل نادر بعد "بدء الاختبار"): لو اختفت كل الأقسام
+// نُظهر رسالة واضحة (وزر الطوارئ الدائم موجود دائماً) ونبلّغ الرادار بالسبب.
+var sebWhiteReported=0;
+setInterval(function(){
+  try{
+    var anyVisible=["intro","exam","result"].some(function(id){var el=document.getElementById(id);return el&&!el.classList.contains("hidden");});
+    var gq=document.getElementById("sebGlobalQuit");
+    if(gq)gq.style.display=anyVisible?"none":"inline-block";
+    if(!anyVisible){
+      var eb=document.getElementById("errorBox");
+      if(eb&&eb.classList.contains("hidden")){
+        eb.textContent="حدث خلل في تحميل الاختبار. اضغط زر (خروج طوارئ) أسفل الشاشة ثم أعد الدخول من مِراس.";
+        eb.classList.remove("hidden");
+      }
+      if(!sebWhiteReported){sebWhiteReported=1;
+        try{fetch("/api/monitor/report",{method:"POST",keepalive:true,headers:{"content-type":"application/json"},body:JSON.stringify({message:"SEB white-screen: كل الأقسام مخفية بعد بدء الاختبار",stack:"UA: "+String(navigator.userAgent||"").slice(0,140),url:"/seb/start#white",source:"seb",role:"student",userId:String((boot&&boot.examId)||"")})}).catch(function(){});}catch(e){}
+      }
+    }
+  }catch(e){}
+},4000);
+// رادار مِراس: أخطاء صفحة SEB كانت غير مرئية لأي أحد — الآن تُبلَّغ فوراً.
+(function(){var sent=0;window.addEventListener("error",function(e){try{if(sent>=5)return;sent++;fetch("/api/monitor/report",{method:"POST",keepalive:true,headers:{"content-type":"application/json"},body:JSON.stringify({message:String(e.message||"seb error").slice(0,300),stack:String((e.error&&e.error.stack)||"").slice(0,1500),url:"/seb/start",source:"seb"})}).catch(function(){});}catch(x){}});window.addEventListener("unhandledrejection",function(e){try{if(sent>=5)return;sent++;var r=e.reason||{};fetch("/api/monitor/report",{method:"POST",keepalive:true,headers:{"content-type":"application/json"},body:JSON.stringify({message:String(r.message||r||"seb rejection").slice(0,300),stack:String(r.stack||"").slice(0,1500),url:"/seb/start",source:"seb"})}).catch(function(){});}catch(x){}});})();
 let studentId="";
 let examId=boot.examId;
 let startTime=Date.now();
@@ -2486,6 +2634,334 @@ function renderQuestions(questions, title, minutes){
   showQuestion(0);
 }
 
+// ── مراقبة الكاميرا داخل SEB (بلا React) ──────────────────────────────────────
+// صفحة SEB مُقدَّمة من الخادم فلا يعمل فيها كود المراقبة في React. هنا نُشغّل
+// الكاميرا للاختبارات التي تتطلبها، نعرض معاينة صغيرة، ونرسل نبضات النزاهة لنفس
+// نقطة /api/exam-integrity/pulse. كشف بلا FaceDetector: ظلام/تغطية، وانحراف مركز
+// الإضاءة الأفقي (التفات الرأس/الخروج من الإطار). كل شيء داخل try فلا يعطّل الاختبار.
+var sebCamStream=null,sebCamVideo=null,sebCamCanvas=null,sebCamCtx=null,sebCamTimer=null;
+var sebBlazeModel=null,sebBlazeBusy=false,sebBlazeTried=false,sebBlazeCanvas=null,sebBlazeCtx=null;
+// تسخين المحرك: أول استدلال يجمّع نوى الحساب (يأخذ ١-٣ث) — ننفذه على لوحة
+// فارغة فور التحميل، فيصير أول فحص حقيقي لوجه الطالب فورياً.
+function sebBlazeWarmup(m){
+  try{
+    var wc=document.createElement("canvas");wc.width=160;wc.height=120;
+    wc.getContext("2d").fillRect(0,0,160,120);
+    m.estimateFaces(wc,false).catch(function(){});
+  }catch(e){}
+}
+// تحميل نموذج BlazeFace (كشف الوجه الحقيقي) داخل SEB بلا حجب: ننتظر توفّر
+// window.tf و window.blazeface (مُحمَّلين async من /vendor)، ثم نحمّل النموذج.
+// أي فشل يُبقي sebBlazeModel=null فيتراجع التحليل لكشف الحركة الاحتياطي.
+function sebTryLoadBlaze(){
+  try{
+    if(sebBlazeTried||sebBlazeModel)return;
+    if(!window.tf||!window.blazeface)return;
+    sebBlazeTried=true;
+    (window.tf.ready?window.tf.ready():Promise.resolve()).then(function(){
+      // حتمية داخل SEB (بطاقات الرادار: model=false يظهر ويختفي بين الجلسات —
+      // تهيئة رسوميات WebView متقلبة): نلزم خلفية CPU المضمونة. مع نموذج صغير
+      // ولوحة فحص ١٦٠×١٢٠ الاستدلال ~٥٠-١٥٠مللي — أسرع من نبضتنا بكثير.
+      // (هذا داخل صفحة SEB فقط — الاختبار العادي لا يمسّه هذا الملف أصلاً.)
+      try{if(window.tf.setBackend)return window.tf.setBackend("cpu").catch(function(){});}catch(e){}
+    }).then(function(){
+      // 🎯 جذر "model=false" (بطاقة الرادار من جهاز الطالب): فلتر محتوى SEB
+      // يمنع جلب ملف أوزان النموذج. الحل القاطع: النموذج مضمَّن كاملاً في
+      // الصفحة (window.__MIRAS_BLAZE) ويُحمَّل من الذاكرة — صفر جلب، صفر فلتر.
+      var mb=window.__MIRAS_BLAZE;
+      if(mb&&mb.t&&mb.w){
+        var bin=atob(mb.w),len=bin.length,arr=new Uint8Array(len);
+        for(var bi=0;bi<len;bi++)arr[bi]=bin.charCodeAt(bi);
+        var handler={load:function(){return Promise.resolve({
+          modelTopology:mb.t.modelTopology,
+          weightSpecs:mb.t.weightsManifest[0].weights,
+          weightData:arr.buffer,
+          format:mb.t.format,generatedBy:mb.t.generatedBy,convertedBy:mb.t.convertedBy});}};
+        return window.blazeface.load({maxFaces:3,modelUrl:handler});
+      }
+      return window.blazeface.load({maxFaces:3,modelUrl:"/vendor/blazeface-model/model.json"});
+    }).then(function(m){sebBlazeModel=m;sebBlazeWarmup(m);}).catch(function(){
+      // فشل التحميل (غالباً WebGL معطّل داخل SEB): جرّب خلفية CPU مرة واحدة —
+      // مسار الفشل فقط، لا يمسّ الأجهزة السليمة إطلاقاً.
+      try{
+        if(window.tf&&window.tf.setBackend&&!sebTryLoadBlaze.cpuTried){
+          sebTryLoadBlaze.cpuTried=true;
+          window.tf.setBackend("cpu").then(function(){
+            return window.blazeface.load({maxFaces:3,modelUrl:"/vendor/blazeface-model/model.json"});
+          }).then(function(m2){sebBlazeModel=m2;sebBlazeWarmup(m2);}).catch(function(){sebBlazeModel=null;sebBlazeTried=false;});
+          return;
+        }
+      }catch(e){}
+      sebBlazeModel=null;sebBlazeTried=false;
+    });
+  }catch(e){sebBlazeTried=false;}
+}
+function sebBlazeMode2(){return (boot.camera&&boot.camera.mode)||"strict";}
+async function sebBlazeDetect(){
+  if(sebBlazeBusy||!sebBlazeModel||!sebCamVideo||sebCamVideo.readyState<2)return;
+  sebBlazeBusy=true;
+  var preds=[];
+  try{
+    // نسخة مصغّرة ١٦٠×١٢٠ للفحص: دقة كافية تماماً لكشف الوجه/الأنف، وأسرع
+    // أضعافاً من معالجة إطار الفيديو الكامل (خصوصاً على خلفية CPU داخل SEB).
+    if(!sebBlazeCanvas){sebBlazeCanvas=document.createElement("canvas");sebBlazeCanvas.width=160;sebBlazeCanvas.height=120;sebBlazeCtx=sebBlazeCanvas.getContext("2d");}
+    sebBlazeCtx.drawImage(sebCamVideo,0,0,160,120);
+    preds=await sebBlazeModel.estimateFaces(sebBlazeCanvas,false);
+  }catch(e){preds=[];}
+  sebBlazeBusy=false;
+  if(!Array.isArray(preds))preds=[];
+  var fc=preds.length;
+  if(fc===0){sebCamCounters.face_missing=(sebCamCounters.face_missing||0)+1;
+    if(sebCamCounters.face_missing>=2){sebSendVisionPulse("face_missing",{engine:"blazeface"});sebCamEngage("أعد وجهك للكاميرا.");}
+  }else{sebCamCounters.face_missing=0;}
+  if(fc>1){sebCamCounters.multiple_faces=(sebCamCounters.multiple_faces||0)+1;
+    if(sebCamCounters.multiple_faces>=2){sebSendVisionPulse("multiple_faces",{faceCount:fc,engine:"blazeface"});sebCamEngage("خلّك وحدك أمام الكاميرا.");}
+  }else{sebCamCounters.multiple_faces=0;}
+  if(fc===1){
+    var p=preds[0],tl=p.topLeft,br=p.bottomRight;
+    var x0=Array.isArray(tl)?Number(tl[0]):Number((tl&&tl[0])||0);
+    var x1=Array.isArray(br)?Number(br[0]):Number((br&&br[0])||0);
+    var boxW=Math.max(1,x1-x0),boxC=(x0+x1)/2,fr=boxC/160;
+    var nose=Array.isArray(p.landmarks)?p.landmarks[2]:null;
+    var noseX=nose?(Array.isArray(nose)?Number(nose[0]):Number(nose.x||boxC)):boxC;
+    var noseOff=Math.abs((noseX-boxC)/boxW);
+    var m=sebBlazeMode2();var edge=m==="strict"?0.25:0.18;var nl=m==="strict"?0.18:0.28;
+    if(fr<edge||fr>1-edge||noseOff>nl){sebCamCounters.attn=(sebCamCounters.attn||0)+1;
+      if(sebCamCounters.attn>=2){sebSendVisionPulse("attention_away",{ratio:Number(fr.toFixed(3)),noseOffset:Number(noseOff.toFixed(3)),engine:"blazeface"});sebCamEngage("ارجع بنظرك للشاشة.");}
+    }else{sebCamCounters.attn=0;}
+  }
+}
+var sebCamCounters={},sebCamLastPulse={},sebCamAttnBase=null,sebCamLocked=false,sebCamRecoverTimer=null;
+function sebCamMode(){return (boot.camera&&boot.camera.mode)||"strict";}
+function sebSendVisionPulse(pulseType,details){
+  try{
+    var now=Date.now();if(now-(sebCamLastPulse[pulseType]||0)<3500)return;sebCamLastPulse[pulseType]=now;
+    fetch("/api/exam-integrity/pulse",{method:"POST",headers:headers(),keepalive:true,body:JSON.stringify({
+      studentId:studentId,examId:examId,sessionId:activeExamSessionId,pulseType:pulseType,label:pulseType,
+      details:details||{},mode:sebCamMode(),privacy:"metadata_only_no_frames",source:"seb"})}).catch(function(){});
+  }catch(e){}
+}
+function sebCamOverlayShow(msg){
+  try{
+    var o=document.getElementById("sebCamWarn");
+    if(!o){o=document.createElement("div");o.id="sebCamWarn";
+      o.style.cssText="position:fixed;inset:0;z-index:99999;display:none;align-items:center;justify-content:center;background:rgba(2,6,23,.92);color:#fff;font-family:system-ui,sans-serif;font-weight:900;font-size:18px;text-align:center;padding:24px;line-height:2";
+      document.body.appendChild(o);}
+    if(msg){o.textContent=msg;o.style.display="flex";}else{o.style.display="none";}
+  }catch(e){}
+}
+// ⚠️ بطلب المالك الصريح (٩ يوليو ليلاً): هذه هي النسخة الأصلية الحرفية للمعاينة —
+// المعاينة الصغيرة الثابتة بأسفل يسار الشاشة. جرّبنا شاشة تأكيد كبيرة ثم إخفاء
+// فكسرت المراقبة مرتين على iOS؛ المالك طلب العودة لهذا الكود بالضبط ("كان
+// احترافي جدا جدا جدا"). لا تُعِد بناء شاشة الانترو.
+function sebCamShowPreview(stream){
+  try{
+    var v=document.getElementById("sebCamPrev");
+    if(!v){v=document.createElement("video");v.id="sebCamPrev";v.muted=true;v.playsInline=true;v.setAttribute("playsinline","");
+      v.style.cssText="position:fixed;bottom:14px;left:14px;width:104px;height:78px;border-radius:14px;object-fit:cover;z-index:99998;border:2px solid rgba(99,102,241,.75);box-shadow:0 8px 24px rgba(0,0,0,.5);background:#000";
+      document.body.appendChild(v);}
+    v.srcObject=stream;v.play&&v.play().catch(function(){});
+  }catch(e){}
+}
+function sebCamEngage(msg){
+  try{sebCamLocked=true;sebCamOverlayShow(msg||"أعد وضعك الطبيعي أمام الكاميرا.");
+    if(sebCamRecoverTimer)clearTimeout(sebCamRecoverTimer);
+    sebCamRecoverTimer=setTimeout(function(){sebCamLocked=false;sebCamOverlayShow("");},4000);
+  }catch(e){}
+}
+function sebCamFallbackMotion(img,W,H,avg){
+  try{
+    var yS=Math.floor(H*0.12),yE=Math.floor(H*0.96),wx=0,wy=0,tot=0;
+    for(var py=yS;py<yE;py++){for(var px=0;px<W;px++){var idx=(py*W+px)*4;var lum=img[idx]+img[idx+1]+img[idx+2];wx+=lum*px;wy+=lum*py;tot+=lum;}}
+    if(tot>0&&avg>=12){
+      var cx=wx/tot/Math.max(1,W-1),cy=wy/tot/Math.max(1,H-1);
+      if(!sebCamAttnBase){sebCamAttnBase={x:cx,y:cy,r:1};}
+      else if(sebCamAttnBase.r<4){sebCamAttnBase={x:(sebCamAttnBase.x+cx)/2,y:(sebCamAttnBase.y+cy)/2,r:sebCamAttnBase.r+1};}
+      else{var drift=Math.max(Math.abs(cx-sebCamAttnBase.x),Math.abs(cy-sebCamAttnBase.y)),lim=sebCamMode()==="strict"?0.16:0.22;
+        if(drift>lim){sebCamCounters.attn=(sebCamCounters.attn||0)+1;
+          if(sebCamCounters.attn>=2){sebSendVisionPulse("attention_away",{drift:Number(drift.toFixed(3)),fallback:true});sebCamEngage("ارجع بنظرك للشاشة.");}
+        }else{sebCamCounters.attn=0;sebCamAttnBase={x:sebCamAttnBase.x*0.92+cx*0.08,y:sebCamAttnBase.y*0.92+cy*0.08,r:sebCamAttnBase.r};}
+      }
+    }
+  }catch(e){}
+}
+function sebCamAnalyze(){
+  try{
+    if(!sebCamVideo||!sebCamCtx||sebCamVideo.readyState<2)return;
+    var W=sebCamCanvas.width,H=sebCamCanvas.height;sebCamCtx.drawImage(sebCamVideo,0,0,W,H);
+    var img=sebCamCtx.getImageData(0,0,W,H).data,light=0,n=0;
+    for(var i=0;i<img.length;i+=16){light+=(img[i]+img[i+1]+img[i+2])/3;n++;}
+    var avg=light/Math.max(1,n);
+    if(avg<12){sebCamCounters.blocked=(sebCamCounters.blocked||0)+1;
+      if(sebCamCounters.blocked>=4){sebSendVisionPulse("camera_blocked",{avgLight:Math.round(avg)});sebCamEngage("وضّح الكاميرا — تأكد أنها غير مغطّاة.");}
+    }else sebCamCounters.blocked=0;
+    sebTryLoadBlaze();
+    if(sebBlazeModel){
+      // كشف وجه حقيقي جاهز: نستخدمه (لا وجه/تعدد وجوه/التفات بالأنف) ونتخطّى
+      // كشف الحركة الاحتياطي تماماً. ⚠️ لا تضف بوابات/تشغيلاً مزدوجاً هنا —
+      // جُرِّب وسبّب اضطراباً على أجهزة الطلبة (٩ يوليو ليلاً).
+      sebBlazeDetect();
+    }else{
+      sebCamFallbackMotion(img,W,H,avg);
+    }
+    if(sebCamLocked&&(sebCamCounters.blocked||0)===0&&(sebCamCounters.attn||0)===0&&(sebCamCounters.face_missing||0)===0&&(sebCamCounters.multiple_faces||0)===0){sebCamLocked=false;sebCamOverlayShow("");}
+  }catch(e){}
+}
+var sebCamAutoRetryTimer=null,sebCamAutoRetryCount=0,sebRadarSent=0,sebCamDiagSent=0;
+// بصمة جهاز الطالب داخل SEB: نحتاجها لنعرف بناء WebKit/إصدار SEB الفعلي — هذا
+// المعطى الوحيد الذي عجزنا عن رؤيته طوال محاولات إصلاح الكاميرا.
+function sebUaTag(){try{return String(navigator.userAgent||"").replace(/\s+/g," ").slice(0,140);}catch(e){return "?";}}
+// مجسّ رادار مخصّص لأعطال كاميرا SEB (حالة معالجة لا يلتقطها onerror).
+function sebRadarReport(message,errName){
+  try{
+    if(sebRadarSent>=6)return;sebRadarSent++;
+    fetch("/api/monitor/report",{method:"POST",keepalive:true,headers:{"content-type":"application/json"},body:JSON.stringify({message:String(message||"").slice(0,300),stack:"errorName: "+String(errName||"?")+" | UA: "+sebUaTag(),url:"/seb/start#camera",source:"seb",role:"student",userId:String(studentId||boot.examId||"")})}).catch(function(){});
+  }catch(e){}
+}
+// مجسّ تشخيصي دورة-حياة (مرة واحدة/جلسة): يثبت في الرادار أن مسار الكاميرا بدأ
+// فعلاً على الجهاز مع بصمة المتصفح وتوفّر getUserMedia — حتى لو نجحت الكاميرا أو
+// لم يُرمَ خطأ إطلاقاً. بهذا تُصبح تجربة الطالب القادمة تشخيصاً قاطعاً لا تخميناً.
+function sebCamDiag(stage){
+  try{
+    var hasGUM=!!(navigator.mediaDevices&&navigator.mediaDevices.getUserMedia);
+    fetch("/api/monitor/report",{method:"POST",keepalive:true,headers:{"content-type":"application/json"},body:JSON.stringify({message:"SEB camera lifecycle: "+String(stage||"?")+" | getUserMedia="+hasGUM+" | policy="+((boot.camera&&boot.camera.policy)||"?")+" | mode="+((boot.camera&&boot.camera.mode)||"?"),stack:"UA: "+sebUaTag(),url:"/seb/start#camera-diag",source:"seb",role:"student",userId:String(studentId||boot.examId||"")})}).catch(function(){});
+  }catch(e){}
+}
+function sebCamShowBlockOverlay(errName){
+  // حاجب دائم عند فرض الكاميرا (block_start) ورفضها: يغطّي الاختبار حتى يُسمح
+  // بالكاميرا. فيه: إعادة محاولة تلقائية كل ٨ث (كما كان يتفعّل تلقائياً)، وزر يدوي،
+  // و«خروج آمن» حتى لا يتوهّق الطالب بلا مخرج. لا يرمي خطأ ولا يوقف تحميل الأسئلة.
+  try{
+    var o=document.getElementById("sebCamBlock");
+    if(!o){
+      o=document.createElement("div");o.id="sebCamBlock";
+      o.style.cssText="position:fixed;inset:0;z-index:100000;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;background:rgba(2,6,23,.97);color:#fff;font-family:system-ui,-apple-system,sans-serif;text-align:center;padding:28px;line-height:2";
+      var msg=document.createElement("div");msg.id="sebCamBlockMsg";msg.style.cssText="font-weight:900;font-size:19px;max-width:520px";
+      msg.textContent="هذا الاختبار يتطلب تشغيل الكاميرا. اسمح بالوصول للكاميرا للمتابعة — سنعيد المحاولة تلقائياً.";
+      var btn=document.createElement("button");btn.textContent="إعادة محاولة تشغيل الكاميرا";
+      btn.style.cssText="border:0;border-radius:16px;padding:14px 22px;background:#16a34a;color:#fff;font-weight:900;font-size:15px;cursor:pointer";
+      btn.onclick=function(){ensureSebCamera();};
+      var quit=document.createElement("a");quit.textContent="خروج آمن من الاختبار";
+      quit.href=boot.quitUrl||"#";
+      quit.style.cssText="display:block;border:1px solid rgba(255,255,255,.25);border-radius:16px;padding:12px 22px;color:#fca5a5;font-weight:800;font-size:14px;text-decoration:none;margin-top:4px";
+      o.appendChild(msg);o.appendChild(btn);o.appendChild(quit);document.body.appendChild(o);
+    }
+    o.style.display="flex";
+    // رسالة موجّهة: NotAllowedError على iOS يعني غالباً أن تطبيق SEB نفسه محروم
+    // من الكاميرا في إعدادات النظام — نرشد الطالب للمكان الصحيح بدل تركه يحاول عبثاً.
+    try{
+      var msgEl=document.getElementById("sebCamBlockMsg");
+      if(msgEl&&/NotAllowed|Permission|Security/i.test(String(errName||""))){
+        msgEl.textContent="الكاميرا محجوبة عن تطبيق SEB نفسه. افتح إعدادات الجهاز ← SEB ← فعّل الكاميرا، ثم ارجع هنا — سنكمل تلقائياً.";
+      }
+    }catch(e){}
+    // إعادة محاولة تلقائية (حتى ١٥ مرة): يكفي أن يضغط الطالب "سماح" في نافذة النظام
+    // فتلتقطها المحاولة التالية ويختفي الحاجب وحده بلا أي ضغطة زر.
+    if(!sebCamAutoRetryTimer){
+      sebCamAutoRetryCount=0;
+      sebCamAutoRetryTimer=setInterval(function(){
+        sebCamAutoRetryCount+=1;
+        if(sebCamStream||sebCamAutoRetryCount>15){clearInterval(sebCamAutoRetryTimer);sebCamAutoRetryTimer=null;return;}
+        ensureSebCamera();
+      },8000);
+    }
+  }catch(e){}
+}
+function sebCamHideBlockOverlay(){try{var o=document.getElementById("sebCamBlock");if(o)o.style.display="none";}catch(e){}}
+async function ensureSebCamera(){
+  // آمنة تماماً: لا ترمي أبداً ولا تُعلّق (مهلة على getUserMedia)، فلا يمكن أن
+  // تتسبّب في فشل تحميل الأسئلة. الفرض عبر حاجب بصري لا عبر إيقاف المسار.
+  try{
+    if(!boot.camera||!boot.camera.enabled)return;
+    var blockStart=boot.camera.policy==="block_start";
+    if(!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia){
+      sebSendVisionPulse("camera_unavailable",{reason:"no-getUserMedia"});
+      sebRadarReport("SEB camera: getUserMedia API غير متوفرة أصلاً في هذا الـWebView","no-mediaDevices");
+      if(blockStart)sebCamShowBlockOverlay();
+      return;
+    }
+    var stream;
+    // مهم: لا نرمي وعد getUserMedia الأصلي عند انتهاء المهلة. نافذة إذن iOS قد
+    // تبقى مفتوحة أكثر من ٢٠ث؛ إن وافق الطالب متأخراً نتبنّى البثّ الممنوح فوراً
+    // ونخفي الحاجب (كان الرفض بعد المهلة يهمل البثّ فيعلق الطالب خلف الحاجب).
+    // سُلّم قيود متدرّج (كما في الاختبار العادي): بعض بُنى WebKit داخل SEB ترفض
+    // facingMode أو أبعاداً محدّدة على أجهزة سطح المكتب فيفشل الطلب كلياً؛ نجرّب
+    // الأدقّ ثم الأبسط حتى {video:true}. رفض الإذن (NotAllowed) يوقف السُّلّم فوراً
+    // (لا فائدة من قيود أخرى) فيصل الحاجب/الرادار بالسبب الصحيح بلا انتظار عبثي.
+    function sebOpenCam(){
+      var attempts=[
+        {video:{facingMode:"user",width:{ideal:320},height:{ideal:240}},audio:false},
+        {video:{facingMode:"user"},audio:false},
+        {video:true,audio:false}
+      ];
+      var i=0;
+      function tryNext(){
+        if(i>=attempts.length)return Promise.reject(new Error("camera-unavailable"));
+        var c=attempts[i++];
+        return navigator.mediaDevices.getUserMedia(c).catch(function(err){
+          var n=String((err&&err.name)||"");
+          if(/NotAllowed|Security|Permission/i.test(n))throw err;
+          if(i<attempts.length)sebCamDiag("constraint-retry:"+n);
+          return tryNext();
+        });
+      }
+      return tryNext();
+    }
+    var gumPromise=sebOpenCam();
+    gumPromise.then(function(lateStream){
+      if(!sebCamStream&&lateStream){sebCamAdoptStream(lateStream);}
+      else if(sebCamStream&&lateStream&&sebCamStream!==lateStream){try{lateStream.getTracks().forEach(function(t){t.stop();});}catch(e){}}
+    }).catch(function(){});
+    try{
+      stream=await Promise.race([
+        gumPromise,
+        new Promise(function(_,rej){setTimeout(function(){rej(new Error("camera-timeout"));},20000);})
+      ]);
+    }catch(err){
+      var en=String((err&&err.name)||"camera-error"),em=String((err&&err.message)||"");
+      sebSendVisionPulse("camera_denied",{errorName:en});
+      // مجسّ الرادار: فشل الكاميرا كان "معالجاً بصمت" فلا يظهر في الرادار —
+      // الآن يصل تقرير باسم الخطأ الحرفي (NotAllowedError/timeout/NotFound...)
+      // فيُعرف السبب الفعلي على جهاز الطالب دون تخمين.
+      sebRadarReport("SEB camera failed: "+en+(em?" — "+em:""),en);
+      if(blockStart)sebCamShowBlockOverlay(en);
+      return;
+    }
+    sebCamAdoptStream(stream);
+  }catch(e){}
+}
+function sebCamAdoptStream(stream){
+  try{
+    if(!stream||sebCamStream)return;
+    sebCamHideBlockOverlay();
+    if(sebCamAutoRetryTimer){clearInterval(sebCamAutoRetryTimer);sebCamAutoRetryTimer=null;}
+    sebCamStream=stream;
+    var prevStream=stream;try{if(stream.clone)prevStream=stream.clone();}catch(e){}
+    sebCamShowPreview(prevStream);
+    // فيديو التحليل: عنصر مستقل لا يُدرج في الصفحة أبداً — هذه هي المعمارية
+    // الأصلية المثبتة (المراقبة "الاحترافية جداً" التي شهدها المالك). iOS يواصل
+    // فكّ إطارات فيديو لم يُدرج قط، بينما يوقف فيديو أُدرج ثم أُزيل/صُغّر — وهذا
+    // ما قتل المراقبة بصمت في المحاولتين السابقتين. لا تعِد استخدام عنصر المعاينة.
+    sebCamVideo=document.createElement("video");sebCamVideo.muted=true;sebCamVideo.playsInline=true;sebCamVideo.setAttribute("playsinline","");sebCamVideo.srcObject=stream;try{sebCamVideo.play();}catch(e){}
+    sebCamCanvas=document.createElement("canvas");sebCamCanvas.width=48;sebCamCanvas.height=36;sebCamCtx=sebCamCanvas.getContext("2d");
+    sebSendVisionPulse("camera_active",{});
+    // مجسّ مراحل المحرك: يفضح بعد ١٥ث أي حلقة مفقودة (سكربت tf؟ blazeface؟
+    // النموذج؟) — الكاشف المدمج يغطي الطالب في كل الأحوال، وهذا للتشخيص فقط.
+    setTimeout(function(){
+      try{
+        if(!sebBlazeModel){sebRadarReport("SEB blaze-stage: tf="+(!!window.tf)+" blazeface="+(!!window.blazeface)+" model=false (المدمج يعمل)","blaze-missing");}
+      }catch(e){}
+    },15000);
+    // نبضة أسرع (٦٥٠مللي): مع النموذج المضمَّن الشغال، التنبيه يصل خلال ~١.٣ث بدل
+    // ~١.٨ث. حارس busy يحمي الأجهزة البطيئة تلقائياً (تخطي النبضة لا تكديسها).
+    if(sebCamTimer)clearInterval(sebCamTimer);sebCamTimer=setInterval(sebCamAnalyze,650);
+  }catch(e){}
+}
+function stopSebCamera(){try{if(sebCamTimer)clearInterval(sebCamTimer);if(sebCamAutoRetryTimer){clearInterval(sebCamAutoRetryTimer);sebCamAutoRetryTimer=null;}if(sebCamStream)sebCamStream.getTracks().forEach(function(t){t.stop();});
+  // نسخة المعاينة (clone) لها مساراتها المستقلة — أطفئها أيضاً
+  try{var pv=document.getElementById("sebCamPrev");if(pv&&pv.srcObject)pv.srcObject.getTracks().forEach(function(t){t.stop();});}catch(e){}
+  sebCamOverlayShow("");}catch(e){}}
+
 let busy=false;
 let rescueTimer=null;
 async function startExam(){
@@ -2507,8 +2983,19 @@ async function startExam(){
     const lockData=await lockResp.json().catch(()=>({}));
     if(!lockResp.ok) throw new Error(lockData.error||"الاختبار مفتوح في جلسة أخرى.");
     activeExamSessionId=String(lockData.activeExamSessionId||activeExamSessionId);
-    const quizResp=await fetch("/api/quizzes/generate?studentId="+encodeURIComponent(studentId)+"&chapterId="+encodeURIComponent(examId)+"&examSessionId="+encodeURIComponent(activeExamSessionId)+"&displayMode="+encodeURIComponent(displayMode()),{headers:headers(),cache:"no-store"});
-    const quiz=await quizResp.json().catch(()=>({}));
+    var genUrl="/api/quizzes/generate?studentId="+encodeURIComponent(studentId)+"&chapterId="+encodeURIComponent(examId)+"&examSessionId="+encodeURIComponent(activeExamSessionId)+"&displayMode="+encodeURIComponent(displayMode());
+    var quizResp=await fetch(genUrl,{headers:headers(),cache:"no-store"});
+    var quiz=await quizResp.json().catch(()=>({}));
+    // إعادة محاولة واحدة عند فشل الجلسة المتقطّع (STUDENT_SESSION_REQUIRED "أحياناً
+    // يطلب الدخول"): نعيد تفعيل نفق SEB (validate) ثم نطلب الأسئلة مجدداً. غالباً
+    // ينجح فوراً في المحاولة الثانية بدل طرد الطالب لشاشة الدخول.
+    if(quizResp.status===401 && quiz && (String(quiz.code||"")==="STUDENT_SESSION_REQUIRED" || String(quiz.error||"").indexOf("STUDENT_SESSION_REQUIRED")>=0)){
+      setStatus("جاري إعادة تفعيل الجلسة الآمنة...");
+      try{ await fetch("/api/seb/validate",{method:"POST",headers:headers(),body:JSON.stringify({sebToken:boot.token,seb:"1",miras_seb:"1"})}); }catch(e){}
+      await new Promise(function(r){setTimeout(r,700);});
+      quizResp=await fetch(genUrl,{headers:headers(),cache:"no-store"});
+      quiz=await quizResp.json().catch(()=>({}));
+    }
     if(!quizResp.ok) throw new Error(quiz.error||"تعذر تحميل أسئلة الاختبار.");
     if(!Array.isArray(quiz.questions)||!quiz.questions.length) throw new Error("لم تصل أسئلة لهذا الاختبار.");
     if(rescueTimer){clearTimeout(rescueTimer);rescueTimer=null;}
@@ -2516,6 +3003,9 @@ async function startExam(){
     startTime=Date.now();
     renderQuestions(quiz.questions, session.exam&&session.exam.title, session.exam&&session.exam.timerMinutes);
     startExamHeartbeat();
+    // الكاميرا تُشغَّل بعد ظهور الأسئلة، وبلا await، فلا تتعارض مع مسار الجلسة ولا
+    // تمنع تحميل الأسئلة إطلاقاً. الفرض (block_start) عبر حاجب بصري داخل ensureSebCamera.
+    ensureSebCamera();
   } catch(err) {
     if(rescueTimer){clearTimeout(rescueTimer);rescueTimer=null;}
     el("startBtn").disabled=false;
@@ -2538,6 +3028,15 @@ async function submitExam(){
     const data=await resp.json().catch(()=>({}));
     if(!resp.ok) throw new Error(data.error||"تعذر تسليم الاختبار.");
     stopExamHeartbeat();
+    try{stopSebCamera();}catch(e){}
+    // بقرار المالك: زر التسليم = تسليم + خروج مباشر من SEB. لا شاشة وسيطة
+    // "تم التسليم/الخروج الآمن" — التسليم انحفظ (الرد 200) والخروج فوري.
+    if(boot.quitUrl){
+      hide("intro");hide("exam");
+      location.replace(boot.quitUrl);
+      return;
+    }
+    // احتياط فقط إن غاب رابط الخروج: الشاشة القديمة كي لا يعلق الطالب.
     hide("intro");hide("exam");show("result");
     const submission=data.submission||{};
     const savedScore=submission.score!==undefined?submission.score:(submission.percentage!==undefined?submission.percentage:"تم التسليم");
@@ -4504,14 +5003,41 @@ function activeRuntimeTeacherSubmissions() {
         .filter((project: any) => isActiveRecord(project)),
     ].map((project: any) => String(project.id)),
   );
-  return dbInstance.getTeacherSubmissions().filter((item: any) => {
-    if (!isActiveRecord(item)) return false;
-    const kind = String(item.kind || "");
-    const activityId = String(item.activityId || "");
-    if (kind === "exam") return examIds.has(activityId);
-    if (kind === "project") return projectIds.has(activityId);
-    return true;
-  });
+  const nowMs = Date.now();
+  return dbInstance
+    .getTeacherSubmissions()
+    .filter((item: any) => {
+      if (!isActiveRecord(item)) return false;
+      const kind = String(item.kind || "");
+      const activityId = String(item.activityId || "");
+      if (kind === "exam") return examIds.has(activityId);
+      if (kind === "project") return projectIds.has(activityId);
+      return true;
+    })
+    .map((item: any) => {
+      // "منقطع لا يحلّ": إن توقّفت نبضة جلسة الطالب أكثر من ٤٥ث نُعلّم
+      // liveStale=true فيعرض النبض "غير متصل" بدل "يحلّ الآن" للطالب الذي خرج
+      // فعلاً. عرضٌ فقط — لا نغيّر حالة التسليم (تبقى كما هي) فلا يُقفل من ينقطع
+      // اتصاله لحظياً ويعود؛ حين يعود تتجدّد النبضة ويعود "يحلّ". نحسبها لكل
+      // تسليمات الاختبار وليس للحالة الحرفية "قيد الحل" فقط، لأن الواجهة تعدّ
+      // صيغاً كثيرة كـ"قيد حل" (نصوص/حالات مختلفة)، وسابقاً كانت تلك الصيغ لا
+      // تُعلَّم فتبقى خضراء "يحلّ" رغم انقطاع الطالب — وهو جوهر الخلل. ولا أثر
+      // لها على الحالات النهائية (مكتمل/غش/انسحاب/إرجاع) لأن الواجهة لا تفحصها
+      // إلا في مسار "يحلّ الآن".
+      if (String(item.kind || "") !== "exam") return item;
+      const sessions = getExamSessionsFor(item.studentId, item.activityId);
+      let beat = 0;
+      for (const s of sessions as any[]) {
+        const t = new Date(
+          s.lastHeartbeatAt || s.updatedAt || s.startedAt || 0,
+        ).getTime();
+        if (Number.isFinite(t) && t > beat) beat = t;
+      }
+      // العميل ينبض كل ٣ث وتنتهي صلاحية الجلسة عند ١٥ث؛ فعتبة ٢٠ث تعني "منقطع"
+      // خلال ٢٠ث من خروج/انسحاب الطالب بدل ٤٥ث. الطالب الذي يحلّ فعلاً ينبض كل
+      // ٣ث فلا يُعلَّم أبداً (٦+ نبضات ضمن النافذة، آمن ضد انقطاعات الشبكة اللحظية).
+      return { ...item, liveStale: !beat || nowMs - beat > 20000 };
+    });
 }
 
 function normalizeStudentId(value: any): string {
@@ -4656,8 +5182,10 @@ function deviceFingerprintBrowserSegment(fingerprint: any): string {
   if (!s) return "";
   const raw = s.split("_")[0] || "";
   const family = raw.toLowerCase().replace(/[^a-z0-9.-]/g, "-");
-  if (!family || family === "unknown" || family === "unknown-browser" || family === "mozilla" || family === "mozilla-5.0") return "legacy";
-  if (family === "mozilla/5.0") return "legacy";
+  // أي عائلة غير معرَّفة (unknown/mozilla بأي لاحقة وضع عرض مثل unknown-browser-browser)
+  // تُعامل legacy: لا نفرض قفل السطح على متصفح لا نستطيع تمييز هويته أصلاً.
+  if (!family || family.startsWith("unknown") || family.startsWith("mozilla"))
+    return "legacy";
   return family;
 }
 
@@ -4691,6 +5219,20 @@ function deviceTokenHashSegment(fingerprint: any): string {
   const idx = s.lastIndexOf("_");
   const seg = idx >= 0 ? s.slice(idx + 1) : s;
   return seg && seg !== "no-device-token" ? seg : "";
+}
+
+// سطح الطلب لفحص القفل الصارم (سفاري↔PWA): عائلة المتصفح + وضع العرض من ترويسة
+// العميل فقط (x-miras-display-mode التي يرسلها التطبيق مع كل طلب). لا نستخدم
+// displayMode من جسم/استعلام الطلب لأنه معطى نظام قفل الاختبار (سياق الجلسة) لا
+// هوية المتصفح — واستخدامه كسطح أمني كان يحجب طلبات اختبار شرعية داخل نفس الجلسة.
+function strictRequestSurfaceSegment(req: express.Request): string {
+  const family = browserFamilyFromUserAgent(
+    String((req as any)?.headers?.["user-agent"] || ""),
+  );
+  const mode = normalizeExamSessionDisplayMode(
+    (req as any)?.headers?.["x-miras-display-mode"],
+  );
+  return deviceFingerprintBrowserSegment(`${family}-${mode}_x_x`);
 }
 
 function deviceFingerprintsMatch(a: any, b: any): boolean {
@@ -5491,7 +6033,51 @@ function notifyUsers(
 ) {
   const safeTitle = sanitizePublicMessageText(title) || "مِراس";
   const safeBody = sanitizePublicMessageText(body) || "لديك تنبيه جديد.";
-  const targets = notificationTargets(filter);
+  const allTargets = notificationTargets(filter);
+  // إزالة تكرار الدفع لكل جهاز: قد يتراكم للجهاز الواحد عدة توكنات FCM (تتجدّد دون
+  // حذف القديمة)، فيصل نفس الإشعار ٣ مرات لنفس الجهاز (شكوى المستخدم). نُبقي أحدث
+  // توكن لكل deviceToken (الجهاز الفعلي الثابت عبر تجديد FCM) فقط، مع الحفاظ على
+  // التوصيل لأجهزة حقيقية مختلفة (التوكنات بلا deviceToken تبقى كما هي).
+  const targets = (() => {
+    const byDevice = new Map<string, any>();
+    const rest: any[] = [];
+    for (const t of allTargets) {
+      const dk = String((t as any).deviceToken || "").trim();
+      if (!dk) {
+        rest.push(t);
+        continue;
+      }
+      const existing = byDevice.get(dk);
+      if (
+        !existing ||
+        new Date((t as any).updatedAt || 0).getTime() >
+          new Date((existing as any).updatedAt || 0).getTime()
+      ) {
+        byDevice.set(dk, t);
+      }
+    }
+    const deduped = [...byDevice.values(), ...rest];
+    // الطالب جهاز واحد (سياسة القفل): نرسل لأحدث جهاز فقط لكل طالب — بقايا
+    // جهاز/متصفح قديم مسجّل كانت توصل نفس الإشعار مرتين وثلاثاً لنفس الشخص.
+    const byStudent = new Map<string, any>();
+    const finalTargets: any[] = [];
+    for (const t of deduped) {
+      if (String((t as any).role || "") !== "student") {
+        finalTargets.push(t);
+        continue;
+      }
+      const uid = String((t as any).userId || "");
+      const existingStudent = byStudent.get(uid);
+      if (
+        !existingStudent ||
+        new Date((t as any).updatedAt || 0).getTime() >
+          new Date((existingStudent as any).updatedAt || 0).getTime()
+      ) {
+        byStudent.set(uid, t);
+      }
+    }
+    return [...finalTargets, ...byStudent.values()];
+  })();
   const seen = new Set<string>();
   targets.forEach((target) => {
     if (
@@ -5622,6 +6208,11 @@ function notifyTeachersForSection(
   return count;
 }
 
+// حارس تكرار الدفعات: كابتشر المالك (٣ بانرات "إعادة اختبار" بنفس الدقيقة مقابل
+// واحدة للمشروع) كشف أن مسار الإرجاع قد يستدعي notifyStudent عدة مرات (صفوف
+// قديمة متعددة لنفس الاختبار). حارس السجل كان يمنع تكرار الجرس فقط — هذا يمنع
+// تكرار دفعة الجوال نفسها: نفس (طالب+عنوان+نص+نوع+نشاط) خلال ١٢ث = مرة واحدة.
+const mirasRecentStudentPush = new Map<string, number>();
 function notifyStudent(
   studentId: string,
   title: string,
@@ -5630,6 +6221,22 @@ function notifyStudent(
 ) {
   const safeTitle = sanitizePublicMessageText(title) || "مِراس";
   const safeBody = sanitizePublicMessageText(body) || "لديك تنبيه جديد.";
+  try {
+    const pushKey = [
+      String(studentId).toLowerCase(),
+      safeTitle,
+      safeBody,
+      String(data.type || ""),
+      String(data.activityId || data.examId || ""),
+    ].join("|");
+    const nowMs = Date.now();
+    for (const [k, at] of mirasRecentStudentPush) {
+      if (nowMs - at > 12_000) mirasRecentStudentPush.delete(k);
+    }
+    const prev = mirasRecentStudentPush.get(pushKey);
+    if (prev && nowMs - prev < 12_000) return 0;
+    mirasRecentStudentPush.set(pushKey, nowMs);
+  } catch {}
   if (shouldSuppressRoutineStudentNotification(safeTitle, safeBody, data)) return 0;
   const count = notifyUsers(
     (token) =>
@@ -5638,7 +6245,14 @@ function notifyStudent(
     safeBody,
     data,
   );
-  if (count === 0 || Boolean(data.courseCode)) {
+  // جذر "الإشعار يظهر مرتين" (إعادة اختبار/مشروع…): notifyUsers تكتب نسخة صندوق
+  // لكل طالب مستهدف (حين تحمل data معرّفه)، وكان الشرط هنا `|| courseCode` يكتب
+  // نسخة ثانية دائماً لأن courseCode موجود غالباً → سجلان بنفس الميلي-ثانية
+  // (٦٠+ زوجاً مكرراً في القاعدة). الآن نكتب الاحتياط فقط حين لم تكتب notifyUsers
+  // فعلاً: لا أجهزة مسجلة، أو تخطّت الكتابة (إشعار مقرر عام بلا معرّف طالب).
+  const notifyUsersSkippedInApp =
+    Boolean(data.courseCode) && !data.userId && !data.studentId;
+  if (count === 0 || notifyUsersSkippedInApp) {
     rememberInAppNotification({
       userId: String(studentId),
       role: "student",
@@ -5688,11 +6302,31 @@ function studentEnrolledForNotifications(
 
 // تنبيهات الجرس محفوظة الآن في قاعدة البيانات (dbInstance) بدل مصفوفة في الذاكرة، حتى لا
 // تضيع عند إعادة تشغيل الخادم أو النشر — وهو سبب محتمل لاختفاء تنبيهات أُرسلت ثم لم تصل.
+// حارس تكرار عام: أي مسارين يكتبان نفس الإشعار لنفس المستخدم خلال ١٥ ثانية
+// (كما حدث مع "إعادة اختبار" — سجلان بنفس الميلي-ثانية) يمرّ منهما واحد فقط.
+const mirasRecentInAppKeys = new Map<string, number>();
 function rememberInAppNotification(item: any) {
   const compact = (value: any) =>
     String(value || "")
       .replace(/\s+/g, " ")
       .trim();
+  try {
+    const dupKey = [
+      String(item.userId || "").toLowerCase(),
+      String(item.role || "").toLowerCase(),
+      compact(item.title),
+      compact(item.body),
+      String(item.type || item.data?.type || ""),
+      String(item.data?.activityId || item.data?.examId || ""),
+    ].join("|");
+    const nowMs = Date.now();
+    for (const [k, at] of mirasRecentInAppKeys) {
+      if (nowMs - at > 15_000) mirasRecentInAppKeys.delete(k);
+    }
+    const prev = mirasRecentInAppKeys.get(dupKey);
+    if (prev && nowMs - prev < 15_000) return;
+    mirasRecentInAppKeys.set(dupKey, nowMs);
+  } catch {}
   const saved = {
     id:
       item.id || `note-${Date.now()}-${crypto.randomBytes(3).toString("hex")}`,
@@ -7551,8 +8185,60 @@ async function generateContentWithRetry(params: {
 
 // Express Middlewares
 app.use(cors());
-app.use(fileUpload({ limits: { fileSize: 25 * 1024 * 1024 } }));
+// useTempFiles: الملف المرفوع يتدفق إلى قرص مؤقت بدل الذاكرة. كان ملف ٢١م.ب
+// يُحمَّل كاملاً في RAM (targetFile.data) ثم يتنسّخ عدة مرات عبر مسار الأرشفة
+// حتى تنفجر ذاكرة الحاوية ويقتلها Cloud Run (OOM موثّق في السجلات) فيصل
+// للطالب 503 "تعذر" رغم نجاح الرفع فعلياً.
+app.use(
+  fileUpload({
+    limits: { fileSize: 50 * 1024 * 1024 },
+    useTempFiles: true,
+    tempFileDir: "/tmp/miras-uploads",
+    createParentPath: true,
+  }),
+);
 app.use(express.json({ limit: "50mb" }));
+// ═══ شبكة الصيد النووية — طبقة الخادم 🛰️ ═══════════════════════════════════
+// (أ) كل استجابة 5xx تصير بطاقة رادار حتى لو عولجت بأدب داخل المسار (كانت
+// غير مرئية: وسيط الأخطاء يلتقط المرميّ فقط) + الطلبات الزاحفة فوق ١٢ث.
+const mirasRadar5xxSeen = new Map<string, number>();
+app.use((req, res, next) => {
+  const startedAt = Date.now();
+  res.on("finish", () => {
+    try {
+      const path = String(req.path || "");
+      if (path.startsWith("/api/monitor")) return;
+      const status = Number(res.statusCode || 0);
+      const tookMs = Date.now() - startedAt;
+      const onceKey = (k: string) => {
+        const now = Date.now();
+        const prev = mirasRadar5xxSeen.get(k);
+        if (prev && now - prev < 120_000) return false;
+        mirasRadar5xxSeen.set(k, now);
+        if (mirasRadar5xxSeen.size > 200) mirasRadar5xxSeen.clear();
+        return true;
+      };
+      if (status >= 500 && onceKey(`5xx|${status}|${req.method}|${path}`)) {
+        mirasRecordServerError(
+          `HTTP ${status} على ${req.method} ${path}`,
+          `المدة: ${tookMs}ms`,
+          path,
+        );
+      } else if (
+        tookMs > 12_000 &&
+        !path.includes("/submissions/upload") &&
+        onceKey(`slow|${req.method}|${path}`)
+      ) {
+        mirasRecordServerError(
+          `طلب زاحف: ${req.method} ${path} استغرق ${(tookMs / 1000).toFixed(1)}ث`,
+          `status=${status}`,
+          path,
+        );
+      }
+    } catch {}
+  });
+  next();
+});
 app.use(express.urlencoded({ limit: "50mb", extended: true }));
 
 app.use((req, _res, next) => {
@@ -7863,7 +8549,15 @@ app.use((req, res, next) => {
         code: "STUDENT_SESSION_REQUIRED",
       });
     }
-    const deviceValidation = validateSessionFingerprint(req, student);
+    // strictLoginSurface هنا أيضاً (لا عند الدخول فقط): PWA بجلسة/توكن محفوظ من
+    // قبل لا يمرّ عبر /api/auth/login إطلاقاً — يفتح التطبيق وتعمل جلسته القديمة
+    // مباشرة، فكان الطالب يستخدم سفاري + PWA معاً رغم قفل الدخول (الثغرة التي
+    // أثبتها المالك). الآن كل طلب بجلسة طالب يُفحص سطحه: متصفح/وضع مختلف عن
+    // المتصفح المربوط = ٤٠٩ فتموت الجلسة الثانية فوراً. جلسات SEB تُستثنى أعلاه
+    // (تُرجَع valid قبل هذا الفحص داخل validateSessionFingerprint).
+    const deviceValidation = validateSessionFingerprint(req, student, {
+      strictLoginSurface: true,
+    });
     if (!deviceValidation.isValid) {
       return res.status(deviceValidation.statusCode || 403).json({
         error:
@@ -8364,6 +9058,9 @@ function sendSebConfig(req: express.Request, res: express.Response) {
   <key>allowDictation</key><false/>
   <key>allowSiri</key><false/>
   <key>allowedDisplaysMaxNumber</key><integer>1</integer>
+  <key>browserMediaCaptureCamera</key><true/>
+  <key>browserMediaCaptureMicrophone</key><false/>
+  <key>browserMediaCaptureScreen</key><false/>
   <key>URLFilterEnable</key><true/>
   <key>URLFilterEnableContentFilter</key><true/>
   <key>URLFilterRules</key>
@@ -8525,6 +9222,31 @@ app.post("/api/notifications/register-token", (req, res) => {
     updatedAt: now,
   };
   dbInstance.upsertNotificationToken(saved);
+  // نظافة التوكنات: عطّل توكنات FCM القديمة لنفس الجهاز/المستخدم (تجديد FCM يخلّف
+  // توكنات قديمة، فتتراكم ويصل الإشعار مكرّراً). نُبقي الجديد فقط لكل جهاز.
+  try {
+    const dk = String(saved.deviceToken || "").trim();
+    if (dk) {
+      // الطالب جهاز واحد بسياسة القفل → دفع لجهاز واحد: تسجيل توكن جديد يعطّل كل
+      // توكناته الأخرى أياً كان جهازها (بقايا Safari/جهاز قديم كانت توصل نفس
+      // الإشعار ٢-٣ مرات). المعلم يظل متعدد الأجهزة: نعطّل فقط قديم نفس الجهاز.
+      const studentSingleDevice = saved.role === "student";
+      dbInstance
+        .getNotificationTokens()
+        .filter(
+          (t: any) =>
+            !t.disabledAt &&
+            String(t.userId) === userId &&
+            String(t.role || "") === String(saved.role || "") &&
+            (studentSingleDevice ||
+              String(t.deviceToken || "").trim() === dk) &&
+            String(t.token) !== token,
+        )
+        .forEach((t: any) =>
+          dbInstance.disableNotificationToken(t.token, t.userId),
+        );
+    }
+  } catch {}
   return res.json({
     success: true,
     tokenLinkedTo: {
@@ -8596,10 +9318,36 @@ function isCourseWideStudentNotification(item: any): boolean {
       "course_closed",
       "activity_published",
       "project_published",
+      // أحداث مقرر مهمّة للطالب كان الخادم يُنشئها (اختبار/مشروع جديد، موعد،
+      // إلغاء) لكنها لا تصل الجرس لأن نوعها لم يكن مُدرجاً هنا — تعارض مع قائمة
+      // importantTypes في shouldSuppressRoutineStudentNotification التي تعتبرها
+      // مهمّة. مثال ثابت: "اختبار جديد متاح" (النوع exam_available) كان يسقط لأن
+      // النوع غير مُدرج والنص لا يطابق "اختبار متاح" (تفصل بينهما كلمة "جديد").
+      // إضافتها تُصلح الوصول دون فتح باب الضجيج الإداري: تعديل الأسماء/الكاميرا
+      // يبقى مكتوماً عبر فحص routineEdit أعلاه وقوائم الكتم الأخرى.
+      "exam_available",
+      "exam_new",
+      "new_exam",
+      "exam_open",
+      "exam_published",
+      "project_available",
+      "project_new",
+      "new_project",
+      "assignment_due",
+      "submission_due",
+      "deadline",
+      "deadline_soon",
+      "due_soon",
+      "exam_cancelled",
+      "exam_canceled",
+      "project_cancelled",
+      "project_canceled",
+      "activity_cancelled",
+      "calendar_event_deleted",
     ].includes(type)
   )
     return true;
-  if (/تنبيه اختبار|اختبار متاح|موعد|رزنامة|تقويم|إعلان|عام/i.test(text))
+  if (/تنبيه اختبار|اختبار\s+(جديد|متاح)|مشروع\s+جديد|موعد|رزنامة|تقويم|إعلان|عام/i.test(text))
     return true;
   return false;
 }
@@ -8628,6 +9376,214 @@ function isStudentPrivateNotificationShape(item: any): boolean {
     /درجة|مرصودة|رصد|تسليم|محاولة غش|غش|خروج قبل التسليم|إعادة محاولة|استرجاع كلمة|فعّل مقرر|تسجيل طالب/i.test(text)
   );
 }
+
+// مزامنة حالة "مقروء" عبر الأجهزة: يخزّن الخادم مفاتيح التنبيهات المقروءة لكل
+// مستخدم فتتطابق بين الهاتف والكمبيوتر (شكوى المستخدم: قرأتها على الهاتف فرجعت
+// غير مقروءة على الكمبيوتر).
+function notificationSeenUserKey(role: string, userId: string) {
+  return `${String(role || "").toLowerCase()}:${String(userId || "").toLowerCase()}`;
+}
+app.get("/api/notifications/seen", (req, res) => {
+  const userId = String(req.query.userId || "").trim();
+  const role = String(req.query.role || "").trim();
+  if (!userId || !role)
+    return res.status(400).json({ error: "بيانات صندوق الإشعارات ناقصة." });
+  if (!requireNotificationIdentity(req, res, userId, role)) return;
+  return res.json({
+    success: true,
+    seenKeys: dbInstance.getNotificationSeenKeys(
+      notificationSeenUserKey(role, userId),
+    ),
+  });
+});
+app.post("/api/notifications/mark-seen", (req, res) => {
+  const userId = String(req.body?.userId || "").trim();
+  const role = String(req.body?.role || "").trim();
+  const keys = Array.isArray(req.body?.keys)
+    ? req.body.keys.map((k: any) => String(k || "")).filter(Boolean).slice(0, 400)
+    : [];
+  if (!userId || !role)
+    return res.status(400).json({ error: "بيانات صندوق الإشعارات ناقصة." });
+  if (!requireNotificationIdentity(req, res, userId, role)) return;
+  const uk = notificationSeenUserKey(role, userId);
+  const merged = Array.from(
+    new Set([...dbInstance.getNotificationSeenKeys(uk), ...keys]),
+  );
+  dbInstance.saveNotificationSeenKeys(uk, merged);
+  return res.json({ success: true, seenKeys: dbInstance.getNotificationSeenKeys(uk) });
+});
+// ═══ رادار مِراس 🛰️ — مراقبة الأخطاء المدمجة ═══════════════════════════════
+// يلتقط أخطاء متصفحات الطلبة/المعلم وSEB والخادم فور حدوثها ويجمّعها بتوقيع
+// (نفس الخطأ مهما تكرر = بطاقة واحدة بعدّاد) ليراها السوبر أدمن قبل أن يشتكي أحد.
+const mirasRadarRateBuckets = new Map<string, { count: number; windowStart: number }>();
+function mirasRadarRateOk(ip: string): boolean {
+  const now = Date.now();
+  const bucket = mirasRadarRateBuckets.get(ip) || { count: 0, windowStart: now };
+  if (now - bucket.windowStart > 60 * 60 * 1000) {
+    bucket.count = 0;
+    bucket.windowStart = now;
+  }
+  bucket.count += 1;
+  mirasRadarRateBuckets.set(ip, bucket);
+  if (mirasRadarRateBuckets.size > 3000) mirasRadarRateBuckets.clear();
+  return bucket.count <= 40;
+}
+// توقيع التجميع: الرسالة مُطبَّعة (الأرقام والهاشات تُستبدل) + أول سطر مكدّس،
+// فتتجمع "خطأ في السطر 120" و"خطأ في السطر 573" لنفس العلة في بطاقة واحدة.
+function mirasErrorSignature(source: string, message: string, stack: string): string {
+  const norm = (value: string) =>
+    String(value || "")
+      .replace(/https?:\/\/[^\s)]+/g, "<url>")
+      .replace(/index-[\w-]+\.js/g, "<bundle>")
+      .replace(/\d+/g, "#")
+      .slice(0, 220);
+  const topStack = String(stack || "").split("\n").slice(0, 2).join(" | ");
+  return crypto
+    .createHash("sha1")
+    .update(`${source}|${norm(message)}|${norm(topStack)}`)
+    .digest("hex")
+    .slice(0, 20);
+}
+// (ب) اعتراض console.error: مئات كتل catch تبتلع أخطاء حرجة وتكتفي بسطر
+// console — الآن كل واحدة بطاقة رادار (بحارس تكرار ٥ دقائق وحارس ارتداد صارم).
+const mirasConsoleSeen = new Map<string, number>();
+let mirasConsoleReporting = false;
+const mirasOrigConsoleError = console.error.bind(console);
+console.error = (...args: any[]) => {
+  mirasOrigConsoleError(...args);
+  try {
+    if (mirasConsoleReporting) return;
+    const first = String(args[0] ?? "").slice(0, 160);
+    if (!first || first.includes("monitor/report")) return;
+    const now = Date.now();
+    const prev = mirasConsoleSeen.get(first);
+    if (prev && now - prev < 300_000) return;
+    mirasConsoleSeen.set(first, now);
+    if (mirasConsoleSeen.size > 300) mirasConsoleSeen.clear();
+    mirasConsoleReporting = true;
+    mirasRecordServerError(
+      `console.error: ${first}`,
+      args.slice(1).map((a) => String((a as any)?.message || (a as any)?.stack || a)).join(" | ").slice(0, 1200),
+      "console",
+    );
+  } catch {} finally {
+    mirasConsoleReporting = false;
+  }
+};
+// (ج) إنذار ضغط الذاكرة المبكر (عشنا OOM حقيقياً): فوق ١.٦GiB من سقف 2GiB
+// = بطاقة تحذير قبل أن يقتل Cloud Run الحاوية — مرة واحدة لكل إقلاع.
+let mirasMemoryWarned = false;
+setInterval(() => {
+  try {
+    const rss = process.memoryUsage().rss;
+    if (!mirasMemoryWarned && rss > 1_600_000_000) {
+      mirasMemoryWarned = true;
+      mirasRecordServerError(
+        `ضغط ذاكرة: ${Math.round(rss / 1048576)}MiB من سقف 2048MiB — خطر OOM`,
+        "",
+        "memory",
+      );
+    }
+  } catch {}
+}, 60_000).unref?.();
+
+function mirasRecordServerError(message: string, stack: string, context = "server") {
+  try {
+    dbInstance.recordErrorReport({
+      signature: mirasErrorSignature("server", message, stack),
+      message: String(message || "server error").slice(0, 300),
+      stack: String(stack || "").slice(0, 1500),
+      source: "server",
+      url: context,
+    });
+  } catch {}
+}
+app.post("/api/monitor/report", (req, res) => {
+  const ip = String(req.ip || "0.0.0.0");
+  if (!mirasRadarRateOk(ip)) return res.status(429).json({ ok: false });
+  const message = String(req.body?.message || "").slice(0, 300).trim();
+  if (!message) return res.status(400).json({ ok: false });
+  const stack = String(req.body?.stack || "").slice(0, 1500);
+  const source = ["client", "seb", "seb-app", "server", "sw"].includes(String(req.body?.source))
+    ? String(req.body.source)
+    : "client";
+  dbInstance.recordErrorReport({
+    signature: mirasErrorSignature(source, message, stack),
+    message,
+    stack,
+    source,
+    url: String(req.body?.url || "").slice(0, 200),
+    role: String(req.body?.role || "").slice(0, 20),
+    userId: String(req.body?.userId || "").slice(0, 60),
+    browser: browserFamilyFromUserAgent(req.headers["user-agent"] || ""),
+    displayMode: String(req.headers["x-miras-display-mode"] || req.body?.displayMode || "").slice(0, 12),
+    bundle: String(req.body?.bundle || "").slice(0, 30),
+  });
+  return res.json({ ok: true });
+});
+function mirasRadarAdminGate(req: express.Request, res: express.Response): boolean {
+  const email = teacherEmailFromRequest(req);
+  if (!email || !isAdminEmail(email)) {
+    res.status(403).json({ error: "هذه اللوحة للسوبر أدمن فقط." });
+    return false;
+  }
+  return true;
+}
+app.get("/api/monitor/errors", (req, res) => {
+  if (!mirasRadarAdminGate(req, res)) return;
+  const items = dbInstance
+    .getErrorReports()
+    .slice()
+    .sort(
+      (a: any, b: any) =>
+        new Date(b.lastSeenAt || 0).getTime() - new Date(a.lastSeenAt || 0).getTime(),
+    );
+  const dayAgo = Date.now() - 24 * 60 * 60 * 1000;
+  const active = items.filter((r: any) => !r.resolvedAt);
+  return res.json({
+    success: true,
+    items,
+    stats: {
+      active: active.length,
+      resolved: items.length - active.length,
+      last24h: active.filter((r: any) => new Date(r.lastSeenAt || 0).getTime() > dayAgo).length,
+      server: active.filter((r: any) => r.source === "server").length,
+      client: active.filter((r: any) => r.source === "client").length,
+      seb: active.filter((r: any) => String(r.source).startsWith("seb")).length,
+      totalHits: active.reduce((sum: number, r: any) => sum + Number(r.count || 1), 0),
+    },
+  });
+});
+app.post("/api/monitor/errors/:id/resolve", (req, res) => {
+  if (!mirasRadarAdminGate(req, res)) return;
+  const ok = dbInstance.resolveErrorReport(
+    String(req.params.id),
+    teacherEmailFromRequest(req) || "admin",
+  );
+  return ok ? res.json({ success: true }) : res.status(404).json({ error: "التقرير غير موجود." });
+});
+app.post("/api/monitor/errors/clear-resolved", (req, res) => {
+  if (!mirasRadarAdminGate(req, res)) return;
+  return res.json({ success: true, removed: dbInstance.clearResolvedErrorReports() });
+});
+// التقاط أعطال الخادم نفسها: تسجيل ثم الحفاظ على سلوك إعادة التشغيل الأصلي.
+process.on("unhandledRejection", (reason: any) => {
+  console.error("⚠️ Unhandled rejection:", reason?.message || reason);
+  mirasRecordServerError(
+    `Unhandled rejection: ${reason?.message || String(reason)}`,
+    String(reason?.stack || ""),
+  );
+});
+process.on("uncaughtException", (err: any) => {
+  console.error("💥 Uncaught exception:", err?.message || err);
+  mirasRecordServerError(
+    `Uncaught exception: ${err?.message || String(err)}`,
+    String(err?.stack || ""),
+  );
+  // مهلة قصيرة لتفريغ الحفظ المحلي ثم الخروج (Cloud Run يعيد التشغيل) — نفس
+  // سلوك الانهيار الأصلي لكن مع تسجيل الخطأ في الرادار أولاً.
+  setTimeout(() => process.exit(1), 900);
+});
 
 app.get("/api/notifications/inbox", (req, res) => {
   const userId = String(req.query.userId || "").trim();
@@ -10590,9 +11546,24 @@ function isDatabaseResetActivityLog(log: any): boolean {
   return /تطهير|تصفير|قاعدة البيانات|حذف بيانات الحساب|أكواد الدخول/.test(text);
 }
 
+// تنبيهات "رفض نفق SEB … لا توجد محاولة SEB نشطة مطابقة" القديمة: كانت تُسجَّل
+// خطأً لحالة حميدة (توقّف مصدرها لاحقاً)، لكنها بقيت في السجل وتُغرق لوحة تنبيهات
+// المعلم في كل جلسة. نستبعدها من كل عرض، ويطهّرها الإقلاع من القاعدة نهائياً.
+function isObsoleteSebNoiseLog(log: any): boolean {
+  const details = String(log?.details || "");
+  return (
+    details.includes("لا توجد محاولة SEB نشطة مطابقة") ||
+    (String(log?.action || "").includes("رفض نفق SEB") &&
+      details.includes("رفض توليد الاختبار"))
+  );
+}
 function filterLogsForTeacher(email?: string) {
   const normalized = String(email || "").toLowerCase();
-  const logs = dbInstance.getActivityLogs().filter((log: any) => !isDatabaseResetActivityLog(log));
+  const logs = dbInstance
+    .getActivityLogs()
+    .filter(
+      (log: any) => !isDatabaseResetActivityLog(log) && !isObsoleteSebNoiseLog(log),
+    );
   if (!normalized || isAdminEmail(normalized)) return logs;
   const students = dbInstance.getStudents();
   return logs.filter((log: any) => {
@@ -10942,6 +11913,7 @@ function isExplicitStudentDeviceTransferClaimRequest(req: express.Request): bool
 function validateSessionFingerprint(
   req: express.Request,
   student: Student,
+  opts?: { strictLoginSurface?: boolean },
 ): { isValid: boolean; error?: string; statusCode?: number } {
   const browser = req.headers["user-agent"] || "Unknown Browser";
   const ip = req.ip || "127.0.0.1";
@@ -11164,25 +12136,47 @@ function validateSessionFingerprint(
           "هذا الحساب مسجل في جهاز آخر. للتبديل لهذا الجهاز اطلب من الأستاذ (تبديل الجهاز) ثم سجل دخولك هنا.",
       };
     }
+    // قفل صارم لمتصفح/وضع الدخول — يُطبَّق فقط عند نقطة تسجيل الدخول (strictLoginSurface)
+    // لا على طلبات الاختبار اللاحقة، حتى لا نخاطر بقفل جلسة قائمة. عند الدخول: إن
+    // اختلف متصفح أو وضع العرض (Safari مقابل PWA، سفاري مقابل كروم) عمّا فُعِّل عليه
+    // الحساب، نرفض الدخول كما طلب المالك. العميل يرسل وضع العرض بثبات عبر ترويسة
+    // x-miras-display-mode (standalone⇒pwa وإلا browser)، فالمستخدم الشرعي الباقي
+    // على نفس السطح لا يُقفل؛ ويُرفض فقط من يفتح الحساب من متصفح/وضع مختلف.
+    const loginSurfaceMismatch =
+      !!opts?.strictLoginSurface &&
+      (() => {
+        const ls = deviceFingerprintBrowserSegment(
+          String(lockedFingerprint || ""),
+        );
+        const cs = strictRequestSurfaceSegment(req);
+        return (
+          !!ls &&
+          !!cs &&
+          ls !== "legacy" &&
+          cs !== "legacy" &&
+          ls !== cs
+        );
+      })();
     if (
       activationRecord?.status === "used" &&
       lockedDeviceToken &&
       currentDeviceToken &&
       lockedDeviceToken === currentDeviceToken &&
       lockedFingerprint &&
-      !deviceFingerprintsMatch(lockedFingerprint, currentFingerprint)
+      (!deviceFingerprintsMatch(lockedFingerprint, currentFingerprint) ||
+        loginSurfaceMismatch)
     ) {
       recordActivationAttempt(req, {
         code: activationCode,
         student,
-        reason: "محاولة دخول بنفس توكن الجهاز من متصفح مختلف",
+        reason: "محاولة دخول بنفس توكن الجهاز من متصفح/وضع عرض مختلف",
         foundCode: activationRecord,
       });
       return {
         isValid: false,
         statusCode: 409,
         error:
-          "هذا الحساب مقفل على المتصفح الأصلي. لا يمكن فتحه من متصفح آخر حتى على نفس الجهاز إلا بعد موافقة الأستاذ على تبديل الجهاز.",
+          "أنت مسجّل على متصفح آخر في هذا الجهاز. لا يمكن فتح الحساب من متصفح أو وضع مختلف (سفاري/PWA) — تواصل مع الأستاذ لتبديل الجهاز.",
       };
     }
     if (
@@ -11230,6 +12224,37 @@ function validateSessionFingerprint(
       dbInstance.updateJoinCode(activationRecord.code, {
         activationDeviceFingerprint: currentFingerprint,
       } as any);
+    }
+  }
+
+  // قفل صارم للسطح عند الدخول (Safari↔PWA↔كروم على نفس الجهاز = جلستان متزامنتان
+  // ممنوعتان). المطابقة العامة deviceFingerprintsMatch متساهلة: تعتبر safari-browser
+  // وsafari-pwa نفس الجهاز (يشتركان بالتوكن على iOS) فتسمح بفتح الحساب في متصفحين
+  // في آن واحد — وهذا جوهر الخطأ الجسيم. هنا (عند الدخول فقط، بموافقة المالك على
+  // الصرامة) نرفض إن كان هناك جهاز مربوط بنفس التوكن لكن بسطح/متصفح مختلف. العميل
+  // يرسل وضع العرض بثبات (x-miras-display-mode)، فالبقاء على نفس السطح لا يُرفض.
+  if (opts?.strictLoginSurface) {
+    const cs = strictRequestSurfaceSegment(req);
+    if (cs && cs !== "legacy") {
+      const conflictingBoundDevice = (student.devices || []).some((d: any) => {
+        if (!deviceFingerprintsMatch(d, currentFingerprint)) return false; // نفس الجهاز/التوكن
+        const ds = deviceFingerprintBrowserSegment(String(d || ""));
+        return !!ds && ds !== "legacy" && ds !== cs; // لكن سطح/متصفح مختلف
+      });
+      if (conflictingBoundDevice) {
+        recordActivationAttempt(req, {
+          code: (student as any).activationCode || "LOGIN",
+          student,
+          reason:
+            "محاولة دخول من متصفح/وضع عرض مختلف على نفس الجهاز (جلسة متزامنة)",
+        });
+        return {
+          isValid: false,
+          statusCode: 409,
+          error:
+            "أنت مسجّل على متصفح آخر في هذا الجهاز. لا يمكن فتح الحساب من متصفح أو وضع مختلف في نفس الوقت — تواصل مع الأستاذ لتبديل الجهاز.",
+        };
+      }
     }
   }
 
@@ -12469,7 +13494,11 @@ app.post("/api/auth/login", (req, res) => {
 
   // Device Lock verification. SEB has its own temporary, course-scoped exam pass, so it must not break the student's original device lock.
   const sebLoginPass = isSebRequest(req) ? getValidSebPass(req, student) : null;
-  const sessionValidation = validateSessionFingerprint(req, student);
+  // القفل الصارم للسطح (Safari↔PWA) يُطبَّق عند تسجيل الدخول فقط — بموافقة المالك،
+  // مع علمه بأنه قد يقفل من يبدّل المتصفح/الوضع على نفس الجهاز.
+  const sessionValidation = validateSessionFingerprint(req, student, {
+    strictLoginSurface: true,
+  });
   if (!sessionValidation.isValid && !sebLoginPass) {
     // Record login violation in audit logs
     dbInstance.addActivityLog({
@@ -13071,11 +14100,12 @@ app.get("/api/quizzes/generate", (req, res) => {
         .json({ error: "هذا الاختبار غير مخصص لأحد مقرراتك المفعلة." });
     }
     if (examRequiresSeb(officialExam) && !activeSebAttempt) {
-      rejectSebPass(
-        req,
-        getValidSebPass(req, student, officialExam.id),
-        `رفض توليد الاختبار ${officialExam.id}: لا توجد محاولة SEB نشطة مطابقة.`,
-      );
+      // لا نسجّل تنبيهاً أمنياً هنا: محاولة توليد اختبار SEB بلا جلسة SEB نشطة
+      // حالة متوقّعة وحميدة تماماً (فتح البطاقة من متصفح عادي، أو إعادة محاولة
+      // تلقائية من التطبيق قبل تشغيل SEB) — لا اختراق. الرفض ٤٠٣ وحده هو الحماية
+      // الفعلية (لا يُولَّد الاختبار)، أما تسجيلها كتحذير "رفض نفق SEB" لكل نداء
+      // فكان يُغرق المعلم بتنبيهات "مستخدم" مكرّرة بلا اسم ومربكة وغير صحيحة.
+      // (تنبيهات SEB الحقيقية تبقى: عدم تطابق الاختبار/المقرر، فشل التحقق، إلخ.)
       return res
         .status(403)
         .json({
@@ -13440,6 +14470,11 @@ app.post("/api/quizzes/save-draft", (req, res) => {
 // وجود الدالة لا يعني أن المتصفح قبل الطلب في طابوره. لذلك يثبّت هذا المسار
 // حالة المحاولة وصف الأستاذ والجلسة معاً، بصورة idempotent، حتى لا تبقى
 // المحاولة started ولا تستطيع أي heartbeat قديمة إعادتها إلى "قيد الحل".
+// إزالة تكرار متزامن لأحداث الخروج: المتصفح يطلق blur + pagehide + visibilitychange
+// معاً عند مغادرة الطالب، فتصل عدة طلبات integrity-exit في نفس اللحظة قبل أن يُكتب
+// أول تسجيل غش (وقد يكون الكتابة إلى Firestore غير متزامنة)، فتتجاوز كلها فحص
+// alreadyConfirmed وتُرسل ٣ إشعارات مكرّرة. علامة زمنية في الذاكرة (متزامنة) تمنع ذلك.
+const recentIntegrityExitAt = new Map<string, number>();
 app.post("/api/quizzes/integrity-exit", (req, res) => {
   const {
     studentId,
@@ -13500,6 +14535,35 @@ app.post("/api/quizzes/integrity-exit", (req, res) => {
     ) ||
     previousTerminalText.includes("landscape_orientation") ||
     previousTerminalText.includes("orientation_violation");
+
+  // حارس "لم يبدأ الاختبار": إن لم توجد محاولة فعلية بحالة "started" فالطالب لم
+  // يدخل الأسئلة أصلاً (خرج من شاشة تفعيل الكاميرا/التحضير قبل توليد الأسئلة). لا
+  // نُسجّل غشاً ولا نرصد صفراً ولا نُشعِر — لا اختبار بدأ. هذا جوهر خطأ "رسالة غش
+  // لطالب لم يبدأ".
+  const hasStartedAttempt =
+    !!previousQuizSubmission &&
+    String(previousQuizSubmission.status || "") === "started";
+  if (!previousQuizSubmission) {
+    return res.json({
+      success: true,
+      notStarted: true,
+      message: "لم تبدأ محاولة الاختبار فعلياً، لم يُسجَّل شيء.",
+    });
+  }
+
+  // إزالة تكرار متزامن (blur/pagehide/visibilitychange دفعة واحدة): إن عولج خروج
+  // لنفس الطالب/الاختبار خلال ١٥ث نكتفي بتأكيده دون إعادة تسجيل أو إشعار.
+  const integrityDedupeKey = `${student.id}::${exam.id}`;
+  const lastExitAt = recentIntegrityExitAt.get(integrityDedupeKey) || 0;
+  if (hasStartedAttempt && Date.now() - lastExitAt < 15000) {
+    return res.json({
+      success: true,
+      alreadyConfirmed: true,
+      submission: previousQuizSubmission,
+      teacherSubmission: previousTeacherRow,
+    });
+  }
+  if (hasStartedAttempt) recentIntegrityExitAt.set(integrityDedupeKey, Date.now());
 
   // إعادة الطلب بعد انقطاع قصير لا تكرر الرسائل ولا السجلات؛ نكتفي بتأكيد
   // أن جلسة الاختبار نفسها نهائية أيضاً.
@@ -14562,7 +15626,34 @@ function isMirasSubmissionFileTypeAllowed(fileName: any): boolean {
 }
 
 // SUBMISSION ATTACHMENTS API
+// 🚀 رفع مباشر يتجاوز وسيط Firebase Hosting: القياس من كروم المالك أثبت أن
+// تمرير جسم ٢٠م.ب عبر إعادة كتابة الاستضافة يستغرق ٦٠-٩٠ث (الوسيط يجترّ الجسم
+// ببطء ثم يسلّمه للخادم في ~١ث فتُظهر السجلات "سريع" بينما الطالب يعيش الزحف).
+// الحل: العميل يرفع مباشرة إلى نطاق Cloud Run — يحتاج CORS لهذا المسار فقط.
+const MIRAS_UPLOAD_CORS_ORIGINS = new Set([
+  "https://mirasedu.web.app",
+  "https://mirasedu.firebaseapp.com",
+  "https://meras-320eb.web.app",
+  "https://meras-320eb.firebaseapp.com",
+]);
+function applyMirasUploadCors(req: express.Request, res: express.Response) {
+  const origin = String(req.headers.origin || "");
+  if (!MIRAS_UPLOAD_CORS_ORIGINS.has(origin)) return;
+  res.setHeader("Access-Control-Allow-Origin", origin);
+  res.setHeader("Vary", "Origin");
+  res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
+  res.setHeader(
+    "Access-Control-Allow-Headers",
+    "content-type, authorization, x-miras-device-id, x-miras-display-mode, x-teacher-email",
+  );
+  res.setHeader("Access-Control-Max-Age", "86400");
+}
+app.options("/api/submissions/upload", (req, res) => {
+  applyMirasUploadCors(req, res);
+  return res.status(204).end();
+});
 app.post("/api/submissions/upload", (req: any, res: any) => {
+  applyMirasUploadCors(req, res);
   if (!req.files || Object.keys(req.files).length === 0) {
     return res.status(400).json({ error: "لم يتم اختيار أي ملف للرفع" });
   }
@@ -14575,12 +15666,15 @@ app.post("/api/submissions/upload", (req: any, res: any) => {
   const fileArray = Array.isArray(uploadedFile) ? uploadedFile : [uploadedFile];
   const targetFile = fileArray[0];
 
-  // Limit content size: 25MB
-  const maxSizeBytes = 25 * 1024 * 1024;
-  if (targetFile.size > maxSizeBytes) {
-    return res
-      .status(400)
-      .json({ error: "حجم الملف يتجاوز الحد الأقصى المسموح به (25 ميجابايت)" });
+  // حدّ حجم الملف ٥٠ ميجابايت. مهم: express-fileupload يبتر الملف عند تجاوز حدّ
+  // الوسيط (truncated=true) دون خطأ، فيبقى حجمه عند الحدّ تماماً ويمرّ فحص "> الحد"
+  // فيُحفَظ ملف ناقص/تالف يفشل لاحقاً في المعاينة — وهذا سبب "يطول ثم رسالة خطأ"
+  // لملف ٢٥ ميجابايت. نرفض الملف المبتور صراحةً برسالة واضحة بدل حفظه تالفاً.
+  const maxSizeBytes = 50 * 1024 * 1024;
+  if (targetFile.truncated || targetFile.size > maxSizeBytes) {
+    return res.status(400).json({
+      error: "حجم الملف كبير جدًا (الحد الأقصى ٥٠ ميجابايت). اضغط الملف أو قسّمه ثم أعد الرفع.",
+    });
   }
 
   const originalName = sanitizeAttachmentOriginalName(targetFile.name || "unnamed");
@@ -14652,25 +15746,16 @@ app.post("/api/submissions/upload", (req: any, res: any) => {
     }
 
     const attachmentUrl = `/api/submission-attachments/${fileId}`;
-    let fileBuffer: Buffer;
-    try {
-      fileBuffer = Buffer.isBuffer(targetFile.data) && targetFile.data.length
-        ? targetFile.data
-        : fs.readFileSync(filePath);
-    } catch {
-      return res.status(500).json({
-        error: "تعذر قراءة الملف بعد رفعه. أعد المحاولة.",
-        code: "ATTACHMENT_READ_FAILED",
-      });
-    }
-
+    // مسار قرص→سحابة مباشر: نمرّر مسار الملف بدل بناء base64 (٢٧م.ب+ نص في
+    // الذاكرة لملف ٢١م.ب) — كان هذا التنسّخ يقتل الحاوية OOM ويُظهر "تعذر"
+    // للطالب رغم نجاح الحفظ. الآن الأرشفة تبثّ من القرص بذاكرة شبه صفرية.
     const archived = await dbInstance.saveSubmissionAttachmentArchive({
       fileId,
       originalName,
       mimeType: mimeType || "application/octet-stream",
       size: targetFile.size,
       storedName,
-      base64: fileBuffer.toString("base64"),
+      filePath,
     });
     if (!archived) {
       return res.status(503).json({
@@ -14680,12 +15765,32 @@ app.post("/api/submissions/upload", (req: any, res: any) => {
       });
     }
 
-    // تجهيز معاينة Office أثناء طلب الرفع نفسه، لا بعد الرد. في بيئات Cloud Run
-    // قد تتوقف المهام الخلفية فور انتهاء الطلب، فيبقى أول فتح للمعلم ينتظر
-    // تحويل PowerPoint كاملاً. هنا ننهي التحويل ونخزن PDF قبل إرجاع نجاح الرفع،
-    // فتفتح المعاينة لاحقاً من الكاش خلال لحظات، مع بقاء الأزرار والتصميم كما هي.
-    if (MIRAS_OFFICE_CONVERTIBLE_EXTS.has(ext)) {
-      await preconvertOfficeAttachmentToPdf(fileId, filePath, originalName);
+    // تجهيز معاينة Office أثناء الرفع لتكون أول مشاهدة للمعلم فورية (#٣)، لكن
+    // ضمن ميزانية زمنية قصيرة فقط. سابقاً كنّا ننتظر التحويل بالكامل قبل الرد،
+    // فالملفات الكبيرة (بوربوينت ٢٠م.ب+) تُبقي طلب الرفع معلّقاً دقائق حتى يفشل
+    // (#٤). الآن: إن اكتمل التحويل ضمن الميزانية خُزِّن PDF فوراً (معاينة لحظية)؛
+    // وإن تجاوزها نردّ نجاح الرفع فوراً ونترك التحويل يكتمل عند أول فتح للمعاينة
+    // — إذ تقوم نقاط نهاية المعاينة أصلاً بالتحويل والتخزين عند الطلب — فلا
+    // يتعطّل الرفع أبداً، وتبقى المعاينة تعمل في الحالتين.
+    // ملفات Office الكبيرة (>٨م.ب): لا ننتظر التحويل إطلاقاً داخل طلب الرفع —
+    // نرد فوراً (سرعة الرفع أولوية المالك) ويكمل التحويل في الخلفية/عند أول
+    // معاينة (نقاط المعاينة تتولى التحويل والتخزين أصلاً). الصغيرة تبقى ضمن
+    // الميزانية القصيرة لتكون أول معاينة للمعلم لحظية.
+    if (MIRAS_OFFICE_CONVERTIBLE_EXTS.has(ext) && targetFile.size <= 8 * 1024 * 1024) {
+      const preconvertPromise = preconvertOfficeAttachmentToPdf(
+        fileId,
+        filePath,
+        originalName,
+      );
+      preconvertPromise.catch(() => {});
+      try {
+        await Promise.race([
+          preconvertPromise,
+          new Promise<void>((resolve) =>
+            setTimeout(resolve, MIRAS_UPLOAD_PRECONVERT_BUDGET_MS),
+          ),
+        ]);
+      } catch {}
     } else {
       queueOfficeAttachmentPreconversion(fileId, filePath, originalName);
     }
@@ -14718,6 +15823,12 @@ app.post("/api/submissions/upload", (req: any, res: any) => {
 const MIRAS_OFFICE_CONVERTIBLE_EXTS = new Set([".ppt", ".pptx", ".doc", ".docx", ".xls", ".xlsx", ".rtf"]);
 const MIRAS_OFFICE_CONVERSION_TIMEOUT_MS = 25_000;
 const MIRAS_UNOCONVERT_TIMEOUT_MS = 30_000;
+// أقصى زمن ننتظره لتحويل Office إلى PDF أثناء طلب الرفع نفسه قبل أن نردّ نجاح
+// الرفع على أي حال. رفعناه إلى ١٥ث ليُحوَّل معظم الملفات (بما فيها الكبيرة نسبياً)
+// عند الرفع فتصبح معاينة المعلم فوريّة (#١١)؛ والرفع لم يعد يبدو معلّقاً لأن شريط
+// التقدّم يُظهر النسبة الحقيقية (#١٠). الملفات الأضخم لا تُعطّل الرفع (تُحوَّل عند
+// أول فتح وتُخزَّن). يوازن بين #٣ و #٤ و #١٠ و #١١.
+const MIRAS_UPLOAD_PRECONVERT_BUDGET_MS = 15_000;
 const officeConversionCacheDir = path.join(os.tmpdir(), "miras-office-pdf-cache");
 
 function officeConversionCachePath(filePath: string, mtimeMs: number): string {
@@ -16901,8 +18012,12 @@ app.post("/api/teacher/join-codes/create", (req, res) => {
     targetSection = target.code;
     ownerEmail = String(target.ownerEmail || teacherEmail).toLowerCase();
   }
-  const existingCodes = () => issuedJoinCodeCompacts();
-  const makeUniqueCode = () => makeJoinCode("LAB", "", existingCodes());
+  // نبني مجموعة الأكواد الموجودة مرة واحدة فقط. كانت تُعاد بناؤها من قاعدة
+  // البيانات لكل كود داخل حلقة التوليد → O(ن²) وبطء شديد عند توليد عدد كبير
+  // (مثلاً ١٠٠٠ كود). نُضيف كل كود جديد إليها فور توليده أدناه، فيبقى فحص
+  // التفرّد صحيحًا تمامًا دون إعادة مسح كل الأكواد في كل تكرار.
+  const knownCodeCompacts = issuedJoinCodeCompacts();
+  const makeUniqueCode = () => makeJoinCode("LAB", "", knownCodeCompacts);
   const assignToRoster =
     !generalSale &&
     (req.body?.assignToRoster === true ||
@@ -17033,6 +18148,9 @@ app.post("/api/teacher/join-codes/create", (req, res) => {
         error: "تعذر توليد كود مكتمل وآمن. أعد المحاولة.",
       });
     }
+    // نُسجّل الكود الجديد في المجموعة فورًا حتى لا يُنتِج التكرار التالي كودًا
+    // مطابقًا (بدل إعادة قراءة كل الأكواد من القاعدة في كل تكرار).
+    knownCodeCompacts.add(compactJoinCode(newCode));
     const batchId = `Batch-${new Date().toISOString().slice(0, 10)}-${targetSection}-${ownerEmail}`;
     const createdAt = new Date().toISOString();
     const rosterAssignment = !assignedId ? rosterAssignments[i] : null;
@@ -19377,18 +20495,24 @@ app.delete("/api/teacher/projects/:id", async (req, res) => {
 function syncInProgressExamSubmissions() {
   try {
     const exams = activeTeacherExams();
+    // فهارس O(1) بدل البحث الخطي داخل الحلقة. هذه الدالة تُستدعى مع كل قراءة
+    // لحالة الطالب الحية (أكثر نقطة استدعاءً في الموقع)، وكانت تبحث خطياً في
+    // كل الطلاب وكل الاختبارات لكل تسليم اختبار — O(تسليمات × طلاب). مع ١٠٠٠
+    // طالب صار هذا حِملاً على المسار الأسخن؛ الفهرسة تُبقي التكلفة O(تسليمات).
+    const examById = new Map<string, any>(
+      exams.map((e: any) => [String(e.id), e]),
+    );
+    const studentById = new Map<string, any>(
+      dbInstance.getStudents().map((s: any) => [String(s.id), s]),
+    );
     dbInstance.getQuizSubmissions().forEach((sub: any) => {
-      const exam = exams.find(
-        (e: any) => String(e.id) === String(sub.chapterId),
-      );
+      const exam = examById.get(String(sub.chapterId));
       if (!exam) return;
       const id = `exam-${exam.id}-${sub.studentId}`;
       const existing = dbInstance
         .getTeacherSubmissions()
         .find((item: any) => String(item.id) === id);
-      const student = dbInstance
-        .getStudents()
-        .find((s: any) => String(s.id) === String(sub.studentId));
+      const student = studentById.get(String(sub.studentId));
       const status = String(sub.status || "");
 
       if (status === "submitted") {
@@ -19516,10 +20640,7 @@ function syncInProgressExamSubmissions() {
         !hasActiveSebPass
       ) {
         const studentForZero =
-          student ||
-          dbInstance
-            .getStudents()
-            .find((s: any) => String(s.id) === String(sub.studentId));
+          student || studentById.get(String(sub.studentId));
         if (studentForZero) {
           finalizeExamAttemptAsZero({} as express.Request, {
             student: studentForZero,
@@ -19928,6 +21049,16 @@ app.post("/api/teacher/submissions/return", (req, res) => {
     );
     if (matchIdx !== -1) {
       const currentSub = subs[matchIdx];
+      // عديم التكرار (كابتشر المالك + القاعدة: سجلا "إعادة اختبار" بفارق ٤٩ث =
+      // ضغطة إرجاع ثانية): التسليم مُعاد للطالب أصلاً؟ نجاح صامت — لا إشعار
+      // جديد ولا دفعة جوال ولا سجل، فلا يصل الطالب أي شيء مرتين مهما تكرر الضغط.
+      if (String(currentSub.status || "") === EXAM_RETURNED_STATUS) {
+        return res.json({
+          success: true,
+          alreadyReturned: true,
+          revision: liveContentRevision,
+        });
+      }
       const shouldPreserveReturnedExamAnswers = false;
       const returnedPreservedAnswers =
         currentSub.answers && Object.keys(currentSub.answers || {}).length
@@ -20461,6 +21592,21 @@ async function bootstrap() {
     await dbInstance.initialSyncPromise;
     console.log("✅ Database initial sync completed successfully.");
     await migrateEmbeddedSubmissionAttachments();
+    // تطهير لمرة واحدة: حذف تنبيهات "رفض نفق SEB" الخاطئة القديمة من السجل نهائياً
+    // (مصدرها أُوقف؛ هذه بقايا تُغرق لوحة تنبيهات المعلم في كل جلسة).
+    try {
+      const logs = dbInstance.getActivityLogs();
+      const before = logs.length;
+      for (let i = logs.length - 1; i >= 0; i -= 1) {
+        if (isObsoleteSebNoiseLog(logs[i])) logs.splice(i, 1);
+      }
+      if (logs.length !== before) {
+        console.log(
+          `🧹 Purged ${before - logs.length} obsolete SEB noise log entries.`,
+        );
+        void dbInstance.persist(false);
+      }
+    } catch {}
   } catch (err) {
     console.error(
       "⚠️ Database initial sync encountered an error, booting server anyway:",
@@ -20512,6 +21658,18 @@ async function bootstrap() {
       }
     });
   }
+
+  // رادار مِراس: وسيط أخطاء Express — أي استثناء يفلت من مسار route يُسجَّل
+  // في الرادار ويُرَدّ عليه بخطأ عام بدل إسقاط الطلب صامتاً.
+  app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
+    mirasRecordServerError(
+      `${req.method} ${req.path}: ${err?.message || String(err)}`,
+      String(err?.stack || ""),
+      `${req.method} ${req.path}`,
+    );
+    if (res.headersSent) return next(err);
+    return res.status(500).json({ error: "حدث خطأ غير متوقع. جرّب مرة أخرى." });
+  });
 
   app.listen(PORT, "0.0.0.0", () => {
     console.log(`🚀 Living Book Lab Server active at http://localhost:${PORT}`);
