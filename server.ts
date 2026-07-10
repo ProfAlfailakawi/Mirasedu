@@ -6210,6 +6210,49 @@ function notificationEventId(
 // نستخدم claim سريعاً داخل العملية، ثم نسجل النجاح في Firestore عبر dbInstance
 // حتى يبقى event + target مرّة واحدة بعد إعادة التشغيل أيضاً.
 const mirasNotificationDispatchClaims = new Set<string>();
+const mirasNotificationAuditPending = new Map<
+  string,
+  { patch: Record<string, any>; increments: Record<string, number> }
+>();
+let mirasNotificationAuditFlushTimer: ReturnType<typeof setTimeout> | null = null;
+
+function flushNotificationAuditPending() {
+  if (mirasNotificationAuditFlushTimer) {
+    clearTimeout(mirasNotificationAuditFlushTimer);
+    mirasNotificationAuditFlushTimer = null;
+  }
+  const pending = Array.from(mirasNotificationAuditPending.entries());
+  mirasNotificationAuditPending.clear();
+  pending.forEach(([eventId, entry]) => {
+    dbInstance.updateNotificationAudit(eventId, entry.patch, entry.increments);
+  });
+}
+
+function queueNotificationAudit(
+  eventIdValue: string,
+  patch: Record<string, any> = {},
+  increments: Record<string, number> = {},
+) {
+  const eventId = String(eventIdValue || "").trim();
+  if (!eventId) return;
+  const current = mirasNotificationAuditPending.get(eventId) || {
+    patch: {},
+    increments: {},
+  };
+  current.patch = { ...current.patch, ...patch };
+  Object.entries(increments).forEach(([key, value]) => {
+    current.increments[key] =
+      Number(current.increments[key] || 0) + Number(value || 0);
+  });
+  mirasNotificationAuditPending.set(eventId, current);
+  if (!mirasNotificationAuditFlushTimer) {
+    mirasNotificationAuditFlushTimer = setTimeout(
+      flushNotificationAuditPending,
+      600,
+    );
+  }
+}
+
 function notificationDispatchKey(target: any, eventData: Record<string, string>) {
   const targetIdentity = String(
     target?.role === "student"
@@ -6302,21 +6345,57 @@ function notifyUsers(
     return [...finalTargets, ...byStudent.values()];
   })();
   const seen = new Set<string>();
+  queueNotificationAudit(
+    eventData.notificationId,
+    {
+      title: safeTitle,
+      body: safeBody,
+      type: String(eventData.type || "push"),
+      activityId: String(
+        eventData.activityId ||
+          eventData.examId ||
+          eventData.projectId ||
+          eventData.submissionId ||
+          "",
+      ),
+      courseCode: String(eventData.courseCode || eventData.sectionCode || ""),
+      firstSeenAt: eventData.sentAt,
+      lastSeenAt: eventData.sentAt,
+    },
+    { calls: 1, targets: targets.length },
+  );
   targets.forEach((target) => {
     if (
       target.role === "student" &&
       shouldSuppressRoutineStudentNotification(safeTitle, safeBody, eventData)
     ) {
+      queueNotificationAudit(eventData.notificationId, {}, { suppressed: 1 });
       return;
     }
     const dispatchKey = notificationDispatchKey(target, eventData);
-    if (!claimNotificationDispatch(dispatchKey)) return;
+    if (!claimNotificationDispatch(dispatchKey)) {
+      queueNotificationAudit(
+        eventData.notificationId,
+        {},
+        { duplicatesBlocked: 1 },
+      );
+      return;
+    }
+    queueNotificationAudit(eventData.notificationId, {}, { queued: 1 });
     try {
       sendFcmToToken(target.token, safeTitle, safeBody, eventData)
       .then((result) => {
-        if (result.sent) completeNotificationDispatch(dispatchKey);
+        if (result.sent) {
+          completeNotificationDispatch(dispatchKey);
+          queueNotificationAudit(eventData.notificationId, {}, { sent: 1 });
+        }
         else {
           releaseNotificationDispatch(dispatchKey);
+          queueNotificationAudit(
+            eventData.notificationId,
+            { lastError: String(result.reason || "تعذر الإرسال").slice(0, 180) },
+            { failed: 1 },
+          );
           console.warn("FCM send skipped/failed:", result.reason);
           if (shouldDisableFcmToken(String(result.reason || ""))) {
             dbInstance.disableNotificationToken(target.token, target.userId);
@@ -6325,10 +6404,20 @@ function notifyUsers(
       })
       .catch((err) => {
         releaseNotificationDispatch(dispatchKey);
+        queueNotificationAudit(
+          eventData.notificationId,
+          { lastError: String(err?.message || err || "تعذر الإرسال").slice(0, 180) },
+          { failed: 1 },
+        );
         console.warn("FCM send failed:", err?.message || err);
       });
     } catch (err: any) {
       releaseNotificationDispatch(dispatchKey);
+      queueNotificationAudit(
+        eventData.notificationId,
+        { lastError: String(err?.message || err || "تعذر الإرسال").slice(0, 180) },
+        { failed: 1 },
+      );
       console.warn("FCM dispatch failed:", err?.message || err);
     }
     const key = `${target.role}:${target.userId || ""}:${target.sectionCode || ""}:${eventData.courseCode || ""}`;
@@ -6339,7 +6428,7 @@ function notifyUsers(
       !eventData.studentId;
     if (!courseNotificationAlreadyCoversStudent && !seen.has(key)) {
       seen.add(key);
-      rememberInAppNotification({
+      const stored = rememberInAppNotification({
         userId: target.userId,
         role: target.role,
         sectionCode: target.sectionCode,
@@ -6348,6 +6437,8 @@ function notifyUsers(
         type: eventData.type || "push",
         data: eventData,
       });
+      if (stored)
+        queueNotificationAudit(eventData.notificationId, {}, { bellStored: 1 });
     }
   });
   return targets.length;
@@ -6500,7 +6591,7 @@ function notifyStudent(
   const notifyUsersSkippedInApp =
     Boolean(eventData.courseCode) && !eventData.userId && !eventData.studentId;
   if (count === 0 || notifyUsersSkippedInApp) {
-    rememberInAppNotification({
+    const stored = rememberInAppNotification({
       userId: String(studentId),
       role: "student",
       title: safeTitle,
@@ -6508,6 +6599,8 @@ function notifyStudent(
       type: eventData.type || "student",
       data: eventData,
     });
+    if (stored)
+      queueNotificationAudit(eventData.notificationId, {}, { bellStored: 1 });
   }
   return count;
 }
@@ -9798,6 +9891,60 @@ app.get("/api/monitor/errors", (req, res) => {
       client: active.filter((r: any) => r.source === "client").length,
       seb: active.filter((r: any) => String(r.source).startsWith("seb")).length,
       totalHits: active.reduce((sum: number, r: any) => sum + Number(r.count || 1), 0),
+    },
+  });
+});
+app.get("/api/monitor/notification-audit", (req, res) => {
+  if (!mirasRadarAdminGate(req, res)) return;
+  flushNotificationAuditPending();
+  const items = dbInstance
+    .getNotificationAudit()
+    .slice()
+    .sort(
+      (a: any, b: any) =>
+        new Date(b.updatedAt || b.lastSeenAt || 0).getTime() -
+        new Date(a.updatedAt || a.lastSeenAt || 0).getTime(),
+    )
+    .slice(0, 200);
+  const activeTokens = dbInstance
+    .getNotificationTokens()
+    .filter(
+      (token: any) =>
+        !token?.disabledAt && String(token?.permission || "") === "granted",
+    );
+  const sent = items.reduce(
+    (sum: number, item: any) => sum + Number(item?.sent || 0),
+    0,
+  );
+  const failed = items.reduce(
+    (sum: number, item: any) => sum + Number(item?.failed || 0),
+    0,
+  );
+  return res.json({
+    success: true,
+    items,
+    stats: {
+      events: items.length,
+      sent,
+      failed,
+      duplicatesBlocked: items.reduce(
+        (sum: number, item: any) =>
+          sum + Number(item?.duplicatesBlocked || 0),
+        0,
+      ),
+      bellStored: items.reduce(
+        (sum: number, item: any) => sum + Number(item?.bellStored || 0),
+        0,
+      ),
+      activeTokens: activeTokens.length,
+      activeStudents: new Set(
+        activeTokens
+          .filter((token: any) => String(token?.role || "") === "student")
+          .map((token: any) => String(token?.userId || ""))
+          .filter(Boolean),
+      ).size,
+      successRate:
+        sent + failed > 0 ? Math.round((sent / (sent + failed)) * 100) : 100,
     },
   });
 });
@@ -15895,10 +16042,170 @@ function applyMirasUploadCors(req: express.Request, res: express.Response) {
   );
   res.setHeader("Access-Control-Max-Age", "86400");
 }
+
+type MirasResumableUploadToken = {
+  fileId: string;
+  originalName: string;
+  mimeType: string;
+  size: number;
+  studentId: string;
+  expiresAt: number;
+};
+
+function createMirasResumableUploadToken(payload: MirasResumableUploadToken) {
+  const encoded = base64urlEncode(JSON.stringify(payload));
+  return `${encoded}.${signMirasPayload(`resumable-upload:${encoded}`)}`;
+}
+
+function verifyMirasResumableUploadToken(
+  value: any,
+): MirasResumableUploadToken | null {
+  try {
+    const [encoded, signature] = String(value || "").split(".");
+    if (!encoded || !signature) return null;
+    const expected = signMirasPayload(`resumable-upload:${encoded}`);
+    const actualBuffer = Buffer.from(signature);
+    const expectedBuffer = Buffer.from(expected);
+    if (
+      actualBuffer.length !== expectedBuffer.length ||
+      !crypto.timingSafeEqual(actualBuffer, expectedBuffer)
+    )
+      return null;
+    const parsed = JSON.parse(base64urlDecode(encoded));
+    if (!parsed?.fileId || Number(parsed?.expiresAt || 0) < Date.now()) return null;
+    return parsed as MirasResumableUploadToken;
+  } catch {
+    return null;
+  }
+}
+
+function mirasResumableUploadOrigin(req: express.Request) {
+  const origin = String(req.headers.origin || "").trim();
+  if (MIRAS_UPLOAD_CORS_ORIGINS.has(origin)) return origin;
+  if (
+    process.env.NODE_ENV !== "production" &&
+    /^https?:\/\/(?:localhost|127\.0\.0\.1)(?::\d+)?$/i.test(origin)
+  )
+    return origin;
+  return "";
+}
+
 app.options("/api/submissions/upload", (req, res) => {
   applyMirasUploadCors(req, res);
   return res.status(204).end();
 });
+
+app.post("/api/submissions/upload-session", async (req: any, res: any) => {
+  applyMirasUploadCors(req, res);
+  const originalName = sanitizeAttachmentOriginalName(
+    String(req.body?.fileName || "attachment"),
+  );
+  const mimeType = String(
+    req.body?.mimeType || "application/octet-stream",
+  ).slice(0, 160);
+  const size = Number(req.body?.size || 0);
+  const origin = mirasResumableUploadOrigin(req);
+  if (!origin) {
+    return res.status(403).json({
+      code: "UPLOAD_ORIGIN_NOT_ALLOWED",
+      error: "تعذر بدء الرفع المباشر من هذا النطاق.",
+    });
+  }
+  if (!Number.isFinite(size) || size <= 0 || size > 50 * 1024 * 1024) {
+    return res.status(400).json({ error: "حجم الملف غير صالح أو يتجاوز ٥٠ ميجابايت." });
+  }
+  if (!isMirasSubmissionFileTypeAllowed(originalName)) {
+    return res
+      .status(415)
+      .json(mirasUnsupportedSubmissionFileResponse(originalName));
+  }
+  const session = verifyMirasSessionToken(req);
+  const studentId =
+    session?.role === "student" ? normalizeStudentId(session.userId) : "";
+  if (!studentId) {
+    return res.status(401).json({
+      code: "STUDENT_SESSION_REQUIRED",
+      error: "جلسة الطالب مطلوبة لبدء الرفع.",
+    });
+  }
+  const fileId = `file-${crypto.randomBytes(9).toString("hex")}-${Date.now()}`;
+  const uploadUrl = await dbInstance.createSubmissionAttachmentResumableUpload({
+    fileId,
+    originalName,
+    mimeType,
+    size,
+    origin,
+  });
+  if (!uploadUrl) {
+    return res.status(503).json({
+      code: "RESUMABLE_UPLOAD_UNAVAILABLE",
+      error: "الرفع القابل للاستكمال غير متاح الآن.",
+    });
+  }
+  const completionToken = createMirasResumableUploadToken({
+    fileId,
+    originalName,
+    mimeType,
+    size,
+    studentId,
+    expiresAt: Date.now() + 24 * 60 * 60 * 1000,
+  });
+  return res.json({
+    success: true,
+    fileId,
+    uploadUrl,
+    completionToken,
+    chunkSize: 4 * 1024 * 1024,
+    expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
+  });
+});
+
+app.post("/api/submissions/upload-session/complete", async (req: any, res: any) => {
+  applyMirasUploadCors(req, res);
+  const token = verifyMirasResumableUploadToken(req.body?.completionToken);
+  const session = verifyMirasSessionToken(req);
+  const studentId =
+    session?.role === "student" ? normalizeStudentId(session.userId) : "";
+  if (!token || !studentId || normalizeStudentId(token.studentId) !== studentId) {
+    return res.status(403).json({
+      code: "RESUMABLE_UPLOAD_TOKEN_INVALID",
+      error: "جلسة استكمال الرفع غير صالحة أو منتهية.",
+    });
+  }
+  const confirmed =
+    await dbInstance.confirmSubmissionAttachmentResumableUpload({
+      fileId: token.fileId,
+      expectedSize: token.size,
+    });
+  if (!confirmed) {
+    return res.status(409).json({
+      code: "RESUMABLE_UPLOAD_NOT_COMPLETE",
+      error: "لم يكتمل وصول الملف بعد. سيحاول مِراس استكماله تلقائيًا.",
+    });
+  }
+  const ext = path.extname(token.originalName).toLowerCase();
+  const attachmentUrl = `/api/submission-attachments/${token.fileId}`;
+  return res.json({
+    success: true,
+    attachment: {
+      id: token.fileId,
+      fileId: token.fileId,
+      originalName: token.originalName,
+      storedName: `${token.fileId}${ext}`,
+      mimeType: token.mimeType || confirmed.mimeType,
+      size: confirmed.size,
+      url: attachmentUrl,
+      storedUrl: attachmentUrl,
+      downloadUrl: attachmentUrl,
+      uploadedAt: new Date().toISOString(),
+      persisted: true,
+      archived: true,
+      cloudPersisted: true,
+      resumable: true,
+    },
+  });
+});
+
 app.post("/api/submissions/upload", (req: any, res: any) => {
   applyMirasUploadCors(req, res);
   if (!req.files || Object.keys(req.files).length === 0) {

@@ -215,7 +215,6 @@ import {
   GraduationCap,
   Laptop,
   Wifi,
-  WifiOff,
   CheckCircle,
   AlertTriangle,
   Play,
@@ -4597,8 +4596,14 @@ export default function App() {
   // ═══ رادار مِراس 🛰️ — مراقبة الأخطاء المدمجة (سوبر أدمن فقط) ═══════════════
   const [mirasRadarAllowed, setMirasRadarAllowed] = useState(false);
   const [mirasRadarOpen, setMirasRadarOpen] = useState(false);
-  const [mirasRadarTab, setMirasRadarTab] = useState<"active" | "resolved">("active");
+  const [mirasRadarTab, setMirasRadarTab] = useState<
+    "active" | "resolved" | "notifications"
+  >("active");
   const [mirasRadarData, setMirasRadarData] = useState<{ items: any[]; stats: any }>({ items: [], stats: null });
+  const [mirasNotificationAuditData, setMirasNotificationAuditData] = useState<{
+    items: any[];
+    stats: any;
+  }>({ items: [], stats: null });
   const mirasRadarCtxRef = useRef({ role: "guest", userId: "" });
   // التقاط عالمي: أي خطأ JS أو وعد مرفوض في أي متصفح يُبلَّغ للرادار فوراً
   // (بحد ١٠ لكل جلسة وبلا تكرار لنفس الرسالة) — لا يغيّر سلوك التطبيق إطلاقاً.
@@ -4670,6 +4675,16 @@ export default function App() {
       if (resp.ok && data?.success) {
         setMirasRadarAllowed(true);
         setMirasRadarData({ items: data.items || [], stats: data.stats || null });
+        const auditResp = await fetch("/api/monitor/notification-audit", {
+          headers: teacherHeaders(),
+        });
+        const auditData = await auditResp.json().catch(() => ({}));
+        if (auditResp.ok && auditData?.success) {
+          setMirasNotificationAuditData({
+            items: auditData.items || [],
+            stats: auditData.stats || null,
+          });
+        }
       }
     } catch {}
   };
@@ -6339,6 +6354,11 @@ export default function App() {
   // أثبت أن الخادم يستقبل بـ١٠٠+ Mbps والبطء = سقف رفع خط الطالب؛ إظهار
   // السرعة/المتبقي يحوّل "معلّق وبطيء" إلى تقدم مفهوم وموثوق.
   const [uploadEtaSec, setUploadEtaSec] = useState<number | null>(null);
+  const [uploadSpeedMbps, setUploadSpeedMbps] = useState<number | null>(null);
+  const [uploadPhase, setUploadPhase] = useState<
+    "idle" | "uploading" | "waiting-network" | "retrying" | "securing"
+  >("idle");
+  const [uploadStatusFileName, setUploadStatusFileName] = useState("");
   const uploadStartRef = useRef(0);
 
   // Project generator states
@@ -6353,9 +6373,13 @@ export default function App() {
   const [isAppOffline, setIsAppOffline] = useState<boolean>(
     typeof navigator !== "undefined" ? !navigator.onLine : false,
   );
+  const [connectionRecoveredAt, setConnectionRecoveredAt] = useState(0);
   useEffect(() => {
     if (typeof window === "undefined") return;
-    const goOnline = () => setIsAppOffline(false);
+    const goOnline = () => {
+      setIsAppOffline(false);
+      setConnectionRecoveredAt(Date.now());
+    };
     const goOffline = () => setIsAppOffline(true);
     setIsAppOffline(!navigator.onLine);
     window.addEventListener("online", goOnline);
@@ -6365,6 +6389,11 @@ export default function App() {
       window.removeEventListener("offline", goOffline);
     };
   }, []);
+  useEffect(() => {
+    if (!connectionRecoveredAt) return;
+    const timer = window.setTimeout(() => setConnectionRecoveredAt(0), 4000);
+    return () => window.clearTimeout(timer);
+  }, [connectionRecoveredAt]);
 
   // Security elements
   const [verificationCodeToday, setVerificationCodeToday] = useState("EDU-47");
@@ -9183,6 +9212,280 @@ export default function App() {
         resolve("");
       }
     });
+
+  type MirasResumableClientSession = {
+    uploadUrl: string;
+    completionToken: string;
+    fileId: string;
+    chunkSize: number;
+    offset: number;
+    expiresAt: string;
+  };
+
+  const resumableUploadStorageKey = (file: File) =>
+    `miras-resumable-upload:${encodeURIComponent(
+      [
+        String((studentSession as any)?.id || "student"),
+        file.name,
+        file.size,
+        file.lastModified,
+      ].join("|"),
+    )}`;
+
+  const waitForUploadNetwork = () =>
+    new Promise<void>((resolve) => {
+      if (navigator.onLine !== false) {
+        resolve();
+        return;
+      }
+      const resume = () => {
+        window.removeEventListener("online", resume);
+        resolve();
+      };
+      window.addEventListener("online", resume, { once: true });
+    });
+
+  const resumableCommittedOffset = (rangeHeader: string, fallback = 0) => {
+    const match = String(rangeHeader || "").match(/bytes=0-(\d+)/i);
+    return match ? Number(match[1]) + 1 : fallback;
+  };
+
+  const runResumableUploadRequest = (params: {
+    uploadUrl: string;
+    body?: Blob;
+    contentRange: string;
+    mimeType?: string;
+    timeoutMs: number;
+    onProgress?: (loaded: number) => void;
+  }) =>
+    new Promise<{ status: number; range: string; text: string }>(
+      (resolve, reject) => {
+        const xhr = new XMLHttpRequest();
+        xhr.open("PUT", params.uploadUrl);
+        xhr.timeout = params.timeoutMs;
+        xhr.setRequestHeader("Content-Range", params.contentRange);
+        if (params.body)
+          xhr.setRequestHeader(
+            "Content-Type",
+            params.mimeType || "application/octet-stream",
+          );
+        xhr.upload.onprogress = (event) => {
+          if (event.lengthComputable) params.onProgress?.(event.loaded);
+        };
+        xhr.onload = () =>
+          resolve({
+            status: xhr.status,
+            range: xhr.getResponseHeader("Range") || "",
+            text: xhr.responseText || "",
+          });
+        xhr.onerror = () => reject(new Error("network"));
+        xhr.ontimeout = () => reject(new Error("network-timeout"));
+        xhr.onabort = () => reject(new Error("network-abort"));
+        xhr.send(params.body || null);
+      },
+    );
+
+  const uploadFileResumably = async (
+    file: File,
+    uploadHeaders: Record<string, string>,
+    onTransferred: (loaded: number) => void,
+  ) => {
+    const storageKey = resumableUploadStorageKey(file);
+    const readStoredSession = (): MirasResumableClientSession | null => {
+      try {
+        const parsed = JSON.parse(localStorage.getItem(storageKey) || "null");
+        if (
+          parsed?.uploadUrl &&
+          parsed?.completionToken &&
+          new Date(parsed.expiresAt || 0).getTime() > Date.now() + 30_000
+        )
+          return parsed;
+      } catch {}
+      return null;
+    };
+    const persistSession = (session: MirasResumableClientSession) => {
+      try {
+        localStorage.setItem(storageKey, JSON.stringify(session));
+      } catch {}
+    };
+    const clearSession = () => {
+      try {
+        localStorage.removeItem(storageKey);
+      } catch {}
+    };
+    const createSession = async (): Promise<MirasResumableClientSession> => {
+      const response = await fetch("/api/submissions/upload-session", {
+        method: "POST",
+        headers: uploadHeaders,
+        body: JSON.stringify({
+          fileName: file.name,
+          mimeType: file.type || "application/octet-stream",
+          size: file.size,
+          lastModified: file.lastModified,
+        }),
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok || !data?.success || !data?.uploadUrl) {
+        const unavailable = new Error(
+          extractApiErrorReason(
+            { ...data, status: response.status },
+            "بدء الرفع القابل للاستكمال",
+          ),
+        ) as Error & { code?: string };
+        unavailable.code = String(data?.code || "RESUMABLE_UPLOAD_UNAVAILABLE");
+        throw unavailable;
+      }
+      const session: MirasResumableClientSession = {
+        uploadUrl: String(data.uploadUrl),
+        completionToken: String(data.completionToken),
+        fileId: String(data.fileId),
+        chunkSize: Math.max(
+          256 * 1024,
+          Number(data.chunkSize || 4 * 1024 * 1024),
+        ),
+        offset: 0,
+        expiresAt: String(data.expiresAt || ""),
+      };
+      persistSession(session);
+      return session;
+    };
+
+    const storedSession = readStoredSession();
+    let session = storedSession || (await createSession());
+    const queryCommittedOffset = async () => {
+      const result = await runResumableUploadRequest({
+        uploadUrl: session.uploadUrl,
+        contentRange: `bytes */${file.size}`,
+        timeoutMs: 30_000,
+      });
+      if (result.status === 200 || result.status === 201) return file.size;
+      if (result.status === 308)
+        return resumableCommittedOffset(result.range, 0);
+      if (result.status === 404 || result.status === 410)
+        throw Object.assign(new Error("upload-session-expired"), {
+          code: "UPLOAD_SESSION_EXPIRED",
+        });
+      throw new Error(`upload-status-${result.status}`);
+    };
+
+    if (storedSession) {
+      try {
+        session.offset = await queryCommittedOffset();
+        persistSession(session);
+      } catch (error: any) {
+        if (error?.code === "UPLOAD_SESSION_EXPIRED") {
+          clearSession();
+          session = await createSession();
+        }
+      }
+    }
+
+    const transferStartedAt = Date.now();
+    let retryCount = 0;
+    while (session.offset < file.size) {
+      if (navigator.onLine === false) {
+        setUploadPhase("waiting-network");
+        await waitForUploadNetwork();
+        setUploadPhase("retrying");
+      }
+      const start = session.offset;
+      const endExclusive = Math.min(file.size, start + session.chunkSize);
+      const end = endExclusive - 1;
+      const chunk = file.slice(start, endExclusive);
+      try {
+        setUploadPhase(retryCount > 0 ? "retrying" : "uploading");
+        const result = await runResumableUploadRequest({
+          uploadUrl: session.uploadUrl,
+          body: chunk,
+          contentRange: `bytes ${start}-${end}/${file.size}`,
+          mimeType: file.type || "application/octet-stream",
+          timeoutMs: Math.min(
+            180_000,
+            Math.max(45_000, Math.ceil(chunk.size / (128 * 1024)) * 1000),
+          ),
+          onProgress: (chunkLoaded) => {
+            const loaded = Math.min(file.size, start + chunkLoaded);
+            onTransferred(loaded);
+            const elapsed = Math.max(0.25, (Date.now() - transferStartedAt) / 1000);
+            const bytesPerSec = Math.max(1, loaded / elapsed);
+            setUploadSpeedMbps((bytesPerSec * 8) / 1_000_000);
+            setUploadEtaSec(
+              loaded < file.size
+                ? Math.max(1, Math.round((file.size - loaded) / bytesPerSec))
+                : null,
+            );
+          },
+        });
+        if (result.status === 200 || result.status === 201) {
+          session.offset = file.size;
+        } else if (result.status === 308) {
+          session.offset = resumableCommittedOffset(
+            result.range,
+            endExclusive,
+          );
+        } else if (result.status === 404 || result.status === 410) {
+          clearSession();
+          session = await createSession();
+        } else {
+          throw new Error(`upload-chunk-${result.status}`);
+        }
+        retryCount = 0;
+        persistSession(session);
+        onTransferred(session.offset);
+      } catch (error: any) {
+        retryCount += 1;
+        if (retryCount > 8) throw error;
+        setUploadPhase(navigator.onLine === false ? "waiting-network" : "retrying");
+        if (navigator.onLine === false) await waitForUploadNetwork();
+        else
+          await new Promise((resolve) =>
+            window.setTimeout(resolve, Math.min(12_000, 700 * 2 ** retryCount)),
+          );
+        try {
+          session.offset = await queryCommittedOffset();
+          persistSession(session);
+        } catch (statusError: any) {
+          if (statusError?.code === "UPLOAD_SESSION_EXPIRED") {
+            clearSession();
+            session = await createSession();
+          }
+        }
+      }
+    }
+
+    setUploadProgress(100);
+    setUploadEtaSec(null);
+    setUploadPhase("securing");
+    let completeData: any = null;
+    let completeResponse: Response | null = null;
+    for (let attempt = 0; attempt < 4; attempt += 1) {
+      completeResponse = await fetch(
+        "/api/submissions/upload-session/complete",
+        {
+          method: "POST",
+          headers: uploadHeaders,
+          body: JSON.stringify({ completionToken: session.completionToken }),
+        },
+      );
+      completeData = await completeResponse.json().catch(() => ({}));
+      if (completeResponse.ok && completeData?.success) break;
+      if (completeResponse.status !== 409) break;
+      await new Promise((resolve) =>
+        window.setTimeout(resolve, 500 * (attempt + 1)),
+      );
+    }
+    if (!completeResponse?.ok || !completeData?.success) {
+      throw new Error(
+        extractApiErrorReason(
+          { ...completeData, status: completeResponse?.status || 0 },
+          "تأكيد الرفع السحابي",
+        ),
+      );
+    }
+    clearSession();
+    return completeData;
+  };
+
   const handleFileSelection = async (e: any) => {
     const input = e.currentTarget as HTMLInputElement;
     const files = input.files;
@@ -9206,6 +9509,9 @@ export default function App() {
     try {
       for (const file of filesList) {
         const cleanFileName = mirasCleanAttachmentName(file.name, "ملف");
+        setUploadStatusFileName(cleanFileName);
+        setUploadSpeedMbps(null);
+        setUploadPhase("uploading");
         // 1. Validate file size (max 25MB)
         const maxSizeBytes = MIRAS_MAX_SUBMISSION_FILE_SIZE_BYTES;
         if (file.size > maxSizeBytes) {
@@ -9308,14 +9614,52 @@ export default function App() {
           let perfFirstByteAt = 0;
           let perfLastLoaded = 0;
           let perfUploadCompleteAt = 0;
-          let resp: { ok: boolean; status: number; json: () => Promise<any> };
+          let resp: {
+            ok: boolean;
+            status: number;
+            json: () => Promise<any>;
+          } | null = null;
           try {
+            try {
+              const smartData = await uploadFileResumably(
+                file,
+                uploadHeaders,
+                (loaded) => {
+                  const now = Date.now();
+                  if (!perfFirstByteAt && loaded > 0) perfFirstByteAt = now;
+                  perfLastLoaded = loaded;
+                  setUploadProgress(
+                    Math.max(
+                      1,
+                      Math.min(100, Math.round((loaded / file.size) * 100)),
+                    ),
+                  );
+                  if (loaded >= file.size && !perfUploadCompleteAt)
+                    perfUploadCompleteAt = now;
+                },
+              );
+              resp = {
+                ok: true,
+                status: 200,
+                json: async () => smartData,
+              };
+            } catch (smartError: any) {
+              // إن لم تكن جلسة GCS متاحة في بيئة ما، يبقى المسار المباشر الحالي
+              // احتياطاً كاملاً. انقطاع الشبكة نفسه يُعالَج داخل الرفع المتدرج
+              // ويستأنف قبل أن يصل إلى هذا السقوط.
+              console.warn(
+                "Resumable upload fell back to the compatible path:",
+                smartError?.message || smartError,
+              );
+              setUploadPhase("retrying");
+            }
             // 🚀 مباشرة إلى Cloud Run متجاوزين وسيط Firebase Hosting: القياس من
             // كروم المالك أثبت أن الوسيط يجترّ جسم ٢٠م.ب في ٦٠-٩٠ث بينما الرفع
             // المباشر ~١ث (السجلات كانت تقيس ما بعد الوسيط فقط — لهذا "الرفع بطيء
             // والإرسال سريع"). الخادم يسمح CORS لهذا المسار حصراً، وعند أي فشل
             // شبكي/حجب مؤسسي للمسار المباشر نسقط تلقائياً للمسار النسبي القديم.
-            const runUploadXhr = (
+            if (!resp) {
+              const runUploadXhr = (
               uploadUrl: string,
             ): Promise<{ ok: boolean; status: number; json: () => Promise<any> }> =>
               new Promise((resolve, reject) => {
@@ -9339,10 +9683,12 @@ export default function App() {
                   const elapsed = (Date.now() - uploadStartRef.current) / 1000;
                   if (elapsed >= 1 && e.loaded > 0 && e.loaded < e.total) {
                     const rate = e.loaded / elapsed;
+                    setUploadSpeedMbps((rate * 8) / 1_000_000);
                     setUploadEtaSec(Math.max(1, Math.round((e.total - e.loaded) / rate)));
                   } else if (e.loaded >= e.total) {
                     if (!perfUploadCompleteAt) perfUploadCompleteAt = Date.now();
                     setUploadEtaSec(null);
+                    setUploadPhase("securing");
                   }
                 }
               };
@@ -9351,6 +9697,7 @@ export default function App() {
                 if (!perfUploadCompleteAt) perfUploadCompleteAt = Date.now();
                 setUploadProgress(100);
                 setUploadEtaSec(null);
+                setUploadPhase("securing");
                 const status = xhr.status;
                 const text = xhr.responseText || "";
                 resolve({
@@ -9383,24 +9730,25 @@ export default function App() {
                   }),
                 );
               });
+              setUploadPhase("uploading");
               xhr.send(formData);
             });
-            try {
-              resp = await runUploadXhr(
-                "https://miras-api-538577909672.us-central1.run.app/api/submissions/upload",
-              );
-            } catch (directErr: any) {
-              // فشل شبكي على المسار المباشر (شبكة مؤسسية تحجب run.app مثلاً)؟
-              // احتياط فوري: المسار النسبي عبر الوسيط — أبطأ لكنه يعمل دائماً.
-              if (String(directErr?.message || "") === "network") {
-                resp = await runUploadXhr("/api/submissions/upload");
-              } else {
-                throw directErr;
+              try {
+                resp = await runUploadXhr(
+                  "https://miras-api-538577909672.us-central1.run.app/api/submissions/upload",
+                );
+              } catch (directErr: any) {
+                // فشل شبكي على المسار المباشر (شبكة مؤسسية تحجب run.app مثلاً)؟
+                // احتياط فوري: المسار النسبي عبر الوسيط — أبطأ لكنه يعمل دائماً.
+                if (String(directErr?.message || "") === "network") {
+                  resp = await runUploadXhr("/api/submissions/upload");
+                } else {
+                  throw directErr;
+                }
               }
             }
           } finally {
             window.clearTimeout(uploadTimeoutId);
-            setUploadProgress(0);
             // تقرير التشريح للرادار (رفعة بطيئة >١٥ث فقط — لا ضجيج):
             try {
               const totalMs = Date.now() - perfT0;
@@ -9424,12 +9772,13 @@ export default function App() {
                     source: "client",
                     role: "student",
                     userId: String((studentSession as any)?.id || ""),
-                    bundle: "sw-v58",
+                    bundle: "sw-v61",
                   }),
                 }).catch(() => undefined);
               }
             } catch {}
           }
+          if (!resp) throw new Error("تعذر بدء مسار رفع الملف.");
           const persistentDataUrl = await persistentDataUrlPromise;
           const data = await resp.json().catch(() => ({}));
           if (resp.ok && data.success) {
@@ -9462,12 +9811,77 @@ export default function App() {
       }
     } finally {
       setIsUploading(false);
+      setUploadProgress(0);
+      setUploadEtaSec(null);
+      setUploadSpeedMbps(null);
+      setUploadPhase("idle");
+      setUploadStatusFileName("");
       input.value = "";
     }
   };
 
   const removeAttachment = (id: string) => {
     setCurrentAttachments((prev) => prev.filter((att) => att.id !== id));
+  };
+
+  const renderSmartUploadStatus = (dark = false) => {
+    if (!isUploading) return null;
+    const phaseLabel =
+      uploadPhase === "waiting-network"
+        ? "بانتظار عودة الشبكة"
+        : uploadPhase === "retrying"
+          ? "استكمال تلقائي"
+          : uploadPhase === "securing"
+            ? "تأمين الملف سحابيًا"
+            : "رفع قابل للاستكمال";
+    return (
+      <div
+        className={`rounded-xl border px-3 py-2.5 text-right ${
+          dark
+            ? "border-white/10 bg-white/5 text-slate-200"
+            : "border-indigo-100 bg-indigo-50/45 text-slate-700"
+        }`}
+        aria-live="polite"
+      >
+        <div className="flex items-center justify-between gap-3 text-[9.5px] font-medium">
+          <span className="min-w-0 truncate">{uploadStatusFileName || "ملف"}</span>
+          <span className="shrink-0 tabular-nums">
+            {uploadProgress > 0 ? `${uploadProgress}%` : phaseLabel}
+          </span>
+        </div>
+        <div
+          className={`mt-2 h-1 overflow-hidden rounded-full ${
+            dark ? "bg-white/10" : "bg-indigo-100"
+          }`}
+        >
+          <div
+            className={`h-full rounded-full transition-[width] duration-300 ${
+              uploadPhase === "waiting-network"
+                ? "bg-amber-400"
+                : uploadPhase === "retrying"
+                  ? "bg-sky-500"
+                  : "bg-indigo-600"
+            }`}
+            style={{ width: `${Math.max(2, uploadProgress)}%` }}
+          />
+        </div>
+        <div
+          className={`mt-1.5 flex items-center justify-between gap-2 text-[8.5px] font-normal ${
+            dark ? "text-slate-400" : "text-slate-500"
+          }`}
+        >
+          <span>{phaseLabel}</span>
+          <span className="tabular-nums" dir="ltr">
+            {uploadSpeedMbps !== null && uploadSpeedMbps > 0
+              ? `${uploadSpeedMbps.toFixed(1)} Mbps`
+              : ""}
+            {uploadEtaSec !== null && uploadEtaSec <= 3600
+              ? ` · ${uploadEtaSec >= 60 ? `~${Math.ceil(uploadEtaSec / 60)}د` : `~${uploadEtaSec}ث`}`
+              : ""}
+          </span>
+        </div>
+      </div>
+    );
   };
 
   const renderAttachmentsList = (
@@ -22096,6 +22510,73 @@ ${rows
       );
   };
 
+  const submissionIntegrityEvents = (sub: any) => {
+    const events: any[] = [];
+    relatedSubmissionHistory(sub).forEach((row: any) => {
+      const sources = [
+        ...(Array.isArray(row?.integrityWarnings)
+          ? row.integrityWarnings
+          : []),
+        ...(Array.isArray(row?.integritySignals) ? row.integritySignals : []),
+        ...(Array.isArray(row?.cheatingAlerts) ? row.cheatingAlerts : []),
+      ];
+      sources.forEach((signal: any) => {
+        const type = String(
+          signal?.pulseType || signal?.type || signal?.key || "integrity",
+        );
+        const at =
+          signal?.at ||
+          signal?.timestamp ||
+          signal?.createdAt ||
+          row?.lastIntegrityPulseAt ||
+          row?.submittedAt;
+        if (!at) return;
+        events.push({
+          type,
+          label:
+            String(signal?.reason || signal?.description || "").trim() ||
+            localVisionPulseLabel(type),
+          at,
+          tone:
+            /blocked|denied|unavailable|no_face|missing|cheat|exit|blur/i.test(
+              type,
+            )
+              ? "bg-rose-500"
+              : /away|scene|warning|orientation|offline/i.test(type)
+                ? "bg-amber-400"
+                : "bg-emerald-500",
+        });
+      });
+    });
+    const seen = new Set<string>();
+    return events
+      .filter((event) => {
+        const key = `${event.type}|${new Date(event.at || 0).getTime()}`;
+        if (seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      })
+      .sort(
+        (a, b) =>
+          new Date(a.at || 0).getTime() - new Date(b.at || 0).getTime(),
+      );
+  };
+
+  const submissionReviewEvents = (sub: any) =>
+    [
+      ...submissionTimelineEvents(sub).map((event: any) => ({
+        ...event,
+        detail: event.note,
+      })),
+      ...submissionIntegrityEvents(sub).map((event: any) => ({
+        ...event,
+        detail: "نزاهة",
+      })),
+    ].sort(
+      (a: any, b: any) =>
+        new Date(a.at || 0).getTime() - new Date(b.at || 0).getTime(),
+    );
+
   const gradeAuditTrailForSubmission = (sub: any) =>
     Array.isArray(sub?.gradeAuditTrail) ? sub.gradeAuditTrail : [];
 
@@ -27863,27 +28344,29 @@ ${rows
         </div>
       )}
 
-      {/* Offline notice — رسالة انقطاع الإنترنت: ناعمة، مختصرة، تختفي تلقائياً */}
-      {isAppOffline && (
-        <div className="miras-offline-overlay" dir="rtl">
-          <div className="miras-offline-card animate-in zoom-in-95 duration-300">
-            <div className="miras-offline-card-glow" />
-            <div className="miras-offline-icon">
-              <WifiOff className="h-6 w-6" />
-            </div>
-            <h3 className="miras-offline-title">لا يوجد اتصال بالإنترنت</h3>
-            <p className="miras-offline-copy">
-              سنعيد الاتصال تلقائياً فور عودة الشبكة.
-            </p>
-            <button
-              type="button"
-              onClick={() => window.location.reload()}
-              className="miras-offline-retry"
-            >
-              <RefreshCw className="h-4 w-4" />
-              إعادة المحاولة
-            </button>
-          </div>
+      {!showSplash && (studentSession || teacherSession) && (
+        <div
+          className={`miras-connection-status ${
+            isAppOffline
+              ? "is-offline"
+              : liveConnectionTrouble
+                ? "is-syncing"
+                : "is-online"
+          }`}
+          dir="rtl"
+          role="status"
+          aria-live="polite"
+        >
+          <span className="miras-connection-dot" aria-hidden="true" />
+          <span>
+            {isAppOffline
+              ? "غير متصل · سنكمل تلقائيًا"
+              : liveConnectionTrouble
+                ? "إعادة المزامنة"
+                : connectionRecoveredAt
+                  ? "عاد الاتصال"
+                  : "متصل"}
+          </span>
         </div>
       )}
 
@@ -28122,23 +28605,31 @@ ${rows
 
                   {/* Exam-specific detailed timeline */}
                   {selectedSubmissionDetail.kind === "exam" && (
-                    <div className="rounded-2xl border border-slate-100 bg-slate-50/60 p-4 space-y-2">
-                      <div className="mb-2 flex items-center justify-between gap-2">
-                        <span className="text-[11px] font-black text-slate-700">مسار الطالب داخل الاختبار</span>
-                        <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[8.5px] font-black text-slate-500">التاريخ الكامل</span>
-                      </div>
-                      <div className="space-y-2">
-                        {submissionTimelineEvents(selectedSubmissionDetail).map((evt: any, idx: number) => {
+                    <details className="group rounded-2xl border border-slate-100 bg-slate-50/60">
+                      <summary className="flex cursor-pointer list-none items-center justify-between gap-2 px-4 py-3 text-[10.5px] font-medium text-slate-600 marker:hidden">
+                        <span>سجل المحاولة والنزاهة</span>
+                        <span className="font-mono text-[9px] font-normal text-slate-400">
+                          {submissionReviewEvents(selectedSubmissionDetail).length}
+                        </span>
+                      </summary>
+                      <div className="space-y-2 border-t border-slate-100 px-4 py-3">
+                        {submissionReviewEvents(selectedSubmissionDetail).map((evt: any, idx: number) => {
                           const dateLabel = formatKwDateTime(evt.at);
                           return (
-                            <div key={idx} className="flex items-center gap-2 border-r-2 border-slate-200 pr-2">
-                              <span className="font-mono text-[9px] text-slate-400">{dateLabel}</span>
-                              <span className="text-[10px] text-slate-600">{evt.label}</span>
+                            <div key={`${evt.type || evt.label}-${idx}`} className="grid grid-cols-[auto_1fr_auto] items-start gap-2 border-r border-slate-200 pr-2">
+                              <span className={`mt-1.5 h-1.5 w-1.5 rounded-full ${evt.tone || "bg-slate-300"}`} />
+                              <span className="text-[9.5px] font-normal leading-5 text-slate-600">{evt.label}</span>
+                              <span className="font-mono text-[8.5px] font-normal text-slate-400">{dateLabel}</span>
                             </div>
                           );
                         })}
+                        {submissionReviewEvents(selectedSubmissionDetail).length === 0 && (
+                          <p className="py-2 text-center text-[9.5px] font-normal text-slate-400">
+                            لا توجد أحداث مسجلة.
+                          </p>
+                        )}
                       </div>
-                    </div>
+                    </details>
                   )}
  
                   {/* Anti-cheat Cheating Alerts */}
@@ -31815,6 +32306,8 @@ ${rows
                                           </div>
                                         </div>
 
+                                        {renderSmartUploadStatus(false)}
+
                                         {/* Selected Attachments list for current session */}
                                         {renderAttachmentsList(
                                           currentAttachments,
@@ -32037,6 +32530,8 @@ ${rows
                                             </p>
                                           </div>
                                         </div>
+
+                                        {renderSmartUploadStatus(true)}
 
                                         {/* Selected attachments list */}
                                         {renderAttachmentsList(
@@ -34041,48 +34536,41 @@ ${rows
                                 </div>
 
                                 {selectedSubmissionDetail.kind === "exam" && (
-                                  <div className="rounded-[1.25rem] border border-white bg-white/80 p-3 shadow-sm">
-                                    <div className="mb-2 flex items-center justify-between gap-2">
-                                      <span className="text-[11px] font-black text-slate-700">
-                                        مسار الطالب داخل الاختبار
+                                  <details className="group rounded-[1.25rem] border border-white bg-white/80 shadow-sm">
+                                    <summary className="flex cursor-pointer list-none items-center justify-between gap-2 px-3 py-2.5 text-[10.5px] font-medium text-slate-600 marker:hidden">
+                                      <span>سجل المحاولة والنزاهة</span>
+                                      <span className="font-mono text-[9px] font-normal text-slate-400">
+                                        {submissionReviewEvents(selectedSubmissionDetail).length}
                                       </span>
-                                      <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[8.5px] font-black text-slate-500">
-                                        التاريخ الكامل
-                                      </span>
-                                    </div>
-                                    <div className="space-y-2">
-                                      {submissionTimelineEvents(
+                                    </summary>
+                                    <div className="space-y-2 border-t border-slate-100 px-3 py-3">
+                                      {submissionReviewEvents(
                                         selectedSubmissionDetail,
                                       ).map((event: any, idx: number) => (
                                         <div
-                                          key={`${event.label}-${idx}-${event.at}`}
-                                          className="grid grid-cols-[auto_1fr_auto] items-start gap-2 rounded-2xl border border-slate-100 bg-slate-50/70 px-3 py-2"
+                                          key={`${event.type || event.label}-${idx}-${event.at}`}
+                                          className="grid grid-cols-[auto_1fr_auto] items-start gap-2 border-r border-slate-200 pr-2"
                                         >
                                           <span
-                                            className={`mt-1 h-2.5 w-2.5 rounded-full ${event.tone}`}
+                                            className={`mt-1.5 h-1.5 w-1.5 rounded-full ${event.tone || "bg-slate-300"}`}
                                           />
-                                          <span className="min-w-0 text-right">
-                                            <span className="block text-[10px] font-black text-slate-800">
-                                              {event.label}
-                                            </span>
-                                            <span className="block truncate text-[9px] font-bold text-slate-400">
-                                              {event.note}
-                                            </span>
+                                          <span className="min-w-0 text-right text-[9.5px] font-normal leading-5 text-slate-600">
+                                            {event.label}
                                           </span>
-                                          <span className="whitespace-nowrap font-mono text-[9px] font-bold text-slate-400">
+                                          <span className="whitespace-nowrap font-mono text-[8.5px] font-normal text-slate-400">
                                             {formatKwDateTime(event.at)}
                                           </span>
                                         </div>
                                       ))}
-                                      {submissionTimelineEvents(
+                                      {submissionReviewEvents(
                                         selectedSubmissionDetail,
                                       ).length === 0 && (
-                                        <div className="rounded-2xl border border-dashed border-slate-200 bg-slate-50 p-4 text-center text-[10px] font-bold text-slate-400">
-                                          لا يوجد خط أحداث مفصل لهذه المحاولة.
-                                        </div>
+                                        <p className="py-2 text-center text-[9.5px] font-normal text-slate-400">
+                                          لا توجد أحداث مسجلة.
+                                        </p>
                                       )}
                                     </div>
-                                  </div>
+                                  </details>
                                 )}
 
                                 {false && (
@@ -42474,12 +42962,20 @@ ${rows
               </div>
               {/* شرائح الإحصاء */}
               <div className="relative mt-4 grid grid-cols-2 gap-2 sm:grid-cols-4">
-                {[
-                  { label: "أخطاء نشطة", value: mirasRadarData.stats?.active ?? 0, tone: "bg-rose-500/15 text-rose-200 ring-rose-400/30" },
-                  { label: "آخر ٢٤ ساعة", value: mirasRadarData.stats?.last24h ?? 0, tone: "bg-amber-500/15 text-amber-200 ring-amber-400/30" },
-                  { label: "من الخادم", value: mirasRadarData.stats?.server ?? 0, tone: "bg-indigo-500/15 text-indigo-200 ring-indigo-400/30" },
-                  { label: "إجمالي التكرار", value: mirasRadarData.stats?.totalHits ?? 0, tone: "bg-emerald-500/15 text-emerald-200 ring-emerald-400/30" },
-                ].map((chip) => (
+                {(mirasRadarTab === "notifications"
+                  ? [
+                      { label: "أحداث", value: mirasNotificationAuditData.stats?.events ?? 0, tone: "bg-indigo-500/15 text-indigo-200 ring-indigo-400/30" },
+                      { label: "تم الإرسال", value: mirasNotificationAuditData.stats?.sent ?? 0, tone: "bg-emerald-500/15 text-emerald-200 ring-emerald-400/30" },
+                      { label: "مُنع التكرار", value: mirasNotificationAuditData.stats?.duplicatesBlocked ?? 0, tone: "bg-amber-500/15 text-amber-200 ring-amber-400/30" },
+                      { label: "نسبة النجاح", value: `${mirasNotificationAuditData.stats?.successRate ?? 100}%`, tone: "bg-sky-500/15 text-sky-200 ring-sky-400/30" },
+                    ]
+                  : [
+                      { label: "أخطاء نشطة", value: mirasRadarData.stats?.active ?? 0, tone: "bg-rose-500/15 text-rose-200 ring-rose-400/30" },
+                      { label: "آخر ٢٤ ساعة", value: mirasRadarData.stats?.last24h ?? 0, tone: "bg-amber-500/15 text-amber-200 ring-amber-400/30" },
+                      { label: "من الخادم", value: mirasRadarData.stats?.server ?? 0, tone: "bg-indigo-500/15 text-indigo-200 ring-indigo-400/30" },
+                      { label: "إجمالي التكرار", value: mirasRadarData.stats?.totalHits ?? 0, tone: "bg-emerald-500/15 text-emerald-200 ring-emerald-400/30" },
+                    ]
+                ).map((chip) => (
                   <div
                     key={chip.label}
                     className={`rounded-2xl px-3 py-2 text-center ring-1 ${chip.tone}`}
@@ -42497,6 +42993,7 @@ ${rows
                   [
                     { key: "active", label: "نشطة" },
                     { key: "resolved", label: "محلولة" },
+                    { key: "notifications", label: "الإشعارات" },
                   ] as const
                 ).map((tab) => (
                   <button
@@ -42526,7 +43023,81 @@ ${rows
             </div>
             {/* القائمة */}
             <div className="flex-1 space-y-2.5 overflow-y-auto p-4">
-              {mirasRadarData.items.filter((r: any) =>
+              {mirasRadarTab === "notifications" ? (
+                mirasNotificationAuditData.items.length === 0 ? (
+                  <div className="grid place-items-center py-14 text-center">
+                    <p className="text-[14px] font-black text-slate-800">
+                      لا توجد أحداث إرسال مسجلة بعد
+                    </p>
+                    <p className="mt-1 text-[10.5px] font-medium text-slate-400">
+                      أول إشعار جديد سيظهر هنا بمعرّف واحد ونتيجة توصيله.
+                    </p>
+                  </div>
+                ) : (
+                  mirasNotificationAuditData.items.map((item: any) => {
+                    const sent = Number(item.sent || 0);
+                    const failed = Number(item.failed || 0);
+                    const blocked = Number(item.duplicatesBlocked || 0);
+                    return (
+                      <details
+                        key={item.id}
+                        className="group rounded-2xl border border-slate-100 bg-white shadow-sm open:border-indigo-100 open:shadow-md"
+                      >
+                        <summary className="cursor-pointer list-none px-4 py-3 marker:hidden">
+                          <div className="flex items-start justify-between gap-3">
+                            <div className="min-w-0 text-right">
+                              <p className="truncate text-[11.5px] font-semibold text-slate-900">
+                                {item.title || "إشعار مِراس"}
+                              </p>
+                              <p className="mt-0.5 truncate text-[9.5px] font-normal text-slate-400">
+                                {item.type || "push"}
+                                {item.courseCode ? ` • ${item.courseCode}` : ""}
+                              </p>
+                            </div>
+                            <span className="shrink-0 font-mono text-[8.5px] font-normal text-slate-400">
+                              {formatKwDateTime(item.updatedAt || item.lastSeenAt)}
+                            </span>
+                          </div>
+                          <div className="mt-2 flex flex-wrap gap-1.5 text-[9px] font-medium">
+                            <span className="rounded-lg bg-emerald-50 px-2 py-0.5 text-emerald-700">
+                              أُرسل {sent}
+                            </span>
+                            {blocked > 0 && (
+                              <span className="rounded-lg bg-amber-50 px-2 py-0.5 text-amber-700">
+                                مُنع {blocked}
+                              </span>
+                            )}
+                            {failed > 0 && (
+                              <span className="rounded-lg bg-rose-50 px-2 py-0.5 text-rose-700">
+                                فشل {failed}
+                              </span>
+                            )}
+                            <span className="rounded-lg bg-slate-50 px-2 py-0.5 text-slate-500">
+                              جرس {Number(item.bellStored || 0)}
+                            </span>
+                          </div>
+                        </summary>
+                        <div className="border-t border-slate-100 px-4 py-3 text-right">
+                          <p className="text-[10px] font-normal leading-5 text-slate-600">
+                            {item.body || ""}
+                          </p>
+                          <div className="mt-2 grid grid-cols-2 gap-2 text-[9px] font-normal text-slate-500 sm:grid-cols-4">
+                            <span>الاستدعاءات: {Number(item.calls || 0)}</span>
+                            <span>الأهداف: {Number(item.targets || 0)}</span>
+                            <span>المجدول: {Number(item.queued || 0)}</span>
+                            <span>المعرّف: {String(item.id || "").slice(-10)}</span>
+                          </div>
+                          {item.lastError && (
+                            <p className="mt-2 rounded-xl bg-rose-50 px-3 py-2 text-[9.5px] font-medium text-rose-700">
+                              {item.lastError}
+                            </p>
+                          )}
+                        </div>
+                      </details>
+                    );
+                  })
+                )
+              ) : mirasRadarData.items.filter((r: any) =>
                 mirasRadarTab === "active" ? !r.resolvedAt : !!r.resolvedAt,
               ).length === 0 ? (
                 <div className="grid place-items-center py-14 text-center">

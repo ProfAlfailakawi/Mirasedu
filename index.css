@@ -7345,6 +7345,51 @@ body,
 .miras-offline-retry:hover { filter: brightness(1.08); }
 .miras-offline-retry:active { transform: scale(.98); }
 
+.miras-connection-status {
+  position: fixed;
+  z-index: 78;
+  left: 12px;
+  bottom: calc(env(safe-area-inset-bottom, 0px) + 82px);
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 24px;
+  max-width: min(210px, calc(100vw - 24px));
+  padding: 4px 9px;
+  border: 1px solid rgba(148, 163, 184, .2);
+  border-radius: 9px;
+  background: rgba(255, 255, 255, .88);
+  color: #475569;
+  box-shadow: 0 8px 24px rgba(15, 23, 42, .08);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  font-size: 9px;
+  font-weight: 500;
+  line-height: 1;
+  pointer-events: none;
+}
+.miras-connection-dot {
+  width: 6px;
+  height: 6px;
+  flex: none;
+  border-radius: 50%;
+  background: #10b981;
+}
+.miras-connection-status.is-syncing .miras-connection-dot {
+  background: #f59e0b;
+  animation: mirasConnectionPulse 1.2s ease-in-out infinite;
+}
+.miras-connection-status.is-offline {
+  border-color: rgba(245, 158, 11, .28);
+  background: rgba(255, 251, 235, .94);
+  color: #92400e;
+}
+.miras-connection-status.is-offline .miras-connection-dot { background: #f59e0b; }
+@keyframes mirasConnectionPulse { 50% { opacity: .32; } }
+@media (min-width: 768px) {
+  .miras-connection-status { bottom: 14px; }
+}
+
 .workspace-calm-shell .miras-student-header-stack {
   align-items: stretch !important;
 }

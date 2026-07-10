@@ -138,6 +138,7 @@ const MIRAS_CLOUD_ENTITY_KEYS: (keyof DatabaseState)[] = [
   "bookMetadata",
   "notificationSeenKeys",
   "notificationDispatches",
+  "notificationAudit",
   "errorReports",
 ];
 
@@ -150,6 +151,7 @@ const MIRAS_PERDOC_KEYS = new Set<string>([
   "activityLogs", // كل سجل نشاط = وثيقة (كان كل سجل جديد يعيد كتابة الكل)
   "examSessions", // نبضة كل ٣ث لكل طالب أثناء الاختبار = أسخن مفتاح في النظام
   "inAppNotifications", // تنبيهات الجرس تُضاف باستمرار
+  "notificationAudit", // سجل تدقيق الإرسال: كل حدث وثيقة مستقلة خفيفة
   "errorReports", // رادار مِراس: تقارير الأخطاء المجمّعة
 ]);
 
@@ -718,6 +720,8 @@ export interface DatabaseState {
   inAppNotifications?: any[];
   // حارس إرسال FCM دائم: event + target لا يُرسل مرتين بعد إعادة تشغيل الحاوية.
   notificationDispatches?: Record<string, string>;
+  // سجل تشخيص إرسال الإشعارات للسوبر أدمن: حدث واحد مع عدادات التوصيل والمنع.
+  notificationAudit?: any[];
   passkeyCredentials?: PasskeyCredentialRecord[];
   bookMetadata?: {
     fileName: string;
@@ -1514,6 +1518,7 @@ export class LocalDatabase {
       notificationTokens: cloudData.notificationTokens || [],
       inAppNotifications: (cloudData as any).inAppNotifications || [],
       notificationDispatches: (cloudData as any).notificationDispatches || {},
+      notificationAudit: (cloudData as any).notificationAudit || [],
       passkeyCredentials: (cloudData as any).passkeyCredentials || [],
       bookMetadata: cloudData.bookMetadata,
       // كانت مفقودة من المزامنة السحابية كلياً — فحالة "مقروء" تضيع مع كل تدوير حاوية.
@@ -1641,6 +1646,7 @@ export class LocalDatabase {
           notificationTokens: parsed.notificationTokens || [],
           inAppNotifications: parsed.inAppNotifications || [],
           notificationDispatches: parsed.notificationDispatches || {},
+          notificationAudit: parsed.notificationAudit || [],
           passkeyCredentials: parsed.passkeyCredentials || [],
           bookMetadata: parsed.bookMetadata,
           notificationSeenKeys: parsed.notificationSeenKeys || {},
@@ -1682,6 +1688,7 @@ export class LocalDatabase {
       notificationTokens: [],
       inAppNotifications: [],
       notificationDispatches: {},
+      notificationAudit: [],
       passkeyCredentials: []
     };
     // لا نكتب الحالة الفارغة على db.json عند الإقلاع. هذا الملف cache تشغيل فقط،
@@ -1978,6 +1985,72 @@ export class LocalDatabase {
   }
 
   // Getters
+  public async createSubmissionAttachmentResumableUpload(record: {
+    fileId: string;
+    originalName: string;
+    mimeType: string;
+    size: number;
+    origin: string;
+  }): Promise<string | null> {
+    if (!dbBucket) return null;
+    const fileId = String(record?.fileId || "").trim();
+    if (!fileId) return null;
+    try {
+      const [uri] = await dbBucket
+        .file(`submission-attachments/${fileId}`)
+        .createResumableUpload({
+          origin: String(record.origin || ""),
+          metadata: {
+            contentType: String(record.mimeType || "application/octet-stream"),
+            metadata: {
+              originalName: String(record.originalName || "attachment"),
+              storedName: fileId,
+              size: String(Number(record.size || 0)),
+            },
+          },
+        });
+      return String(uri || "") || null;
+    } catch (error) {
+      console.warn(
+        "⚠️ Could not create resumable attachment upload:",
+        (error as any)?.message || error,
+      );
+      return null;
+    }
+  }
+
+  public async confirmSubmissionAttachmentResumableUpload(record: {
+    fileId: string;
+    expectedSize: number;
+  }): Promise<{ size: number; mimeType: string; originalName: string } | null> {
+    if (!dbBucket) return null;
+    const fileId = String(record?.fileId || "").trim();
+    if (!fileId) return null;
+    try {
+      const gcsFile = dbBucket.file(`submission-attachments/${fileId}`);
+      const [exists] = await gcsFile.exists();
+      if (!exists) return null;
+      const [metadata] = await gcsFile.getMetadata();
+      const size = Number((metadata as any)?.size || 0);
+      const expectedSize = Number(record.expectedSize || 0);
+      if (!size || (expectedSize > 0 && size !== expectedSize)) return null;
+      const custom = (metadata as any)?.metadata || {};
+      return {
+        size,
+        mimeType: String(
+          (metadata as any)?.contentType || "application/octet-stream",
+        ),
+        originalName: String(custom.originalName || "attachment"),
+      };
+    } catch (error) {
+      console.warn(
+        "⚠️ Could not confirm resumable attachment upload:",
+        (error as any)?.message || error,
+      );
+      return null;
+    }
+  }
+
   public async saveSubmissionAttachmentArchive(record: {
     fileId: string;
     originalName?: string;
@@ -3133,6 +3206,42 @@ export class LocalDatabase {
         .slice(0, keys.length - 2500)
         .forEach((oldKey) => delete dispatches[oldKey]);
     }
+    this.persist(false);
+  }
+
+  public getNotificationAudit(): any[] {
+    if (!this.data.notificationAudit) this.data.notificationAudit = [];
+    return this.data.notificationAudit;
+  }
+
+  public updateNotificationAudit(
+    eventIdValue: string,
+    patch: Record<string, any> = {},
+    increments: Record<string, number> = {},
+  ): void {
+    const eventId = String(eventIdValue || "").trim();
+    if (!eventId) return;
+    const audit = this.getNotificationAudit();
+    const existingIndex = audit.findIndex(
+      (item: any) => String(item?.id || "") === eventId,
+    );
+    const previous = existingIndex >= 0 ? audit[existingIndex] : { id: eventId };
+    const next: any = {
+      ...previous,
+      ...patch,
+      id: eventId,
+      firstSeenAt: previous?.firstSeenAt || patch?.firstSeenAt || new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    };
+    Object.entries(increments || {}).forEach(([key, value]) => {
+      next[key] = Math.max(
+        0,
+        Number(previous?.[key] || 0) + Number(value || 0),
+      );
+    });
+    if (existingIndex >= 0) audit.splice(existingIndex, 1);
+    audit.unshift(next);
+    if (audit.length > 300) audit.length = 300;
     this.persist(false);
   }
 
