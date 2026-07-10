@@ -2207,6 +2207,8 @@ function resolveMirasDeviceId(): string {
 }
 
 const originalFetch = typeof window !== "undefined" ? window.fetch : null;
+const MIRAS_API_ORIGIN =
+  "https://miras-api-538577909672.us-central1.run.app";
 const MIRAS_STUDENT_LIVE_SYNC_KEY = "miras_student_live_sync_v1";
 const MIRAS_STUDENT_LIVE_CHANNEL = "miras-student-live-v1";
 const MIRAS_DEVICE_LOCK_MESSAGE =
@@ -2282,6 +2284,99 @@ const readStoredSessionAuthToken = (storageKey: string) => {
   }
 };
 
+const mirasRetryableStatus = (status: number) =>
+  status === 408 ||
+  status === 425 ||
+  status === 429 ||
+  status === 500 ||
+  status === 502 ||
+  status === 503 ||
+  status === 504;
+
+const mirasRequestIsSafeToRetry = (
+  input: RequestInfo | URL,
+  init?: RequestInit,
+) => {
+  const method = String(
+    init?.method || (input instanceof Request ? input.method : "GET") || "GET",
+  ).toUpperCase();
+  if (method === "GET" || method === "HEAD") return true;
+  const path = mirasRequestPathFromInput(input);
+  // This endpoint only reads the passkey state; Safari can report a transient
+  // "Load failed" while the app is resuming from the background.
+  return method === "POST" && path === "/api/auth/passkey/status";
+};
+
+const mirasDirectApiFallbackInput = (
+  input: RequestInfo | URL,
+): string | URL | Request | null => {
+  try {
+    const raw =
+      input instanceof Request
+        ? input.url
+        : input instanceof URL
+          ? input.href
+          : String(input || "");
+    const parsed = new URL(raw, window.location.origin);
+    if (parsed.origin !== window.location.origin) return null;
+    if (!parsed.pathname.startsWith("/api/")) return null;
+    const directUrl = new URL(
+      `${parsed.pathname}${parsed.search}`,
+      MIRAS_API_ORIGIN,
+    );
+    if (input instanceof Request) return new Request(directUrl.href, input);
+    return directUrl.href;
+  } catch {
+    return null;
+  }
+};
+
+const mirasDelay = (ms: number) =>
+  new Promise<void>((resolve) => window.setTimeout(resolve, ms));
+
+async function mirasFetchWithRecovery(
+  input: RequestInfo | URL,
+  init?: RequestInit,
+): Promise<Response> {
+  if (!originalFetch) throw new Error("window.fetch is not available");
+  const canRetry = mirasRequestIsSafeToRetry(input, init);
+  const attempts = canRetry ? 3 : 1;
+  let lastError: any = null;
+  let lastResponse: Response | null = null;
+
+  for (let attempt = 0; attempt < attempts; attempt += 1) {
+    try {
+      const response = await originalFetch(input, init);
+      lastResponse = response;
+      if (!canRetry || !mirasRetryableStatus(response.status)) return response;
+    } catch (error: any) {
+      lastError = error;
+      if (!canRetry || error?.name === "AbortError") throw error;
+    }
+    if (attempt < attempts - 1) await mirasDelay(350 * (attempt + 1));
+  }
+
+  // Firebase Hosting can briefly lose the rewrite connection on mobile Safari.
+  // A safe read can go directly to Cloud Run, while mutating requests keep their
+  // original semantics and are never duplicated by this fallback.
+  const directInput = mirasDirectApiFallbackInput(input);
+  if (canRetry && directInput) {
+    for (let attempt = 0; attempt < 2; attempt += 1) {
+      try {
+        const response = await originalFetch(directInput, init);
+        if (!mirasRetryableStatus(response.status) || attempt === 1)
+          return response;
+      } catch (error: any) {
+        lastError = error;
+        if (error?.name === "AbortError") throw error;
+      }
+      await mirasDelay(450 * (attempt + 1));
+    }
+  }
+  if (lastResponse) return lastResponse;
+  throw lastError || new Error("Network request failed");
+}
+
 async function mirasFetch(
   input: RequestInfo | URL,
   init?: RequestInit,
@@ -2310,7 +2405,7 @@ async function mirasFetch(
         requestAuthToken = authorization.slice(7).trim();
       }
     } catch {}
-    const resp = await originalFetch(input, init);
+    const resp = await mirasFetchWithRecovery(input, init);
     if (resp.status === 403 || resp.status === 409) {
       try {
         const clone = resp.clone();
@@ -7249,10 +7344,12 @@ export default function App() {
 
         if (details.projects && details.projects.length > 0)
           setPersonalProject(details.projects[0]);
-        else setPersonalProject(null);
+        else if (detailsResp.ok) setPersonalProject(null);
         setStudentSubmissions(details.exerciseSubmissions || []);
       } catch (err) {
-        console.error("Error loading student persistent details:", err);
+        // Keep the last known project during a transient Safari/Hosting outage.
+        // The live poll retries and replaces this data after the connection returns.
+        console.warn("Student persistent details refresh deferred:", err);
       }
     };
 
@@ -15125,8 +15222,10 @@ ${rows
           setPersonalProject(details.projects[0]);
         else setPersonalProject(null);
         setStudentSubmissions(details.exerciseSubmissions || []);
-      } catch {
-        setPersonalProject(null);
+      } catch (err) {
+        // A brief Safari/Hosting outage must not erase the last known project.
+        // The live-state poll will refresh it as soon as the connection returns.
+        console.warn("Student data refresh deferred after network recovery:", err);
       }
       return;
     }
@@ -16016,7 +16115,7 @@ ${rows
             if (!cancelled) {
               if (details.projects && details.projects.length > 0)
                 setPersonalProject(details.projects[0]);
-              else setPersonalProject(null);
+              else if (detailsResp.ok) setPersonalProject(null);
               setStudentSubmissions(details.exerciseSubmissions || []);
             }
           } catch {}
@@ -20687,10 +20786,13 @@ ${rows
   );
   const studentCourseProjects = teacherProjects.filter((project: any) => {
     const prior = latestStudentSubmissionForActivity("project", project.id);
+    const returned = isReturnedSubmissionStatus(prior?.status);
     return (
       isActiveRecord(project) &&
       isStudentCourseVisible(project.courseCode) &&
-      (!isProjectClosed(project) || isReturnExceptionActive(prior))
+      // A teacher return is an explicit reopening decision. It must remain
+      // visible even when the original deadline has already passed.
+      (!isProjectClosed(project) || returned || isReturnExceptionActive(prior))
     );
   });
   const studentActivityCards = [
@@ -20825,7 +20927,8 @@ ${rows
       const isLocked =
         !!studentSession?.id &&
         isSubmissionClosedForStudent("project", project.id, studentSession.id);
-      const closedByTime = isProjectClosed(project) && !returnedExceptionOpen;
+      const closedByTime =
+        isProjectClosed(project) && !returnedExceptionOpen && !isReturned;
       return {
         id: project.id,
         kind: "مشروع",

@@ -1373,6 +1373,10 @@ function upsertRuntimeTeacherSubmission(submission: any) {
       returnedAt: undefined,
       returnedByEmail: undefined,
       returnNote: undefined,
+      returnExceptionUntil: undefined,
+      returnExceptionHours: undefined,
+      returnExceptionGrantedAt: undefined,
+      returnExceptionByEmail: undefined,
     };
   }
   if (incomingStatus === EXAM_IN_PROGRESS_STATUS) {
@@ -2641,6 +2645,8 @@ function renderQuestions(questions, title, minutes){
 // نقطة /api/exam-integrity/pulse. كشف بلا FaceDetector: ظلام/تغطية، وانحراف مركز
 // الإضاءة الأفقي (التفات الرأس/الخروج من الإطار). كل شيء داخل try فلا يعطّل الاختبار.
 var sebCamStream=null,sebCamVideo=null,sebCamCanvas=null,sebCamCtx=null,sebCamTimer=null;
+var sebCamPreviewStream=null,sebCamWatchdogTimer=null,sebCamWatchdogBusy=false;
+var sebCamLastPreviewTime=-1,sebCamLastAnalysisTime=-1,sebCamStallSince=0,sebCamAnalysisStallSince=0,sebCamTrackMutedSince=0,sebCamLastRecoveryAt=0;
 var sebBlazeModel=null,sebBlazeBusy=false,sebBlazeTried=false,sebBlazeCanvas=null,sebBlazeCtx=null,sebBlazeLastTryAt=0;
 var sebBlazeReportedErrors={};
 function sebBlazeReportError(stage,err){
@@ -2814,7 +2820,95 @@ function sebCamShowPreview(stream){
     if(!v){v=document.createElement("video");v.id="sebCamPrev";v.muted=true;v.playsInline=true;v.setAttribute("playsinline","");
       v.style.cssText="position:fixed;bottom:14px;left:14px;width:104px;height:78px;border-radius:14px;object-fit:cover;z-index:99998;border:2px solid rgba(99,102,241,.75);box-shadow:0 8px 24px rgba(0,0,0,.5);background:#000";
       document.body.appendChild(v);}
-    v.srcObject=stream;v.play&&v.play().catch(function(){});
+    sebCamPreviewStream=stream;
+    sebCamLastPreviewTime=-1;
+    v.srcObject=stream;
+    v.onloadedmetadata=function(){try{v.play&&v.play().catch(function(){});}catch(e){}};
+    v.onstalled=function(){sebCamStallSince=sebCamStallSince||Date.now();};
+    v.onwaiting=function(){sebCamStallSince=sebCamStallSince||Date.now();};
+    v.onplaying=function(){sebCamStallSince=0;};
+    v.play&&v.play().catch(function(){});
+  }catch(e){}
+}
+function sebCamStopPreviewStream(){
+  try{
+    if(sebCamPreviewStream&&sebCamPreviewStream.getTracks)
+      sebCamPreviewStream.getTracks().forEach(function(t){try{t.stop();}catch(e){}});
+  }catch(e){}
+  sebCamPreviewStream=null;
+}
+function sebCamRestartPreview(reason){
+  try{
+    if(!sebCamStream||!sebCamStream.clone)return false;
+    var nextPreview=sebCamStream.clone();
+    sebCamStopPreviewStream();
+    sebCamShowPreview(nextPreview);
+    sebCamLastRecoveryAt=Date.now();
+    sebCamStallSince=0;
+    sebRadarReport("SEB camera preview recovered: "+String(reason||"stalled"),"preview-stall");
+    return true;
+  }catch(e){return false;}
+}
+function sebCamRestartStream(reason){
+  try{
+    if(sebCamWatchdogBusy||!sebCamStream)return;
+    if(Date.now()-sebCamLastRecoveryAt<7000)return;
+    sebCamWatchdogBusy=true;
+    sebCamLastRecoveryAt=Date.now();
+    sebRadarReport("SEB camera stream recovered: "+String(reason||"stalled"),"stream-stall");
+    try{if(sebCamVideo){sebCamVideo.pause();sebCamVideo.srcObject=null;}}catch(e){}
+    sebCamStopPreviewStream();
+    try{sebCamStream.getTracks().forEach(function(t){t.stop();});}catch(e){}
+    sebCamStream=null;sebCamVideo=null;sebCamCanvas=null;sebCamCtx=null;
+    if(sebCamTimer){clearInterval(sebCamTimer);sebCamTimer=null;}
+    window.setTimeout(function(){
+      sebCamWatchdogBusy=false;
+      try{ensureSebCamera();}catch(e){}
+    },250);
+  }catch(e){sebCamWatchdogBusy=false;}
+}
+function sebCamWatchdog(){
+  try{
+    if(!sebCamStream||!sebCamVideo||sebCamWatchdogBusy)return;
+    var now=Date.now();
+    var track=sebCamStream.getVideoTracks&&sebCamStream.getVideoTracks()[0];
+    if(track&&track.readyState!=="live"){
+      sebCamRestartStream("track-"+String(track.readyState||"ended"));
+      return;
+    }
+    if(track&&track.muted){
+      sebCamTrackMutedSince=sebCamTrackMutedSince||now;
+    }else{
+      sebCamTrackMutedSince=0;
+    }
+    var preview=document.getElementById("sebCamPrev");
+    var previewTime=preview?Number(preview.currentTime):-1;
+    var analysisTime=Number(sebCamVideo.currentTime);
+    if(preview&&preview.readyState>=2&&preview.paused){try{preview.play().catch(function(){});}catch(e){}}
+    if(preview&&preview.readyState>=2&&Number.isFinite(previewTime)&&previewTime>0){
+      if(sebCamLastPreviewTime>=0&&previewTime<=sebCamLastPreviewTime+0.01){
+        if(!sebCamStallSince)sebCamStallSince=now;
+      }else{sebCamStallSince=0;}
+      sebCamLastPreviewTime=previewTime;
+    }
+    var analysisStalled=false;
+    if(sebCamVideo.readyState>=2&&Number.isFinite(analysisTime)&&analysisTime>0){
+      analysisStalled=sebCamLastAnalysisTime>=0&&analysisTime<=sebCamLastAnalysisTime+0.01;
+      if(analysisStalled)sebCamAnalysisStallSince=sebCamAnalysisStallSince||now;
+      else sebCamAnalysisStallSince=0;
+      sebCamLastAnalysisTime=analysisTime;
+    }
+    if(sebCamStallSince&&now-sebCamStallSince>=3500){
+      if(!sebCamRestartPreview("stalled"))sebCamRestartStream("preview-stalled");
+      return;
+    }
+    if(sebCamAnalysisStallSince&&now-sebCamAnalysisStallSince>=3500){
+      sebCamRestartStream("analysis-stalled");
+      return;
+    }
+    if(sebCamTrackMutedSince&&now-sebCamTrackMutedSince>=3500){
+      sebCamRestartStream("track-muted");
+    }
   }catch(e){}
 }
 function sebCamEngage(pulseType,msg){
@@ -3002,6 +3096,7 @@ function sebCamAdoptStream(stream){
     sebCamHideBlockOverlay();
     if(sebCamAutoRetryTimer){clearInterval(sebCamAutoRetryTimer);sebCamAutoRetryTimer=null;}
     sebCamStream=stream;
+    sebCamLastPreviewTime=-1;sebCamLastAnalysisTime=-1;sebCamStallSince=0;sebCamAnalysisStallSince=0;sebCamTrackMutedSince=0;
     var prevStream=stream;try{if(stream.clone)prevStream=stream.clone();}catch(e){}
     sebCamShowPreview(prevStream);
     // فيديو التحليل: عنصر مستقل لا يُدرج في الصفحة أبداً — هذه هي المعمارية
@@ -3016,11 +3111,15 @@ function sebCamAdoptStream(stream){
     // نبضة أسرع (٦٥٠مللي): مع النموذج المضمَّن الشغال، التنبيه يصل خلال ~١.٣ث بدل
     // ~١.٨ث. حارس busy يحمي الأجهزة البطيئة تلقائياً (تخطي النبضة لا تكديسها).
     if(sebCamTimer)clearInterval(sebCamTimer);sebCamTimer=setInterval(sebCamAnalyze,650);
+    if(sebCamWatchdogTimer)clearInterval(sebCamWatchdogTimer);
+    sebCamWatchdogTimer=setInterval(sebCamWatchdog,1200);
   }catch(e){}
 }
-function stopSebCamera(){try{if(sebCamTimer)clearInterval(sebCamTimer);if(sebCamAutoRetryTimer){clearInterval(sebCamAutoRetryTimer);sebCamAutoRetryTimer=null;}if(sebCamStream)sebCamStream.getTracks().forEach(function(t){t.stop();});
+function stopSebCamera(){try{if(sebCamTimer)clearInterval(sebCamTimer);if(sebCamWatchdogTimer)clearInterval(sebCamWatchdogTimer);sebCamWatchdogTimer=null;if(sebCamAutoRetryTimer){clearInterval(sebCamAutoRetryTimer);sebCamAutoRetryTimer=null;}if(sebCamVideo){try{sebCamVideo.pause();sebCamVideo.srcObject=null;}catch(e){}}if(sebCamStream)sebCamStream.getTracks().forEach(function(t){t.stop();});
   // نسخة المعاينة (clone) لها مساراتها المستقلة — أطفئها أيضاً
-  try{var pv=document.getElementById("sebCamPrev");if(pv&&pv.srcObject)pv.srcObject.getTracks().forEach(function(t){t.stop();});}catch(e){}
+  sebCamStopPreviewStream();
+  try{var pv=document.getElementById("sebCamPrev");if(pv){pv.pause();pv.srcObject=null;}}catch(e){}
+  sebCamStream=null;sebCamVideo=null;sebCamCanvas=null;sebCamCtx=null;
   sebCamOverlayShow("");}catch(e){}}
 
 let busy=false;
@@ -20919,6 +21018,10 @@ app.post("/api/student/submissions", (req, res) => {
     returnedAt: undefined,
     returnedByEmail: undefined,
     returnNote: undefined,
+    returnExceptionUntil: undefined,
+    returnExceptionHours: undefined,
+    returnExceptionGrantedAt: undefined,
+    returnExceptionByEmail: undefined,
     status: safeStatus,
     submittedAt: incoming.submittedAt || nowIso,
     updatedAt: nowIso,
@@ -21107,6 +21210,7 @@ app.post("/api/teacher/submissions/return", (req, res) => {
   // صف مطابق في شاشة التسليمات؛ فإن لم يوجد (شائع مع الاختبارات العادية وطلبة المعاد) كان
   // الأستاذ يرى "تم" بينما لا يصل الطالب أي شيء. الآن نرسل إشعاراً واحداً مضموناً مهما كان المسار.
   let returnNotified = false;
+  let returnWindowRefreshed = false;
   const returnActivityTitle =
     (
       dbInstance
@@ -21134,6 +21238,7 @@ app.post("/api/teacher/submissions/return", (req, res) => {
     });
     returnNotified = true;
   };
+  let matchedRuntimeSubmission = false;
   if (normalizedKind && normalizedActivityId && normalizedStudentId) {
     const subs = dbInstance.getTeacherSubmissions();
     const matchIdx = subs.findIndex(
@@ -21146,17 +21251,41 @@ app.post("/api/teacher/submissions/return", (req, res) => {
           String(item.studentId ?? "") === normalizedStudentId),
     );
     if (matchIdx !== -1) {
+      matchedRuntimeSubmission = true;
       const currentSub = subs[matchIdx];
-      // عديم التكرار (كابتشر المالك + القاعدة: سجلا "إعادة اختبار" بفارق ٤٩ث =
-      // ضغطة إرجاع ثانية): التسليم مُعاد للطالب أصلاً؟ نجاح صامت — لا إشعار
-      // جديد ولا دفعة جوال ولا سجل، فلا يصل الطالب أي شيء مرتين مهما تكرر الضغط.
-      if (String(currentSub.status || "") === EXAM_RETURNED_STATUS) {
+      const currentIsReturned = isReturnedSubmissionStatusServer(
+        currentSub.status,
+      );
+      const currentExceptionUntilMs = new Date(
+        currentSub.returnExceptionUntil || 0,
+      ).getTime();
+      const currentExceptionIsActive =
+        Number.isFinite(currentExceptionUntilMs) &&
+        currentExceptionUntilMs > Date.now();
+      // الضغطة المكررة تبقى عديمة الأثر، لكن المشروع المُعاد الذي انتهت فرصته
+      // يجب أن يقبل نافذة جديدة. كان الحارس القديم يخرج لمجرد أن الحالة
+      // "معاد للطالب"، فيبقى المشروع مخفياً إلى الأبد بعد انتهاء أول مهلة.
+      // نعد التجديد مقصوداً إذا كانت النافذة منتهية/مفقودة أو زادت أكثر من خمس
+      // دقائق؛ وبذلك لا يحول تكرار الطلب الشبكي نفسه إلى إشعار ثانٍ.
+      const requestedExceptionUntilMs = normalizedReturnExceptionUntil
+        ? new Date(normalizedReturnExceptionUntil).getTime()
+        : 0;
+      const meaningfullyExtendsReturnWindow =
+        Number.isFinite(requestedExceptionUntilMs) &&
+        requestedExceptionUntilMs > Date.now() &&
+        (!currentExceptionIsActive ||
+          requestedExceptionUntilMs > currentExceptionUntilMs + 5 * 60 * 1000);
+      const shouldRefreshReturnedWindow =
+        currentIsReturned && meaningfullyExtendsReturnWindow;
+      if (currentIsReturned && !shouldRefreshReturnedWindow) {
         return res.json({
           success: true,
           alreadyReturned: true,
+          returnExceptionUntil: currentSub.returnExceptionUntil || "",
           revision: liveContentRevision,
         });
       }
+      returnWindowRefreshed = shouldRefreshReturnedWindow;
       const shouldPreserveReturnedExamAnswers = false;
       const returnedPreservedAnswers =
         currentSub.answers && Object.keys(currentSub.answers || {}).length
@@ -21171,9 +21300,13 @@ app.post("/api/teacher/submissions/return", (req, res) => {
       const updatedSub = {
         ...currentSub,
         status: EXAM_RETURNED_STATUS,
-        previousStatus: currentSub.status || currentSub.previousStatus || "",
+        previousStatus: currentIsReturned
+          ? currentSub.previousStatus || ""
+          : currentSub.status || currentSub.previousStatus || "",
         previousAnswerText:
-          currentSub.answerText || currentSub.previousAnswerText || "",
+          currentIsReturned
+            ? currentSub.previousAnswerText || ""
+            : currentSub.answerText || currentSub.previousAnswerText || "",
         grade: "",
         visibleGrade: "",
         score: "",
@@ -21186,33 +21319,41 @@ app.post("/api/teacher/submissions/return", (req, res) => {
           currentSub.previousServerSubmissionId ||
           "",
         serverSubmissionId: undefined,
-        previousGrade: String(
-          currentSub.grade ??
-            currentSub.score ??
-            currentSub.visibleGrade ??
-            currentSub.previousGrade ??
-            "",
-        ),
-        previousVisibleGrade: String(
-          currentSub.visibleGrade ??
-            currentSub.grade ??
-            currentSub.score ??
-            currentSub.previousVisibleGrade ??
-            "",
-        ),
+        previousGrade: currentIsReturned
+          ? String(currentSub.previousGrade ?? "")
+          : String(
+              currentSub.grade ??
+                currentSub.score ??
+                currentSub.visibleGrade ??
+                currentSub.previousGrade ??
+                "",
+            ),
+        previousVisibleGrade: currentIsReturned
+          ? String(currentSub.previousVisibleGrade ?? "")
+          : String(
+              currentSub.visibleGrade ??
+                currentSub.grade ??
+                currentSub.score ??
+                currentSub.previousVisibleGrade ??
+                "",
+            ),
         previousTotalPoints:
-          currentSub.totalPoints ??
-          currentSub.maxPoints ??
-          currentSub.points ??
-          currentSub.previousTotalPoints ??
-          "",
+          currentIsReturned
+            ? currentSub.previousTotalPoints ?? ""
+            : currentSub.totalPoints ??
+              currentSub.maxPoints ??
+              currentSub.points ??
+              currentSub.previousTotalPoints ??
+              "",
         previousAnswers: returnedPreservedAnswers,
         previousMatchedQuestions: returnedPreservedMatchedQuestions,
         answers: shouldPreserveReturnedExamAnswers ? returnedPreservedAnswers : {},
         matchedQuestions: shouldPreserveReturnedExamAnswers
           ? returnedPreservedMatchedQuestions
           : [],
-        answerText: "تم إرجاع النشاط للطالب؛ المحاولة مفتوحة من جديد.",
+        answerText: normalizedReturnExceptionUntil
+          ? `تم إرجاع النشاط للطالب؛ المحاولة مفتوحة من جديد حتى ${normalizedReturnExceptionUntil}.`
+          : "تم إرجاع النشاط للطالب؛ المحاولة مفتوحة من جديد.",
         returnedAt,
         returnedByEmail,
         returnExceptionUntil: normalizedReturnExceptionUntil,
@@ -21292,7 +21433,11 @@ app.post("/api/teacher/submissions/return", (req, res) => {
     ensureReturnNotice(
       String((sub as any).sectionCode || (sub as any).courseCode || ""),
     );
-    return res.json({ success: true, status: "returned" });
+    return res.json({
+      success: true,
+      status: "returned",
+      returnWindowRefreshed,
+    });
   }
 
   if (kind === "quiz" || kind === "exam") {
@@ -21366,7 +21511,11 @@ app.post("/api/teacher/submissions/return", (req, res) => {
           "",
       ),
     );
-    return res.json({ success: true, status: "returned" });
+    return res.json({
+      success: true,
+      status: "returned",
+      returnWindowRefreshed,
+    });
   }
 
   const project = dbInstance
@@ -21387,13 +21536,58 @@ app.post("/api/teacher/submissions/return", (req, res) => {
         ? returnedByEmail
         : "",
     });
+
+    // Some older project submissions exist only in personalizedProjects and
+    // have no unified teacher-submissions row. The student live-state endpoint
+    // reads the unified collection, so returning such a project used to show a
+    // success message to the teacher while the student still saw nothing,
+    // especially after the original deadline had passed. Create the canonical
+    // returned row so every client receives the same reopening decision.
+    if (!matchedRuntimeSubmission) {
+      upsertRuntimeTeacherSubmission({
+        id: `project-${project.id}-${project.studentId || normalizedStudentId}`,
+        kind: "project",
+        activityId: project.id,
+        activityTitle: project.title || returnActivityTitle,
+        courseCode: (project as any).courseCode || (project as any).sectionCode || "",
+        studentId: project.studentId || normalizedStudentId,
+        studentName: project.studentName || "",
+        status: EXAM_RETURNED_STATUS,
+        answerText: normalizedReturnExceptionUntil
+          ? `تم إرجاع المشروع للطالب؛ المحاولة مفتوحة من جديد حتى ${normalizedReturnExceptionUntil}.`
+          : "تم إرجاع المشروع للطالب؛ المحاولة مفتوحة من جديد.",
+        submittedAt: project.submittedAt || returnedAt,
+        returnedAt,
+        returnedByEmail,
+        returnExceptionUntil: normalizedReturnExceptionUntil,
+        returnExceptionHours: normalizedReturnExceptionHours,
+        returnExceptionGrantedAt: normalizedReturnExceptionUntil
+          ? returnExceptionGrantedAt || returnedAt
+          : "",
+        returnExceptionByEmail: normalizedReturnExceptionUntil
+          ? returnedByEmail
+          : "",
+        returnNote,
+        grade: "",
+        visibleGrade: "",
+        score: "",
+        teacherGrade: "",
+        finalGrade: "",
+        teacherGradeOverride: false,
+      });
+      bumpLiveContentRevision();
+    }
   } else if (normalizedKind !== "project") {
     return res.status(404).json({ error: "لم يتم العثور على المشروع." });
   }
   ensureReturnNotice(
     String((project as any)?.courseCode || (project as any)?.sectionCode || ""),
   );
-  return res.json({ success: true, status: "returned" });
+  return res.json({
+    success: true,
+    status: "returned",
+    returnWindowRefreshed,
+  });
 });
 
 // Get System Statistics and progress reports
