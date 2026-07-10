@@ -14,3 +14,6 @@ coverage/
 # Runtime database/cache — never ship development data or an empty cache in source ZIPs
 data/
 !data/.gitkeep
+
+# كاش نشر Firebase المحلي
+.firebase/

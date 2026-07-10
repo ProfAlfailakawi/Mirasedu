@@ -17390,11 +17390,17 @@ button[data-miras-action-busy="true"] svg {
 }
 .miras-cmdk-search svg{width:20px;height:20px;color:#4f46e5;flex:none;opacity:.9}
 .miras-cmdk-search input{
-  flex:1; border:0; outline:0; background:transparent;
-  font-family:var(--font-sans); font-size:17px; font-weight:700; color:#0b1220;
+  flex:1; border:0; outline:0; background:transparent !important;
+  font-family:var(--font-sans); font-size:17px; font-weight:700;
+  /* قواعد قاطعة: قاعدة عامة أخرى كانت تجعل النص باهتاً شبه مخفي على الأبيض
+     (شكوى المالك بالصورة). -webkit-text-fill-color تتغلب حتى على تلوين
+     الملء التلقائي في Safari/Chrome. */
+  color:#0b1220 !important;
+  -webkit-text-fill-color:#0b1220 !important;
+  caret-color:#4f46e5;
   letter-spacing:-.01em;
 }
-.miras-cmdk-search input::placeholder{color:#94a3b8;font-weight:600}
+.miras-cmdk-search input::placeholder{color:#94a3b8 !important;-webkit-text-fill-color:#94a3b8 !important;font-weight:600}
 .miras-cmdk-esc{
   font-size:11px;font-weight:800;color:#64748b;
   background:rgba(148,163,184,.14); border-radius:8px; padding:4px 8px; flex:none;

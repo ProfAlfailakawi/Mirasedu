@@ -1,5 +1,5 @@
 /* Miras PWA + FCM service worker */
-const MIRAS_CACHE_VERSION = 'miras-shell-v33-pdfjs-cache-first-20260708';
+const MIRAS_CACHE_VERSION = 'miras-shell-v57-nuclear-radar-20260710c';
 const MIRAS_STUDENT_LIVE_CHANNEL = 'miras-student-live-v1';
 const MIRAS_STATIC_ASSETS = [
   '/',
@@ -48,6 +48,28 @@ async function initMirasFirebaseMessaging(config) {
     messaging.onBackgroundMessage((payload) => showMirasNotification(payload));
   } catch (e) {}
 }
+
+// ═══ شبكة الصيد النووية — طبقة عامل الخدمة 🛰️ ═══════════════════════════════
+// أخطاء الـSW (دفعات، كاش، مزامنة خلفية) كانت تموت بصمت خارج نظر الجميع.
+var mirasSwRadarBudget = 3;
+function mirasSwRadar(message, stack) {
+  try {
+    if (mirasSwRadarBudget <= 0) return;
+    mirasSwRadarBudget -= 1;
+    fetch('/api/monitor/report', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ message: String(message || '').slice(0, 250), stack: String(stack || '').slice(0, 1000), url: '/sw', source: 'sw', role: '', userId: '' })
+    }).catch(function () {});
+  } catch (e) {}
+}
+self.addEventListener('error', function (e) {
+  mirasSwRadar('SW error: ' + String((e && e.message) || 'unknown'), String((e && e.filename) || '') + ':' + String((e && e.lineno) || ''));
+});
+self.addEventListener('unhandledrejection', function (e) {
+  var r = e && e.reason;
+  mirasSwRadar('SW rejection: ' + String((r && r.message) || r || 'unknown'), String((r && r.stack) || ''));
+});
 
 const mirasRecentNotificationKeys = new Map();
 
@@ -188,6 +210,14 @@ async function showMirasNotification(payload) {
   const inAppPayload = await broadcastMirasInAppNotification(title, body, data || {});
   await saveMirasPendingFcmNotification(inAppPayload);
   if (shouldSkipDuplicateNotification(title, body, data)) return;
+  // التطبيق مفتوح وظاهر أمام المستخدم؟ التوست الداخلي (المبثوث أعلاه) يكفيه —
+  // بانر النظام فوقه = نفس الإشعار "يصل مرتين" (شكوى المالك). البانر يظهر فقط
+  // حين يكون التطبيق بالخلفية/مغلقاً، وهو عرفُ التطبيقات الاحترافية.
+  try {
+    const wins = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
+    const appVisible = wins.some((c) => c.visibilityState === 'visible');
+    if (appVisible) return;
+  } catch (e) {}
   return self.registration.showNotification(title, {
     body,
     icon: '/ios-icon-192-v7.png',

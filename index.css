@@ -17388,13 +17388,25 @@ button[data-miras-action-busy="true"] svg {
   display:flex; align-items:center; gap:12px;
   padding:16px 20px; border-bottom:1px solid rgba(226,232,240,.9);
 }
-.miras-cmdk-search svg{width:20px;height:20px;color:#4f46e5;flex:none;opacity:.9}
+.miras-cmdk-search svg{width:17px;height:17px;color:#94a3b8;flex:none;opacity:.8}
 .miras-cmdk-search input{
   flex:1; border:0; outline:0; background:transparent;
-  font-family:var(--font-sans); font-size:17px; font-weight:700; color:#0b1220;
-  letter-spacing:-.01em;
+  font-family:var(--font-sans); font-size:16px; font-weight:400; color:#0b1220;
+  letter-spacing:0;
 }
-.miras-cmdk-search input::placeholder{color:#94a3b8;font-weight:600}
+.miras-cmdk-search input::placeholder{color:#94a3b8;font-weight:400}
+/* كتابة أنعم وأنحف داخل الحقول على الجوال (طلب المستخدم: انعم وابسط وانحف في
+   التلفون، ومراجعة كل البرنامج). نخفّف الأوزان الثقيلة (bold/black) في حقول
+   الإدخال فقط دون المساس بالعناوين، فتصبح الكتابة أهدأ وأوضح على الشاشات الصغيرة. */
+@media (max-width:640px){
+  .miras-cmdk-search input{font-size:15px;font-weight:400}
+  input:not([type="checkbox"]):not([type="radio"]),
+  textarea{
+    font-weight:400 !important;
+    letter-spacing:0 !important;
+  }
+  input::placeholder,textarea::placeholder{font-weight:400 !important}
+}
 .miras-cmdk-esc{
   font-size:11px;font-weight:800;color:#64748b;
   background:rgba(148,163,184,.14); border-radius:8px; padding:4px 8px; flex:none;

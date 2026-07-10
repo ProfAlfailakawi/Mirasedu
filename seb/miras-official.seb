@@ -111,5 +111,11 @@
       <false/>
     </dict>
   </array>
+  <key>browserMediaCaptureCamera</key>
+  <true/>
+  <key>browserMediaCaptureMicrophone</key>
+  <false/>
+  <key>browserMediaCaptureScreen</key>
+  <false/>
 </dict>
 </plist>
