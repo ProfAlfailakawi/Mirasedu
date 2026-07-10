@@ -1,5 +1,5 @@
 /* Miras PWA + FCM service worker */
-const MIRAS_CACHE_VERSION = 'miras-shell-v57-nuclear-radar-20260710c';
+const MIRAS_CACHE_VERSION = 'miras-shell-v58-single-push-20260710a';
 const MIRAS_STUDENT_LIVE_CHANNEL = 'miras-student-live-v1';
 const MIRAS_STATIC_ASSETS = [
   '/',
@@ -44,8 +44,9 @@ async function initMirasFirebaseMessaging(config) {
     }
     if (!firebaseConfig || !firebaseConfig.apiKey || !firebaseConfig.projectId || !firebaseConfig.messagingSenderId || !firebaseConfig.appId) return;
     self.firebase.initializeApp(firebaseConfig);
-    const messaging = self.firebase.messaging();
-    messaging.onBackgroundMessage((payload) => showMirasNotification(payload));
+    // تهيئة SDK مطلوبة لاستمرار توافق توكنات FCM، لكن العرض مملوك حصراً لمعالج
+    // push أدناه. تسجيل onBackgroundMessage هنا كان يصنع مسار عرض يدوي ثانياً.
+    self.firebase.messaging();
   } catch (e) {}
 }
 
@@ -145,19 +146,27 @@ function readAndClearMirasPendingFcmNotifications() {
 }
 
 function notificationDedupeKey(title, body, data) {
-  return [title || '', body || '', data?.type || '', data?.activityId || '', data?.courseCode || '', data?.url || ''].join('|');
+  const stableId = data?.notificationId || data?.eventId || data?.messageId || '';
+  if (stableId) return `id:${stableId}`;
+  return [title || '', body || '', data?.type || '', data?.activityId || data?.examId || data?.projectId || '', data?.courseCode || '', data?.url || ''].join('|');
 }
 
 function shouldSkipDuplicateNotification(title, body, data) {
   const now = Date.now();
   for (const [key, at] of mirasRecentNotificationKeys.entries()) {
-    if (now - at > 10000) mirasRecentNotificationKeys.delete(key);
+    if (now - at > 600000) mirasRecentNotificationKeys.delete(key);
   }
   const key = notificationDedupeKey(title, body, data || {});
   const previous = mirasRecentNotificationKeys.get(key);
-  if (previous && now - previous < 10000) return true;
+  if (previous && now - previous < 600000) return true;
   mirasRecentNotificationKeys.set(key, now);
   return false;
+}
+
+function notificationTag(title, body, data) {
+  const stableId = String(data?.notificationId || data?.eventId || data?.messageId || '').trim();
+  if (stableId) return stableId.slice(0, 120);
+  return `miras-${notificationDedupeKey(title, body, data || {}).slice(0, 100)}`;
 }
 
 function normalizePayload(payload) {
@@ -207,9 +216,16 @@ async function broadcastMirasInAppNotification(title, body, data) {
 
 async function showMirasNotification(payload) {
   const { title, body, data } = normalizePayload(payload || {});
+  // المنع يسبق البثّ والحفظ أيضاً؛ سابقاً كان يمنع بانر النظام فقط بينما يضيف
+  // نسختين إلى قناة التطبيق وIndexedDB من نفس دفعة FCM.
+  if (shouldSkipDuplicateNotification(title, body, data)) return;
+  const tag = notificationTag(title, body, data);
+  try {
+    const alreadyVisible = await self.registration.getNotifications({ tag });
+    if (alreadyVisible && alreadyVisible.length) return;
+  } catch (e) {}
   const inAppPayload = await broadcastMirasInAppNotification(title, body, data || {});
   await saveMirasPendingFcmNotification(inAppPayload);
-  if (shouldSkipDuplicateNotification(title, body, data)) return;
   // التطبيق مفتوح وظاهر أمام المستخدم؟ التوست الداخلي (المبثوث أعلاه) يكفيه —
   // بانر النظام فوقه = نفس الإشعار "يصل مرتين" (شكوى المالك). البانر يظهر فقط
   // حين يكون التطبيق بالخلفية/مغلقاً، وهو عرفُ التطبيقات الاحترافية.
@@ -225,8 +241,8 @@ async function showMirasNotification(payload) {
     dir: 'rtl',
     lang: 'ar',
     data,
-    tag: data.type || data.activityId || `miras-${Date.now()}`,
-    renotify: true,
+    tag,
+    renotify: false,
     requireInteraction: false,
   });
 }

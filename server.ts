@@ -2300,12 +2300,13 @@ function renderSebStartPage(req: express.Request, pass: SebPass) {
   .submit:hover{background:#1d4ed8;box-shadow:0 4px 20px rgba(37,99,235,0.3)}
   .muted{color:#64748b;font-size:12px;line-height:1.8;text-align:center}
 </style>
-<!-- كشف الوجه الحقيقي داخل SEB (BlazeFace): مستضاف ذاتياً على mirasedu.web.app
-     (مسموح في مرشّح روابط SEB). يُحمَّل غير متزامن فلا يؤخّر بدء الاختبار، وإن لم
-     يُحمَّل يتراجع تلقائياً لكشف الحركة الاحتياطي. -->
+<!-- كشف الوجه الحقيقي داخل SEB (BlazeFace): مستضاف ذاتياً على mirasedu.web.app.
+     مهم: blazeface UMD يلتقط window.tf لحظة تنفيذ الملف؛ async كان يسمح له أن
+     يُنفَّذ أولاً في بعض جلسات WKWebView فيبقى النموذج model=false رغم ظهور
+     المكتبتين لاحقاً. defer يحافظ على التحميل المتوازي والتنفيذ بالترتيب الحرفي. -->
 ${sebBlazeInlineModelTag()}
-<script async src="/vendor/tf.min.js"></script>
-<script async src="/vendor/blazeface.min.js"></script>
+<script defer src="/vendor/tf.min.js"></script>
+<script defer src="/vendor/blazeface.min.js"></script>
 </head>
 <body>
 <div class="box">
@@ -2640,61 +2641,89 @@ function renderQuestions(questions, title, minutes){
 // نقطة /api/exam-integrity/pulse. كشف بلا FaceDetector: ظلام/تغطية، وانحراف مركز
 // الإضاءة الأفقي (التفات الرأس/الخروج من الإطار). كل شيء داخل try فلا يعطّل الاختبار.
 var sebCamStream=null,sebCamVideo=null,sebCamCanvas=null,sebCamCtx=null,sebCamTimer=null;
-var sebBlazeModel=null,sebBlazeBusy=false,sebBlazeTried=false,sebBlazeCanvas=null,sebBlazeCtx=null;
+var sebBlazeModel=null,sebBlazeBusy=false,sebBlazeTried=false,sebBlazeCanvas=null,sebBlazeCtx=null,sebBlazeLastTryAt=0;
+var sebBlazeReportedErrors={};
+function sebBlazeReportError(stage,err){
+  try{
+    var name=String((err&&err.name)||"Error"),message=String((err&&err.message)||err||"unknown");
+    var key=String(stage||"unknown")+"|"+name+"|"+message;
+    if(sebBlazeReportedErrors[key])return;sebBlazeReportedErrors[key]=1;
+    try{if(err&&typeof err==="object")err.__mirasBlazeReported=true;}catch(x){}
+    sebRadarReport("SEB blaze "+String(stage||"unknown")+" failed: "+name+(message?" — "+message:""),name);
+  }catch(e){}
+}
+function sebBlazeStage(stage,promise){
+  return Promise.resolve(promise).catch(function(e){sebBlazeReportError(stage,e);throw e;});
+}
+function sebBlazeLoadInlineModel(){
+  var mb=window.__MIRAS_BLAZE;
+  if(!mb||!mb.t||!mb.w)throw new Error("inline BlazeFace model is unavailable");
+  var bin=atob(mb.w),len=bin.length,arr=new Uint8Array(len);
+  for(var bi=0;bi<len;bi++)arr[bi]=bin.charCodeAt(bi);
+  var manifest=mb.t.weightsManifest;
+  if(!Array.isArray(manifest)||!manifest[0]||!Array.isArray(manifest[0].weights))throw new Error("inline BlazeFace manifest is invalid");
+  var handler={load:function(){return Promise.resolve({
+    modelTopology:mb.t.modelTopology,
+    weightSpecs:manifest[0].weights,
+    weightData:arr.buffer,
+    format:mb.t.format,generatedBy:mb.t.generatedBy,convertedBy:mb.t.convertedBy});}};
+  return window.blazeface.load({maxFaces:3,modelUrl:handler});
+}
 // تسخين المحرك: أول استدلال يجمّع نوى الحساب (يأخذ ١-٣ث) — ننفذه على لوحة
 // فارغة فور التحميل، فيصير أول فحص حقيقي لوجه الطالب فورياً.
 function sebBlazeWarmup(m){
   try{
     var wc=document.createElement("canvas");wc.width=160;wc.height=120;
     wc.getContext("2d").fillRect(0,0,160,120);
-    m.estimateFaces(wc,false).catch(function(){});
-  }catch(e){}
+    Promise.resolve(m.estimateFaces(wc,false)).catch(function(e){sebBlazeReportError("warmup",e);});
+  }catch(e){sebBlazeReportError("warmup-sync",e);}
 }
 // تحميل نموذج BlazeFace (كشف الوجه الحقيقي) داخل SEB بلا حجب: ننتظر توفّر
-// window.tf و window.blazeface (مُحمَّلين async من /vendor)، ثم نحمّل النموذج.
+// window.tf و window.blazeface (مُحمَّلين بالترتيب عبر defer من /vendor)، ثم النموذج.
 // أي فشل يُبقي sebBlazeModel=null فيتراجع التحليل لكشف الحركة الاحتياطي.
 function sebTryLoadBlaze(){
   try{
     if(sebBlazeTried||sebBlazeModel)return;
     if(!window.tf||!window.blazeface)return;
+    if(Date.now()-sebBlazeLastTryAt<2500)return;
+    sebBlazeLastTryAt=Date.now();
     sebBlazeTried=true;
-    (window.tf.ready?window.tf.ready():Promise.resolve()).then(function(){
+    var tfReady;
+    try{tfReady=window.tf.ready?window.tf.ready():Promise.resolve();}
+    catch(e){sebBlazeReportError("tf-ready-sync",e);throw e;}
+    sebBlazeStage("tf-ready",tfReady).then(function(){
       // حتمية داخل SEB (بطاقات الرادار: model=false يظهر ويختفي بين الجلسات —
       // تهيئة رسوميات WebView متقلبة): نلزم خلفية CPU المضمونة. مع نموذج صغير
       // ولوحة فحص ١٦٠×١٢٠ الاستدلال ~٥٠-١٥٠مللي — أسرع من نبضتنا بكثير.
       // (هذا داخل صفحة SEB فقط — الاختبار العادي لا يمسّه هذا الملف أصلاً.)
-      try{if(window.tf.setBackend)return window.tf.setBackend("cpu").catch(function(){});}catch(e){}
+      if(!window.tf.setBackend)return;
+      var backendPromise;
+      try{backendPromise=window.tf.setBackend("cpu");}
+      catch(e){sebBlazeReportError("tf-backend-sync",e);throw e;}
+      return sebBlazeStage("tf-backend",backendPromise).then(function(ok){
+        if(ok===false){var backendError=new Error("tf.setBackend(cpu) returned false");sebBlazeReportError("tf-backend-result",backendError);throw backendError;}
+        var readyAfterBackend=window.tf.ready?window.tf.ready():undefined;
+        return sebBlazeStage("tf-ready-after-backend",readyAfterBackend);
+      });
     }).then(function(){
       // 🎯 جذر "model=false" (بطاقة الرادار من جهاز الطالب): فلتر محتوى SEB
       // يمنع جلب ملف أوزان النموذج. الحل القاطع: النموذج مضمَّن كاملاً في
       // الصفحة (window.__MIRAS_BLAZE) ويُحمَّل من الذاكرة — صفر جلب، صفر فلتر.
-      var mb=window.__MIRAS_BLAZE;
-      if(mb&&mb.t&&mb.w){
-        var bin=atob(mb.w),len=bin.length,arr=new Uint8Array(len);
-        for(var bi=0;bi<len;bi++)arr[bi]=bin.charCodeAt(bi);
-        var handler={load:function(){return Promise.resolve({
-          modelTopology:mb.t.modelTopology,
-          weightSpecs:mb.t.weightsManifest[0].weights,
-          weightData:arr.buffer,
-          format:mb.t.format,generatedBy:mb.t.generatedBy,convertedBy:mb.t.convertedBy});}};
-        return window.blazeface.load({maxFaces:3,modelUrl:handler});
+      try{return sebBlazeStage("model-load",sebBlazeLoadInlineModel());}
+      catch(e){sebBlazeReportError("model-inline-sync",e);throw e;}
+    }).then(function(m){
+      if(!m||typeof m.estimateFaces!=="function"){
+        var invalidModelError=new Error("BlazeFace returned an invalid model");
+        sebBlazeReportError("model-validate",invalidModelError);throw invalidModelError;
       }
-      return window.blazeface.load({maxFaces:3,modelUrl:"/vendor/blazeface-model/model.json"});
-    }).then(function(m){sebBlazeModel=m;sebBlazeWarmup(m);}).catch(function(){
-      // فشل التحميل (غالباً WebGL معطّل داخل SEB): جرّب خلفية CPU مرة واحدة —
-      // مسار الفشل فقط، لا يمسّ الأجهزة السليمة إطلاقاً.
-      try{
-        if(window.tf&&window.tf.setBackend&&!sebTryLoadBlaze.cpuTried){
-          sebTryLoadBlaze.cpuTried=true;
-          window.tf.setBackend("cpu").then(function(){
-            return window.blazeface.load({maxFaces:3,modelUrl:"/vendor/blazeface-model/model.json"});
-          }).then(function(m2){sebBlazeModel=m2;sebBlazeWarmup(m2);}).catch(function(){sebBlazeModel=null;sebBlazeTried=false;});
-          return;
-        }
-      }catch(e){}
+      sebBlazeModel=m;sebBlazeWarmup(m);
+    }).catch(function(e){
+      // كل فشل يصل الآن باسمه ونصه الحرفي إلى الرادار. نعيد المحاولة بعد مهلة
+      // قصيرة، لكن من النموذج المضمّن نفسه فقط؛ لا نعود إلى جلب .bin المحجوب.
+      if(!(e&&e.__mirasBlazeReported))sebBlazeReportError("pipeline",e);
       sebBlazeModel=null;sebBlazeTried=false;
     });
-  }catch(e){sebBlazeTried=false;}
+  }catch(e){if(!(e&&e.__mirasBlazeReported))sebBlazeReportError("load-sync",e);sebBlazeTried=false;}
 }
 function sebBlazeMode2(){return (boot.camera&&boot.camera.mode)||"strict";}
 async function sebBlazeDetect(){
@@ -2707,15 +2736,15 @@ async function sebBlazeDetect(){
     if(!sebBlazeCanvas){sebBlazeCanvas=document.createElement("canvas");sebBlazeCanvas.width=160;sebBlazeCanvas.height=120;sebBlazeCtx=sebBlazeCanvas.getContext("2d");}
     sebBlazeCtx.drawImage(sebCamVideo,0,0,160,120);
     preds=await sebBlazeModel.estimateFaces(sebBlazeCanvas,false);
-  }catch(e){preds=[];}
+  }catch(e){sebBlazeReportError("estimate",e);preds=[];}
   sebBlazeBusy=false;
   if(!Array.isArray(preds))preds=[];
   var fc=preds.length;
   if(fc===0){sebCamCounters.face_missing=(sebCamCounters.face_missing||0)+1;
-    if(sebCamCounters.face_missing>=2){sebSendVisionPulse("face_missing",{engine:"blazeface"});sebCamEngage("أعد وجهك للكاميرا.");}
+    if(sebCamCounters.face_missing>=2){sebSendVisionPulse("face_missing",{engine:"blazeface"});sebCamEngage("face_missing","أعد وجهك للكاميرا.");}
   }else{sebCamCounters.face_missing=0;}
   if(fc>1){sebCamCounters.multiple_faces=(sebCamCounters.multiple_faces||0)+1;
-    if(sebCamCounters.multiple_faces>=2){sebSendVisionPulse("multiple_faces",{faceCount:fc,engine:"blazeface"});sebCamEngage("خلّك وحدك أمام الكاميرا.");}
+    if(sebCamCounters.multiple_faces>=2){sebSendVisionPulse("multiple_faces",{faceCount:fc,engine:"blazeface"});sebCamEngage("multiple_faces","خلّك وحدك أمام الكاميرا.");}
   }else{sebCamCounters.multiple_faces=0;}
   if(fc===1){
     var p=preds[0],tl=p.topLeft,br=p.bottomRight;
@@ -2727,11 +2756,12 @@ async function sebBlazeDetect(){
     var noseOff=Math.abs((noseX-boxC)/boxW);
     var m=sebBlazeMode2();var edge=m==="strict"?0.25:0.18;var nl=m==="strict"?0.18:0.28;
     if(fr<edge||fr>1-edge||noseOff>nl){sebCamCounters.attn=(sebCamCounters.attn||0)+1;
-      if(sebCamCounters.attn>=2){sebSendVisionPulse("attention_away",{ratio:Number(fr.toFixed(3)),noseOffset:Number(noseOff.toFixed(3)),engine:"blazeface"});sebCamEngage("ارجع بنظرك للشاشة.");}
+      if(sebCamCounters.attn>=2){sebSendVisionPulse("attention_away",{ratio:Number(fr.toFixed(3)),noseOffset:Number(noseOff.toFixed(3)),engine:"blazeface"});sebCamEngage("attention_away","ارجع بنظرك للشاشة.");}
     }else{sebCamCounters.attn=0;}
   }
+  sebCamMaybeRecover();
 }
-var sebCamCounters={},sebCamLastPulse={},sebCamAttnBase=null,sebCamLocked=false,sebCamRecoverTimer=null;
+var sebCamCounters={},sebCamLastPulse={},sebCamAttnBase=null,sebCamLocked=false,sebCamClearSince=0;
 function sebCamMode(){return (boot.camera&&boot.camera.mode)||"strict";}
 function sebSendVisionPulse(pulseType,details){
   try{
@@ -2741,13 +2771,37 @@ function sebSendVisionPulse(pulseType,details){
       details:details||{},mode:sebCamMode(),privacy:"metadata_only_no_frames",source:"seb"})}).catch(function(){});
   }catch(e){}
 }
-function sebCamOverlayShow(msg){
+function sebCamGuidance(pulseType){
+  var map={
+    face_missing:{title:"أعد وجهك للكاميرا",detail:"ضع وجهك بالكامل في منتصف المعاينة، واجعل العينين واضحتين أمام الشاشة."},
+    attention_away:{title:"ارجع بنظرك للشاشة",detail:"وجّه وجهك ونظرك إلى منتصف الشاشة وثبّت وضعك لحظات قليلة."},
+    multiple_faces:{title:"شخص واحد أمام الكاميرا",detail:"تأكد أن لا يظهر شخص آخر داخل إطار الكاميرا أثناء الاختبار."},
+    camera_blocked:{title:"وضّح الكاميرا",detail:"أزل يدك أو أي غطاء عن العدسة، وتأكد من وجود إضاءة كافية لظهور وجهك."}
+  };
+  return map[pulseType]||{title:"لحظة تحقق",detail:"أعد وجهك والجهاز للوضع الطبيعي أمام الكاميرا."};
+}
+function sebCamOverlayShow(msg,pulseType,recoverSeconds){
   try{
     var o=document.getElementById("sebCamWarn");
-    if(!o){o=document.createElement("div");o.id="sebCamWarn";
-      o.style.cssText="position:fixed;inset:0;z-index:99999;display:none;align-items:center;justify-content:center;background:rgba(2,6,23,.92);color:#fff;font-family:system-ui,sans-serif;font-weight:900;font-size:18px;text-align:center;padding:24px;line-height:2";
-      document.body.appendChild(o);}
-    if(msg){o.textContent=msg;o.style.display="flex";}else{o.style.display="none";}
+    if(!o){
+      o=document.createElement("div");o.id="sebCamWarn";o.setAttribute("role","alert");o.setAttribute("aria-live","assertive");
+      o.style.cssText="position:fixed;inset:0;z-index:99999;display:none;align-items:center;justify-content:center;background:rgba(2,6,23,.88);font-family:system-ui,-apple-system,sans-serif;text-align:center;padding:18px;box-sizing:border-box;backdrop-filter:blur(12px)";
+      var card=document.createElement("div");card.style.cssText="width:min(420px,100%);border:1px solid rgba(255,255,255,.16);border-radius:26px;background:#fff;color:#0f172a;padding:22px;box-sizing:border-box;box-shadow:0 30px 90px rgba(0,0,0,.42)";
+      var icon=document.createElement("div");icon.textContent="◉";icon.style.cssText="width:56px;height:56px;border-radius:18px;display:grid;place-items:center;margin:0 auto 12px;background:#ecfdf5;color:#047857;font-size:26px;font-weight:900";
+      var title=document.createElement("h3");title.id="sebCamWarnTitle";title.style.cssText="margin:0;text-align:center;font-size:19px;font-weight:900";
+      var body=document.createElement("p");body.id="sebCamWarnBody";body.style.cssText="margin:10px 0 0;text-align:center;font-size:14px;font-weight:900;line-height:2;color:#334155";
+      var detail=document.createElement("p");detail.id="sebCamWarnDetail";detail.style.cssText="margin:7px 0 0;text-align:center;font-size:12px;font-weight:700;line-height:1.9;color:#64748b";
+      var status=document.createElement("div");status.id="sebCamWarnStatus";status.style.cssText="margin-top:14px;border:1px solid #d1fae5;border-radius:16px;background:#ecfdf5;color:#047857;padding:11px;font-size:11px;font-weight:900;line-height:1.8";
+      var privacy=document.createElement("p");privacy.textContent="الوقت مستمر، والتحليل محلي على جهازك ولا تُرفع أي صورة.";privacy.style.cssText="margin:10px 0 0;text-align:center;font-size:10px;font-weight:700;line-height:1.7;color:#94a3b8";
+      card.appendChild(icon);card.appendChild(title);card.appendChild(body);card.appendChild(detail);card.appendChild(status);card.appendChild(privacy);o.appendChild(card);document.body.appendChild(o);
+    }
+    if(!msg){o.style.display="none";return;}
+    var guide=sebCamGuidance(pulseType),titleEl=document.getElementById("sebCamWarnTitle"),bodyEl=document.getElementById("sebCamWarnBody"),detailEl=document.getElementById("sebCamWarnDetail"),statusEl=document.getElementById("sebCamWarnStatus");
+    if(titleEl)titleEl.textContent="لحظة تحقق";
+    if(bodyEl)bodyEl.textContent=msg||guide.title;
+    if(detailEl)detailEl.textContent=guide.detail;
+    if(statusEl)statusEl.textContent=recoverSeconds>0?"الوضع سليم الآن — تعود الأسئلة خلال "+recoverSeconds+" ث":"ستعود الأسئلة تلقائياً بعد ثبات وضعك أمام الكاميرا.";
+    o.style.display="flex";
   }catch(e){}
 }
 // ⚠️ بطلب المالك الصريح (٩ يوليو ليلاً): هذه هي النسخة الأصلية الحرفية للمعاينة —
@@ -2763,10 +2817,22 @@ function sebCamShowPreview(stream){
     v.srcObject=stream;v.play&&v.play().catch(function(){});
   }catch(e){}
 }
-function sebCamEngage(msg){
-  try{sebCamLocked=true;sebCamOverlayShow(msg||"أعد وضعك الطبيعي أمام الكاميرا.");
-    if(sebCamRecoverTimer)clearTimeout(sebCamRecoverTimer);
-    sebCamRecoverTimer=setTimeout(function(){sebCamLocked=false;sebCamOverlayShow("");},4000);
+function sebCamEngage(pulseType,msg){
+  try{sebCamLocked=true;sebCamClearSince=0;sebCamOverlayShow(msg||"أعد وضعك الطبيعي أمام الكاميرا.",pulseType||"");}catch(e){}
+}
+function sebCamMaybeRecover(){
+  try{
+    if(!sebCamLocked)return;
+    var hasConcern=(sebCamCounters.blocked||0)>0||(sebCamCounters.attn||0)>0||(sebCamCounters.face_missing||0)>0||(sebCamCounters.multiple_faces||0)>0;
+    if(hasConcern){sebCamClearSince=0;return;}
+    var now=Date.now();if(!sebCamClearSince)sebCamClearSince=now;
+    var remaining=Math.max(0,2000-(now-sebCamClearSince)),seconds=Math.ceil(remaining/1000);
+    if(remaining>0){
+      var statusEl=document.getElementById("sebCamWarnStatus");
+      if(statusEl)statusEl.textContent="الوضع سليم الآن — تعود الأسئلة خلال "+seconds+" ث";
+      return;
+    }
+    sebCamLocked=false;sebCamClearSince=0;sebCamOverlayShow("");sebSendVisionPulse("recovered",{engine:sebBlazeModel?"blazeface":"fallback"});
   }catch(e){}
 }
 function sebCamFallbackMotion(img,W,H,avg){
@@ -2779,7 +2845,7 @@ function sebCamFallbackMotion(img,W,H,avg){
       else if(sebCamAttnBase.r<4){sebCamAttnBase={x:(sebCamAttnBase.x+cx)/2,y:(sebCamAttnBase.y+cy)/2,r:sebCamAttnBase.r+1};}
       else{var drift=Math.max(Math.abs(cx-sebCamAttnBase.x),Math.abs(cy-sebCamAttnBase.y)),lim=sebCamMode()==="strict"?0.16:0.22;
         if(drift>lim){sebCamCounters.attn=(sebCamCounters.attn||0)+1;
-          if(sebCamCounters.attn>=2){sebSendVisionPulse("attention_away",{drift:Number(drift.toFixed(3)),fallback:true});sebCamEngage("ارجع بنظرك للشاشة.");}
+          if(sebCamCounters.attn>=2){sebSendVisionPulse("attention_away",{drift:Number(drift.toFixed(3)),fallback:true});sebCamEngage("attention_away","ارجع بنظرك للشاشة.");}
         }else{sebCamCounters.attn=0;sebCamAttnBase={x:sebCamAttnBase.x*0.92+cx*0.08,y:sebCamAttnBase.y*0.92+cy*0.08,r:sebCamAttnBase.r};}
       }
     }
@@ -2793,7 +2859,7 @@ function sebCamAnalyze(){
     for(var i=0;i<img.length;i+=16){light+=(img[i]+img[i+1]+img[i+2])/3;n++;}
     var avg=light/Math.max(1,n);
     if(avg<12){sebCamCounters.blocked=(sebCamCounters.blocked||0)+1;
-      if(sebCamCounters.blocked>=4){sebSendVisionPulse("camera_blocked",{avgLight:Math.round(avg)});sebCamEngage("وضّح الكاميرا — تأكد أنها غير مغطّاة.");}
+      if(sebCamCounters.blocked>=4){sebSendVisionPulse("camera_blocked",{avgLight:Math.round(avg)});sebCamEngage("camera_blocked","وضّح الكاميرا — تأكد أنها غير مغطّاة.");}
     }else sebCamCounters.blocked=0;
     sebTryLoadBlaze();
     if(sebBlazeModel){
@@ -2803,8 +2869,8 @@ function sebCamAnalyze(){
       sebBlazeDetect();
     }else{
       sebCamFallbackMotion(img,W,H,avg);
+      sebCamMaybeRecover();
     }
-    if(sebCamLocked&&(sebCamCounters.blocked||0)===0&&(sebCamCounters.attn||0)===0&&(sebCamCounters.face_missing||0)===0&&(sebCamCounters.multiple_faces||0)===0){sebCamLocked=false;sebCamOverlayShow("");}
   }catch(e){}
 }
 var sebCamAutoRetryTimer=null,sebCamAutoRetryCount=0,sebRadarSent=0,sebCamDiagSent=0;
@@ -2945,13 +3011,8 @@ function sebCamAdoptStream(stream){
     sebCamVideo=document.createElement("video");sebCamVideo.muted=true;sebCamVideo.playsInline=true;sebCamVideo.setAttribute("playsinline","");sebCamVideo.srcObject=stream;try{sebCamVideo.play();}catch(e){}
     sebCamCanvas=document.createElement("canvas");sebCamCanvas.width=48;sebCamCanvas.height=36;sebCamCtx=sebCamCanvas.getContext("2d");
     sebSendVisionPulse("camera_active",{});
-    // مجسّ مراحل المحرك: يفضح بعد ١٥ث أي حلقة مفقودة (سكربت tf؟ blazeface؟
-    // النموذج؟) — الكاشف المدمج يغطي الطالب في كل الأحوال، وهذا للتشخيص فقط.
-    setTimeout(function(){
-      try{
-        if(!sebBlazeModel){sebRadarReport("SEB blaze-stage: tf="+(!!window.tf)+" blazeface="+(!!window.blazeface)+" model=false (المدمج يعمل)","blaze-missing");}
-      }catch(e){}
-    },15000);
+    // أخطاء المحرك تُرسل الآن من المرحلة التي فشلت نفسها وبنص الاستثناء الحرفي؛
+    // لا نرسل بطاقة model=false عامة بعد ١٥ث لأنها كانت تخفي السبب الحقيقي.
     // نبضة أسرع (٦٥٠مللي): مع النموذج المضمَّن الشغال، التنبيه يصل خلال ~١.٣ث بدل
     // ~١.٨ث. حارس busy يحمي الأجهزة البطيئة تلقائياً (تخطي النبضة لا تكديسها).
     if(sebCamTimer)clearInterval(sebCamTimer);sebCamTimer=setInterval(sebCamAnalyze,650);
@@ -5885,15 +5946,13 @@ async function sendFcmToToken(
     return { sent: false, reason: "FCM_NOT_CONFIGURED" };
   const fcmData = stringifyFcmData(data, title, body);
   const clickLink = absoluteHttpsPushLink(fcmData.link);
+  // Data-only هو المسار الوحيد للعرض: حين نرسل notification + webpush.notification
+  // تعرض Firebase البانر تلقائياً، ثم كان الـSW يعرضه يدوياً مرة ثانية. نرسل حدثاً
+  // واحداً يحمل النص داخل data، والـSW يقرر العرض/الكتم ويطبّق منع التكرار.
   const webpush: any = {
-    notification: {
-      title,
-      body,
-      icon: "/icon-192.png",
-      badge: "/icon-192.png",
-      dir: "rtl",
-      lang: "ar",
-      data: { url: fcmData.link || "/" },
+    headers: {
+      Urgency: "high",
+      TTL: "86400",
     },
   };
   if (clickLink) webpush.fcm_options = { link: clickLink };
@@ -5908,7 +5967,6 @@ async function sendFcmToToken(
       body: JSON.stringify({
         message: {
           token,
-          notification: { title, body },
           webpush,
           data: fcmData,
         },
@@ -6025,6 +6083,29 @@ function notificationTargets(filter: (token: NotificationToken) => boolean) {
     );
 }
 
+function notificationEventId(
+  title: string,
+  body: string,
+  data: Record<string, any> = {},
+  scope = "",
+) {
+  const supplied = String(data.notificationId || data.eventId || "").trim();
+  if (supplied) return supplied.slice(0, 120);
+  // نفس الحدث الذي يمر من مسارين متقاربين يأخذ المعرّف نفسه؛ وبعد دقيقة يمكن
+  // لحدث حقيقي جديد بالنص نفسه أن يصل بصورة طبيعية.
+  const minuteBucket = Math.floor(Date.now() / 60_000);
+  const raw = [
+    scope,
+    data.type || "",
+    data.activityId || data.examId || data.projectId || data.submissionId || "",
+    data.courseCode || data.sectionCode || "",
+    title,
+    body,
+    minuteBucket,
+  ].join("|");
+  return `miras-${crypto.createHash("sha256").update(raw).digest("hex").slice(0, 28)}`;
+}
+
 function notifyUsers(
   filter: (token: NotificationToken) => boolean,
   title: string,
@@ -6033,6 +6114,11 @@ function notifyUsers(
 ) {
   const safeTitle = sanitizePublicMessageText(title) || "مِراس";
   const safeBody = sanitizePublicMessageText(body) || "لديك تنبيه جديد.";
+  const eventData: Record<string, string> = {
+    ...data,
+    notificationId: notificationEventId(safeTitle, safeBody, data),
+    sentAt: String(data.sentAt || new Date().toISOString()),
+  };
   const allTargets = notificationTargets(filter);
   // إزالة تكرار الدفع لكل جهاز: قد يتراكم للجهاز الواحد عدة توكنات FCM (تتجدّد دون
   // حذف القديمة)، فيصل نفس الإشعار ٣ مرات لنفس الجهاز (شكوى المستخدم). نُبقي أحدث
@@ -6082,11 +6168,11 @@ function notifyUsers(
   targets.forEach((target) => {
     if (
       target.role === "student" &&
-      shouldSuppressRoutineStudentNotification(safeTitle, safeBody, data)
+      shouldSuppressRoutineStudentNotification(safeTitle, safeBody, eventData)
     ) {
       return;
     }
-    sendFcmToToken(target.token, safeTitle, safeBody, data)
+    sendFcmToToken(target.token, safeTitle, safeBody, eventData)
       .then((result) => {
         if (!result.sent) {
           console.warn("FCM send skipped/failed:", result.reason);
@@ -6096,12 +6182,12 @@ function notifyUsers(
         }
       })
       .catch((err) => console.warn("FCM send failed:", err?.message || err));
-    const key = `${target.role}:${target.userId || ""}:${target.sectionCode || ""}:${data.courseCode || ""}`;
+    const key = `${target.role}:${target.userId || ""}:${target.sectionCode || ""}:${eventData.courseCode || ""}`;
     const courseNotificationAlreadyCoversStudent =
       target.role === "student" &&
-      Boolean(data.courseCode) &&
-      !data.userId &&
-      !data.studentId;
+      Boolean(eventData.courseCode) &&
+      !eventData.userId &&
+      !eventData.studentId;
     if (!courseNotificationAlreadyCoversStudent && !seen.has(key)) {
       seen.add(key);
       rememberInAppNotification({
@@ -6110,8 +6196,8 @@ function notifyUsers(
         sectionCode: target.sectionCode,
         title: safeTitle,
         body: safeBody,
-        type: data.type || "push",
-        data,
+        type: eventData.type || "push",
+        data: eventData,
       });
     }
   });
@@ -6221,13 +6307,25 @@ function notifyStudent(
 ) {
   const safeTitle = sanitizePublicMessageText(title) || "مِراس";
   const safeBody = sanitizePublicMessageText(body) || "لديك تنبيه جديد.";
+  const eventData: Record<string, string> = {
+    ...data,
+    userId: String(studentId),
+    studentId: String(studentId),
+    targetRole: "student",
+    notificationId: notificationEventId(
+      safeTitle,
+      safeBody,
+      data,
+      `student:${String(studentId).toLowerCase()}`,
+    ),
+  };
   try {
     const pushKey = [
       String(studentId).toLowerCase(),
       safeTitle,
       safeBody,
-      String(data.type || ""),
-      String(data.activityId || data.examId || ""),
+      String(eventData.type || ""),
+      String(eventData.activityId || eventData.examId || ""),
     ].join("|");
     const nowMs = Date.now();
     for (const [k, at] of mirasRecentStudentPush) {
@@ -6237,13 +6335,13 @@ function notifyStudent(
     if (prev && nowMs - prev < 12_000) return 0;
     mirasRecentStudentPush.set(pushKey, nowMs);
   } catch {}
-  if (shouldSuppressRoutineStudentNotification(safeTitle, safeBody, data)) return 0;
+  if (shouldSuppressRoutineStudentNotification(safeTitle, safeBody, eventData)) return 0;
   const count = notifyUsers(
     (token) =>
       token.role === "student" && String(token.userId) === String(studentId),
     safeTitle,
     safeBody,
-    data,
+    eventData,
   );
   // جذر "الإشعار يظهر مرتين" (إعادة اختبار/مشروع…): notifyUsers تكتب نسخة صندوق
   // لكل طالب مستهدف (حين تحمل data معرّفه)، وكان الشرط هنا `|| courseCode` يكتب
@@ -6251,15 +6349,15 @@ function notifyStudent(
   // (٦٠+ زوجاً مكرراً في القاعدة). الآن نكتب الاحتياط فقط حين لم تكتب notifyUsers
   // فعلاً: لا أجهزة مسجلة، أو تخطّت الكتابة (إشعار مقرر عام بلا معرّف طالب).
   const notifyUsersSkippedInApp =
-    Boolean(data.courseCode) && !data.userId && !data.studentId;
+    Boolean(eventData.courseCode) && !eventData.userId && !eventData.studentId;
   if (count === 0 || notifyUsersSkippedInApp) {
     rememberInAppNotification({
       userId: String(studentId),
       role: "student",
       title: safeTitle,
       body: safeBody,
-      type: data.type || "student",
-      data,
+      type: eventData.type || "student",
+      data: eventData,
     });
   }
   return count;
