@@ -215,6 +215,11 @@ import {
   GraduationCap,
   Laptop,
   Wifi,
+  Cloud,
+  CloudOff,
+  Server,
+  Activity,
+  TrendingUp,
   CheckCircle,
   AlertTriangle,
   Play,
@@ -1283,10 +1288,11 @@ type MirasPasskeyLocalLock = {
 const MIRAS_PASSKEY_LOCAL_LOCK_KEY = "miras_passkey_local_lock_v1";
 const MIRAS_PASSKEY_BACKGROUND_AT_KEY = "miras_passkey_background_at_v1";
 // مدة بقاء الجلسة مفتوحة بعد الخلفية قبل طلب البصمة من جديد. كانت 30 ثانية (فتطلب
-// البصمة في كل فتح تقريباً). بما أن الحساب مقفول على جهاز واحد، نمدّدها إلى 12 ساعة
-// ليفتح التطبيق مباشرة على لوحة الطالب/المعلم دون ضغط أي زر طوال اليوم. تُطلب البصمة
-// مرة واحدة فقط بعد غياب طويل (بداية باردة).
-const MIRAS_PASSKEY_SMART_LOCK_MS = 12 * 60 * 60 * 1000;
+// البصمة في كل فتح تقريباً) ثم 12 ساعة (فتطلبها كل يوم صباحاً = إزعاج). بما أن
+// الحساب مقفول على جهاز واحد أصلاً (لا أحد غير صاحب الجهاز يفتحه)، فالبصمة المتكررة
+// حماية زائدة بلا فائدة. نمدّدها إلى 30 يوماً: تُدخل البصمة «مرة واحدة» عملياً ثم
+// يفتح التطبيق مباشرة طوال الشهر، وتبقى كشبكة أمان دورية بعيدة لا تُزعج يومياً.
+const MIRAS_PASSKEY_SMART_LOCK_MS = 30 * 24 * 60 * 60 * 1000;
 const normalizeMirasPasskeyIdentity = (role: any, userId: any) => {
   const id = String(userId || "").trim();
   return role === "teacher" || role === "admin" ? id.toLowerCase() : id;
@@ -28456,7 +28462,7 @@ ${rows
 
       {/* بادج "متصل" الثابت أُزيل بقرار المالك — حلّت محله نقطة الاتصال الحية
           داخل شريحة الحساب (نقطة بلا كلام، والضغط يُظهر الحالة بأناقة). */}
-      {connectionPopoverOpen && (studentSession || teacherSession) && (
+      {connectionPopoverOpen && studentSession && !teacherSession && (
         <div
           className="miras-connection-status-popover fixed left-1/2 z-[125] inline-flex max-w-[calc(100vw-2rem)] -translate-x-1/2 items-center gap-2 whitespace-nowrap rounded-full border border-slate-200/80 bg-white/96 px-3.5 py-2 text-[10px] font-black text-slate-700 shadow-[0_14px_38px_rgba(15,23,42,0.14)] backdrop-blur-xl"
           style={{ top: "max(0.8rem, calc(env(safe-area-inset-top, 0px) + 0.45rem))" }}
@@ -33263,17 +33269,31 @@ ${rows
                           setConnectionPopoverOpen((v) => !v);
                         }}
                       >
-                        <span
-                          className={`miras-account-connection-dot ${
-                            isAppOffline
-                              ? "bg-amber-400"
-                              : liveConnectionTrouble
-                                ? "animate-pulse bg-amber-400"
-                                : "bg-emerald-500"
-                          }`}
-                          aria-hidden="true"
-                        />
+                        {isAppOffline ? (
+                          <CloudOff
+                            className="h-4 w-4 shrink-0 text-amber-500"
+                            aria-hidden="true"
+                          />
+                        ) : (
+                          <Cloud
+                            className={`h-4 w-4 shrink-0 ${
+                              liveConnectionTrouble
+                                ? "animate-pulse text-amber-500"
+                                : "text-emerald-600"
+                            }`}
+                            aria-hidden="true"
+                          />
+                        )}
                         {teacherSession?.name || "حساب المعلم"}
+                        {connectionPopoverOpen && (
+                          <span className="absolute right-0 top-full z-[60] mt-2 whitespace-nowrap rounded-xl border border-emerald-100 bg-white/95 px-3 py-1.5 text-[10px] font-black text-emerald-700 shadow-lg backdrop-blur-md">
+                            {isAppOffline
+                              ? "غير متصل — سنكمل عند عودة الشبكة"
+                              : liveConnectionTrouble
+                                ? "جارٍ إعادة المزامنة…"
+                                : "متصل بالسحابة ✓"}
+                          </span>
+                        )}
                       </div>
                       <h1 className="w-full text-right text-[1.9rem] font-black tracking-tight text-slate-950 sm:text-[2.15rem]">
                         {teacherTabTitle[teacherTab]}
@@ -43076,30 +43096,38 @@ ${rows
                   <X className="h-5 w-5" />
                 </button>
               </div>
-              {/* شرائح الإحصاء */}
+              {/* شرائح الإحصاء — أيقونة واضحة + رقم كبير عالي التباين */}
               <div className="relative mt-4 grid grid-cols-2 gap-2 sm:grid-cols-4">
                 {(mirasRadarTab === "notifications"
                   ? [
-                      { label: "أحداث", value: mirasNotificationAuditData.stats?.events ?? 0, tone: "bg-indigo-500/15 text-indigo-200 ring-indigo-400/30" },
-                      { label: "تم الإرسال", value: mirasNotificationAuditData.stats?.sent ?? 0, tone: "bg-emerald-500/15 text-emerald-200 ring-emerald-400/30" },
-                      { label: "مُنع التكرار", value: mirasNotificationAuditData.stats?.duplicatesBlocked ?? 0, tone: "bg-amber-500/15 text-amber-200 ring-amber-400/30" },
-                      { label: "نسبة النجاح", value: `${mirasNotificationAuditData.stats?.successRate ?? 100}%`, tone: "bg-sky-500/15 text-sky-200 ring-sky-400/30" },
+                      { label: "أحداث", value: mirasNotificationAuditData.stats?.events ?? 0, Icon: Bell, tone: "bg-indigo-500/20 ring-indigo-400/40", iconTone: "text-indigo-300" },
+                      { label: "تم الإرسال", value: mirasNotificationAuditData.stats?.sent ?? 0, Icon: CheckCircle2, tone: "bg-emerald-500/20 ring-emerald-400/40", iconTone: "text-emerald-300" },
+                      { label: "مُنع التكرار", value: mirasNotificationAuditData.stats?.duplicatesBlocked ?? 0, Icon: ShieldAlert, tone: "bg-amber-500/20 ring-amber-400/40", iconTone: "text-amber-300" },
+                      { label: "نسبة النجاح", value: `${mirasNotificationAuditData.stats?.successRate ?? 100}%`, Icon: TrendingUp, tone: "bg-sky-500/20 ring-sky-400/40", iconTone: "text-sky-300" },
                     ]
                   : [
-                      { label: "أخطاء نشطة", value: mirasRadarData.stats?.active ?? 0, tone: "bg-rose-500/15 text-rose-200 ring-rose-400/30" },
-                      { label: "آخر ٢٤ ساعة", value: mirasRadarData.stats?.last24h ?? 0, tone: "bg-amber-500/15 text-amber-200 ring-amber-400/30" },
-                      { label: "من الخادم", value: mirasRadarData.stats?.server ?? 0, tone: "bg-indigo-500/15 text-indigo-200 ring-indigo-400/30" },
-                      { label: "إجمالي التكرار", value: mirasRadarData.stats?.totalHits ?? 0, tone: "bg-emerald-500/15 text-emerald-200 ring-emerald-400/30" },
+                      { label: "أخطاء نشطة", value: mirasRadarData.stats?.active ?? 0, Icon: AlertTriangle, tone: "bg-rose-500/20 ring-rose-400/40", iconTone: "text-rose-300" },
+                      { label: "آخر ٢٤ ساعة", value: mirasRadarData.stats?.last24h ?? 0, Icon: Clock, tone: "bg-amber-500/20 ring-amber-400/40", iconTone: "text-amber-300" },
+                      { label: "من الخادم", value: mirasRadarData.stats?.server ?? 0, Icon: Server, tone: "bg-indigo-500/20 ring-indigo-400/40", iconTone: "text-indigo-300" },
+                      { label: "إجمالي التكرار", value: mirasRadarData.stats?.totalHits ?? 0, Icon: Activity, tone: "bg-emerald-500/20 ring-emerald-400/40", iconTone: "text-emerald-300" },
                     ]
-                ).map((chip) => (
-                  <div
-                    key={chip.label}
-                    className={`rounded-2xl px-3 py-2 text-center ring-1 ${chip.tone}`}
-                  >
-                    <div className="text-lg font-black tabular-nums">{chip.value}</div>
-                    <div className="text-[9.5px] font-bold opacity-90">{chip.label}</div>
-                  </div>
-                ))}
+                ).map((chip) => {
+                  const ChipIcon = chip.Icon;
+                  return (
+                    <div
+                      key={chip.label}
+                      className={`flex items-center gap-2.5 rounded-2xl px-3 py-2.5 ring-1 ${chip.tone}`}
+                    >
+                      <span className={`grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-white/10 ${chip.iconTone}`}>
+                        <ChipIcon className="h-[18px] w-[18px]" />
+                      </span>
+                      <div className="min-w-0 text-right leading-tight">
+                        <div className="text-2xl font-black tabular-nums text-white">{chip.value}</div>
+                        <div className="truncate text-[10px] font-bold text-white/70">{chip.label}</div>
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
             </div>
             {/* التبويبات */}
@@ -43237,10 +43265,11 @@ ${rows
                   .map((r: any) => {
                     const sourceTone =
                       r.source === "server"
-                        ? { border: "border-r-rose-400", chip: "bg-rose-50 text-rose-600 ring-rose-100", label: "الخادم" }
+                        ? { border: "border-r-rose-400", chip: "bg-rose-50 text-rose-600 ring-rose-100", label: "الخادم", Icon: Server }
                         : String(r.source || "").startsWith("seb")
-                          ? { border: "border-r-amber-400", chip: "bg-amber-50 text-amber-700 ring-amber-100", label: "SEB" }
-                          : { border: "border-r-indigo-400", chip: "bg-indigo-50 text-indigo-600 ring-indigo-100", label: "المتصفح" };
+                          ? { border: "border-r-amber-400", chip: "bg-amber-50 text-amber-700 ring-amber-100", label: "SEB", Icon: ShieldAlert }
+                          : { border: "border-r-indigo-400", chip: "bg-indigo-50 text-indigo-600 ring-indigo-100", label: "المتصفح", Icon: Wifi };
+                    const SourceIcon = sourceTone.Icon;
                     return (
                       <div
                         key={r.id}
@@ -43260,7 +43289,8 @@ ${rows
                           )}
                         </div>
                         <div className="mt-2 flex flex-wrap items-center gap-1.5">
-                          <span className={`rounded-lg px-2 py-0.5 text-[9.5px] font-black ring-1 ${sourceTone.chip}`}>
+                          <span className={`inline-flex items-center gap-1 rounded-lg px-2 py-0.5 text-[9.5px] font-black ring-1 ${sourceTone.chip}`}>
+                            <SourceIcon className="h-3 w-3" />
                             {sourceTone.label}
                           </span>
                           {r.browser && (
