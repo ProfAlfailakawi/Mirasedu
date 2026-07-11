@@ -238,11 +238,7 @@ const mountApp = () => {
 
 mountApp();
 
-<<<<<<< Updated upstream
-const MIRAS_CLIENT_BUILD_VERSION = 'miras-v71-cloud-banner-passkey-20260711';
-=======
 const MIRAS_CLIENT_BUILD_VERSION = 'miras-v73-mobile-cloud-radar-search-20260711';
->>>>>>> Stashed changes
 
 // ───────────────────────────────────────────────────────────────────────────
 // شريط «تحديث جاهز» — أعلى الشاشة، مرة واحدة، بضغطة واحدة
