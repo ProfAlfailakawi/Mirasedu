@@ -15164,7 +15164,7 @@ ${rows
       return;
     }
     if (cleanPassword.length < 6) {
-      setErrorMsg("كلمة المرور 6 خانات على الأقل");
+      setErrorMsg("اجعل كلمة المرور 6 خانات فأكثر (يُسمح أطول).");
       setCurrentView("signup");
       return;
     }
@@ -15253,7 +15253,7 @@ ${rows
       return;
     }
     if (cleanPassword.length < 6) {
-      setErrorMsg("كلمة المرور 6 خانات على الأقل");
+      setErrorMsg("اجعل كلمة المرور 6 خانات فأكثر (يُسمح أطول).");
       setCurrentView("signup");
       return;
     }
