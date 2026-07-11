@@ -363,12 +363,36 @@ async function loadMirasBlazeFace(): Promise<any> {
         }
         return resp;
       } catch (err: any) {
-        if (isApi && !skip && navigator.onLine !== false && onceAMinute(`net|${path}`)) {
+        // نتجاهل الإجهاض الحميد: نداء أُلغي عمداً (AbortController) أو الصفحة
+        // تُغادر/تُعاد تحميلها (تحديث SW) — هذه ليست أعطالاً بل ضجيج كان يملأ
+        // الرادار ببطاقات «فشل شبكي» كاذبة على firebase-public/students عند كل
+        // إعادة فتح. نُبلّغ فقط عن فشل شبكي حقيقي والصفحة ظاهرة ومتصلة.
+        const benign =
+          err?.name === "AbortError" ||
+          (init && (init as any).signal && (init as any).signal.aborted) ||
+          (typeof document !== "undefined" && document.visibilityState === "hidden") ||
+          (window as any).__mirasUnloading === true;
+        if (
+          isApi &&
+          !skip &&
+          !benign &&
+          navigator.onLine !== false &&
+          onceAMinute(`net|${path}`)
+        ) {
           radarPost(`فشل شبكي على ${path}`, String(err?.message || err), "api-net");
         }
         throw err;
       }
     }) as typeof window.fetch;
+    // علم المغادرة: أي نداء يفشل أثناءها إجهاض حميد لا عطل.
+    try {
+      window.addEventListener("pagehide", () => {
+        (window as any).__mirasUnloading = true;
+      });
+      window.addEventListener("beforeunload", () => {
+        (window as any).__mirasUnloading = true;
+      });
+    } catch {}
     // (ب) مجسّ console.error: الأخطاء المبتلعة في مئات كتل try/catch تصير مرئية
     const origCE = console.error.bind(console);
     let ceBudget = 5;
@@ -12265,44 +12289,25 @@ export default function App() {
       const tokenOptions: any = {
         serviceWorkerRegistration: readyRegistration || swRegistration,
       };
-      if (config.vapidKey) {
-        tokenOptions.vapidKey = config.vapidKey;
-        console.log("ℹ️ FCM: Using VAPID Key:", config.vapidKey);
-      } else {
-        console.warn("⚠️ FCM: FIREBASE_FCM_VAPID_KEY is empty! Push notifications will fail on iOS Safari / PWA. Please configure the VAPID key in environment or firebase-applet-config.json.");
-      }
+      if (config.vapidKey) tokenOptions.vapidKey = config.vapidKey;
       // توكن طازج مرة واحدة كل جلسة: على iOS PWA يبقى الاشتراك (PushSubscription)
       // في نظام التشغيل منهاراً بعد تحديث Service Worker، فيُرجع getToken نفس
       // التوكن الميت (INVALID_ARGUMENT) حتى بعد deleteToken — لأن حذف التوكن
       // وحده لا يمسّ الاشتراك. الحل الجذري: نلغي الاشتراك نفسه (unsubscribe) ثم
       // نحذف توكن FCM، فيُجبَر getToken على إنشاء اشتراك + توكن جديدين صالحين
       // تماماً — دون لمس ربط الجهاز (localStorage باقٍ، لا قفل جهاز).
-      let cleanedOldSub = false;
       if (!fcmFreshTokenThisSessionRef.current) {
+        fcmFreshTokenThisSessionRef.current = true;
         try {
           const reg = readyRegistration || swRegistration;
           const existingSub = await reg?.pushManager?.getSubscription?.();
-          if (existingSub) {
-            await existingSub.unsubscribe();
-            cleanedOldSub = true;
-            console.log("ℹ️ FCM: Unsubscribed old PushSubscription on Safari/iOS.");
-          }
-        } catch (e) {
-          console.warn("FCM: Failed to unsubscribe old subscription:", e);
-        }
+          if (existingSub) await existingSub.unsubscribe();
+        } catch {}
         try {
           await deleteToken(messaging);
-          cleanedOldSub = true;
-          console.log("ℹ️ FCM: Deleted old FCM token.");
-        } catch (e) {
-          console.warn("FCM: Failed to delete old FCM token:", e);
-        }
+        } catch {}
       }
       const token = await getToken(messaging, tokenOptions);
-      if (token && (cleanedOldSub || !fcmFreshTokenThisSessionRef.current)) {
-        fcmFreshTokenThisSessionRef.current = true;
-        console.log("ℹ️ FCM: Fresh push registration established successfully.");
-      }
       if (!token) {
         activateInAppNotifications("تم تفعيل التنبيهات.", forcePrompt);
         await fetchInAppNotifications();
@@ -33969,35 +33974,37 @@ ${rows
                         )}
                       </div>
                     </div>
-                    <div className="flex flex-wrap items-end justify-end gap-2">
-                      {(
-                        [
-                          ["projects", "المشاريع", FolderTree],
-                          ["exams", "الاختبارات", FileText],
-                        ] as const
-                      ).map(([id, label, Icon]) => (
-                        <div
-                          key={id}
-                          className="flex flex-col items-center gap-1.5"
-                        >
-                          <span className="text-[10px] font-black text-slate-500">
-                            {label}
-                          </span>
-                          <button
-                            title={label}
-                            aria-label={label}
-                            onClick={() => {
-                              setSubmissionSubTab(id as any);
-                              setSelectedSubmissionActivityId(null);
-                              setSelectedSubmissionIds({});
-                              setSubmissionStatusFilter(null);
-                            }}
-                            className={`inline-flex h-12 w-12 items-center justify-center rounded-2xl border shadow-sm transition-all hover:-translate-y-0.5 ${submissionSubTab === id ? "border-indigo-200 bg-gradient-to-br from-indigo-600 to-blue-600 text-white shadow-indigo-200" : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50"}`}
-                          >
-                            <Icon className="h-5 w-5" />
-                          </button>
-                        </div>
-                      ))}
+                    {/* تنسيق بطلب المالك: أيقونات فقط بلا كلمات — مفتاح مقسّم
+                        أنيق (المشاريع/الاختبارات) بدل الكلمة-فوق-الأيقونة المكرّرة.
+                        المعنى واضح من الأيقونة، وaria-label/title للوصولية. */}
+                    <div className="flex items-center justify-end">
+                      <div className="inline-flex items-center gap-1 rounded-2xl border border-slate-200/90 bg-slate-100/70 p-1">
+                        {(
+                          [
+                            ["projects", "المشاريع", FolderTree],
+                            ["exams", "الاختبارات", FileText],
+                          ] as const
+                        ).map(([id, label, Icon]) => {
+                          const active = submissionSubTab === id;
+                          return (
+                            <button
+                              key={id}
+                              title={label}
+                              aria-label={label}
+                              aria-pressed={active}
+                              onClick={() => {
+                                setSubmissionSubTab(id as any);
+                                setSelectedSubmissionActivityId(null);
+                                setSelectedSubmissionIds({});
+                                setSubmissionStatusFilter(null);
+                              }}
+                              className={`inline-flex h-11 w-12 items-center justify-center rounded-xl transition-all ${active ? "bg-gradient-to-br from-indigo-600 to-blue-600 text-white shadow-sm" : "text-slate-500 hover:bg-white hover:text-slate-700"}`}
+                            >
+                              <Icon className="h-[1.15rem] w-[1.15rem]" />
+                            </button>
+                          );
+                        })}
+                      </div>
                     </div>
                   </div>
                   {!selectedSubmissionActivityId ? (
@@ -41630,6 +41637,1769 @@ ${rows
                                 disabled={activationAttemptBusy}
                                 title="تحديث السجل"
                                 aria-label="تحديث السجل"
-                              className="inline-flex h-11 w-11 items-center justify-center rounded-2xl border border-slate-200 bg-white text-slate-600 shadow-sm transition hover:border-indigo-200 hover:text-indigo-700 disabled:opacity-50"
+                                className="inline-flex h-11 w-11 items-center justify-center rounded-2xl border border-slate-200 bg-white text-slate-600 shadow-sm transition hover:border-indigo-200 hover:text-indigo-700 disabled:opacity-50"
+                              >
+                                <RefreshCw
+                                  className={`h-4 w-4 ${activationAttemptBusy ? "animate-spin" : ""}`}
+                                />
+                              </button>
+                              <button
+                                type="button"
+                                onClick={exportActivationAttemptsToCSV}
+                                title="تصدير سجل المحاولات"
+                                aria-label="تصدير سجل المحاولات"
+                                className="inline-flex h-11 w-11 items-center justify-center rounded-2xl bg-slate-950 text-white shadow-sm transition hover:bg-indigo-700"
+                              >
+                                <Download className="h-4 w-4" />
+                              </button>
+                            </div>
+                          </div>
+
+                          <div className="grid grid-cols-2 gap-2 lg:grid-cols-4">
+                            {[
+                              {
+                                label: "محاولة مرفوضة",
+                                value: activationAttemptSummary.attempts,
+                              },
+                              {
+                                label: "طالب",
+                                value: activationAttemptSummary.students,
+                              },
+                              {
+                                label: "كود مُجرّب",
+                                value: activationAttemptSummary.codes,
+                              },
+                              {
+                                label: "جهاز",
+                                value: activationAttemptSummary.devices,
+                              },
+                            ].map((item) => (
+                              <div
+                                key={item.label}
+                                className="rounded-3xl border border-slate-100 bg-slate-50/70 p-4 text-right"
+                              >
+                                <span className="block text-[10px] font-black text-slate-400">
+                                  {item.label}
+                                </span>
+                                <span className="mt-1 block text-2xl font-black text-slate-950">
+                                  {item.value}
+                                </span>
+                              </div>
+                            ))}
+                          </div>
+
+                          <div className="rounded-3xl border border-slate-100 bg-slate-50/70 p-4">
+                            <div className="grid grid-cols-1 gap-3 lg:grid-cols-12 lg:items-end">
+                              <label className="lg:col-span-3 text-right">
+                                <span className="mb-1 block text-[10px] font-black text-slate-500">
+                                  من تاريخ
+                                </span>
+                                <input
+                                  type="date"
+                                  value={activationAttemptFromDate}
+                                  onChange={(e) =>
+                                    setActivationAttemptFromDate(e.target.value)
+                                  }
+                                  className="w-full rounded-2xl border border-slate-200 bg-white px-3 py-3 text-sm font-black text-slate-800 outline-none focus:ring-2 focus:ring-indigo-100"
+                                />
+                              </label>
+                              <label className="lg:col-span-3 text-right">
+                                <span className="mb-1 block text-[10px] font-black text-slate-500">
+                                  إلى تاريخ
+                                </span>
+                                <input
+                                  type="date"
+                                  value={activationAttemptToDate}
+                                  onChange={(e) =>
+                                    setActivationAttemptToDate(e.target.value)
+                                  }
+                                  className="w-full rounded-2xl border border-slate-200 bg-white px-3 py-3 text-sm font-black text-slate-800 outline-none focus:ring-2 focus:ring-indigo-100"
+                                />
+                              </label>
+                              <label className="lg:col-span-6 text-right">
+                                <span className="mb-1 block text-[10px] font-black text-slate-500">
+                                  بحث
+                                </span>
+                                <div className="relative">
+                                  <Search className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                                  <input
+                                    type="text"
+                                    value={activationAttemptSearch}
+                                    onChange={(e) =>
+                                      setActivationAttemptSearch(e.target.value)
+                                    }
+                                    placeholder="اسم الطالب، الرقم الجامعي، المقرر، أو الكود…"
+                                    className="w-full rounded-2xl border border-slate-200 bg-white py-3 pr-10 pl-3 text-right text-xs font-bold text-slate-800 outline-none placeholder:text-slate-400 focus:ring-2 focus:ring-indigo-100"
+                                  />
+                                </div>
+                              </label>
+                            </div>
+                          </div>
+
+                          <div className="space-y-3">
+                            {(() => {
+                              const visibleGroups =
+                                activationAttemptStudentGroups.slice(
+                                  0,
+                                  activationAttemptVisibleGroups,
+                                );
+                              return visibleGroups.map((group: any) => {
+                                const isOpen =
+                                  !!activationAttemptExpandedGroups[group.key];
+                                const latest =
+                                  group.latestAttempt || group.rows[0] || {};
+                                const latestDevice =
+                                  activationAttemptDeviceLabel(latest);
+                                const tone =
+                                  group.totalAttempts >= 10
+                                    ? "border-rose-100 bg-rose-50/40"
+                                    : group.totalAttempts >= 5
+                                      ? "border-amber-100 bg-amber-50/40"
+                                      : "border-slate-100 bg-white";
+                                return (
+                                  <div
+                                    key={group.key}
+                                    className={`overflow-hidden rounded-[1.75rem] border text-right shadow-sm transition hover:shadow-md ${tone}`}
+                                  >
+                                    <button
+                                      type="button"
+                                      onClick={() =>
+                                        setActivationAttemptExpandedGroups(
+                                          (prev) =>
+                                            prev[group.key]
+                                              ? {}
+                                              : { [group.key]: true },
+                                        )
+                                      }
+                                      className="flex w-full flex-col gap-4 bg-white/75 p-4 text-right sm:p-5 lg:flex-row lg:items-center lg:justify-between"
+                                      aria-expanded={isOpen}
+                                    >
+                                      <div className="min-w-0 flex-1">
+                                        <div className="flex flex-wrap items-center gap-2">
+                                          <span className="rounded-full bg-slate-950 px-3 py-1 text-[10px] font-black text-white">
+                                            ملف طالب
+                                          </span>
+                                          <span
+                                            className={`rounded-full px-3 py-1 text-[10px] font-black ring-1 ${group.totalAttempts >= 10 ? "bg-rose-50 text-rose-700 ring-rose-100" : group.totalAttempts >= 5 ? "bg-amber-50 text-amber-700 ring-amber-100" : "bg-slate-50 text-slate-500 ring-slate-100"}`}
+                                          >
+                                            {group.totalAttempts} محاولة مرفوضة
+                                          </span>
+                                          <span className="rounded-full bg-slate-50 px-3 py-1 text-[10px] font-black text-slate-500 ring-1 ring-slate-100">
+                                            آخر محاولة:{" "}
+                                            {latest.timestamp
+                                              ? formatKwDateTime(
+                                                  latest.timestamp,
+                                                )
+                                              : "وقت غير محدد"}
+                                          </span>
+                                        </div>
+                                        <h4 className="mt-3 truncate text-base font-black text-slate-950">
+                                          {group.studentName}
+                                          <span className="mx-2 text-slate-300">
+                                            •
+                                          </span>
+                                          <span className="font-mono text-sm">
+                                            {group.studentId || "—"}
+                                          </span>
+                                        </h4>
+                                        <div className="mt-2 flex flex-wrap items-center gap-2 text-[10px] font-black text-slate-500">
+                                          <span>
+                                            {group.coursesList.length} مقرر
+                                          </span>
+                                          <span className="text-slate-300">
+                                            •
+                                          </span>
+                                          <span>
+                                            {group.codeStats.length} كود مرفوض
+                                          </span>
+                                          <span className="text-slate-300">
+                                            •
+                                          </span>
+                                          <span>
+                                            {latestDevice.device} /{" "}
+                                            {latestDevice.browser}
+                                          </span>
+                                          <span className="text-slate-300">
+                                            •
+                                          </span>
+                                          <span className="font-mono">
+                                            {shortDeviceFingerprint(latest)}
+                                          </span>
+                                        </div>
+                                      </div>
+                                      <div className="flex items-center justify-between gap-3 lg:justify-end">
+                                        <div className="hidden min-w-[170px] rounded-2xl border border-slate-100 bg-white px-4 py-3 text-right shadow-sm sm:block">
+                                          <span className="block text-[9px] font-black text-slate-400">
+                                            أكثر كود تكرر رفضه
+                                          </span>
+                                          <span
+                                            className="mt-1 block truncate font-mono text-xs font-black text-slate-950"
+                                            dir="ltr"
+                                            style={{ unicodeBidi: "plaintext" }}
+                                          >
+                                            {group.codeStats[0]?.formatted ||
+                                              "—"}
+                                          </span>
+                                        </div>
+                                        <span className="inline-flex h-11 w-11 items-center justify-center rounded-2xl border border-slate-200 bg-white text-slate-600 shadow-sm">
+                                          <ChevronDown
+                                            className={`h-4 w-4 transition-transform ${isOpen ? "rotate-180" : ""}`}
+                                          />
+                                        </span>
+                                      </div>
+                                    </button>
+
+                                    {isOpen && (
+                                      <div className="border-t border-slate-100 bg-white/85 p-4 sm:p-5">
+                                        <div className="grid grid-cols-1 gap-3 lg:grid-cols-12">
+                                          <div className="rounded-3xl border border-slate-100 bg-slate-50/80 p-4 lg:col-span-7">
+                                            <div className="mb-3 flex items-center justify-between gap-3">
+                                              <span className="text-[10px] font-black text-slate-500">
+                                                الأكواد التي جربها الطالب وتم
+                                                رفضها
+                                              </span>
+                                            </div>
+                                            <div className="flex flex-wrap gap-2">
+                                              {group.codeStats
+                                                .slice(0, 12)
+                                                .map((item: any) => (
+                                                  <span
+                                                    key={item.code}
+                                                    className="inline-flex items-center gap-2 rounded-2xl border border-slate-200 bg-white px-3 py-2 font-mono text-[11px] font-black text-slate-900 shadow-sm"
+                                                    dir="ltr"
+                                                    style={{
+                                                      unicodeBidi: "plaintext",
+                                                    }}
+                                                  >
+                                                    {item.formatted}
+                                                    {item.count > 1 && (
+                                                      <b
+                                                        className="rounded-full bg-amber-50 px-2 py-0.5 text-[9px] text-amber-700"
+                                                        dir="rtl"
+                                                      >
+                                                        ×{item.count}
+                                                      </b>
+                                                    )}
+                                                  </span>
+                                                ))}
+                                              {group.codeStats.length > 12 && (
+                                                <span className="rounded-2xl border border-dashed border-slate-200 bg-white px-3 py-2 text-[10px] font-black text-slate-400">
+                                                  +{group.codeStats.length - 12}{" "}
+                                                  كود آخر
+                                                </span>
+                                              )}
+                                            </div>
+                                          </div>
+                                          <div className="grid grid-cols-2 gap-2 lg:col-span-5">
+                                            <div className="rounded-3xl bg-slate-50 p-4">
+                                              <span className="block text-[9px] font-black text-slate-400">
+                                                عدد المحاولات
+                                              </span>
+                                              <span className="text-2xl font-black text-slate-950">
+                                                {group.totalAttempts}
+                                              </span>
+                                            </div>
+                                            <div className="rounded-3xl bg-slate-50 p-4">
+                                              <span className="block text-[9px] font-black text-slate-400">
+                                                الأجهزة
+                                              </span>
+                                              <span className="text-2xl font-black text-slate-950">
+                                                {group.devicesList.length || 1}
+                                              </span>
+                                            </div>
+                                            <div className="rounded-3xl bg-slate-50 p-4">
+                                              <span className="block text-[9px] font-black text-slate-400">
+                                                المقررات
+                                              </span>
+                                              <span className="text-xs font-black text-slate-800">
+                                                {group.coursesList
+                                                  .slice(0, 2)
+                                                  .join("، ") ||
+                                                  "مقرر غير محدد"}
+                                              </span>
+                                            </div>
+                                            <div className="rounded-3xl bg-slate-50 p-4">
+                                              <span className="block text-[9px] font-black text-slate-400">
+                                                IP مختصر
+                                              </span>
+                                              <span className="font-mono text-xs font-black text-slate-800">
+                                                {maskActivationIp(latest.ip)}
+                                              </span>
+                                            </div>
+                                          </div>
+                                        </div>
+
+                                        <div className="mt-4 rounded-3xl border border-slate-100 bg-white p-3">
+                                          <div className="mb-3 flex items-center justify-between gap-3 px-1">
+                                            <span className="text-[10px] font-black text-slate-500">
+                                              تفاصيل المحاولات المرفوضة
+                                            </span>
+                                            <span className="rounded-full bg-slate-50 px-3 py-1 text-[9px] font-black text-slate-400 ring-1 ring-slate-100">
+                                              {Math.min(group.rows.length, 60)}{" "}
+                                              سجل
+                                            </span>
+                                          </div>
+                                          <div className="grid max-h-[520px] grid-cols-1 gap-3 overflow-y-auto pr-1 lg:grid-cols-2">
+                                            {group.rows
+                                              .slice(0, 60)
+                                              .map(
+                                                (
+                                                  attempt: any,
+                                                  index: number,
+                                                ) => {
+                                                  const device =
+                                                    activationAttemptDeviceLabel(
+                                                      attempt,
+                                                    );
+                                                  const codeValue =
+                                                    formatJoinCode(
+                                                      attempt.normalizedCode ||
+                                                        attempt.code ||
+                                                        "",
+                                                    );
+                                                  const courseLabel =
+                                                    attempt.linkedSectionName ||
+                                                    courseNameForCode(
+                                                      attempt.linkedSectionCode ||
+                                                        attempt.sectionCode ||
+                                                        attempt.courseCode ||
+                                                        "",
+                                                    ) ||
+                                                    "مقرر غير محدد";
+                                                  const rejectReason =
+                                                    attempt.reason ||
+                                                    attempt.codeReputationLabel ||
+                                                    "محاولة مرفوضة";
+                                                  return (
+                                                    <article
+                                                      key={
+                                                        attempt.id ||
+                                                        `${group.key}-${attempt.code}-${attempt.timestamp}-${index}`
+                                                      }
+                                                      className="rounded-3xl border border-slate-100 bg-slate-50/70 p-4 text-right shadow-sm"
+                                                    >
+                                                      <div className="flex flex-wrap items-center justify-between gap-2">
+                                                        <span className="rounded-full bg-white px-3 py-1 text-[10px] font-black text-slate-500 ring-1 ring-slate-100">
+                                                          {attempt.timestamp
+                                                            ? formatKwDateTime(
+                                                                attempt.timestamp,
+                                                              )
+                                                            : "وقت غير محدد"}
+                                                        </span>
+                                                        <span className="rounded-full bg-amber-50 px-3 py-1 text-[10px] font-black text-amber-700 ring-1 ring-amber-100">
+                                                          محاولة مرفوضة
+                                                        </span>
+                                                      </div>
+                                                      <div className="mt-3 rounded-2xl border border-white bg-white px-3 py-3 shadow-sm">
+                                                        <span className="mb-1 block text-[9px] font-black text-slate-400">
+                                                          الكود المرفوض
+                                                        </span>
+                                                        <span
+                                                          className="block break-all text-left font-mono text-[12px] font-black leading-6 tracking-[0.02em] text-slate-950"
+                                                          dir="ltr"
+                                                          style={{
+                                                            unicodeBidi:
+                                                              "plaintext",
+                                                          }}
+                                                        >
+                                                          {codeValue || "—"}
+                                                        </span>
+                                                      </div>
+                                                      <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2">
+                                                        <div className="rounded-2xl bg-white/80 p-3">
+                                                          <span className="block text-[9px] font-black text-slate-400">
+                                                            المقرر
+                                                          </span>
+                                                          <span className="mt-1 block whitespace-normal break-words text-xs font-black text-slate-800">
+                                                            {courseLabel}
+                                                          </span>
+                                                        </div>
+                                                        <div className="rounded-2xl bg-white/80 p-3">
+                                                          <span className="block text-[9px] font-black text-slate-400">
+                                                            الجهاز والمتصفح
+                                                          </span>
+                                                          <span className="mt-1 block whitespace-normal break-words text-xs font-black text-slate-800">
+                                                            {device.device} /{" "}
+                                                            {device.browser}
+                                                          </span>
+                                                        </div>
+                                                      </div>
+                                                      <div className="mt-2 rounded-2xl bg-white/80 p-3">
+                                                        <span className="block text-[9px] font-black text-slate-400">
+                                                          سبب الرفض
+                                                        </span>
+                                                        <span className="mt-1 block whitespace-normal break-words text-xs font-black leading-6 text-amber-800">
+                                                          {rejectReason}
+                                                        </span>
+                                                      </div>
+                                                    </article>
+                                                  );
+                                                },
+                                              )}
+                                          </div>
+                                          {group.rows.length > 60 && (
+                                            <div className="mt-3 rounded-2xl border border-slate-100 bg-slate-50 px-4 py-3 text-center text-[10px] font-black text-slate-400">
+                                              تم عرض أول 60 محاولة لهذا الطالب.
+                                              استخدم التصدير للحصول على كامل
+                                              التفاصيل.
+                                            </div>
+                                          )}
+                                        </div>
+                                      </div>
+                                    )}
+                                  </div>
+                                );
+                              });
+                            })()}
+                            {activationAttemptStudentGroups.length >
+                              activationAttemptVisibleGroups && (
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  setActivationAttemptVisibleGroups((prev) =>
+                                    Math.min(
+                                      prev + 24,
+                                      activationAttemptStudentGroups.length,
+                                    ),
+                                  )
+                                }
+                                className="w-full rounded-3xl border border-slate-200 bg-white px-4 py-3 text-center text-xs font-black text-indigo-700 shadow-sm transition hover:bg-indigo-50"
+                              >
+                                عرض 24 ملف إضافي من سجل محاولات التفعيل
+                              </button>
+                            )}
+                            {!activationAttemptStudentGroups.length && (
+                              <div className="rounded-3xl border border-dashed border-slate-200 bg-slate-50 p-10 text-center text-xs font-bold text-slate-400">
+                                لا توجد محاولات تفعيل مرفوضة ضمن التاريخ المحدد.
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Manual Bypass & Registered Student Dashboard Activator */}
+                      {codesSubTab === "manual" && (
+                        <div className="miras-manual-activation-card xl:col-span-12 bg-white rounded-3xl border border-slate-200 p-6 space-y-4">
+                          <button
+                            type="button"
+                            onClick={() =>
+                              toggleCodesAccordion("manualActivation")
+                            }
+                            className="miras-manual-activation-toggle flex w-full flex-col gap-3 border-b border-slate-100 pb-3 text-right md:flex-row md:items-center md:justify-between"
+                            aria-expanded={!!codesAccordion.manualActivation}
+                          >
+                            <div>
+                              <h3 className="miras-manual-activation-title font-black text-base text-slate-900">
+                                تفعيل فوري لملفات الطلبة يدوياً
+                              </h3>
+                              <p className="mt-1 text-[11px] font-bold text-slate-500">
+                                القائمة مغلقة افتراضياً لتبقى الصفحة مختصرة.
+                              </p>
+                            </div>
+                            <span className="inline-flex items-center justify-center gap-2 rounded-2xl bg-indigo-50 px-4 py-2 text-[11px] font-black text-indigo-700">
+                              {scopedTeacherStudents.length} طالب
+                              <ChevronRight
+                                className={`h-3.5 w-3.5 transition-transform ${codesAccordion.manualActivation ? "-rotate-90" : "rotate-90"}`}
+                              />
+                            </span>
+                          </button>
+
+                          {codesAccordion.manualActivation && (
+                            <>
+                              <div className="relative mb-3">
+                                <Search className="pointer-events-none absolute right-4 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                                <input
+                                  type="text"
+                                  inputMode="search"
+                                  value={manualActivationSearch}
+                                  onChange={(e) =>
+                                    setManualActivationSearch(e.target.value)
+                                  }
+                                  placeholder="ابحث بالرقم الجامعي أو الاسم…"
+                                  className="w-full rounded-2xl border border-slate-200 bg-white py-3 pr-11 pl-4 text-right text-sm font-bold text-slate-800 shadow-sm outline-none transition focus:border-indigo-300 focus:ring-2 focus:ring-indigo-100"
+                                />
+                                {manualActivationSearch.trim() && (
+                                  <button
+                                    type="button"
+                                    onClick={() =>
+                                      setManualActivationSearch("")
+                                    }
+                                    aria-label="مسح البحث"
+                                    className="absolute left-3 top-1/2 -translate-y-1/2 rounded-full p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-600"
+                                  >
+                                    <X className="h-4 w-4" />
+                                  </button>
+                                )}
+                              </div>
+                              <div className="grid grid-cols-1 xl:grid-cols-2 gap-3">
+                                {scopedTeacherStudents
+                                  .filter((student) => {
+                                    const q = manualActivationSearch
+                                      .trim()
+                                      .toLowerCase();
+                                    if (!q) return true;
+                                    return (
+                                      String(student.name || "")
+                                        .toLowerCase()
+                                        .includes(q) ||
+                                      String(student.id || "")
+                                        .toLowerCase()
+                                        .includes(q) ||
+                                      String(student.idNumber || "")
+                                        .toLowerCase()
+                                        .includes(q)
+                                    );
+                                  })
+                                  .map((student) => {
+                                    const sectionDisplay = cleanCodeForDisplay(
+                                      student.sectionCode,
+                                    );
+                                    const courseDisplay = courseNameForCode(
+                                      student.sectionCode,
+                                    );
+                                    const cleanCourseDisplay =
+                                      cleanStudentCourseName(
+                                        courseDisplay,
+                                        student.sectionCode,
+                                      );
+                                    const displayCourseText =
+                                      cleanCourseDisplay ||
+                                      sectionDisplay ||
+                                      "مقرر غير محدد";
+                                    const showSectionCode =
+                                      !!sectionDisplay &&
+                                      sectionDisplay !== "-" &&
+                                      !hasArabicCourseLetters(sectionDisplay) &&
+                                      isCourseCodeLikeDisplay(sectionDisplay) &&
+                                      !isDuplicateCourseDisplay(
+                                        sectionDisplay,
+                                        displayCourseText,
+                                      ) &&
+                                      sectionDisplay.trim().toLowerCase() !==
+                                        displayCourseText
+                                          .trim()
+                                          .toLowerCase() &&
+                                      !displayCourseText
+                                        .trim()
+                                        .toLowerCase()
+                                        .includes(
+                                          sectionDisplay.trim().toLowerCase(),
+                                        ) &&
+                                      !sectionDisplay
+                                        .trim()
+                                        .toLowerCase()
+                                        .includes(
+                                          displayCourseText
+                                            .trim()
+                                            .toLowerCase(),
+                                        );
+                                    return (
+                                      <div
+                                        key={student.id}
+                                        className="rounded-3xl border border-slate-100 bg-slate-50/70 p-3.5 shadow-sm sm:p-4"
+                                      >
+                                        <div className="grid grid-cols-1 gap-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-start">
+                                          <div className="min-w-0 text-right">
+                                            <p className="break-words text-sm font-black leading-6 text-slate-900">
+                                              {student.name || "طالب"}
+                                            </p>
+                                            <p
+                                              className="mt-1 font-mono text-[11px] font-black leading-5 text-indigo-700"
+                                              dir="ltr"
+                                            >
+                                              {student.id}
+                                            </p>
+                                          </div>
+                                          <div className="min-w-0 rounded-2xl border border-slate-200 bg-white px-3 py-2 text-right shadow-[inset_0_1px_0_rgba(255,255,255,0.75)] sm:max-w-[16rem]">
+                                            {showSectionCode && (
+                                              <p
+                                                className="font-mono text-[10px] font-black leading-4 text-indigo-700"
+                                                dir="ltr"
+                                              >
+                                                {sectionDisplay}
+                                              </p>
+                                            )}
+                                            <p
+                                              className={`${showSectionCode ? "mt-1" : ""} line-clamp-2 break-words text-[10px] font-black leading-5 text-slate-600`}
+                                              title={displayCourseText}
+                                            >
+                                              {displayCourseText}
+                                            </p>
+                                          </div>
+                                        </div>
+
+                                        <div className="mt-3 rounded-2xl bg-white border border-slate-100 px-3 py-2 text-[11px] font-bold leading-6 text-right">
+                                          {student.isAccessBlocked ? (
+                                            <span className="block break-words text-amber-700">
+                                              موقوف مؤقتاً: يحتاج إعادة تفعيل من
+                                              الأستاذ.
+                                            </span>
+                                          ) : student.isPaid ? (
+                                            <span className="block break-words text-emerald-700">
+                                              نشط: تم فتح المختبر بنجاح.
+                                            </span>
+                                          ) : (
+                                            <span className="block break-words text-red-600">
+                                              معلّق: بانتظار تفعيل المسار.
+                                            </span>
+                                          )}
+                                        </div>
+
+                                        <div className="mt-3 flex flex-wrap items-center justify-end gap-2">
+                                          {student.isAccessBlocked ||
+                                          accessStoppedIds[
+                                            String(student.id)
+                                          ] ? (
+                                            <button
+                                              onClick={() =>
+                                                restoreStudentAccount(student)
+                                              }
+                                              disabled={
+                                                !!accessBusyIds[
+                                                  String(student.id)
+                                                ]
+                                              }
+                                              title="إعادة تفعيل الحساب"
+                                              aria-label="إعادة تفعيل الحساب"
+                                              className="inline-flex h-11 w-11 items-center justify-center rounded-2xl bg-emerald-600 text-white hover:bg-emerald-700 shadow-sm disabled:bg-slate-100 disabled:text-slate-400"
+                                            >
+                                              {accessBusyIds[
+                                                String(student.id)
+                                              ] ? (
+                                                <RefreshCw className="h-5 w-5 animate-spin" />
+                                              ) : (
+                                                <RotateCw className="h-5 w-5" />
+                                              )}
+                                            </button>
+                                          ) : !student.isPaid ? (
+                                            <button
+                                              onClick={() =>
+                                                handleManualActivateStudent(
+                                                  student.id,
+                                                )
+                                              }
+                                              title="تنشيط وتفعيل يدوي فوري"
+                                              aria-label="تنشيط وتفعيل يدوي فوري"
+                                              className="inline-flex h-11 w-11 items-center justify-center rounded-2xl bg-indigo-600 text-white hover:bg-slate-950 shadow-sm"
+                                            >
+                                              <CheckCircle className="h-5 w-5" />
+                                            </button>
+                                          ) : (
+                                            <div className="flex flex-wrap items-center justify-end gap-2">
+                                              <span
+                                                className="inline-flex h-11 w-11 items-center justify-center rounded-2xl bg-emerald-50 text-emerald-700 border border-emerald-100"
+                                                title="تم التفعيل"
+                                              >
+                                                <Check className="h-5 w-5" />
+                                              </span>
+                                              <button
+                                                onClick={() =>
+                                                  resetOrHoldStudentAccount(
+                                                    student,
+                                                  )
+                                                }
+                                                disabled={
+                                                  !!accessBusyIds[
+                                                    String(student.id)
+                                                  ] ||
+                                                  !!accessStoppedIds[
+                                                    String(student.id)
+                                                  ] ||
+                                                  !!student.isAccessBlocked
+                                                }
+                                                title={
+                                                  accessStoppedIds[
+                                                    String(student.id)
+                                                  ] || student.isAccessBlocked
+                                                    ? "الحساب موقوف"
+                                                    : "تبديل الجهاز / اعتماد جهاز جديد"
+                                                }
+                                                aria-label={
+                                                  accessStoppedIds[
+                                                    String(student.id)
+                                                  ] || student.isAccessBlocked
+                                                    ? "الحساب موقوف"
+                                                    : "تبديل الجهاز / اعتماد جهاز جديد"
+                                                }
+                                                className={`inline-flex h-11 w-11 items-center justify-center rounded-2xl border shadow-sm ${accessBusyIds[String(student.id)] || accessStoppedIds[String(student.id)] || student.isAccessBlocked ? "bg-slate-100 text-slate-400 border-slate-200 cursor-not-allowed" : "bg-amber-50 text-amber-700 border-amber-100 hover:bg-amber-100"}`}
+                                              >
+                                                {accessBusyIds[
+                                                  String(student.id)
+                                                ] ? (
+                                                  <RefreshCw className="h-5 w-5 animate-spin" />
+                                                ) : accessStoppedIds[
+                                                    String(student.id)
+                                                  ] ||
+                                                  student.isAccessBlocked ? (
+                                                  <Lock className="h-5 w-5" />
+                                                ) : (
+                                                  <Smartphone className="h-5 w-5" />
+                                                )}
+                                              </button>
+                                            </div>
+                                          )}
+                                        </div>
+                                      </div>
+                                    );
+                                  })}
+                                {scopedTeacherStudents.length === 0 && (
+                                  <div className="xl:col-span-2 p-8 text-center text-slate-400 text-xs font-bold rounded-3xl border border-dashed border-slate-200 bg-slate-50">
+                                    لم يقم أي طالب بالتسجيل المبدئي في مِراس
+                                    بعد. سيظهر الطلاب هنا فور تسجيلهم بالرقم
+                                    الجامعي المطابق للبيانات المعتمدة.
+                                  </div>
+                                )}
+                                {scopedTeacherStudents.length > 0 &&
+                                  scopedTeacherStudents.filter((student) => {
+                                    const q = manualActivationSearch
+                                      .trim()
+                                      .toLowerCase();
+                                    if (!q) return true;
+                                    return (
+                                      String(student.name || "")
+                                        .toLowerCase()
+                                        .includes(q) ||
+                                      String(student.id || "")
+                                        .toLowerCase()
+                                        .includes(q) ||
+                                      String(student.idNumber || "")
+                                        .toLowerCase()
+                                        .includes(q)
+                                    );
+                                  }).length === 0 && (
+                                    <div className="xl:col-span-2 p-8 text-center text-slate-400 text-xs font-bold rounded-3xl border border-dashed border-slate-200 bg-slate-50">
+                                      لا يوجد طالب مطابق لبحثك. جرّب رقماً
+                                      جامعياً أو اسماً آخر.
+                                    </div>
+                                  )}
+                              </div>
+                            </>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
+              <div
+                className="miras-teacher-bottom-safe-spacer"
+                aria-hidden="true"
+              />
+            </main>
+                            {teacherImportantNotificationsOpen &&
+                              typeof document !== "undefined" &&
+                              createPortal(
+                              <div className="meras-teacher-shell teacher-calm-shell" dir="rtl">
+                              <div
+                                className="student-popover teacher-important-popover miras-teacher-alert-popover miras-student-popover miras-student-alert-popover text-right"
+                                dir="rtl"
+                                style={{
+                                  position: "fixed",
+                                  top: "max(5.5rem, calc(env(safe-area-inset-top) + 4.75rem))",
+                                  left: "max(0.75rem, env(safe-area-inset-left))",
+                                  right: "max(0.75rem, env(safe-area-inset-right))",
+                                  width: "auto",
+                                  maxWidth: "min(34rem, calc(100vw - 1.5rem))",
+                                  margin: "0 auto",
+                                  zIndex: 2147483000,
+                                  maxHeight: "calc(100dvh - 6.5rem)",
+                                  overflowY: "auto",
+                                  WebkitOverflowScrolling: "touch",
+                                }}
+                              >
+                                <div className="miras-alert-toolbar mb-2 flex items-center justify-between gap-3 rounded-2xl border border-slate-100 bg-white/82 px-3 py-2 w-full">
+                                  <span className="miras-teacher-alert-count-badge whitespace-nowrap shrink-0">
+                                    {criticalTeacherNotifications.length > 0
+                                      ? `${criticalTeacherNotifications.length} تنبيه`
+                                      : "لا تنبيهات"}
+                                  </span>
+                                  <div className="flex shrink-0 items-center justify-end gap-1.5 ml-0.5">
+                                    <button
+                                      type="button"
+                                      aria-label="تحديد الكل كمقروء"
+                                      onClick={markAllTeacherImportantNotificationsRead}
+                                      className="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-emerald-150 bg-emerald-50 text-emerald-700 shadow-sm hover:bg-emerald-100 hover:text-emerald-800 transition-all"
+                                    >
+                                      <CheckCircle2 className="h-5 w-5" />
+                                    </button>
+                                    <button
+                                      type="button"
+                                      aria-label="إغلاق التنبيهات"
+                                      onClick={() =>
+                                        setTeacherImportantNotificationsOpen(
+                                          false,
+                                        )
+                                      }
+                                      className="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-500 shadow-sm hover:bg-slate-50 hover:text-slate-800 transition-all"
+                                    >
+                                      <X className="h-5 w-5" />
+                                    </button>
+                                  </div>
+                                </div>
+                                {renderNotificationGate("teacher")}
+                                {notificationState.message && (
+                                  <div className="rounded-2xl border border-emerald-200/60 bg-gradient-to-br from-emerald-50 to-teal-50/50 text-emerald-900 p-3.5 mb-2 shadow-sm">
+                                    <span className="text-[13px] font-black block leading-relaxed">
+                                      {sanitizeCourseIdentifiersForDisplay(
+                                        notificationState.message,
+                                      )}
+                                    </span>
+                                  </div>
+                                )}
+                                {criticalTeacherNotifications.length === 0 ? (
+                                  <div className="rounded-2xl bg-slate-50/80 border border-slate-100 text-slate-500 text-center p-5">
+                                    <span className="text-[13px] font-extrabold block">
+                                      لا تنبيهات
+                                    </span>
+                                  </div>
+                                ) : (
+                                  <div className="miras-student-notice-list teacher-important-list max-h-[68vh] space-y-2.5 overflow-y-auto pr-1 pb-1">
+                                    {criticalTeacherNotifications.map(
+                                      (item: any) => (
+                                        <div
+                                          key={item.key}
+                                          role="button"
+                                          tabIndex={0}
+                                          data-tone={item.tone}
+                                          onClick={() => {
+                                            markTeacherImportantNotificationRead(
+                                              item.key,
+                                            );
+                                            setSelectedTeacherImportantNotification(item);
+                                          }}
+                                          onKeyDown={(e) => {
+                                            if (
+                                              e.key === "Enter" ||
+                                              e.key === " "
+                                            ) {
+                                              e.preventDefault();
+                                              markTeacherImportantNotificationRead(
+                                                item.key,
+                                              );
+                                              setSelectedTeacherImportantNotification(item);
+                                            }
+                                          }}
+                                          className={`miras-teacher-alert-card miras-teacher-alert-card-clean block w-full cursor-pointer rounded-2xl border text-right transition-all hover:-translate-y-0.5 shadow-sm hover:shadow-md ${
+                                            item.tone === "rose"
+                                              ? "border-rose-200/70 bg-gradient-to-br from-rose-50/80 to-pink-50/50 text-rose-950 hover:border-rose-300/80"
+                                              : item.tone === "violet"
+                                                ? "border-violet-200/70 bg-gradient-to-br from-violet-50/80 to-purple-50/50 text-violet-950 hover:border-violet-300/80"
+                                                : item.tone === "emerald"
+                                                  ? "border-emerald-200/70 bg-gradient-to-br from-emerald-50/80 to-teal-50/50 text-emerald-950 hover:border-emerald-300/80"
+                                                  : item.tone === "sky"
+                                                    ? "border-sky-200/70 bg-gradient-to-br from-sky-50/80 to-blue-50/50 text-sky-950 hover:border-sky-300/80"
+                                                    : item.tone === "indigo"
+                                                      ? "border-indigo-200/70 bg-gradient-to-br from-indigo-50/80 to-blue-50/50 text-indigo-950 hover:border-indigo-300/80"
+                                                      : "border-amber-200/70 bg-gradient-to-br from-amber-50/80 to-orange-50/50 text-amber-950 hover:border-amber-300/80"
+                                          }`}
+                                          style={{
+                                            paddingBottom: "1.75rem",
+                                            paddingTop: "1.25rem",
+                                            height: "auto",
+                                            minHeight: "fit-content",
+                                            overflow: "visible",
+                                          }}
+                                        >
+                                          <div className="miras-teacher-alert-content">
+                                            <b className="miras-teacher-alert-title block text-[13.5px] font-extrabold leading-snug tracking-[-0.015em] text-slate-900 text-right break-words">
+                                              {sanitizeCourseIdentifiersForDisplay(
+                                                item.title,
+                                              )}
+                                            </b>
+                                            <span className="miras-teacher-alert-body mt-2 block text-[12px] font-medium leading-relaxed tracking-[-0.01em] text-slate-600 text-right break-words">
+                                              {sanitizeCourseIdentifiersForDisplay(
+                                                item.body,
+                                              )}
+                                            </span>
+                                          </div>
+                                          {item.approvalRequestId &&
+                                          String(
+                                            item.approvalStatus || "pending",
+                                          ) === "pending" ? (
+                                            <div
+                                              className="miras-teacher-alert-date-row miras-teacher-alert-meta miras-teacher-alert-meta-actions"
+                                              onClick={(e) =>
+                                                e.stopPropagation()
+                                              }
+                                            >
+                                              <div className="miras-teacher-alert-actions flex flex-wrap items-center gap-2">
+                                                <button
+                                                  type="button"
+                                                  title="اعتماد الجهاز"
+                                                  aria-label="اعتماد الجهاز"
+                                                  className="inline-flex h-11 w-11 shrink-0 -translate-y-1 items-center justify-center rounded-2xl border border-emerald-200 bg-white/90 text-emerald-700 shadow-sm transition hover:-translate-y-1.5 hover:bg-emerald-50"
+                                                  onClick={() =>
+                                                    handleSecondHandDeviceApproval(
+                                                      item.approvalRequestId,
+                                                      "approve",
+                                                    )
+                                                  }
+                                                >
+                                                  <CheckCircle2 className="h-5 w-5" />
+                                                </button>
+                                                <button
+                                                  type="button"
+                                                  title="رفض الطلب"
+                                                  aria-label="رفض الطلب"
+                                                  className="inline-flex h-11 w-11 shrink-0 -translate-y-1 items-center justify-center rounded-2xl border border-rose-200 bg-white/90 text-rose-700 shadow-sm transition hover:-translate-y-1.5 hover:bg-rose-50"
+                                                  onClick={() =>
+                                                    handleSecondHandDeviceApproval(
+                                                      item.approvalRequestId,
+                                                      "reject",
+                                                    )
+                                                  }
+                                                >
+                                                  <X className="h-5 w-5" />
+                                                </button>
+                                              </div>
+                                              <time
+                                                className="miras-teacher-alert-date"
+                                                dir="ltr"
+                                              >
+                                                {formatKwDateTime(item.when)}
+                                              </time>
+                                            </div>
+                                          ) : (
+                                            <div className="miras-teacher-alert-date-row miras-teacher-alert-meta">
+                                              <time
+                                                className="miras-teacher-alert-date"
+                                                dir="ltr"
+                                              >
+                                                {formatKwDateTime(item.when)}
+                                              </time>
+                                            </div>
+                                          )}
+                                        </div>
+                                      ),
+                                    )}
+                                  </div>
+                                )}
+                              </div>
+                              {selectedTeacherImportantNotification && (
+                                <div
+                                  className="fixed inset-0 z-[2147483100] flex items-center justify-center bg-slate-950/35 p-4 backdrop-blur-sm"
+                                  dir="rtl"
+                                  onClick={() => setSelectedTeacherImportantNotification(null)}
+                                >
+                                  <div
+                                    className="w-full max-w-[32rem] rounded-[2rem] border border-white/80 bg-white/98 p-4 text-right shadow-[0_28px_90px_rgba(15,23,42,0.25)] sm:p-5"
+                                    onClick={(e) => e.stopPropagation()}
+                                  >
+                                    <div className="mb-3 flex items-start justify-between gap-3">
+                                      <button
+                                        type="button"
+                                        aria-label="إغلاق تفاصيل التنبيه"
+                                        onClick={() => setSelectedTeacherImportantNotification(null)}
+                                        className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border border-slate-100 bg-slate-50 text-slate-500 hover:bg-slate-100 hover:text-slate-900"
+                                      >
+                                        <X className="h-5 w-5" />
+                                      </button>
+                                      <div className="min-w-0 flex-1">
+                                        <span className="mb-2 inline-flex rounded-full border border-emerald-100 bg-emerald-50 px-2.5 py-1 text-[10px] font-black text-emerald-700">
+                                          تم تحديده كمقروء
+                                        </span>
+                                        <h3 className="break-words text-[1.15rem] font-black leading-8 text-slate-950 sm:text-[1.3rem]">
+                                          {sanitizeCourseIdentifiersForDisplay(selectedTeacherImportantNotification.title)}
+                                        </h3>
+                                      </div>
+                                    </div>
+                                    <p className="max-h-[45vh] overflow-y-auto whitespace-pre-wrap rounded-[1.25rem] border border-slate-100 bg-slate-50/80 p-3 text-[13px] font-bold leading-7 text-slate-700">
+                                      {sanitizeCourseIdentifiersForDisplay(selectedTeacherImportantNotification.body)}
+                                    </p>
+                                    <div className="mt-3 flex items-center justify-between gap-2">
+                                      <time className="rounded-xl bg-white px-2.5 py-1 font-mono text-[10px] font-black text-slate-400 ring-1 ring-slate-100" dir="ltr">
+                                        {formatKwDateTime(selectedTeacherImportantNotification.when)}
+                                      </time>
+                                      <button
+                                        type="button"
+                                        onClick={async () => {
+                                          const note = selectedTeacherImportantNotification;
+                                          setSelectedTeacherImportantNotification(null);
+                                          setTeacherImportantNotificationsOpen(false);
+                                          await note?.action?.();
+                                        }}
+                                        className="inline-flex items-center justify-center rounded-2xl bg-slate-950 px-4 py-2.5 text-[12px] font-black text-white shadow-sm hover:bg-indigo-700"
+                                      >
+                                        فتح الإجراء المرتبط
+                                      </button>
+                                    </div>
+                                  </div>
+                                </div>
+                              )}
+                              </div>,
+                                document.body,
+                              )}
+          </div>
+        )}
+      </div>
+
+      {studentTimelineOpen && (
+        <div
+          className="fixed inset-0 z-[90] flex items-center justify-center bg-slate-950/44 p-3 backdrop-blur-md sm:p-5"
+          dir="rtl"
+        >
+          <div className="max-h-[88vh] w-full max-w-xl overflow-hidden rounded-[2.1rem] border border-white/80 bg-white/96 p-3.5 text-right shadow-[0_28px_86px_rgba(15,23,42,0.22)] backdrop-blur-xl sm:p-4">
+            <div className="mb-3 flex items-center justify-between gap-3 px-1 sm:mb-4">
+              <h3 className="text-[1.15rem] font-black text-slate-950 sm:text-[1.35rem]">
+                السجل الزمني
+              </h3>
+              <button
+                type="button"
+                onClick={() => setStudentTimelineOpen(false)}
+                className="inline-flex h-10 w-10 items-center justify-center rounded-[1.2rem] border border-slate-100 bg-slate-50/90 text-slate-500 shadow-sm transition hover:bg-white hover:text-slate-900 hover:shadow-md"
+                aria-label="إغلاق"
+                title="إغلاق"
+              >
+                <X className="h-4.5 w-4.5" />
+              </button>
+            </div>
+            <div className="max-h-[70vh] space-y-2.5 overflow-y-auto pr-0 text-right [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+              {studentSubmissionTimeline.map((sub: any, idx) => {
+                const gradeText = studentSubmissionGradeForDisplay(sub);
+                const statusText = studentSubmissionStatusForDisplay(sub);
+                const actionText = studentSubmissionActionText(sub);
+                const smartResultText =
+                  !gradeText && actionText === "تم اعتماد النتيجة"
+                    ? "تم اعتماد النتيجة ورصد الدرجة"
+                    : !gradeText && statusText === "تم رصد الدرجة"
+                      ? "تم رصد الدرجة"
+                      : "";
+                const isLatestSubmission = idx === 0;
+                const courseMeta = studentCourseMetaForCode(
+                  sub.courseCode ||
+                    sub.sectionCode ||
+                    sub.studentSection ||
+                    studentCourseCode,
+                );
+                const isActionNeeded =
+                  isReturnedSubmissionStatus(sub?.status) ||
+                  sub?.status === EXAM_IN_PROGRESS_STATUS ||
+                  isExamInProgressSubmission(sub);
+                return (
+                  <div
+                    key={sub.id || idx}
+                    className="miras-timeline-item relative pr-8"
+                  >
+                    <span
+                      className={`miras-timeline-side-dot absolute right-0 top-[1.125rem] h-4 w-4 rounded-full border-[4px] border-white shadow-[0_0_0_5px_rgba(16,185,129,0.10),0_8px_18px_rgba(15,23,42,0.14)] ${isActionNeeded ? "bg-amber-400" : gradeText ? "bg-emerald-400" : "bg-indigo-400"}`}
+                    />
+                    {idx < studentSubmissionTimeline.length - 1 && (
+                      <span className="absolute right-[7px] top-9 h-[calc(100%+0.35rem)] w-px bg-gradient-to-b from-slate-200/75 to-transparent" />
+                    )}
+                    <div
+                      className={`relative overflow-hidden rounded-[1.35rem] border px-3 py-3 transition hover:-translate-y-0.5 sm:px-3.5 ${isLatestSubmission ? "border-indigo-100/75 bg-gradient-to-br from-white via-indigo-50/18 to-white shadow-[0_12px_34px_rgba(79,70,229,0.075)]" : "border-slate-100/90 bg-white/92 shadow-[0_7px_20px_rgba(15,23,42,0.03)] hover:shadow-[0_12px_28px_rgba(15,23,42,0.045)]"}`}
+                    >
+                      {isLatestSubmission && (
+                        <div className="pointer-events-none absolute -left-10 -top-10 h-28 w-28 rounded-full bg-indigo-200/25 blur-3xl" />
+                      )}
+                      <div className="relative z-10 space-y-2.5">
+                        <div className="flex flex-wrap items-center gap-1.5">
+                          {isLatestSubmission && (
+                            <span className="inline-flex items-center gap-1 rounded-full border border-indigo-100 bg-indigo-600/95 px-2 py-0.5 text-[8.5px] font-black text-white shadow-[0_7px_18px_rgba(79,70,229,0.16)]">
+                              <Sparkles className="h-2.5 w-2.5" />
+                              آخر تسليم
+                            </span>
+                          )}
+                          <span
+                            className={`rounded-full border px-2 py-0.5 text-[8.5px] font-black ${studentSubmissionKindTone(sub)}`}
+                          >
+                            {studentSubmissionKindText(sub)}
+                          </span>
+                        </div>
+                        <span className="inline-flex w-fit rounded-full bg-slate-50/85 px-2.5 py-0.5 text-[9px] font-black text-slate-500">
+                          {formatKwDateTime(sub.submittedAt)}
+                        </span>
+                        <p className="line-clamp-2 text-[14px] font-black leading-5 text-slate-950 sm:text-[15px]">
+                          {sub.activityTitle || sub.exerciseTitle || "تسليم"}
+                        </p>
+                        {shouldShowStudentCourseBadges && (
+                          <div className="inline-flex max-w-full items-center gap-1.5 rounded-full border border-white/80 bg-slate-50/55 px-2 py-0.5 text-[8px] font-bold text-slate-500 shadow-sm">
+                            <span
+                              className={`h-1.5 w-1.5 shrink-0 rounded-full shadow-sm ${studentCourseDotTone(courseMeta.courseCode, courseMeta.index)}`}
+                            />
+                            <span
+                              className="max-w-[10rem] truncate sm:max-w-[14rem]"
+                              title={courseMeta.courseName}
                             >
- 
+                              {courseMeta.courseName}
+                            </span>
+                          </div>
+                        )}
+                        <div className="flex flex-wrap items-center gap-2 pt-1">
+                          {gradeText ? (
+                            <span className="inline-flex items-center rounded-2xl border border-indigo-100 bg-indigo-50/60 px-3 py-1.5 font-mono text-[11px] font-black text-indigo-700">
+                              {gradeText}
+                            </span>
+                          ) : smartResultText ? (
+                            <span className="inline-flex items-center rounded-2xl border border-emerald-100 bg-emerald-50 px-3 py-1.5 text-[9.5px] font-black text-emerald-700">
+                              {smartResultText}
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center rounded-2xl border border-slate-100 bg-slate-50 px-3 py-1.5 text-[9.5px] font-black text-slate-400">
+                              لم تُرصد الدرجة
+                            </span>
+                          )}
+                          {smartResultText ? null : (
+                            <span
+                              className={`rounded-2xl border px-3 py-1.5 text-[9.5px] font-black ${studentSubmissionStatusTone(sub)}`}
+                            >
+                              {statusText}
+                            </span>
+                          )}
+                        </div>
+                        {smartResultText ? null : (
+                          <div
+                            className={`rounded-2xl border px-3 py-1.5 text-[9.5px] font-black ${isActionNeeded ? "border-amber-100 bg-amber-50 text-amber-700" : "border-slate-100 bg-slate-50/70 text-slate-500"}`}
+                          >
+                            {actionText}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+              {studentSubmissionTimeline.length === 0 && (
+                <div className="rounded-[1.35rem] border border-dashed border-slate-200 bg-white py-8 text-center text-xs font-bold text-slate-400">
+                  لا يوجد تسليمات مسجلة حتى اللحظة
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showTeacherOnboarding && (
+        <RoleOnboardingOverlay
+          role="teacher"
+          name={teacherSession?.name || "حساب المعلم"}
+          steps={teacherOnboardingSteps}
+          onDismiss={() => dismissOnboarding(teacherOnboardingKey)}
+        />
+      )}
+
+      {showStudentOnboarding && (
+        <RoleOnboardingOverlay
+          role="student"
+          name={studentSession?.name || "حساب الطالب"}
+          steps={studentOnboardingSteps}
+          onDismiss={() => dismissOnboarding(studentOnboardingKey)}
+        />
+      )}
+
+      {/* 9. REAL-TIME WEBCAM LIGHT VERIFICATION DIALOG */}
+      {securityModalOpen && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl p-6 max-w-sm w-full space-y-4 text-center">
+            <span className="w-12 h-12 bg-indigo-50 text-indigo-600 font-black text-xl rounded-full flex items-center justify-center mx-auto">
+              🛡️
+            </span>
+            <div>
+              <h3 className="font-black text-slate-800 text-base">
+                تحقق سريع قبل الدخول
+              </h3>
+              <p className="text-xs text-slate-400 mt-1">
+                للإجراء المعتمد:{" "}
+                <span className="font-bold text-indigo-600">
+                  {webcamPurpose}
+                </span>
+                .
+              </p>
+            </div>
+
+            {/* Simulated Live Webcam Capture */}
+            <div className="bg-slate-100 rounded-xl overflow-hidden aspect-video relative flex items-center justify-center border border-slate-200">
+              {webcamSnapshot ? (
+                <img
+                  src={webcamSnapshot}
+                  className="w-full h-full object-cover"
+                  alt="Snapshot"
+                />
+              ) : (
+                <div className="text-center space-y-2">
+                  <Laptop className="w-6 h-6 text-slate-400 mx-auto" />
+                  <span className="text-[10px] text-slate-400 block">
+                    انقر لالتقاط صورة حية مع رمز أمان اليوم
+                  </span>
+                </div>
+              )}
+            </div>
+
+            <div className="bg-amber-50 p-3 rounded-lg text-amber-700 text-[11px] font-bold">
+              رمز أمان اليوم الجامعي: {verificationCodeToday}
+            </div>
+
+            <div className="text-right space-y-2">
+              <label className="block text-[10px] font-bold text-slate-500">
+                {securityCheckQuestion}
+              </label>
+              <input
+                type="text"
+                placeholder="اكتب رمز أو إجابة التحقق..."
+                value={securityCheckAnswer}
+                onChange={(e) => setSecurityCheckAnswer(e.target.value)}
+                className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs"
+              />
+            </div>
+
+            <div className="flex gap-2">
+              <button
+                onClick={captureSimulatedWebcam}
+                className="flex-1 bg-slate-800 hover:bg-slate-700 text-white text-xs font-bold py-2 rounded-lg"
+              >
+                التقاط صورة
+              </button>
+              <button
+                onClick={confirmSecurityValidation}
+                className="flex-grow bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold py-2 rounded-lg"
+              >
+                تأكيد ومتابعة
+              </button>
+            </div>
+
+            <button
+              onClick={() => {
+                setSecurityModalOpen(false);
+                setErrorMsg(
+                  "تم إلغاء المهمة لعدم استكمال تدقيق الأمان الفوري.",
+                );
+              }}
+              className="text-[10px] text-slate-400 font-bold block mx-auto underline uppercase"
+            >
+              إلغاء
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* PWA Floating Alert Banner */}
+      {showPwaBanner && !isAppStandalone && (
+        <div
+          dir="rtl"
+          className="fixed bottom-6 left-6 right-6 md:left-auto md:max-w-md z-50 bg-white/95 rounded-[2rem] border border-indigo-100 shadow-[0_24px_80px_rgba(30,27,75,0.15)] p-6 backdrop-blur-xl animate-fade-in text-right space-y-4"
+        >
+          <div className="flex items-start gap-3.5">
+            <span className="w-12 h-12 rounded-2xl bg-indigo-600 flex items-center justify-center text-white text-2xl shadow-md shrink-0">
+              ⭐
+            </span>
+            <div className="space-y-1 min-w-0">
+              <h4 className="text-sm font-black text-slate-950">
+                إضافة مِراس للشاشة الرئيسية
+              </h4>
+              <p className="text-[11.5px] font-bold leading-5 text-slate-500">
+                تصفح سريع، مريح، ومثالي بلمسة واحدة من هاتفك!
+              </p>
+            </div>
+          </div>
+          <div className="flex items-center justify-end gap-2.5 pt-1">
+            <button
+              onClick={() => {
+                localStorage.setItem(
+                  "miras_pwa_dismissed_at",
+                  String(Date.now()),
+                );
+                setShowPwaBanner(false);
+              }}
+              className="px-4 py-2 text-xs font-black text-slate-500 hover:text-slate-800 transition-colors cursor-pointer"
+            >
+              لاحقاً
+            </button>
+            <button
+              onClick={triggerPwaInstallation}
+              className="px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-black shadow-sm shadow-indigo-100 transition-all hover:-translate-y-0.5 cursor-pointer"
+            >
+              تثبيت الآن 🚀
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* PWA Guidance Modal for iOS, Safari and Chrome Manual users */}
+      {showPwaGuideModal && (
+        <div
+          dir="rtl"
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/50 backdrop-blur-sm animate-fade-in"
+          onClick={() => setShowPwaGuideModal(false)}
+        >
+          <div
+            className="w-full max-w-md bg-white rounded-[2.2rem] border border-slate-200 shadow-premium-lg p-6 text-right relative space-y-6 animate-scale-up"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <button
+              onClick={() => setShowPwaGuideModal(false)}
+              className="absolute left-4 top-4 w-9 h-9 flex items-center justify-center rounded-xl bg-slate-100 text-slate-500 hover:bg-slate-200 hover:text-slate-800 transition-all border border-slate-150 cursor-pointer"
+              title="إغلاق"
+            >
+              <X className="h-4 w-4" />
+            </button>
+
+            <div className="text-center space-y-2">
+              <span className="w-14 h-14 bg-indigo-50 border border-indigo-100 rounded-3xl flex items-center justify-center text-indigo-600 mx-auto font-black text-2xl">
+                📱
+              </span>
+              <h3 className="text-lg font-black text-slate-950">
+                تثبيت مِراس على جهازك
+              </h3>
+            </div>
+
+            <div className="space-y-4">
+              {/* iOS Section */}
+              <div className="p-4 rounded-2.5xl border border-rose-100 bg-rose-50/40 space-y-3">
+                <div className="flex items-center gap-2">
+                  <span className="w-6 h-6 flex items-center justify-center bg-rose-100 rounded-lg text-rose-700 font-bold text-xs">
+                    أ
+                  </span>
+                  <h4 className="text-xs font-black text-slate-900">
+                    أجهزة آبل (Safari على iOS/iPadOS):
+                  </h4>
+                </div>
+                <ol className="text-[11px] font-bold text-slate-600 list-decimal list-inside space-y-1.5 leading-5 pr-1">
+                  <li>
+                    اضغط على زر المشاركة{" "}
+                    <span className="inline-block bg-white px-1 py-0.5 border rounded font-mono">
+                      📤
+                    </span>{" "}
+                    بأسفل متصفح السفاري.
+                  </li>
+                  <li>
+                    اسحب لأعلى قليلاً واختر{" "}
+                    <span className="text-slate-900 font-extrabold">
+                      "إضافة إلى الشاشة الرئيسية"
+                    </span>{" "}
+                    (<span className="text-slate-950">Add to Home Screen</span>
+                    ).
+                  </li>
+                  <li>
+                    اضغط{" "}
+                    <span className="text-slate-950 font-extrabold">
+                      "إضافة"
+                    </span>{" "}
+                    في الركن العلوي لتظهر أيقونة مِراس.
+                  </li>
+                </ol>
+              </div>
+
+              {/* Android / PC Section */}
+              <div className="p-4 rounded-2.5xl border border-indigo-100 bg-indigo-50/40 space-y-3">
+                <div className="flex items-center gap-2">
+                  <span className="w-6 h-6 flex items-center justify-center bg-indigo-100 rounded-lg text-indigo-700 font-bold text-xs">
+                    ب
+                  </span>
+                  <h4 className="text-xs font-black text-slate-900">
+                    أجهزة أندرويد والحاسوب (Chrome / Edge):
+                  </h4>
+                </div>
+                <p className="text-[11px] font-bold text-slate-600 leading-5">
+                  اضغط على رمز النقاط الثلاث{" "}
+                  <span className="text-slate-900">⁝</span> في الزاوية العلوية
+                  للمتصفح، ثم اختر{" "}
+                  <span className="text-indigo-705 font-extrabold">
+                    "تثبيت التطبيق"
+                  </span>{" "}
+                  (Install App) ليتم تحويل وتثبيت الملف فوراً في ثوانٍ.
+                </p>
+              </div>
+            </div>
+
+            <button
+              type="button"
+              onClick={() => setShowPwaGuideModal(false)}
+              className="w-full py-3 bg-slate-900 hover:bg-indigo-600 text-white rounded-2xl text-xs font-black transition-all cursor-pointer shadow-sm"
+            >
+              حسناً، فهمت الطريقة 👍
+            </button>
+          </div>
+        </div>
+      )}
+      {renderMirasCmdk()}
+      {mirasRadarOpen && mirasRadarAllowed && (
+        <div
+          className="fixed inset-0 z-[140] flex items-start justify-center overflow-y-auto bg-slate-950/65 p-3 backdrop-blur-md sm:items-center sm:p-6"
+          dir="rtl"
+          onMouseDown={(e) => {
+            if (e.target === e.currentTarget) setMirasRadarOpen(false);
+          }}
+        >
+          <div className="flex max-h-[94dvh] w-full max-w-3xl flex-col overflow-hidden rounded-[30px] border border-white/10 bg-white shadow-[0_40px_120px_rgba(2,6,23,0.55)]">
+            {/* رأس الرادار */}
+            <div className="relative overflow-hidden bg-gradient-to-l from-slate-950 via-indigo-950 to-slate-900 px-5 py-5 text-white">
+              <div className="pointer-events-none absolute -left-10 -top-10 h-40 w-40 rounded-full bg-indigo-500/20 blur-3xl"></div>
+              <div className="pointer-events-none absolute -bottom-12 right-10 h-32 w-32 rounded-full bg-emerald-400/10 blur-3xl"></div>
+              <div className="relative flex items-center justify-between gap-3">
+                <div className="flex items-center gap-3">
+                  <span className="relative grid h-12 w-12 place-items-center rounded-2xl bg-white/10 ring-1 ring-white/20">
+                    <span className="absolute inline-flex h-9 w-9 animate-ping rounded-full bg-emerald-400/25"></span>
+                    <ShieldAlert className="relative h-6 w-6 text-emerald-300" />
+                  </span>
+                  <div className="leading-tight">
+                    <p className="text-[10px] font-black tracking-widest text-indigo-300">
+                      MIRAS RADAR
+                    </p>
+                    <h3 className="text-[17px] font-black">رادار مِراس</h3>
+                    <p className="mt-0.5 text-[10.5px] font-bold text-slate-300">
+                      مراقبة الأخطاء الحيّة — تظهر لك وحدك
+                    </p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  aria-label="إغلاق الرادار"
+                  onClick={() => setMirasRadarOpen(false)}
+                  className="grid h-10 w-10 place-items-center rounded-2xl bg-white/10 text-white ring-1 ring-white/15 transition hover:bg-white/20"
+                >
+                  <X className="h-5 w-5" />
+                </button>
+              </div>
+              {/* شرائح الإحصاء */}
+              <div className="relative mt-4 grid grid-cols-2 gap-2 sm:grid-cols-4">
+                {(mirasRadarTab === "notifications"
+                  ? [
+                      { label: "أحداث", value: mirasNotificationAuditData.stats?.events ?? 0, tone: "bg-indigo-500/15 text-indigo-200 ring-indigo-400/30" },
+                      { label: "تم الإرسال", value: mirasNotificationAuditData.stats?.sent ?? 0, tone: "bg-emerald-500/15 text-emerald-200 ring-emerald-400/30" },
+                      { label: "مُنع التكرار", value: mirasNotificationAuditData.stats?.duplicatesBlocked ?? 0, tone: "bg-amber-500/15 text-amber-200 ring-amber-400/30" },
+                      { label: "نسبة النجاح", value: `${mirasNotificationAuditData.stats?.successRate ?? 100}%`, tone: "bg-sky-500/15 text-sky-200 ring-sky-400/30" },
+                    ]
+                  : [
+                      { label: "أخطاء نشطة", value: mirasRadarData.stats?.active ?? 0, tone: "bg-rose-500/15 text-rose-200 ring-rose-400/30" },
+                      { label: "آخر ٢٤ ساعة", value: mirasRadarData.stats?.last24h ?? 0, tone: "bg-amber-500/15 text-amber-200 ring-amber-400/30" },
+                      { label: "من الخادم", value: mirasRadarData.stats?.server ?? 0, tone: "bg-indigo-500/15 text-indigo-200 ring-indigo-400/30" },
+                      { label: "إجمالي التكرار", value: mirasRadarData.stats?.totalHits ?? 0, tone: "bg-emerald-500/15 text-emerald-200 ring-emerald-400/30" },
+                    ]
+                ).map((chip) => (
+                  <div
+                    key={chip.label}
+                    className={`rounded-2xl px-3 py-2 text-center ring-1 ${chip.tone}`}
+                  >
+                    <div className="text-lg font-black tabular-nums">{chip.value}</div>
+                    <div className="text-[9.5px] font-bold opacity-90">{chip.label}</div>
+                  </div>
+                ))}
+              </div>
+            </div>
+            {/* التبويبات */}
+            <div className="flex items-center justify-between gap-2 border-b border-slate-100 bg-slate-50/70 px-4 py-2.5">
+              <div className="flex gap-1.5">
+                {(
+                  [
+                    { key: "active", label: "نشطة" },
+                    { key: "resolved", label: "محلولة" },
+                    { key: "notifications", label: "الإشعارات" },
+                  ] as const
+                ).map((tab) => (
+                  <button
+                    key={tab.key}
+                    type="button"
+                    onClick={() => setMirasRadarTab(tab.key)}
+                    className={`rounded-xl px-4 py-1.5 text-[11.5px] font-black transition ${
+                      mirasRadarTab === tab.key
+                        ? "bg-slate-900 text-white shadow"
+                        : "bg-white text-slate-500 ring-1 ring-slate-200 hover:text-slate-800"
+                    }`}
+                  >
+                    {tab.label}
+                  </button>
+                ))}
+              </div>
+              {mirasRadarTab === "resolved" &&
+                mirasRadarData.items.some((r: any) => r.resolvedAt) && (
+                  <button
+                    type="button"
+                    onClick={() => void clearResolvedMirasRadar()}
+                    className="rounded-xl bg-rose-50 px-3 py-1.5 text-[10.5px] font-black text-rose-600 ring-1 ring-rose-100 transition hover:bg-rose-100"
+                  >
+                    مسح المحلولة نهائياً
+                  </button>
+                )}
+            </div>
+            {/* القائمة */}
+            <div className="flex-1 space-y-2.5 overflow-y-auto p-4">
+              {mirasRadarTab === "notifications" ? (
+                mirasNotificationAuditData.items.length === 0 ? (
+                  <div className="grid place-items-center py-14 text-center">
+                    <p className="text-[14px] font-black text-slate-800">
+                      لا توجد أحداث إرسال مسجلة بعد
+                    </p>
+                    <p className="mt-1 text-[10.5px] font-medium text-slate-400">
+                      أول إشعار جديد سيظهر هنا بمعرّف واحد ونتيجة توصيله.
+                    </p>
+                  </div>
+                ) : (
+                  mirasNotificationAuditData.items.map((item: any) => {
+                    const sent = Number(item.sent || 0);
+                    const failed = Number(item.failed || 0);
+                    const blocked = Number(item.duplicatesBlocked || 0);
+                    return (
+                      <details
+                        key={item.id}
+                        className="group rounded-2xl border border-slate-100 bg-white shadow-sm open:border-indigo-100 open:shadow-md"
+                      >
+                        <summary className="cursor-pointer list-none px-4 py-3 marker:hidden">
+                          <div className="flex items-start justify-between gap-3">
+                            <div className="min-w-0 text-right">
+                              <p className="truncate text-[11.5px] font-semibold text-slate-900">
+                                {item.title || "إشعار مِراس"}
+                              </p>
+                              <p className="mt-0.5 truncate text-[9.5px] font-normal text-slate-400">
+                                {item.type || "push"}
+                                {item.courseCode ? ` • ${item.courseCode}` : ""}
+                              </p>
+                            </div>
+                            <span className="shrink-0 font-mono text-[8.5px] font-normal text-slate-400">
+                              {formatKwDateTime(item.updatedAt || item.lastSeenAt)}
+                            </span>
+                          </div>
+                          <div className="mt-2 flex flex-wrap gap-1.5 text-[9px] font-medium">
+                            <span className="rounded-lg bg-emerald-50 px-2 py-0.5 text-emerald-700">
+                              أُرسل {sent}
+                            </span>
+                            {blocked > 0 && (
+                              <span className="rounded-lg bg-amber-50 px-2 py-0.5 text-amber-700">
+                                مُنع {blocked}
+                              </span>
+                            )}
+                            {failed > 0 && (
+                              <span className="rounded-lg bg-rose-50 px-2 py-0.5 text-rose-700">
+                                فشل {failed}
+                              </span>
+                            )}
+                            <span className="rounded-lg bg-slate-50 px-2 py-0.5 text-slate-500">
+                              جرس {Number(item.bellStored || 0)}
+                            </span>
+                          </div>
+                        </summary>
+                        <div className="border-t border-slate-100 px-4 py-3 text-right">
+                          <p className="text-[10px] font-normal leading-5 text-slate-600">
+                            {item.body || ""}
+                          </p>
+                          <div className="mt-2 grid grid-cols-2 gap-2 text-[9px] font-normal text-slate-500 sm:grid-cols-4">
+                            <span>الاستدعاءات: {Number(item.calls || 0)}</span>
+                            <span>الأهداف: {Number(item.targets || 0)}</span>
+                            <span>المجدول: {Number(item.queued || 0)}</span>
+                            <span>المعرّف: {String(item.id || "").slice(-10)}</span>
+                          </div>
+                          {item.lastError && (
+                            <p className="mt-2 rounded-xl bg-rose-50 px-3 py-2 text-[9.5px] font-medium text-rose-700">
+                              {item.lastError}
+                            </p>
+                          )}
+                        </div>
+                      </details>
+                    );
+                  })
+                )
+              ) : mirasRadarData.items.filter((r: any) =>
+                mirasRadarTab === "active" ? !r.resolvedAt : !!r.resolvedAt,
+              ).length === 0 ? (
+                <div className="grid place-items-center py-14 text-center">
+                  <div className="text-5xl">🛰️</div>
+                  <p className="mt-3 text-[15px] font-black text-slate-800">
+                    {mirasRadarTab === "active"
+                      ? "الرادار صافٍ — لا أخطاء نشطة"
+                      : "لا أخطاء محلولة"}
+                  </p>
+                  <p className="mt-1 text-[11.5px] font-bold text-slate-400">
+                    {mirasRadarTab === "active"
+                      ? "النظام يعمل بسلام. أي خطأ جديد سيظهر هنا لحظياً."
+                      : "حين تحلّ خطأً سينتقل إلى هنا."}
+                  </p>
+                </div>
+              ) : (
+                mirasRadarData.items
+                  .filter((r: any) =>
+                    mirasRadarTab === "active" ? !r.resolvedAt : !!r.resolvedAt,
+                  )
+                  .map((r: any) => {
+                    const sourceTone =
+                      r.source === "server"
+                        ? { border: "border-r-rose-400", chip: "bg-rose-50 text-rose-600 ring-rose-100", label: "الخادم" }
+                        : String(r.source || "").startsWith("seb")
+                          ? { border: "border-r-amber-400", chip: "bg-amber-50 text-amber-700 ring-amber-100", label: "SEB" }
+                          : { border: "border-r-indigo-400", chip: "bg-indigo-50 text-indigo-600 ring-indigo-100", label: "المتصفح" };
+                    return (
+                      <div
+                        key={r.id}
+                        className={`rounded-2xl border border-slate-100 ${sourceTone.border} border-r-4 bg-white p-3.5 shadow-sm transition hover:shadow-md ${r.resolvedAt ? "opacity-70" : ""}`}
+                      >
+                        <div className="flex items-start justify-between gap-2">
+                          <p
+                            dir="auto"
+                            className="min-w-0 flex-1 break-words text-[12px] font-black leading-6 text-slate-900"
+                          >
+                            {r.message}
+                          </p>
+                          {Number(r.count || 1) > 1 && (
+                            <span className="shrink-0 rounded-lg bg-rose-500 px-2 py-0.5 text-[10px] font-black text-white shadow-sm">
+                              ×{r.count}
+                            </span>
+                          )}
+                        </div>
+                        <div className="mt-2 flex flex-wrap items-center gap-1.5">
+                          <span className={`rounded-lg px-2 py-0.5 text-[9.5px] font-black ring-1 ${sourceTone.chip}`}>
+                            {sourceTone.label}
+                          </span>
+                          {r.browser && (
+                            <span className="rounded-lg bg-slate-50 px-2 py-0.5 text-[9.5px] font-bold text-slate-500 ring-1 ring-slate-100">
+                              {r.browser}
+                              {r.displayMode === "pwa" ? " • PWA" : ""}
+                            </span>
+                          )}
+                          {(r.role || r.userId) && (
+                            <span className="rounded-lg bg-slate-50 px-2 py-0.5 text-[9.5px] font-bold text-slate-500 ring-1 ring-slate-100">
+                              {r.role === "student" ? "طالب" : r.role === "teacher" ? "معلم" : r.role}
+                              {r.userId ? ` • ${r.userId}` : ""}
+                            </span>
+                          )}
+                          <span className="rounded-lg bg-slate-50 px-2 py-0.5 font-mono text-[9px] font-bold text-slate-400 ring-1 ring-slate-100">
+                            آخر ظهور {formatKwDateTime(r.lastSeenAt)}
+                          </span>
+                        </div>
+                        {r.stack && (
+                          <details className="mt-2">
+                            <summary className="cursor-pointer text-[10px] font-black text-indigo-500 hover:text-indigo-700">
+                              تفاصيل تقنية (Stack)
+                            </summary>
+                            <pre
+                              dir="ltr"
+                              className="mt-1.5 max-h-40 overflow-auto rounded-xl bg-slate-950 p-3 text-[9.5px] leading-5 text-emerald-300"
+                            >
+                              {r.stack}
+                            </pre>
+                          </details>
+                        )}
+                        <div className="mt-2.5 flex items-center justify-between">
+                          <span className="text-[9.5px] font-bold text-slate-400">
+                            أول ظهور {formatKwDateTime(r.firstSeenAt)}
+                          </span>
+                          {r.resolvedAt ? (
+                            <span className="rounded-lg bg-emerald-50 px-2.5 py-1 text-[10px] font-black text-emerald-600 ring-1 ring-emerald-100">
+                              ✓ محلولة
+                            </span>
+                          ) : (
+                            <div className="flex items-center gap-1.5">
+                              <button
+                                type="button"
+                                title="ينسخ تشخيصاً كاملاً جاهزاً للإرسال — ألصقه لي وأتكفّل بالإصلاح"
+                                onClick={() => {
+                                  const diag = [
+                                    "🛰️ تشخيص من رادار مِراس:",
+                                    `الرسالة: ${r.message}`,
+                                    `المصدر: ${r.source} | التكرار: ×${r.count || 1}`,
+                                    `أول ظهور: ${formatKwDateTime(r.firstSeenAt)} | آخر: ${formatKwDateTime(r.lastSeenAt)}`,
+                                    `المستخدم: ${r.role || "?"} ${r.userId || ""} | المتصفح: ${r.browser || "?"}${r.displayMode === "pwa" ? " (PWA)" : ""}`,
+                                    `الصفحة: ${r.url || "?"} | النسخة: ${r.bundle || "?"}`,
+                                    r.stack ? `Stack:\n${r.stack}` : "",
+                                  ]
+                                    .filter(Boolean)
+                                    .join("\n");
+                                  try {
+                                    void navigator.clipboard?.writeText(diag);
+                                    setSuccessMsg(
+                                      "تم نسخ التشخيص كاملاً — ألصقه في محادثتنا وأتكفّل بالإصلاح.",
+                                    );
+                                  } catch {}
+                                }}
+                                className="rounded-xl bg-indigo-600 px-3 py-1.5 text-[10.5px] font-black text-white shadow-sm transition hover:bg-indigo-700"
+                              >
+                                نسخ للإصلاح 📋
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => void resolveMirasRadarItem(r.id)}
+                                className="rounded-xl bg-emerald-600 px-3.5 py-1.5 text-[10.5px] font-black text-white shadow-sm transition hover:bg-emerald-700"
+                              >
+                                تمّ حلّها ✓
+                              </button>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+      {studentDeadlineCardOpen && studentUpcomingDeadlineCards.length > 0 && (
+        <div
+          className="fixed inset-0 z-[120] flex items-center justify-center bg-slate-900/45 p-4 backdrop-blur-sm"
+          dir="rtl"
+          onMouseDown={(e) => {
+            if (e.target === e.currentTarget) setStudentDeadlineCardOpen(false);
+          }}
+        >
+          <div className="w-full max-w-md overflow-hidden rounded-[28px] border border-slate-100 bg-white shadow-[0_30px_90px_rgba(15,23,42,0.28)]">
+            <div className="flex items-center justify-between gap-3 border-b border-slate-100 px-5 py-4">
+              <div className="flex items-center gap-2.5">
+                <span className="grid h-11 w-11 place-items-center rounded-2xl bg-indigo-50 text-indigo-600">
+                  <Bell className="h-5 w-5" />
+                </span>
+                <div className="text-right leading-tight">
+                  <p className="text-[10px] font-black tracking-wide text-indigo-500">
+                    مِراس
+                  </p>
+                  <h3 className="text-[15px] font-black text-slate-900">
+                    تنبيه مهم
+                  </h3>
+                </div>
+              </div>
+              <button
+                type="button"
+                aria-label="إغلاق"
+                onClick={() => setStudentDeadlineCardOpen(false)}
+                className="grid h-10 w-10 place-items-center rounded-2xl border border-slate-200 bg-white text-slate-500 transition hover:bg-slate-50 hover:text-slate-800"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+            <div className="space-y-3 px-5 py-4">
+              <div className="rounded-2xl bg-slate-50/80 px-4 py-3.5 text-right">
+                <p className="text-[14px] font-black text-slate-900">
+                  لديك تنبيه مهم قبل انتهاء الوقت.
+                </p>
+                <p className="mt-1 text-[12px] font-semibold leading-relaxed text-slate-500">
+                  اضغط البطاقة لفتح الصفحة المناسبة، بدون بدء أي اختبار.
+                </p>
+              </div>
+              <div className="max-h-[46dvh] space-y-2.5 overflow-y-auto pr-0.5">
+                {studentUpcomingDeadlineCards.map((item: any, idx: number) => (
+                  <button
+                    key={`${item.kind}-${item.id}-${idx}`}
+                    type="button"
+                    onClick={() => {
+                      setStudentDeadlineCardOpen(false);
+                      try {
+                        item.action?.();
+                      } catch {}
+                    }}
+                    className="flex w-full items-center justify-between gap-3 rounded-2xl border border-slate-100 bg-white px-3.5 py-3 text-right shadow-sm transition hover:-translate-y-0.5 hover:border-indigo-200 hover:shadow-md"
+                  >
+                    <span className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-indigo-50 text-indigo-600">
+                      <FileText className="h-5 w-5" />
+                    </span>
+                    <span className="min-w-0 flex-1 text-right">
+                      <span className="block truncate text-[13.5px] font-black text-slate-900">
+                        {sanitizeCourseIdentifiersForDisplay(item.title)}
+                      </span>
+                      <span className="mt-1 inline-flex items-center gap-1 text-[11px] font-bold text-amber-600">
+                        <Clock className="h-3.5 w-3.5" />
+                        {item.daysLeft === 1
+                          ? "تبقّى يوم واحد"
+                          : item.daysLeft === 2
+                            ? "تبقّى يومان"
+                            : `تبقّى ${item.daysLeft} أيام`}
+                      </span>
+                    </span>
+                    <span className="shrink-0 rounded-lg bg-indigo-50 px-2.5 py-1 text-[10px] font-black text-indigo-600">
+                      {item.kind || "نشاط"}
+                    </span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
