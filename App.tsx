@@ -215,6 +215,8 @@ import {
   GraduationCap,
   Laptop,
   Wifi,
+  Cloud,
+  CloudOff,
   CheckCircle,
   AlertTriangle,
   Play,
@@ -28456,7 +28458,8 @@ ${rows
 
       {/* بادج "متصل" الثابت أُزيل بقرار المالك — حلّت محله نقطة الاتصال الحية
           داخل شريحة الحساب (نقطة بلا كلام، والضغط يُظهر الحالة بأناقة). */}
-      {connectionPopoverOpen && (studentSession || teacherSession) && (
+      {/* الفقاعة العلوية للطالب فقط؛ المعلم صار له فقاعة مُلاصقة بشريحته. */}
+      {connectionPopoverOpen && studentSession && !teacherSession && (
         <div
           className="miras-connection-status-popover fixed left-1/2 z-[125] inline-flex max-w-[calc(100vw-2rem)] -translate-x-1/2 items-center gap-2 whitespace-nowrap rounded-full border border-slate-200/80 bg-white/96 px-3.5 py-2 text-[10px] font-black text-slate-700 shadow-[0_14px_38px_rgba(15,23,42,0.14)] backdrop-blur-xl"
           style={{ top: "max(0.8rem, calc(env(safe-area-inset-top, 0px) + 0.45rem))" }}
@@ -33263,17 +33266,30 @@ ${rows
                           setConnectionPopoverOpen((v) => !v);
                         }}
                       >
-                        <span
-                          className={`miras-account-connection-dot ${
-                            isAppOffline
-                              ? "bg-amber-400"
-                              : liveConnectionTrouble
-                                ? "animate-pulse bg-amber-400"
-                                : "bg-emerald-500"
-                          }`}
-                          aria-hidden="true"
-                        />
+                        {/* بطلب المالك: أيقونة سحابة واضحة بدل النقطة الغامضة —
+                            «متصل بالسحابة» يُفهَم فوراً. والفقاعة تظهر مُلاصقة
+                            تحت الشريحة مباشرة (لا أعلى-وسط الشاشة). */}
+                        {isAppOffline ? (
+                          <CloudOff
+                            className="h-4 w-4 shrink-0 text-amber-500"
+                            aria-hidden="true"
+                          />
+                        ) : (
+                          <Cloud
+                            className={`h-4 w-4 shrink-0 ${liveConnectionTrouble ? "animate-pulse text-amber-500" : "text-emerald-600"}`}
+                            aria-hidden="true"
+                          />
+                        )}
                         {teacherSession?.name || "حساب المعلم"}
+                        {connectionPopoverOpen && (
+                          <span className="absolute right-0 top-full z-[60] mt-2 whitespace-nowrap rounded-xl border border-slate-200/90 bg-white/96 px-3 py-1.5 text-[10px] font-black text-slate-700 shadow-[0_10px_30px_rgba(15,23,42,0.14)] backdrop-blur-md">
+                            {isAppOffline
+                              ? "غير متصل — سنكمل تلقائياً عند عودة الشبكة"
+                              : liveConnectionTrouble
+                                ? "جارٍ إعادة المزامنة…"
+                                : "متصل بالسحابة ✓"}
+                          </span>
+                        )}
                       </div>
                       <h1 className="w-full text-right text-[1.9rem] font-black tracking-tight text-slate-950 sm:text-[2.15rem]">
                         {teacherTabTitle[teacherTab]}
