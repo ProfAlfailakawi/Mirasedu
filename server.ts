@@ -5870,20 +5870,10 @@ function stringifyFcmData(
   return out;
 }
 
-// تصنيف فشل FCM: التمييز حاسم — كان الكود يعدم التوكن على INVALID_ARGUMENT
-// أيضاً، وهو خطأ عابر شائع أثناء انتقال Service Worker على iOS PWA (كل نشر SW
-// جديد يبطل اشتراك الدفع لثوانٍ). فأعدم النشرُ المتكررُ (v58→v61) كل توكنات
-// الطالب فلم يصل أي بانر. الآن:
-//   dead      = ميت مؤكد (UNREGISTERED) ⇒ عطّل فوراً
-//   invalid   = INVALID_ARGUMENT ⇒ عطّل فقط إن كان التوكن قديماً (ليس طازجاً)
-//   transient = خطأ مؤقت (شبكة/كوتا) ⇒ لا تعطّل أبداً
-function fcmFailureClass(reason: string): "dead" | "invalid" | "transient" {
-  const r = String(reason || "");
-  if (/UNREGISTERED|registration-token-not-registered|Requested entity was not found|NOT_FOUND/i.test(r))
-    return "dead";
-  if (/INVALID_ARGUMENT|invalid-argument|invalid registration/i.test(r))
-    return "invalid";
-  return "transient";
+function shouldDisableFcmToken(reason: string) {
+  return /UNREGISTERED|registration-token-not-registered|Requested entity was not found|INVALID_ARGUMENT/i.test(
+    reason || "",
+  );
 }
 
 function base64Url(input: Buffer | string) {
@@ -6410,20 +6400,9 @@ function notifyUsers(
             { failed: 1 },
           );
           console.warn("FCM send skipped/failed:", result.reason);
-          const failClass = fcmFailureClass(String(result.reason || ""));
-          if (failClass === "dead") {
-            // ميت مؤكد: عطّل فوراً.
+          if (shouldDisableFcmToken(String(result.reason || ""))) {
             dbInstance.disableNotificationToken(target.token, target.userId);
-          } else if (failClass === "invalid") {
-            // INVALID_ARGUMENT: نجنّب التوكن الطازج (اشتراك دفع في طور الانتقال
-            // بعد نشر SW). نعطّل فقط توكناً قديماً (>١٥د) لم يعُد يعمل فعلاً.
-            const ageMs =
-              Date.now() - new Date(target.updatedAt || 0).getTime();
-            if (Number.isFinite(ageMs) && ageMs > 15 * 60 * 1000) {
-              dbInstance.disableNotificationToken(target.token, target.userId);
-            }
           }
-          // transient: لا نعطّل — الشبكة/الكوتا تتعافى والتوكن سليم.
         }
       })
       .catch((err) => {
