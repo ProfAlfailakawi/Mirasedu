@@ -17625,3 +17625,19 @@ button[data-miras-action-busy="true"] svg {
 }
 @keyframes mirasBarSheen{0%{transform:translateX(-100%)}100%{transform:translateX(100%)}}
 @media (prefers-reduced-motion:reduce){.miras-upload-bar-fill::after{animation:none;opacity:.3}}
+
+/* قمع تلوين التعبئة التلقائية: Safari/Chrome يلوّن الحقل المُعبّأ تلقائياً أصفر/
+   أخضر (كما ظهر على حقول تسجيل الدخول). نُبقي خلفية الحقل بيضاء ونصّه داكناً
+   واضحاً بدل الأصفر المزعج، مع تحييد انتقال آبل الأصفر. */
+input:-webkit-autofill,
+input:-webkit-autofill:hover,
+input:-webkit-autofill:focus,
+input:-webkit-autofill:active,
+textarea:-webkit-autofill,
+select:-webkit-autofill {
+  -webkit-box-shadow: 0 0 0 1000px #ffffff inset !important;
+  box-shadow: 0 0 0 1000px #ffffff inset !important;
+  -webkit-text-fill-color: #0b1220 !important;
+  caret-color: #4f46e5 !important;
+  transition: background-color 100000s ease-in-out 0s !important;
+}
