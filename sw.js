@@ -1,5 +1,5 @@
 /* Miras PWA + FCM service worker */
-const MIRAS_CACHE_VERSION = 'miras-shell-v31-device-lock-live-sync-layout-20260704-v2';
+const MIRAS_CACHE_VERSION = 'miras-shell-v63-push-resubscribe-20260711';
 const MIRAS_STUDENT_LIVE_CHANNEL = 'miras-student-live-v1';
 const MIRAS_STATIC_ASSETS = [
   '/',
@@ -44,12 +44,100 @@ async function initMirasFirebaseMessaging(config) {
     }
     if (!firebaseConfig || !firebaseConfig.apiKey || !firebaseConfig.projectId || !firebaseConfig.messagingSenderId || !firebaseConfig.appId) return;
     self.firebase.initializeApp(firebaseConfig);
-    const messaging = self.firebase.messaging();
-    messaging.onBackgroundMessage((payload) => showMirasNotification(payload));
+    // تهيئة SDK مطلوبة لاستمرار توافق توكنات FCM، لكن العرض مملوك حصراً لمعالج
+    // push أدناه. تسجيل onBackgroundMessage هنا كان يصنع مسار عرض يدوي ثانياً.
+    self.firebase.messaging();
   } catch (e) {}
 }
 
+// ═══ شبكة الصيد النووية — طبقة عامل الخدمة 🛰️ ═══════════════════════════════
+// أخطاء الـSW (دفعات، كاش، مزامنة خلفية) كانت تموت بصمت خارج نظر الجميع.
+var mirasSwRadarBudget = 3;
+function mirasSwRadar(message, stack) {
+  try {
+    if (mirasSwRadarBudget <= 0) return;
+    mirasSwRadarBudget -= 1;
+    fetch('/api/monitor/report', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ message: String(message || '').slice(0, 250), stack: String(stack || '').slice(0, 1000), url: '/sw', source: 'sw', role: '', userId: '' })
+    }).catch(function () {});
+  } catch (e) {}
+}
+self.addEventListener('error', function (e) {
+  mirasSwRadar('SW error: ' + String((e && e.message) || 'unknown'), String((e && e.filename) || '') + ':' + String((e && e.lineno) || ''));
+});
+self.addEventListener('unhandledrejection', function (e) {
+  var r = e && e.reason;
+  mirasSwRadar('SW rejection: ' + String((r && r.message) || r || 'unknown'), String((r && r.stack) || ''));
+});
+
 const mirasRecentNotificationKeys = new Map();
+const MIRAS_NOTIFICATION_LEDGER_DB = 'miras-notification-delivery-ledger-v1';
+const MIRAS_NOTIFICATION_LEDGER_STORE = 'shown';
+
+// حارس دائم داخل جهاز الطالب: ذاكرة Map تختفي عندما يعيد iOS تشغيل عامل الخدمة،
+// وقد يعيد FCM تسليم الحدث بعدها. IndexedDB يجعل notificationId نفسه يُعرض مرة
+// واحدة حتى بعد إعادة تشغيل الـSW أو إغلاق التطبيق وفتحه.
+function claimMirasNotificationDelivery(key) {
+  return new Promise((resolve) => {
+    try {
+      if (!self.indexedDB || !key) return resolve(false);
+      const request = self.indexedDB.open(MIRAS_NOTIFICATION_LEDGER_DB, 1);
+      request.onupgradeneeded = () => {
+        try {
+          const db = request.result;
+          if (!db.objectStoreNames.contains(MIRAS_NOTIFICATION_LEDGER_STORE)) {
+            db.createObjectStore(MIRAS_NOTIFICATION_LEDGER_STORE, { keyPath: 'id' });
+          }
+        } catch (e) {}
+      };
+      request.onerror = () => resolve(false);
+      request.onsuccess = () => {
+        const db = request.result;
+        try {
+          const tx = db.transaction(MIRAS_NOTIFICATION_LEDGER_STORE, 'readwrite');
+          const store = tx.objectStore(MIRAS_NOTIFICATION_LEDGER_STORE);
+          const now = Date.now();
+          const get = store.get(key);
+          let duplicate = false;
+          get.onsuccess = () => {
+            const previousAt = Number(get.result && get.result.at || 0);
+            duplicate = previousAt > 0 && now - previousAt < 14 * 24 * 60 * 60 * 1000;
+            if (!duplicate) {
+              try { store.put({ id: key, at: now }); } catch (e) {}
+            }
+            try {
+              const cursor = store.openCursor();
+              cursor.onsuccess = () => {
+                const item = cursor.result;
+                if (!item) return;
+                if (now - Number(item.value && item.value.at || 0) > 14 * 24 * 60 * 60 * 1000) {
+                  try { item.delete(); } catch (e) {}
+                }
+                item.continue();
+              };
+            } catch (e) {}
+          };
+          get.onerror = () => { duplicate = false; };
+          tx.oncomplete = () => {
+            try { db.close(); } catch (e) {}
+            resolve(duplicate);
+          };
+          tx.onerror = () => {
+            try { db.close(); } catch (e) {}
+            resolve(false);
+          };
+        } catch (e) {
+          try { db.close(); } catch (err) {}
+          resolve(false);
+        }
+      };
+    } catch (e) {
+      resolve(false);
+    }
+  });
+}
 
 const MIRAS_PENDING_FCM_DB = 'miras-pending-fcm-v1';
 const MIRAS_PENDING_FCM_STORE = 'notifications';
@@ -123,19 +211,27 @@ function readAndClearMirasPendingFcmNotifications() {
 }
 
 function notificationDedupeKey(title, body, data) {
-  return [title || '', body || '', data?.type || '', data?.activityId || '', data?.courseCode || '', data?.url || ''].join('|');
+  const stableId = data?.notificationId || data?.eventId || data?.messageId || '';
+  if (stableId) return `id:${stableId}`;
+  return [title || '', body || '', data?.type || '', data?.activityId || data?.examId || data?.projectId || '', data?.courseCode || '', data?.url || ''].join('|');
 }
 
 function shouldSkipDuplicateNotification(title, body, data) {
   const now = Date.now();
   for (const [key, at] of mirasRecentNotificationKeys.entries()) {
-    if (now - at > 10000) mirasRecentNotificationKeys.delete(key);
+    if (now - at > 600000) mirasRecentNotificationKeys.delete(key);
   }
   const key = notificationDedupeKey(title, body, data || {});
   const previous = mirasRecentNotificationKeys.get(key);
-  if (previous && now - previous < 10000) return true;
+  if (previous && now - previous < 600000) return true;
   mirasRecentNotificationKeys.set(key, now);
   return false;
+}
+
+function notificationTag(title, body, data) {
+  const stableId = String(data?.notificationId || data?.eventId || data?.messageId || '').trim();
+  if (stableId) return stableId.slice(0, 120);
+  return `miras-${notificationDedupeKey(title, body, data || {}).slice(0, 100)}`;
 }
 
 function normalizePayload(payload) {
@@ -185,9 +281,26 @@ async function broadcastMirasInAppNotification(title, body, data) {
 
 async function showMirasNotification(payload) {
   const { title, body, data } = normalizePayload(payload || {});
+  // المنع يسبق البثّ والحفظ أيضاً؛ سابقاً كان يمنع بانر النظام فقط بينما يضيف
+  // نسختين إلى قناة التطبيق وIndexedDB من نفس دفعة FCM.
+  if (shouldSkipDuplicateNotification(title, body, data)) return;
+  const persistentKey = notificationDedupeKey(title, body, data || {});
+  if (await claimMirasNotificationDelivery(persistentKey)) return;
+  const tag = notificationTag(title, body, data);
+  try {
+    const alreadyVisible = await self.registration.getNotifications({ tag });
+    if (alreadyVisible && alreadyVisible.length) return;
+  } catch (e) {}
   const inAppPayload = await broadcastMirasInAppNotification(title, body, data || {});
   await saveMirasPendingFcmNotification(inAppPayload);
-  if (shouldSkipDuplicateNotification(title, body, data)) return;
+  // التطبيق مفتوح وظاهر أمام المستخدم؟ التوست الداخلي (المبثوث أعلاه) يكفيه —
+  // بانر النظام فوقه = نفس الإشعار "يصل مرتين" (شكوى المالك). البانر يظهر فقط
+  // حين يكون التطبيق بالخلفية/مغلقاً، وهو عرفُ التطبيقات الاحترافية.
+  try {
+    const wins = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
+    const appVisible = wins.some((c) => c.visibilityState === 'visible');
+    if (appVisible) return;
+  } catch (e) {}
   return self.registration.showNotification(title, {
     body,
     icon: '/ios-icon-192-v7.png',
@@ -195,8 +308,8 @@ async function showMirasNotification(payload) {
     dir: 'rtl',
     lang: 'ar',
     data,
-    tag: data.type || data.activityId || `miras-${Date.now()}`,
-    renotify: true,
+    tag,
+    renotify: false,
     requireInteraction: false,
   });
 }
@@ -270,19 +383,54 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  if (['style', 'script', 'worker', 'font', 'manifest'].includes(request.destination)) {
+  // أصول البناء المجزّأة بالهاش (Vite يُخرج ملفات ثابتة المحتوى تحت
+  // ‎/assets/<اسم>-<هاش>.<امتداد>). لأن الرابط نفسه يتغيّر كلما تغيّر المحتوى،
+  // فالنسخة المخزّنة لرابط معيّن صحيحة دائماً — لذا نخدمها من الكاش مباشرةً
+  // (فورية، بلا شبكة) بدل إعادة تنزيل حزمة الـ JS/CSS كاملةً في كل فتحة صفحة
+  // كما كان المسار السابق (network-first + no-store) يفعل. أي نشر جديد يُصدر
+  // روابط هاش جديدة (يشير إليها index.html المُحمَّل دائماً من الشبكة)، فتفوت
+  // الكاش وتُجلب مرة واحدة ثم تُخزَّن. هذا هو أكبر مكسب لسرعة "الموقع بالكامل".
+  const isImmutableHashedAsset =
+    (url.pathname.startsWith('/assets/') &&
+      /-[A-Za-z0-9_-]{6,}\.[a-z0-9]+$/i.test(url.pathname)) ||
+    // محرّك وملفات عارض PDF.js (‎/pdfjs/build/pdf.worker.mjs ~٢.٢م.ب وغيرها):
+    // كبيرة وثابتة الاسم. نخدمها cache-first (بلا إعادة جلب في الخلفية) فلا
+    // يُعاد تنزيل ٢.٢ ميجابايت في كل فتح معاينة بوربوينت/PDF → معاينة فورية.
+    // أي تحديث لها يُلتقط عبر رفع إصدار الـ SW (يمسح الكاش القديم).
+    url.pathname.startsWith('/pdfjs/');
+
+  if (isImmutableHashedAsset) {
     event.respondWith((async () => {
       const cached = await caches.match(request);
+      if (cached) return cached;
       try {
-        const fresh = await fetch(request, { cache: 'no-store' });
+        const fresh = await fetch(request);
         if (fresh && fresh.ok) {
           caches.open(MIRAS_CACHE_VERSION).then((cache) => cache.put(request, fresh.clone())).catch(() => undefined);
         }
         return fresh;
       } catch {
-        if (cached) return cached;
         return fetch(request);
       }
+    })());
+    return;
+  }
+
+  // بقية الأصول الثابتة الاسم (عارض PDF.js، manifest، ...): stale-while-revalidate.
+  // نُرجع النسخة المخزّنة فوراً إن وُجدت (فتح لحظي) ونُحدّث الكاش في الخلفية،
+  // فلا ينتظر المستخدم الشبكة عند كل فتحة، ويصل التحديث في الزيارة التالية.
+  if (['style', 'script', 'worker', 'font', 'manifest'].includes(request.destination)) {
+    event.respondWith((async () => {
+      const cached = await caches.match(request);
+      const network = fetch(request, { cache: 'no-store' })
+        .then((fresh) => {
+          if (fresh && fresh.ok) {
+            caches.open(MIRAS_CACHE_VERSION).then((cache) => cache.put(request, fresh.clone())).catch(() => undefined);
+          }
+          return fresh;
+        })
+        .catch(() => cached);
+      return cached || network;
     })());
     return;
   }

@@ -230,13 +230,6 @@ button, select, input, textarea, a {
   transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
-/* يمنع Safari من إعادة رسم أزرار النص/الأيقونة كأزرار نظام رمادية. هذا يلغي
-   المظهر الأصلي فقط؛ حدود وألوان مِراس المعرفة بالكلاسات تبقى كما هي. */
-button {
-  -webkit-appearance: none;
-  appearance: none;
-}
-
 /* Spring scale click for buttons */
 .btn-spring-active:active:not(:disabled) {
   transform: scale(0.975);
@@ -17612,12 +17605,8 @@ button[data-miras-action-busy="true"] svg {
   .miras-cmdk-ico{ width:40px; height:40px; }
 }
 
-/* لمعان الرفع الحي: شريط ذهبي واضح وموجة ضوء تعبره حتى لو ثبتت النسبة لحظياً. */
-.miras-upload-bar-fill{
-  position:relative;overflow:hidden;
-  background:linear-gradient(90deg,#f59e0b 0%,#fde047 52%,#fbbf24 100%) !important;
-  box-shadow:0 0 12px rgba(250,204,21,.38);
-}
+/* لمعان الرفع الحي: موجة ضوء تعبر شريط التقدم — إحساس حركة دائم حتى لو ثبتت النسبة */
+.miras-upload-bar-fill{position:relative;overflow:hidden}
 .miras-upload-bar-fill::after{
   content:"";position:absolute;inset:0;
   background:linear-gradient(90deg,transparent 12%,rgba(255,255,255,.78) 48%,transparent 82%);
