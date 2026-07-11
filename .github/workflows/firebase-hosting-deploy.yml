@@ -1,12 +1,12 @@
-# النشر التلقائي عند الدفع معطّل مؤقتاً (١١ يوليو ٢٠٢٦): جلسة موازية كانت
-# تدفع commits عرضية (موقع شخصي) إلى main، فيحاول النشر التلقائي بناءها
-# ويفشل ويرسل خطأ Firebase للمالك في كل مرة. النشر يتم يدوياً:
-#   npm run build && firebase deploy --only hosting:mirasedu --project meras-320eb
-# لإعادة تفعيل التلقائي لاحقاً: أعِد كتلة push أدناه بدل workflow_dispatch.
+# ينشر تلقائياً عند كل دفع إلى main.
 
 name: Deploy to Firebase Hosting on Merge
 
 on:
+  push:
+    branches:
+      - main
+      - master
   workflow_dispatch: {}
 
 permissions:
