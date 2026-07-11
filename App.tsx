@@ -363,36 +363,12 @@ async function loadMirasBlazeFace(): Promise<any> {
         }
         return resp;
       } catch (err: any) {
-        // نتجاهل الإجهاض الحميد: نداء أُلغي عمداً (AbortController) أو الصفحة
-        // تُغادر/تُعاد تحميلها (تحديث SW) — هذه ليست أعطالاً بل ضجيج كان يملأ
-        // الرادار ببطاقات «فشل شبكي» كاذبة على firebase-public/students عند كل
-        // إعادة فتح. نُبلّغ فقط عن فشل شبكي حقيقي والصفحة ظاهرة ومتصلة.
-        const benign =
-          err?.name === "AbortError" ||
-          (init && (init as any).signal && (init as any).signal.aborted) ||
-          (typeof document !== "undefined" && document.visibilityState === "hidden") ||
-          (window as any).__mirasUnloading === true;
-        if (
-          isApi &&
-          !skip &&
-          !benign &&
-          navigator.onLine !== false &&
-          onceAMinute(`net|${path}`)
-        ) {
+        if (isApi && !skip && navigator.onLine !== false && onceAMinute(`net|${path}`)) {
           radarPost(`فشل شبكي على ${path}`, String(err?.message || err), "api-net");
         }
         throw err;
       }
     }) as typeof window.fetch;
-    // علم المغادرة: أي نداء يفشل أثناءها إجهاض حميد لا عطل.
-    try {
-      window.addEventListener("pagehide", () => {
-        (window as any).__mirasUnloading = true;
-      });
-      window.addEventListener("beforeunload", () => {
-        (window as any).__mirasUnloading = true;
-      });
-    } catch {}
     // (ب) مجسّ console.error: الأخطاء المبتلعة في مئات كتل try/catch تصير مرئية
     const origCE = console.error.bind(console);
     let ceBudget = 5;
@@ -33974,37 +33950,35 @@ ${rows
                         )}
                       </div>
                     </div>
-                    {/* تنسيق بطلب المالك: أيقونات فقط بلا كلمات — مفتاح مقسّم
-                        أنيق (المشاريع/الاختبارات) بدل الكلمة-فوق-الأيقونة المكرّرة.
-                        المعنى واضح من الأيقونة، وaria-label/title للوصولية. */}
-                    <div className="flex items-center justify-end">
-                      <div className="inline-flex items-center gap-1 rounded-2xl border border-slate-200/90 bg-slate-100/70 p-1">
-                        {(
-                          [
-                            ["projects", "المشاريع", FolderTree],
-                            ["exams", "الاختبارات", FileText],
-                          ] as const
-                        ).map(([id, label, Icon]) => {
-                          const active = submissionSubTab === id;
-                          return (
-                            <button
-                              key={id}
-                              title={label}
-                              aria-label={label}
-                              aria-pressed={active}
-                              onClick={() => {
-                                setSubmissionSubTab(id as any);
-                                setSelectedSubmissionActivityId(null);
-                                setSelectedSubmissionIds({});
-                                setSubmissionStatusFilter(null);
-                              }}
-                              className={`inline-flex h-11 w-12 items-center justify-center rounded-xl transition-all ${active ? "bg-gradient-to-br from-indigo-600 to-blue-600 text-white shadow-sm" : "text-slate-500 hover:bg-white hover:text-slate-700"}`}
-                            >
-                              <Icon className="h-[1.15rem] w-[1.15rem]" />
-                            </button>
-                          );
-                        })}
-                      </div>
+                    <div className="flex flex-wrap items-end justify-end gap-2">
+                      {(
+                        [
+                          ["projects", "المشاريع", FolderTree],
+                          ["exams", "الاختبارات", FileText],
+                        ] as const
+                      ).map(([id, label, Icon]) => (
+                        <div
+                          key={id}
+                          className="flex flex-col items-center gap-1.5"
+                        >
+                          <span className="text-[10px] font-black text-slate-500">
+                            {label}
+                          </span>
+                          <button
+                            title={label}
+                            aria-label={label}
+                            onClick={() => {
+                              setSubmissionSubTab(id as any);
+                              setSelectedSubmissionActivityId(null);
+                              setSelectedSubmissionIds({});
+                              setSubmissionStatusFilter(null);
+                            }}
+                            className={`inline-flex h-12 w-12 items-center justify-center rounded-2xl border shadow-sm transition-all hover:-translate-y-0.5 ${submissionSubTab === id ? "border-indigo-200 bg-gradient-to-br from-indigo-600 to-blue-600 text-white shadow-indigo-200" : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50"}`}
+                          >
+                            <Icon className="h-5 w-5" />
+                          </button>
+                        </div>
+                      ))}
                     </div>
                   </div>
                   {!selectedSubmissionActivityId ? (
