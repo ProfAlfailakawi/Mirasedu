@@ -9992,15 +9992,15 @@ export default function App() {
         }`}
         aria-live="polite"
       >
-        <div className="flex items-center justify-between gap-3 text-[9.5px] font-medium">
+        <div className="flex items-center justify-between gap-3 text-[10px] font-bold">
           <span className="min-w-0 truncate">{uploadStatusFileName || "ملف"}</span>
-          <span className="shrink-0 tabular-nums">
+          <span className="shrink-0 text-[15px] font-black tabular-nums text-amber-500">
             {uploadProgress > 0 ? `${uploadProgress}%` : phaseLabel}
           </span>
         </div>
         <div
-          className={`mt-2 h-1.5 overflow-hidden rounded-full ${
-            dark ? "bg-white/10" : "bg-indigo-100"
+          className={`mt-2 h-2.5 overflow-hidden rounded-full ${
+            dark ? "bg-white/10" : "bg-amber-100/70"
           }`}
         >
           <div
@@ -10009,7 +10009,7 @@ export default function App() {
                 ? "bg-amber-400"
                 : uploadPhase === "retrying"
                   ? "bg-sky-500"
-                  : "bg-gradient-to-l from-amber-500 via-yellow-300 to-amber-400 shadow-[0_0_12px_rgba(250,204,21,0.38)]"
+                  : "bg-gradient-to-l from-amber-500 via-yellow-300 to-amber-400 shadow-[0_0_16px_rgba(250,204,21,0.55)]"
             }`}
             style={{ width: `${Math.max(2, uploadProgress)}%` }}
           />
@@ -33089,9 +33089,77 @@ ${rows
               aria-label="رأس لوحة المعلم المختصر"
             >
               <div className="miras-zero-title-block">
-                <div className="miras-zero-name-pill">
-                  <span aria-hidden="true" />
+                <div
+                  className="miras-zero-name-pill"
+                  role="button"
+                  tabIndex={0}
+                  aria-label="عرض حالة الاتصال"
+                  aria-expanded={connectionPopoverOpen}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setConnectionPopoverOpen((v) => !v);
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key !== "Enter" && e.key !== " ") return;
+                    e.preventDefault();
+                    setConnectionPopoverOpen((v) => !v);
+                  }}
+                  style={{ position: "relative", cursor: "pointer" }}
+                >
+                  {isAppOffline ? (
+                    <CloudOff
+                      aria-hidden="true"
+                      style={{
+                        width: "0.95rem",
+                        height: "0.95rem",
+                        flex: "0 0 auto",
+                        color: "#f59e0b",
+                      }}
+                    />
+                  ) : (
+                    <Cloud
+                      aria-hidden="true"
+                      className={liveConnectionTrouble ? "animate-pulse" : ""}
+                      style={{
+                        width: "0.95rem",
+                        height: "0.95rem",
+                        flex: "0 0 auto",
+                        color: liveConnectionTrouble ? "#f59e0b" : "#059669",
+                      }}
+                    />
+                  )}
                   {teacherSession?.name || "حساب المعلم"}
+                  {connectionPopoverOpen && (
+                    <div
+                      style={{
+                        position: "absolute",
+                        right: 0,
+                        top: "100%",
+                        marginTop: "0.4rem",
+                        zIndex: 60,
+                        whiteSpace: "nowrap",
+                        borderRadius: "0.8rem",
+                        border: "1px solid rgba(16,185,129,.22)",
+                        background: "rgba(255,255,255,.97)",
+                        padding: "0.32rem 0.62rem",
+                        fontSize: "0.62rem",
+                        fontWeight: 900,
+                        color: isAppOffline
+                          ? "#b45309"
+                          : liveConnectionTrouble
+                            ? "#b45309"
+                            : "#047857",
+                        boxShadow: "0 12px 32px rgba(15,23,42,.16)",
+                        backdropFilter: "blur(8px)",
+                      }}
+                    >
+                      {isAppOffline
+                        ? "غير متصل — سنكمل عند عودة الشبكة"
+                        : liveConnectionTrouble
+                          ? "جارٍ إعادة المزامنة…"
+                          : "متصل بالسحابة ✓"}
+                    </div>
+                  )}
                 </div>
                 <h1>{teacherTabTitle[teacherTab]}</h1>
               </div>
@@ -33304,7 +33372,7 @@ ${rows
                         </p>
                       )}
                     </div>
-                    <div className="relative w-full sm:max-w-xl" onClick={(e) => e.stopPropagation()}>
+                    <div className="relative w-full sm:max-w-xl lg:hidden" onClick={(e) => e.stopPropagation()}>
                       <div className="flex items-center gap-2 rounded-[1.45rem] border border-slate-200/80 bg-white/88 px-3 py-2 shadow-inner backdrop-blur-xl animate-fade-in" onPointerDown={(e) => e.stopPropagation()}>
                         <Search className="h-4 w-4 shrink-0 text-slate-400" />
                         <form
@@ -43116,15 +43184,13 @@ ${rows
                   return (
                     <div
                       key={chip.label}
-                      className={`flex items-center gap-2.5 rounded-2xl px-3 py-2.5 ring-1 ${chip.tone}`}
+                      title={chip.label}
+                      className={`flex flex-col items-center justify-center gap-2 rounded-2xl px-2 py-3 ring-1 ${chip.tone}`}
                     >
-                      <span className={`grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-white/10 ${chip.iconTone}`}>
-                        <ChipIcon className="h-[18px] w-[18px]" />
+                      <span className={`grid h-9 w-9 place-items-center rounded-xl bg-white/10 ${chip.iconTone}`}>
+                        <ChipIcon className="h-5 w-5" />
                       </span>
-                      <div className="min-w-0 text-right leading-tight">
-                        <div className="text-2xl font-black tabular-nums text-white">{chip.value}</div>
-                        <div className="truncate text-[10px] font-bold text-white/70">{chip.label}</div>
-                      </div>
+                      <div className="text-[27px] font-black leading-none tabular-nums text-white">{chip.value}</div>
                     </div>
                   );
                 })}
@@ -43289,9 +43355,8 @@ ${rows
                           )}
                         </div>
                         <div className="mt-2 flex flex-wrap items-center gap-1.5">
-                          <span className={`inline-flex items-center gap-1 rounded-lg px-2 py-0.5 text-[9.5px] font-black ring-1 ${sourceTone.chip}`}>
-                            <SourceIcon className="h-3 w-3" />
-                            {sourceTone.label}
+                          <span title={sourceTone.label} className={`inline-flex items-center justify-center rounded-lg p-1 ring-1 ${sourceTone.chip}`}>
+                            <SourceIcon className="h-3.5 w-3.5" />
                           </span>
                           {r.browser && (
                             <span className="rounded-lg bg-slate-50 px-2 py-0.5 text-[9.5px] font-bold text-slate-500 ring-1 ring-slate-100">
