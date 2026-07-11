@@ -17,3 +17,6 @@ data/
 
 # كاش نشر Firebase المحلي
 .firebase/
+
+# إعدادات Claude Code المحلية (شخصية — لا تُرفع)
+.claude/settings.local.json
