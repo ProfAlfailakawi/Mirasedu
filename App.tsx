@@ -10000,19 +10000,33 @@ export default function App() {
           </span>
         </div>
         <div
-          className={`mt-2 h-2.5 overflow-hidden rounded-full ${
+          className={`miras-upload-bar-track mt-2 h-2.5 overflow-hidden rounded-full ${
             dark ? "bg-white/10" : "bg-amber-100/70"
           }`}
+          role="progressbar"
+          aria-label={`تقدّم رفع ${uploadStatusFileName || "الملف"}`}
+          aria-valuemin={0}
+          aria-valuemax={100}
+          aria-valuenow={Math.max(0, Math.min(100, uploadProgress))}
         >
           <div
-            className={`miras-upload-bar-fill h-full rounded-full transition-[width] duration-300 ${
+            className={`miras-upload-bar-fill h-full rounded-full ${
               uploadPhase === "waiting-network"
-                ? "bg-amber-400"
+                ? "is-waiting-network"
                 : uploadPhase === "retrying"
-                  ? "bg-sky-500"
-                  : "bg-gradient-to-l from-amber-500 via-yellow-300 to-amber-400 shadow-[0_0_16px_rgba(250,204,21,0.55)]"
+                  ? "is-retrying"
+                  : uploadPhase === "securing"
+                    ? "is-securing"
+                    : "is-uploading"
             }`}
-            style={{ width: `${Math.max(2, uploadProgress)}%` }}
+            style={
+              {
+                "--miras-upload-progress": `${Math.max(
+                  2,
+                  Math.min(100, uploadProgress),
+                )}%`,
+              } as any
+            }
           />
         </div>
         <div
