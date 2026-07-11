@@ -238,7 +238,7 @@ const mountApp = () => {
 
 mountApp();
 
-const MIRAS_CLIENT_BUILD_VERSION = 'miras-v76-radar-icons-forgotpw-loading-20260712';
+const MIRAS_CLIENT_BUILD_VERSION = 'miras-v75-reapply-viteguard-20260712';
 
 // ───────────────────────────────────────────────────────────────────────────
 // شريط «تحديث جاهز» — أعلى الشاشة، مرة واحدة، بضغطة واحدة
@@ -286,13 +286,6 @@ const showMirasUpdateBanner = (worker: ServiceWorker | null | undefined) => {
     label.textContent = 'تحديث جديد جاهز ✨';
     label.style.cssText = 'white-space:nowrap;padding-inline-start:4px';
 
-    let autoHide: ReturnType<typeof setTimeout> | undefined;
-    const hideBar = () => {
-      if (autoHide) clearTimeout(autoHide);
-      bar.style.transform = 'translateX(-50%) translateY(-160%)';
-      setTimeout(() => bar.remove(), 520);
-    };
-
     const updateBtn = document.createElement('button');
     updateBtn.type = 'button';
     updateBtn.textContent = 'حدّث الآن';
@@ -301,18 +294,9 @@ const showMirasUpdateBanner = (worker: ServiceWorker | null | undefined) => {
     updateBtn.onclick = () => {
       updateBtn.textContent = 'يُحدّث…';
       updateBtn.disabled = true;
-      if (autoHide) clearTimeout(autoHide);
       try {
         worker.postMessage({type: 'SKIP_WAITING'});
       } catch {}
-      // شبكة أمان: إن لم يُطلق controllerchange إعادةَ التحميل خلال ثانيتين (مثلاً
-      // لا يوجد عامل خدمة منتظِر فعلاً) نُعيد التحميل يدوياً كي لا يعلق الزر على
-      // «يُحدّث…» إلى ما لا نهاية.
-      setTimeout(() => {
-        try {
-          window.location.reload();
-        } catch {}
-      }, 2000);
     };
 
     const laterBtn = document.createElement('button');
@@ -321,7 +305,10 @@ const showMirasUpdateBanner = (worker: ServiceWorker | null | undefined) => {
     laterBtn.textContent = '✕';
     laterBtn.style.cssText =
       'border:none;cursor:pointer;border-radius:9999px;width:28px;height:28px;background:rgba(255,255,255,.14);color:#fff;font:inherit;font-weight:900;font-size:12px';
-    laterBtn.onclick = hideBar;
+    laterBtn.onclick = () => {
+      bar.style.transform = 'translateX(-50%) translateY(-160%)';
+      setTimeout(() => bar.remove(), 520);
+    };
 
     bar.appendChild(label);
     bar.appendChild(updateBtn);
@@ -330,8 +317,6 @@ const showMirasUpdateBanner = (worker: ServiceWorker | null | undefined) => {
     requestAnimationFrame(() => {
       bar.style.transform = 'translateX(-50%) translateY(0)';
     });
-    // يختفي تلقائياً بعد ١٤ ثانية إن لم يتفاعل المستخدم — لا يبقى ظاهراً طويلاً.
-    autoHide = setTimeout(hideBar, 14000);
   } catch {}
 };
 
