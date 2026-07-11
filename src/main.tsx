@@ -238,87 +238,7 @@ const mountApp = () => {
 
 mountApp();
 
-const MIRAS_CLIENT_BUILD_VERSION = 'miras-v71-cloud-banner-passkey-20260711';
-
-// ───────────────────────────────────────────────────────────────────────────
-// شريط «تحديث جاهز» — أعلى الشاشة، مرة واحدة، بضغطة واحدة
-//
-// ملاحظات المالك: (١) موضعه كان أسفل الشاشة فيغطّي شريط التنقّل والبحث — نقلناه
-// إلى الأعلى. (٢) كان يظهر في كل فتح للتطبيق — الآن يظهر مرة واحدة في الجلسة فقط،
-// وبمجرد الضغط على «حدّث الآن» يُفعَّل التحديث ويُعاد التحميل فيختفي نهائياً (لا
-// يوجد عامل خدمة منتظِر بعدها = لا شريط بعدها). لا يظهر إطلاقاً داخل متصفح الاختبار.
-// ───────────────────────────────────────────────────────────────────────────
-const showMirasUpdateBanner = (worker: ServiceWorker | null | undefined) => {
-  try {
-    if (!worker || isMirasSebEntry()) return;
-    if (document.getElementById('miras-update-banner')) return;
-    const onceKey = `miras-update-banner:${MIRAS_CLIENT_BUILD_VERSION}`;
-    if (sessionStorage.getItem(onceKey) === '1') return;
-    sessionStorage.setItem(onceKey, '1');
-
-    const bar = document.createElement('div');
-    bar.id = 'miras-update-banner';
-    bar.setAttribute('dir', 'rtl');
-    bar.style.cssText = [
-      'position:fixed',
-      'top:calc(env(safe-area-inset-top,0px) + 12px)',
-      'left:50%',
-      'transform:translateX(-50%) translateY(-160%)',
-      'z-index:2147483647',
-      'display:flex',
-      'align-items:center',
-      'gap:10px',
-      'max-width:calc(100vw - 24px)',
-      'padding:9px 10px 9px 14px',
-      'border-radius:9999px',
-      'background:rgba(15,23,42,0.95)',
-      'color:#fff',
-      "font-family:'Tajawal','Cairo',system-ui,sans-serif",
-      'font-weight:800',
-      'font-size:13px',
-      'box-shadow:0 18px 50px rgba(15,23,42,0.45)',
-      '-webkit-backdrop-filter:blur(10px)',
-      'backdrop-filter:blur(10px)',
-      'transition:transform .5s cubic-bezier(.2,.9,.25,1)',
-    ].join(';');
-
-    const label = document.createElement('span');
-    label.textContent = 'تحديث جديد جاهز ✨';
-    label.style.cssText = 'white-space:nowrap;padding-inline-start:4px';
-
-    const updateBtn = document.createElement('button');
-    updateBtn.type = 'button';
-    updateBtn.textContent = 'حدّث الآن';
-    updateBtn.style.cssText =
-      'border:none;cursor:pointer;border-radius:9999px;padding:7px 15px;background:#34d399;color:#04231a;font:inherit;font-weight:900;font-size:12px';
-    updateBtn.onclick = () => {
-      updateBtn.textContent = 'يُحدّث…';
-      updateBtn.disabled = true;
-      try {
-        worker.postMessage({type: 'SKIP_WAITING'});
-      } catch {}
-    };
-
-    const laterBtn = document.createElement('button');
-    laterBtn.type = 'button';
-    laterBtn.setAttribute('aria-label', 'لاحقاً');
-    laterBtn.textContent = '✕';
-    laterBtn.style.cssText =
-      'border:none;cursor:pointer;border-radius:9999px;width:28px;height:28px;background:rgba(255,255,255,.14);color:#fff;font:inherit;font-weight:900;font-size:12px';
-    laterBtn.onclick = () => {
-      bar.style.transform = 'translateX(-50%) translateY(-160%)';
-      setTimeout(() => bar.remove(), 520);
-    };
-
-    bar.appendChild(label);
-    bar.appendChild(updateBtn);
-    bar.appendChild(laterBtn);
-    document.body.appendChild(bar);
-    requestAnimationFrame(() => {
-      bar.style.transform = 'translateX(-50%) translateY(0)';
-    });
-  } catch {}
-};
+const MIRAS_CLIENT_BUILD_VERSION = 'miras-device-lock-live-sync-layout-20260704-v2';
 
 if ('serviceWorker' in navigator) {
   let mirasControllerReloaded = false;
@@ -344,17 +264,15 @@ if ('serviceWorker' in navigator) {
     navigator.serviceWorker
       .register(`/sw.js?v=${encodeURIComponent(MIRAS_CLIENT_BUILD_VERSION)}`)
       .then(registration => {
-        // عامل خدمة جديد ينتظر بالفعل عند فتح التطبيق → اعرض الشريط لتفعيله بضغطة.
-        if (registration.waiting && navigator.serviceWorker.controller) {
-          showMirasUpdateBanner(registration.waiting);
-        }
+        try {
+          registration.waiting?.postMessage({type: 'SKIP_WAITING'});
+        } catch {}
         try {
           registration.addEventListener('updatefound', () => {
             const worker = registration.installing;
             worker?.addEventListener('statechange', () => {
-              // اكتمل تنزيل نسخة جديدة وهناك نسخة تعمل حالياً = تحديث حقيقي.
               if (worker.state === 'installed' && navigator.serviceWorker.controller) {
-                showMirasUpdateBanner(worker);
+                try { worker.postMessage({type: 'SKIP_WAITING'}); } catch {}
               }
             });
           });
