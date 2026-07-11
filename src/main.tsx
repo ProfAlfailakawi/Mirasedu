@@ -238,7 +238,7 @@ const mountApp = () => {
 
 mountApp();
 
-const MIRAS_CLIENT_BUILD_VERSION = 'miras-device-lock-live-sync-layout-20260704-v2';
+const MIRAS_CLIENT_BUILD_VERSION = 'miras-v68-clean-redeploy-20260711';
 
 if ('serviceWorker' in navigator) {
   let mirasControllerReloaded = false;
@@ -264,15 +264,19 @@ if ('serviceWorker' in navigator) {
     navigator.serviceWorker
       .register(`/sw.js?v=${encodeURIComponent(MIRAS_CLIENT_BUILD_VERSION)}`)
       .then(registration => {
-        try {
-          registration.waiting?.postMessage({type: 'SKIP_WAITING'});
-        } catch {}
+        // نسخة تنتظر التفعيل بالفعل؟ اعرض شريط التحديث فوراً.
+        if (registration.waiting && navigator.serviceWorker.controller) {
+          showMirasUpdateBanner(registration.waiting);
+        }
         try {
           registration.addEventListener('updatefound', () => {
             const worker = registration.installing;
             worker?.addEventListener('statechange', () => {
+              // نسخة جديدة جهُزت وهناك نسخة قديمة تعمل: لا نُعيد التحميل فجأة
+              // (يقطع عمل المستخدم)، بل نُظهر شريطاً أنيقاً «تحديث جاهز» بزر واحد.
+              // على iOS PWA العنيد هذا هو الضمان الوحيد لعدم البقاء على القديم.
               if (worker.state === 'installed' && navigator.serviceWorker.controller) {
-                try { worker.postMessage({type: 'SKIP_WAITING'}); } catch {}
+                showMirasUpdateBanner(worker);
               }
             });
           });
@@ -281,4 +285,56 @@ if ('serviceWorker' in navigator) {
       })
       .catch(() => undefined);
   });
+  // فحص دوري للتحديث كل ٦٠ث (يمسك النسخ الجديدة حتى لو لم يُعِد المستخدم الفتح)
+  try {
+    setInterval(() => {
+      navigator.serviceWorker.getRegistration().then(r => r?.update()).catch(() => undefined);
+    }, 60000);
+  } catch {}
+}
+
+// شريط «تحديث جاهز» — لافتة سفلية أنيقة بزر واحد. يمنع البقاء على كاش قديم على
+// iOS PWA الذي لا يُحدّث تلقائياً بثبات. تظهر مرة واحدة (بلا تكرار) وتختفي عند الضغط.
+function showMirasUpdateBanner(worker: ServiceWorker) {
+  try {
+    if (document.getElementById('miras-update-banner')) return;
+    const bar = document.createElement('div');
+    bar.id = 'miras-update-banner';
+    bar.setAttribute('dir', 'rtl');
+    bar.style.cssText =
+      'position:fixed;left:50%;transform:translateX(-50%);bottom:calc(env(safe-area-inset-bottom,0px) + 16px);z-index:2147483000;' +
+      'display:flex;align-items:center;gap:12px;padding:10px 12px 10px 16px;border-radius:999px;' +
+      'background:linear-gradient(135deg,#4f46e5,#7c3aed);color:#fff;font-family:system-ui,-apple-system,sans-serif;' +
+      'font-size:13px;font-weight:800;box-shadow:0 14px 40px rgba(79,70,229,.45);max-width:calc(100vw - 24px);' +
+      'animation:mirasUpBannerIn .35s ease both';
+    const txt = document.createElement('span');
+    txt.textContent = '✨ نسخة جديدة جاهزة';
+    const btn = document.createElement('button');
+    btn.textContent = 'حدّث الآن';
+    btn.style.cssText =
+      'border:0;border-radius:999px;padding:8px 16px;background:#fff;color:#4f46e5;font-weight:900;font-size:13px;cursor:pointer;white-space:nowrap';
+    btn.onclick = () => {
+      try { worker.postMessage({type: 'SKIP_WAITING'}); } catch {}
+      try { btn.textContent = 'جارٍ التحديث…'; } catch {}
+      // بعد تفعيل الـSW الجديد يقع controllerchange فيُعاد التحميل تلقائياً؛ ونضع
+      // احتياطاً إعادة تحميل مباشرة إن تأخّر.
+      setTimeout(() => { try { window.location.reload(); } catch {} }, 900);
+    };
+    const dismiss = document.createElement('button');
+    dismiss.setAttribute('aria-label', 'لاحقاً');
+    dismiss.textContent = '×';
+    dismiss.style.cssText =
+      'border:0;background:transparent;color:rgba(255,255,255,.8);font-size:18px;font-weight:900;cursor:pointer;line-height:1;padding:0 2px';
+    dismiss.onclick = () => { try { bar.remove(); } catch {} };
+    if (!document.getElementById('miras-up-banner-style')) {
+      const st = document.createElement('style');
+      st.id = 'miras-up-banner-style';
+      st.textContent = '@keyframes mirasUpBannerIn{from{opacity:0;transform:translateX(-50%) translateY(12px)}to{opacity:1;transform:translateX(-50%) translateY(0)}}';
+      document.head.appendChild(st);
+    }
+    bar.appendChild(txt);
+    bar.appendChild(btn);
+    bar.appendChild(dismiss);
+    document.body.appendChild(bar);
+  } catch {}
 }
