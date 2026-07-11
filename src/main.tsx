@@ -238,7 +238,7 @@ const mountApp = () => {
 
 mountApp();
 
-const MIRAS_CLIENT_BUILD_VERSION = 'miras-v71-cloud-banner-passkey-20260711';
+const MIRAS_CLIENT_BUILD_VERSION = 'miras-v75-reapply-viteguard-20260712';
 
 // ───────────────────────────────────────────────────────────────────────────
 // شريط «تحديث جاهز» — أعلى الشاشة، مرة واحدة، بضغطة واحدة
