@@ -4972,6 +4972,8 @@ export default function App() {
   }, [localNotifications]);
   const notificationPollRef = useRef<any>(null);
   const notificationRegisteringRef = useRef(false);
+  // يضمن توليد توكن FCM طازج مرة واحدة لكل جلسة (يتعافى بعد تحديث SW).
+  const fcmFreshTokenThisSessionRef = useRef(false);
   const fcmForegroundUnsubscribeRef = useRef<(() => void) | null>(null);
   useEffect(() => {
     return () => {
@@ -12238,7 +12240,7 @@ export default function App() {
       }
       const [
         { initializeApp, getApps },
-        { getMessaging, getToken, onMessage },
+        { getMessaging, getToken, onMessage, deleteToken },
       ] = await Promise.all([
         import("firebase/app"),
         import("firebase/messaging"),
@@ -12264,6 +12266,17 @@ export default function App() {
         serviceWorkerRegistration: readyRegistration || swRegistration,
       };
       if (config.vapidKey) tokenOptions.vapidKey = config.vapidKey;
+      // توكن طازج مرة واحدة كل جلسة: على iOS PWA يُخزَّن توكن FCM في IndexedDB
+      // ويصبح غير صالح (INVALID_ARGUMENT) بعد تحديث Service Worker — لأن اشتراك
+      // الدفع المرتبط بالـSW القديم ينهار. حذفه مرة يُجبر getToken على توليد توكن
+      // صحيح مرتبط بالـSW النشط الحالي، فيتعافى البانر تلقائياً بعد كل نشر بدل
+      // بقاء توكن ميت (هذا هو جذر «الإشعار لا يصل نهائياً» بعد سلسلة النشر).
+      if (!fcmFreshTokenThisSessionRef.current) {
+        fcmFreshTokenThisSessionRef.current = true;
+        try {
+          await deleteToken(messaging);
+        } catch {}
+      }
       const token = await getToken(messaging, tokenOptions);
       if (!token) {
         activateInAppNotifications("تم تفعيل التنبيهات.", forcePrompt);
