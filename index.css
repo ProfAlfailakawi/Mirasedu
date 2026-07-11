@@ -17609,7 +17609,8 @@ button[data-miras-action-busy="true"] svg {
 .miras-upload-bar-fill{position:relative;overflow:hidden}
 .miras-upload-bar-fill::after{
   content:"";position:absolute;inset:0;
-  background:linear-gradient(90deg,transparent,rgba(255,255,255,.45),transparent);
+  background:linear-gradient(90deg,transparent 12%,rgba(255,255,255,.78) 48%,transparent 82%);
   animation:mirasBarSheen 1.15s linear infinite;
 }
 @keyframes mirasBarSheen{0%{transform:translateX(-100%)}100%{transform:translateX(100%)}}
+@media (prefers-reduced-motion:reduce){.miras-upload-bar-fill::after{animation:none;opacity:.3}}

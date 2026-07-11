@@ -4996,11 +4996,19 @@ export default function App() {
   }, [localNotifications]);
   const notificationPollRef = useRef<any>(null);
   const notificationRegisteringRef = useRef(false);
-  // يضمن توليد توكن FCM طازج مرة واحدة لكل جلسة (يتعافى بعد تحديث SW).
+  // لا نعتبر تجديد FCM ناجحاً قبل رجوع getToken بتوكن فعلي. على Safari قد
+  // تتعثر المحاولة الأولى أثناء انتقال Service Worker؛ إبقاء العلم false يسمح
+  // بمحاولة التعافي التالية بدلاً من تعطيل الدفع حتى إعادة فتح التطبيق.
   const fcmFreshTokenThisSessionRef = useRef(false);
+  const fcmRegistrationRetryCountRef = useRef(0);
+  const fcmRegistrationRetryTimerRef = useRef<number | null>(null);
   const fcmForegroundUnsubscribeRef = useRef<(() => void) | null>(null);
   useEffect(() => {
     return () => {
+      if (fcmRegistrationRetryTimerRef.current !== null) {
+        window.clearTimeout(fcmRegistrationRetryTimerRef.current);
+        fcmRegistrationRetryTimerRef.current = null;
+      }
       try {
         fcmForegroundUnsubscribeRef.current?.();
       } catch {}
@@ -9995,7 +10003,7 @@ export default function App() {
                 ? "bg-amber-400"
                 : uploadPhase === "retrying"
                   ? "bg-sky-500"
-                  : "bg-gradient-to-l from-indigo-500 via-violet-500 to-indigo-400"
+                  : "bg-gradient-to-l from-amber-500 via-yellow-300 to-amber-400 shadow-[0_0_12px_rgba(250,204,21,0.38)]"
             }`}
             style={{ width: `${Math.max(2, uploadProgress)}%` }}
           />
@@ -12220,6 +12228,7 @@ export default function App() {
   const registerFcmToken = async (forcePrompt = false) => {
     if (notificationRegisteringRef.current) return;
     notificationRegisteringRef.current = true;
+    let fcmTokenReadyThisAttempt = false;
     const identity = currentNotificationIdentity();
     if (!identity) {
       notificationRegisteringRef.current = false;
@@ -12297,7 +12306,6 @@ export default function App() {
       // نحذف توكن FCM، فيُجبَر getToken على إنشاء اشتراك + توكن جديدين صالحين
       // تماماً — دون لمس ربط الجهاز (localStorage باقٍ، لا قفل جهاز).
       if (!fcmFreshTokenThisSessionRef.current) {
-        fcmFreshTokenThisSessionRef.current = true;
         try {
           const reg = readyRegistration || swRegistration;
           const existingSub = await reg?.pushManager?.getSubscription?.();
@@ -12309,11 +12317,10 @@ export default function App() {
       }
       const token = await getToken(messaging, tokenOptions);
       if (!token) {
-        activateInAppNotifications("تم تفعيل التنبيهات.", forcePrompt);
-        await fetchInAppNotifications();
-        notificationRegisteringRef.current = false;
-        return;
+        throw new Error("FCM token unavailable after subscription refresh");
       }
+      fcmTokenReadyThisAttempt = true;
+      fcmFreshTokenThisSessionRef.current = true;
       const registerResp = await fetch("/api/notifications/register-token", {
         method: "POST",
         headers: jsonHeaders({
@@ -12412,14 +12419,33 @@ export default function App() {
       });
       setBrowserNotifPermission("granted");
       await fetchInAppNotifications();
+      fcmRegistrationRetryCountRef.current = 0;
+      if (fcmRegistrationRetryTimerRef.current !== null) {
+        window.clearTimeout(fcmRegistrationRetryTimerRef.current);
+        fcmRegistrationRetryTimerRef.current = null;
+      }
       notificationRegisteringRef.current = false;
     } catch (err) {
+      if (!fcmTokenReadyThisAttempt) {
+        fcmFreshTokenThisSessionRef.current = false;
+      }
       activateInAppNotifications(
         "تم تشغيل التنبيهات داخل الصفحة.",
         forcePrompt,
       );
       await fetchInAppNotifications();
       notificationRegisteringRef.current = false;
+      if (
+        Notification.permission === "granted" &&
+        fcmRegistrationRetryCountRef.current < 2 &&
+        fcmRegistrationRetryTimerRef.current === null
+      ) {
+        const retryIndex = ++fcmRegistrationRetryCountRef.current;
+        fcmRegistrationRetryTimerRef.current = window.setTimeout(() => {
+          fcmRegistrationRetryTimerRef.current = null;
+          void registerFcmToken(false);
+        }, retryIndex * 2500);
+      }
     }
   };
   const unregisterCurrentNotificationToken = async () => {
