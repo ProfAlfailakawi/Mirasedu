@@ -892,7 +892,8 @@ const simplifyStudentMessage = (
     return "كلمة المرور غير متطابقة";
   if (any("رابط إعادة التعيين غير صالح")) return "الرابط غير صالح";
   if (any("نسيت كلمة المرور")) return "اكتب الرقم الجامعي";
-  if (any("تم تسجيل طلب الاسترجاع")) return "تم إرسال الطلب";
+  if (any("تم تسجيل طلب الاسترجاع", "طلب استرجاع كلمة المرور"))
+    return "تم إرسال طلبك — راجع معلمك خلال ساعة";
   if (has("تعذر", "الاسترجاع")) return "تعذر إرسال الطلب";
 
   if (any("صيغة الملف", "نوع الملف", "غير مدعومة", "غير مسموحة"))
@@ -10100,28 +10101,39 @@ export default function App() {
             setErrorMsg("تعذر تحميل المرفق من الخادم.");
           };
 
+          // ملف الطالب المرفوع (القابل للحذف = onRemove موجود): لا معاينة —
+          // زر الحذف فقط. المعاينة تبقى للمرفقات غير القابلة للحذف (ملفات المعلم).
+          const allowPreview = canPreviewAttachment && !onRemove;
           return (
             <div
               key={attachmentLoadKey(displayAtt) || index}
-              role="button"
-              tabIndex={0}
-              onClick={openAttachment}
-              onKeyDown={(e) => {
-                if (e.key === "Enter" || e.key === " ") {
-                  e.preventDefault();
-                  openAttachment();
-                }
-              }}
-              className={`group relative flex cursor-pointer flex-col rounded-2xl border border-slate-100 bg-white p-3 shadow-premium-sm transition-colors hover:border-indigo-200 hover:bg-slate-50/40 focus:outline-none focus:ring-2 focus:ring-indigo-100 ${canPreviewAttachment ? "" : "border-rose-100"}`}
+              role={allowPreview ? "button" : undefined}
+              tabIndex={allowPreview ? 0 : undefined}
+              onClick={allowPreview ? openAttachment : undefined}
+              onKeyDown={
+                allowPreview
+                  ? (e) => {
+                      if (e.key === "Enter" || e.key === " ") {
+                        e.preventDefault();
+                        openAttachment();
+                      }
+                    }
+                  : undefined
+              }
+              className={`group relative flex flex-col rounded-2xl border border-slate-100 bg-white p-3 shadow-premium-sm transition-colors ${allowPreview ? "cursor-pointer hover:border-indigo-200 hover:bg-slate-50/40 focus:outline-none focus:ring-2 focus:ring-indigo-100" : ""} ${canPreviewAttachment ? "" : "border-rose-100"}`}
               title={
-                canPreviewAttachment
+                allowPreview
                   ? "عرض المرفق"
-                  : "تعذر تحميل المرفق من الخادم"
+                  : !canPreviewAttachment
+                    ? "تعذر تحميل المرفق من الخادم"
+                    : fileName
               }
               aria-label={
-                canPreviewAttachment
+                allowPreview
                   ? `عرض المرفق ${fileName}`
-                  : "تعذر تحميل المرفق من الخادم"
+                  : !canPreviewAttachment
+                    ? "تعذر تحميل المرفق من الخادم"
+                    : fileName
               }
             >
               {/* بطاقة ملف ثابتة فقط: بدون معاينات تلقائية كي تبقى المستندات سريعة. */}
@@ -15574,7 +15586,7 @@ ${rows
         fetchLogs();
         fetchPasswordResetRequests();
         setSuccessMsg(
-          "تم تسجيل الطلب. راجع المعلم خلال ساعة لاستلام رابط تغيير كلمة المرور.",
+          "تم تسجيل طلب استرجاع كلمة المرور. راجع معلمك خلال ساعة.",
         );
         return;
       }
@@ -33331,7 +33343,7 @@ ${rows
                         )}
                         {teacherSession?.name || "حساب المعلم"}
                         {connectionPopoverOpen && (
-                          <span className="absolute right-0 top-full z-[60] mt-2 whitespace-nowrap rounded-xl border border-emerald-100 bg-white/95 px-3 py-1.5 text-[10px] font-black text-emerald-700 shadow-lg backdrop-blur-md">
+                          <span className="absolute right-0 bottom-full z-[60] mb-2 whitespace-nowrap rounded-xl border border-emerald-100 bg-white/95 px-3 py-1.5 text-[10px] font-black text-emerald-700 shadow-lg backdrop-blur-md">
                             {isAppOffline
                               ? "غير متصل — سنكمل عند عودة الشبكة"
                               : liveConnectionTrouble
@@ -33349,7 +33361,7 @@ ${rows
                         </p>
                       )}
                     </div>
-                    <div className="relative w-full sm:max-w-xl lg:hidden" onClick={(e) => e.stopPropagation()}>
+                    <div className="relative w-full sm:max-w-xl md:hidden" onClick={(e) => e.stopPropagation()}>
                       <div className="flex items-center gap-2 rounded-[1.45rem] border border-slate-200/80 bg-white/88 px-3 py-2 shadow-inner backdrop-blur-xl animate-fade-in" onPointerDown={(e) => e.stopPropagation()}>
                         <Search className="h-4 w-4 shrink-0 text-slate-400" />
                         <form
@@ -43202,9 +43214,11 @@ ${rows
                   <button
                     type="button"
                     onClick={() => void clearResolvedMirasRadar()}
-                    className="rounded-xl bg-rose-50 px-3 py-1.5 text-[10.5px] font-black text-rose-600 ring-1 ring-rose-100 transition hover:bg-rose-100"
+                    title="مسح المحلولة نهائياً"
+                    aria-label="مسح المحلولة نهائياً"
+                    className="inline-flex h-8 w-8 items-center justify-center rounded-xl bg-rose-50 text-rose-600 ring-1 ring-rose-100 transition hover:bg-rose-100"
                   >
-                    مسح المحلولة نهائياً
+                    <Trash2 className="h-4 w-4" />
                   </button>
                 )}
             </div>
@@ -43369,8 +43383,8 @@ ${rows
                             أول ظهور {formatKwDateTime(r.firstSeenAt)}
                           </span>
                           {r.resolvedAt ? (
-                            <span className="rounded-lg bg-emerald-50 px-2.5 py-1 text-[10px] font-black text-emerald-600 ring-1 ring-emerald-100">
-                              ✓ محلولة
+                            <span title="محلولة" aria-label="محلولة" className="inline-flex h-8 w-8 items-center justify-center rounded-lg bg-emerald-50 text-emerald-600 ring-1 ring-emerald-100">
+                              <CheckCircle2 className="h-4 w-4" />
                             </span>
                           ) : (
                             <div className="flex items-center gap-1.5">
@@ -43396,16 +43410,19 @@ ${rows
                                     );
                                   } catch {}
                                 }}
-                                className="rounded-xl bg-indigo-600 px-3 py-1.5 text-[10.5px] font-black text-white shadow-sm transition hover:bg-indigo-700"
+                                aria-label="نسخ للإصلاح"
+                                className="inline-flex h-9 w-9 items-center justify-center rounded-xl bg-indigo-600 text-white shadow-sm transition hover:bg-indigo-700"
                               >
-                                نسخ للإصلاح 📋
+                                <Copy className="h-4 w-4" />
                               </button>
                               <button
                                 type="button"
                                 onClick={() => void resolveMirasRadarItem(r.id)}
-                                className="rounded-xl bg-emerald-600 px-3.5 py-1.5 text-[10.5px] font-black text-white shadow-sm transition hover:bg-emerald-700"
+                                title="تمّ حلّها"
+                                aria-label="تمّ حلّها"
+                                className="inline-flex h-9 w-9 items-center justify-center rounded-xl bg-emerald-600 text-white shadow-sm transition hover:bg-emerald-700"
                               >
-                                تمّ حلّها ✓
+                                <Check className="h-4 w-4" />
                               </button>
                             </div>
                           )}
