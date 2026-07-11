@@ -11383,12 +11383,12 @@ export default function App() {
       .toLowerCase();
   const getTeacherUrlParams = (emailOverride?: string) => {
     const email = activeTeacherEmail(emailOverride);
-    const isAdmin =
-      email &&
-      (email.includes("ah.alfailakawi") || email.includes("ahmad.alfailakawi"));
+    // مصيبة خصوصية أُصلحت: includeAll=1 كان يجعل الأدمن (المالك) يجلب بيانات
+    // كل المعلمين (طلبة/تسليمات/أكواد/أقسام) فتظهر نتائج معلم آخر في بحث ⌘K.
+    // كل معلم — بما فيهم المالك — يرى بياناته فقط. (الحلّ الأصلي لـ«البحث لا
+    // يُظهر شيئاً» كان إصلاح انهيار TDZ، لا رؤية الكل؛ فلا حاجة لـincludeAll.)
     const p = new URLSearchParams();
     if (email) p.set("teacherEmail", email);
-    if (isAdmin) p.set("includeAll", "1");
     const pb = p.toString();
     return pb ? `?${pb}` : "";
   };
@@ -12266,13 +12266,19 @@ export default function App() {
         serviceWorkerRegistration: readyRegistration || swRegistration,
       };
       if (config.vapidKey) tokenOptions.vapidKey = config.vapidKey;
-      // توكن طازج مرة واحدة كل جلسة: على iOS PWA يُخزَّن توكن FCM في IndexedDB
-      // ويصبح غير صالح (INVALID_ARGUMENT) بعد تحديث Service Worker — لأن اشتراك
-      // الدفع المرتبط بالـSW القديم ينهار. حذفه مرة يُجبر getToken على توليد توكن
-      // صحيح مرتبط بالـSW النشط الحالي، فيتعافى البانر تلقائياً بعد كل نشر بدل
-      // بقاء توكن ميت (هذا هو جذر «الإشعار لا يصل نهائياً» بعد سلسلة النشر).
+      // توكن طازج مرة واحدة كل جلسة: على iOS PWA يبقى الاشتراك (PushSubscription)
+      // في نظام التشغيل منهاراً بعد تحديث Service Worker، فيُرجع getToken نفس
+      // التوكن الميت (INVALID_ARGUMENT) حتى بعد deleteToken — لأن حذف التوكن
+      // وحده لا يمسّ الاشتراك. الحل الجذري: نلغي الاشتراك نفسه (unsubscribe) ثم
+      // نحذف توكن FCM، فيُجبَر getToken على إنشاء اشتراك + توكن جديدين صالحين
+      // تماماً — دون لمس ربط الجهاز (localStorage باقٍ، لا قفل جهاز).
       if (!fcmFreshTokenThisSessionRef.current) {
         fcmFreshTokenThisSessionRef.current = true;
+        try {
+          const reg = readyRegistration || swRegistration;
+          const existingSub = await reg?.pushManager?.getSubscription?.();
+          if (existingSub) await existingSub.unsubscribe();
+        } catch {}
         try {
           await deleteToken(messaging);
         } catch {}
@@ -13650,7 +13656,7 @@ ${rows
         fetchLogs();
         try {
           // If we can reload report details or students list, do so
-          const repResp = await fetch("/api/teacher/reports?includeAll=1", {
+          const repResp = await fetch("/api/teacher/reports", {
             headers: teacherHeaders(),
           });
           const repD = await repResp.json();
@@ -14617,7 +14623,7 @@ ${rows
   const fetchReports = async (emailOverride?: string) => {
     try {
       const email = emailOverride || teacherSession?.email || "";
-      const resp = await fetch("/api/teacher/reports?includeAll=1", {
+      const resp = await fetch("/api/teacher/reports", {
         cache: "no-store",
         headers: teacherHeaders(email),
       });

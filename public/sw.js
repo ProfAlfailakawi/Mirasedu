@@ -1,5 +1,5 @@
 /* Miras PWA + FCM service worker */
-const MIRAS_CACHE_VERSION = 'miras-shell-v62-fcm-token-recovery-20260711';
+const MIRAS_CACHE_VERSION = 'miras-shell-v63-push-resubscribe-20260711';
 const MIRAS_STUDENT_LIVE_CHANNEL = 'miras-student-live-v1';
 const MIRAS_STATIC_ASSETS = [
   '/',
