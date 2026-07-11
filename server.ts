@@ -8703,6 +8703,14 @@ app.use(async (req, res, next) => {
     // تفريغ الدفعة المحلية وانتظار مزامنة Firestore. هذا يمنع حالة "ظهر ثم اختفى"
     // في المسارات التي لم تكن تستدعي waitForSync يدوياً، ويبقي أخطاء 4xx/5xx سريعة.
     const originalJson = res.json.bind(res);
+    // مسارات متساهلة: عملياتها تُكتب محلياً وتُزامَن بالخلفية، ولا تحتاج تأكيد
+    // Firestore الفوري. كان تأخّر المزامنة يحوّل نجاحها إلى 503 — كما ظهر في
+    // «نسيت كلمة المرور» (رصده الرادار). الآن نردّ نجاحها كما هو ونترك المزامنة
+    // تكتمل خلفياً (flushCloudSoon على finish).
+    const durabilityLenient =
+      /^\/api\/auth\/forgot-password|^\/api\/monitor|^\/api\/notifications\/register-token/.test(
+        req.path || "",
+      );
     let cloudGuardedJson = false;
     res.json = ((body?: any) => {
       const statusCode = Number(res.statusCode || 200);
@@ -8722,8 +8730,13 @@ app.use(async (req, res, next) => {
           console.error("⚠️ Cloud durability guard could not confirm sync before JSON response:", e);
           try {
             if (!res.headersSent) {
-              res.status(503);
-              originalJson(cloudDurabilityErrorBody());
+              if (durabilityLenient) {
+                // نجاح فعلي كُتب محلياً؛ لا نحوّله إلى 503.
+                originalJson(body);
+              } else {
+                res.status(503);
+                originalJson(cloudDurabilityErrorBody());
+              }
             }
           } catch (sendError) {
             console.error("⚠️ Failed to send cloud durability error response:", sendError);
