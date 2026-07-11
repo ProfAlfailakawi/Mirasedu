@@ -238,7 +238,7 @@ const mountApp = () => {
 
 mountApp();
 
-const MIRAS_CLIENT_BUILD_VERSION = 'miras-v71-cloud-banner-passkey-20260711';
+const MIRAS_CLIENT_BUILD_VERSION = 'miras-v72-autoupdate-20260711';
 
 // ───────────────────────────────────────────────────────────────────────────
 // شريط «تحديث جاهز» — أعلى الشاشة، مرة واحدة، بضغطة واحدة
@@ -359,6 +359,30 @@ if ('serviceWorker' in navigator) {
             });
           });
         } catch {}
+
+        // ─────────────────────────────────────────────────────────────────
+        // مانع «الجهاز عالق على نسخة قديمة» — السبب الأول لشكوى «ما تغيّر شي».
+        //
+        // على iOS PWA قد لا يُعيد الجهاز فحص عامل الخدمة إلا بعد إغلاق كامل،
+        // فيبقى المستخدم يرى الواجهة القديمة المخبّأة رغم نشر نسخة جديدة. هنا
+        // نفحص التحديث تلقائياً: (١) كل دقيقة أثناء فتح التطبيق، (٢) فور عودة
+        // التطبيق إلى الواجهة (visibilitychange). عند وجود عامل خدمة جديد يتولّى
+        // مباشرةً (skipWaiting + clients.claim في sw.js) فتُطلَق controllerchange
+        // ويُعاد التحميل مرة واحدة → نسخة طازجة بلا أي تدخّل يدوي.
+        // ─────────────────────────────────────────────────────────────────
+        const mirasCheckForUpdate = () => {
+          if (isMirasSebEntry()) return;
+          try {
+            registration.update();
+          } catch {}
+        };
+        try {
+          setInterval(mirasCheckForUpdate, 60 * 1000);
+          document.addEventListener('visibilitychange', () => {
+            if (document.visibilityState === 'visible') mirasCheckForUpdate();
+          });
+        } catch {}
+
         return registration.update();
       })
       .catch(() => undefined);
