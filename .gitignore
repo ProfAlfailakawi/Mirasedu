@@ -20,6 +20,3 @@ data/
 
 # إعدادات Claude Code المحلية (شخصية — لا تُرفع)
 .claude/settings.local.json
-
-# لا تُرفع ملفات مضغوطة للمستودع
-*.zip
