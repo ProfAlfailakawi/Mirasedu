@@ -1,5 +1,5 @@
 /* Miras PWA + FCM service worker */
-const MIRAS_CACHE_VERSION = 'miras-shell-v65-fcm-retry-upload-sheen-20260711';
+const MIRAS_CACHE_VERSION = 'miras-shell-v66-safari-buttons-upload-bar-20260711';
 const MIRAS_STUDENT_LIVE_CHANNEL = 'miras-student-live-v1';
 const MIRAS_STATIC_ASSETS = [
   '/',
