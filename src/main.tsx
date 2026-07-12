@@ -238,7 +238,7 @@ const mountApp = () => {
 
 mountApp();
 
-const MIRAS_CLIENT_BUILD_VERSION = 'miras-v79-passkey-grace-20260712';
+const MIRAS_CLIENT_BUILD_VERSION = 'miras-v79-radar-compact-stats-20260712';
 
 // ───────────────────────────────────────────────────────────────────────────
 // شريط «تحديث جاهز» — أعلى الشاشة، مرة واحدة، بضغطة واحدة
