@@ -1,0 +1,12 @@
+async function test() {
+  const res = await fetch('http://localhost:3000/api/auth/login', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      idNumber: 'Ada.alenezi@paaet.edu.kw',
+      password: '***REDACTED***'
+    })
+  });
+  console.log(res.status, await res.text());
+}
+test();
