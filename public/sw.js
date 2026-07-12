@@ -1,5 +1,5 @@
 /* Miras PWA + FCM service worker */
-const MIRAS_CACHE_VERSION = 'miras-shell-v77-teacher-pill-gap-20260712';
+const MIRAS_CACHE_VERSION = 'miras-shell-v76-radar-icons-forgotpw-loading-20260712';
 const MIRAS_STUDENT_LIVE_CHANNEL = 'miras-student-live-v1';
 const MIRAS_STATIC_ASSETS = [
   '/',
