@@ -1288,15 +1288,34 @@ type MirasPasskeyLocalLock = {
 };
 const MIRAS_PASSKEY_LOCAL_LOCK_KEY = "miras_passkey_local_lock_v1";
 const MIRAS_PASSKEY_BACKGROUND_AT_KEY = "miras_passkey_background_at_v1";
-// مدة بقاء الجلسة مفتوحة بعد الخلفية قبل طلب البصمة من جديد. كانت 30 ثانية (فتطلب
-// البصمة في كل فتح تقريباً) ثم 12 ساعة (فتطلبها كل يوم صباحاً = إزعاج). بما أن
-// الحساب مقفول على جهاز واحد أصلاً (لا أحد غير صاحب الجهاز يفتحه)، فالبصمة المتكررة
-// حماية زائدة بلا فائدة. نمدّدها إلى 30 يوماً: تُدخل البصمة «مرة واحدة» عملياً ثم
-// يفتح التطبيق مباشرة طوال الشهر، وتبقى كشبكة أمان دورية بعيدة لا تُزعج يومياً.
-const MIRAS_PASSKEY_SMART_LOCK_MS = 30 * 24 * 60 * 60 * 1000;
+const MIRAS_PASSKEY_LAST_UNLOCK_AT_KEY = "miras_passkey_last_unlock_at";
+const MIRAS_PASSKEY_GRACE_MS = 90 * 60 * 1000;
 const normalizeMirasPasskeyIdentity = (role: any, userId: any) => {
   const id = String(userId || "").trim();
   return role === "teacher" || role === "admin" ? id.toLowerCase() : id;
+};
+const readMirasPasskeyLastUnlockAt = () => {
+  try {
+    const value = Number(
+      localStorage.getItem(MIRAS_PASSKEY_LAST_UNLOCK_AT_KEY) || 0,
+    );
+    return Number.isFinite(value) && value > 0 ? value : 0;
+  } catch {
+    return 0;
+  }
+};
+const rememberMirasPasskeyUnlockNow = (now = Date.now()) => {
+  try {
+    localStorage.setItem(MIRAS_PASSKEY_LAST_UNLOCK_AT_KEY, String(now));
+  } catch {}
+};
+const hasFreshMirasPasskeyGrace = (now = Date.now()) => {
+  const lastUnlockAt = readMirasPasskeyLastUnlockAt();
+  return (
+    lastUnlockAt > 0 &&
+    now - lastUnlockAt >= 0 &&
+    now - lastUnlockAt < MIRAS_PASSKEY_GRACE_MS
+  );
 };
 const readMirasPasskeyLocalLock = (): MirasPasskeyLocalLock | null => {
   try {
@@ -1348,6 +1367,18 @@ const passkeyLockMatchesSession = (role: MirasPasskeyRole, session: any) => {
   if (isLockInstructor !== isRoleInstructor) return false;
   return lock.userId === sessionIdentityForPasskey(role, session);
 };
+const sessionNeedsPasskeyUnlock = (
+  role: MirasPasskeyRole,
+  session: any,
+) => {
+  if (!passkeyLockMatchesSession(role, session)) return false;
+  const now = Date.now();
+  if (hasFreshMirasPasskeyGrace(now)) {
+    rememberMirasPasskeyUnlockNow(now);
+    return false;
+  }
+  return true;
+};
 const storedSessionNeedsPasskeyUnlock = () => {
   const lock = readMirasPasskeyLocalLock();
   if (!lock) return false;
@@ -1355,18 +1386,12 @@ const storedSessionNeedsPasskeyUnlock = () => {
     if (lock.role === "student") {
       const raw = localStorage.getItem("miras_student_session");
       const session = raw ? JSON.parse(raw) : null;
-      return (
-        !!session &&
-        lock.userId === sessionIdentityForPasskey("student", session)
-      );
+      return sessionNeedsPasskeyUnlock("student", session);
     }
     const raw = localStorage.getItem("miras_teacher_session");
     const session = raw ? JSON.parse(raw) : null;
     const sessionRole = session?.role === "admin" ? "admin" : "teacher";
-    return (
-      !!session &&
-      lock.userId === sessionIdentityForPasskey(sessionRole, session)
-    );
+    return sessionNeedsPasskeyUnlock(sessionRole, session);
   } catch {
     return false;
   }
@@ -2720,7 +2745,7 @@ export default function App() {
     try {
       const stored = localStorage.getItem("miras_student_session");
       const parsed = stored ? JSON.parse(stored) : null;
-      return passkeyLockMatchesSession("student", parsed) || !parsed?.authToken
+      return sessionNeedsPasskeyUnlock("student", parsed) || !parsed?.authToken
         ? null
         : parsed;
     } catch {
@@ -2818,7 +2843,9 @@ export default function App() {
     try {
       const stored = localStorage.getItem("miras_teacher_session");
       const parsed = stored ? JSON.parse(stored) : null;
-      return passkeyLockMatchesSession("teacher", parsed) || !parsed?.authToken
+      const parsedRole = parsed?.role === "admin" ? "admin" : "teacher";
+      return sessionNeedsPasskeyUnlock(parsedRole, parsed) ||
+        !parsed?.authToken
         ? null
         : parsed;
     } catch {
@@ -15674,6 +15701,7 @@ ${rows
           JSON.stringify(teacherWithAuth),
         );
       } catch {}
+      rememberMirasPasskeyUnlockNow();
       setTeacherSession(teacherWithAuth);
       if (method === "passkey") {
         rememberPasskeyForSession(
@@ -15738,6 +15766,7 @@ ${rows
           JSON.stringify(studentWithAuth),
         );
       } catch {}
+      rememberMirasPasskeyUnlockNow();
       setStudentSession(studentWithAuth);
       if (Array.isArray(studentWithAuth.enrollments))
         setStudentEnrollments(studentWithAuth.enrollments);
@@ -15897,6 +15926,7 @@ ${rows
     userName?: any,
   ) => {
     writeMirasPasskeyLocalLock(role, userId, userName);
+    rememberMirasPasskeyUnlockNow();
     setPasskeyUnlockRequired(false);
     setPasskeyPasswordFallback(false);
     setPasskeyLocalRevision((value) => value + 1);
@@ -16379,12 +16409,18 @@ ${rows
   useEffect(() => {
     if (typeof document === "undefined") return;
     const markHidden = () => {
+      if (isSafeExamBrowserSession()) return;
       try {
         localStorage.setItem(
           MIRAS_PASSKEY_BACKGROUND_AT_KEY,
           String(Date.now()),
         );
       } catch {}
+      const teacherMatches =
+        teacherSession && passkeyLockMatchesSession("teacher", teacherSession);
+      const studentMatches =
+        studentSession && passkeyLockMatchesSession("student", studentSession);
+      if (teacherMatches || studentMatches) rememberMirasPasskeyUnlockNow();
     };
     const onVisibilityChange = () => {
       if (isSafeExamBrowserSession()) return;
@@ -16392,13 +16428,7 @@ ${rows
         markHidden();
         return;
       }
-      let hiddenAt = 0;
-      try {
-        hiddenAt = Number(
-          localStorage.getItem(MIRAS_PASSKEY_BACKGROUND_AT_KEY) || 0,
-        );
-      } catch {}
-      if (hiddenAt && Date.now() - hiddenAt >= MIRAS_PASSKEY_SMART_LOCK_MS) {
+      if (storedSessionNeedsPasskeyUnlock()) {
         lockActivePasskeySession("background");
       }
     };
