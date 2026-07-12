@@ -17714,3 +17714,12 @@ select:-webkit-autofill {
   caret-color: #4f46e5 !important;
   transition: background-color 100000s ease-in-out 0s !important;
 }
+
+/* ─────────────────────────────────────────────────────────────────────────
+   مسافة بين شريحة اسم المعلم (السحابة) و«الرئيسية» على الكمبيوتر (طلب المالك).
+   التخصيص عالٍ جداً (html + scroll-locked + الشريحة بالاسم + :first-child) كي
+   يتغلّب على كل قواعد margin-bottom الأخرى ذات !important بما فيها scroll-locked. */
+html .meras-teacher-shell.teacher-calm-shell .teacher-command-header .miras-teacher-heading-block > div.miras-teacher-account-pill:first-child,
+html.miras-teacher-scroll-locked .meras-teacher-shell.teacher-calm-shell .teacher-command-header .miras-teacher-heading-block > div.miras-teacher-account-pill:first-child {
+  margin-bottom: 0.85rem !important;
+}
