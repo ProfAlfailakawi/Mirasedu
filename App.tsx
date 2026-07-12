@@ -43218,12 +43218,10 @@ ${rows
                     <div
                       key={chip.label}
                       title={chip.label}
-                      className={`flex flex-col items-center justify-center gap-2 rounded-2xl px-2 py-3 ring-1 ${chip.tone}`}
+                      className={`flex items-center justify-center gap-1.5 rounded-xl px-2 py-1.5 ring-1 ${chip.tone}`}
                     >
-                      <span className={`grid h-9 w-9 place-items-center rounded-xl bg-white/10 ${chip.iconTone}`}>
-                        <ChipIcon className="h-5 w-5" />
-                      </span>
-                      <div className="text-[27px] font-black leading-none tabular-nums text-white">{chip.value}</div>
+                      <ChipIcon className={`h-4 w-4 shrink-0 ${chip.iconTone}`} />
+                      <div className="text-lg font-black leading-none tabular-nums text-white">{chip.value}</div>
                     </div>
                   );
                 })}
