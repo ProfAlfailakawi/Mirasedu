@@ -17714,3 +17714,11 @@ select:-webkit-autofill {
   caret-color: #4f46e5 !important;
   transition: background-color 100000s ease-in-out 0s !important;
 }
+
+/* ─────────────────────────────────────────────────────────────────────────
+   مسافة بسيطة جداً بين شريحة اسم المعلم (السحابة) و«الرئيسية» على الكمبيوتر
+   (طلب المالك). placed آخر الملف كي تتغلّب على قواعد !important السابقة. غير
+   مبالغ فيها — زيادة طفيفة فقط. */
+.meras-teacher-shell.teacher-calm-shell .teacher-command-header .miras-teacher-heading-block > div:first-child {
+  margin-bottom: 0.5rem !important;
+}
