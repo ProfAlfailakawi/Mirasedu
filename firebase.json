@@ -1,0 +1,75 @@
+{
+  "firestore": [
+    {
+      "database": "ai-studio-miras-e76a1c05-ad57-410e-a406-538aa451bedd",
+      "rules": "firestore.rules"
+    },
+    {
+      "database": "miras-production-v2",
+      "rules": "firestore.rules"
+    }
+  ],
+  "hosting": {
+    "target": "mirasedu",
+    "public": "dist",
+    "predeploy": [
+      "npm run build"
+    ],
+    "headers": [
+      {
+        "source": "/",
+        "headers": [
+          {
+            "key": "Cache-Control",
+            "value": "no-cache, no-store, must-revalidate"
+          }
+        ]
+      },
+      {
+        "source": "/index.html",
+        "headers": [
+          {
+            "key": "Cache-Control",
+            "value": "no-cache, no-store, must-revalidate"
+          }
+        ]
+      },
+      {
+        "source": "/sw.js",
+        "headers": [
+          {
+            "key": "Cache-Control",
+            "value": "no-cache, no-store, must-revalidate"
+          }
+        ]
+      }
+    ],
+    "ignore": [
+      "firebase.json",
+      "**/.*",
+      "**/node_modules/**",
+      "server.cjs",
+      "server.cjs.map"
+    ],
+    "rewrites": [
+      {
+        "source": "/api/**",
+        "run": {
+          "serviceId": "miras-api",
+          "region": "us-central1"
+        }
+      },
+      {
+        "source": "/seb/**",
+        "run": {
+          "serviceId": "miras-api",
+          "region": "us-central1"
+        }
+      },
+      {
+        "source": "**",
+        "destination": "/index.html"
+      }
+    ]
+  }
+}

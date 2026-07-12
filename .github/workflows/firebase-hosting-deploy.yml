@@ -1,0 +1,57 @@
+# ينشر تلقائياً عند كل دفع إلى main.
+
+name: Deploy to Firebase Hosting on Merge
+
+on:
+  push:
+    branches:
+      - main
+      - master
+  workflow_dispatch: {}
+
+permissions:
+  checks: write
+  contents: read
+  pull-requests: write
+
+jobs:
+  build_and_deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+
+      - name: Install Dependencies
+        run: npm ci
+
+      - name: Build Application
+        run: npm run build
+
+      - name: Deploy to Firebase Hosting
+        env:
+          SERVICE_ACCOUNT_JSON: '${{ secrets.FIREBASE_SERVICE_ACCOUNT_MERAS_320EB }}'
+          FIREBASE_TOKEN: '${{ secrets.FIREBASE_TOKEN }}'
+        run: |
+          if [ -n "$SERVICE_ACCOUNT_JSON" ]; then
+            echo "🚀 Found Firebase Service Account. Initiating deployment using Service Account..."
+            echo "$SERVICE_ACCOUNT_JSON" > "$RUNNER_TEMP/gcp-key.json"
+            export GOOGLE_APPLICATION_CREDENTIALS="$RUNNER_TEMP/gcp-key.json"
+            npx firebase-tools deploy --only hosting:mirasedu --project meras-320eb --non-interactive
+          elif [ -n "$FIREBASE_TOKEN" ]; then
+            echo "🚀 Found Firebase Token. Initiating deployment using token..."
+            npx firebase-tools deploy --only hosting:mirasedu --project meras-320eb --token "$FIREBASE_TOKEN" --non-interactive
+          else
+            echo "=========================================================================="
+            echo "⚠️  خطأ: لم يتم العثور على بيانات الاعتماد المطلوبة في Secrets الخاصة بـ GitHub!"
+            echo "يرجى إضافة أحد المتغيرات التالية في إعدادات المستودع (GitHub Settings -> Secrets and variables -> Actions):"
+            echo "1. FIREBASE_SERVICE_ACCOUNT_MERAS_320EB (موصى به: ملف JSON الخاص بحساب الخدمة بصلاحية Firebase Hosting Admin)"
+            echo "2. أو FIREBASE_TOKEN (الرمز البديل)"
+            echo "=========================================================================="
+            exit 1
+          fi

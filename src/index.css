@@ -1,0 +1,226 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ============================================================
+   الهوية — متغيّرات لونية (تسمح بالوضع الليلي بلا لمس المكوّنات)
+   ============================================================ */
+:root {
+  --E: cubic-bezier(0.2, 0.7, 0.2, 1);
+
+  --c-canvas: 252 252 250;      /* #FCFCFA */
+  --c-ink: 21 22 26;            /* #15161A */
+  --c-soft: 124 129 139;        /* #7C818B */
+  --c-accent: 62 92 120;        /* #3E5C78 */
+  --c-accent-deep: 51 80 107;   /* #33506B */
+  --c-wash: 244 245 243;        /* #F4F5F3 */
+  --c-hair: rgba(21, 22, 26, 0.09);
+
+  --shadow-soft: 0 22px 44px -26px rgba(21, 22, 26, 0.4);
+  --shadow-deep: 0 36px 64px -36px rgba(21, 22, 26, 0.42);
+  color-scheme: light;
+}
+
+/* الوضع الليلي — حبر دافئ لا أسود قاسٍ */
+html.dark {
+  --c-canvas: 17 18 21;         /* #111215 */
+  --c-ink: 234 234 231;         /* #EAEAE7 */
+  --c-soft: 156 161 170;        /* #9CA1AA — درجة أوضح للنص الثانوي */
+  --c-accent: 138 173 204;      /* #8AADCC — أفتح ليقرأ على الداكن */
+  --c-accent-deep: 163 193 219;
+  --c-wash: 25 27 31;           /* #191B1F */
+  --c-hair: rgba(234, 234, 231, 0.11);
+
+  --shadow-soft: 0 22px 44px -26px rgba(0, 0, 0, 0.75);
+  --shadow-deep: 0 36px 64px -36px rgba(0, 0, 0, 0.8);
+  color-scheme: dark;
+}
+
+html {
+  scroll-behavior: smooth;
+  overflow-x: hidden;
+  max-width: 100%;
+  transition: background-color 0.5s var(--E);
+}
+
+body {
+  background: rgb(var(--c-canvas));
+  color: rgb(var(--c-ink));
+  font-family: "Tajawal", system-ui, sans-serif;
+  line-height: 1.85;
+  -webkit-font-smoothing: antialiased;
+  overflow-x: hidden;
+  transition: background-color 0.5s var(--E), color 0.5s var(--E);
+}
+
+body.loading { overflow: hidden; height: 100vh; }
+body.cursor-none-desktop * { cursor: none !important; }
+/* استثناء حقول الإدخال — المستخدم يحتاج مؤشّر الكتابة */
+body.cursor-none-desktop input,
+body.cursor-none-desktop textarea,
+body.cursor-none-desktop select,
+body.cursor-none-desktop [contenteditable] { cursor: text !important; }
+/* والنصّ القابل للتحديد داخل المقال */
+body.cursor-none-desktop .article-body { cursor: text !important; }
+
+:focus-visible { outline: 2px solid rgb(var(--c-accent)); outline-offset: 3px; border-radius: 3px; }
+
+/* في الوضع الليلي: صورة الهيرو أهدأ */
+html.dark .portrait img { filter: grayscale(1) contrast(.95) brightness(.9); }
+
+/* horizontal rail */
+.rail { scrollbar-width: none; -ms-overflow-style: none; }
+.rail::-webkit-scrollbar { display: none; }
+
+/* hero portrait: monochrome -> color on hover (signature moment) */
+.portrait img { filter: grayscale(1) contrast(1.02); transition: filter 0.8s var(--E); }
+.portrait::after {
+  content: ""; position: absolute; inset: 0;
+  background: rgb(var(--c-accent)); mix-blend-mode: color; opacity: 0.3;
+  transition: opacity 0.8s var(--E); pointer-events: none;
+}
+.portrait-wrap:hover .portrait img { filter: none; }
+.portrait-wrap:hover .portrait::after { opacity: 0; }
+
+/* scroll cue */
+@keyframes drop { 0% { top: -30px } 55% { top: 30px } 100% { top: 30px } }
+.cue span::after {
+  content: ""; position: absolute; top: -30px; left: 0; width: 100%; height: 30px;
+  background: rgb(var(--c-accent)); animation: drop 2.6s ease-in-out infinite;
+}
+/* الشاشات القصيرة: يختفي مؤشر «اكتشف» كي لا يزاحم الأزرار */
+@media (max-height: 720px) { .cue { display: none; } }
+
+/* pulsing dot */
+@keyframes pulse { 0% { transform: scale(1); opacity: 0.55 } 100% { transform: scale(3.4); opacity: 0 } }
+.pulse::after {
+  content: ""; position: absolute; inset: 0; border-radius: 9999px;
+  background: rgb(var(--c-accent)); animation: pulse 2.2s ease-out infinite;
+}
+
+/* nav underline */
+.navlink::after {
+  content: ""; position: absolute; bottom: -3px; right: 0; height: 1.5px; width: 0;
+  background: rgb(var(--c-accent)); transition: width 0.3s;
+}
+.navlink:hover::after { width: 100%; }
+
+@media (hover: none), (pointer: coarse) {
+  .cursor-ring, .cursor-dot { display: none !important; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation: none !important; transition: none !important; }
+  .portrait img { filter: none; }
+  .portrait::after { opacity: 0; }
+}
+
+
+/* ---------- نصّ المقال: قراءة عربية طويلة ---------- */
+.article-body p {
+  font-size: calc(1.14rem * var(--article-scale, 1));
+  font-weight: 300;
+  line-height: 2.15;
+  color: rgb(var(--c-ink) / .88);
+  margin-bottom: 1.6em;
+  text-align: justify;
+  text-justify: inter-word;
+  hyphens: none;
+}
+.article-body p:last-child { margin-bottom: 0; }
+
+/* ---------- محاذاة كاملة (justify) لكل النصوص القرائية في الموقع ----------
+   الفقرات وعناصر القوائم النصية تُضبط من الحافتين. المتمركزة عمداً مستثناة،
+   وjustify على السطر الواحد بلا أثر — فالعناوين والوسوم القصيرة تبقى كما هي. */
+main :is(p, li):not(.text-center):not([class*="text-center"]):not([style*="center"]) {
+  text-align: justify;
+  text-justify: inter-word;
+  hyphens: none;
+}
+
+/* الحرف الأول من الفقرة الأولى — جمالية أصيلة، تبقى بطلب الدكتور */
+.article-body p:first-of-type::first-letter {
+  float: right;
+  font-family: 'El Messiri', serif;
+  font-size: 3.1em;
+  font-weight: 600;
+  line-height: .86;
+  margin-inline-start: .12em;
+  margin-block-start: .06em;
+  color: rgb(var(--c-accent));
+}
+
+@media (max-width: 640px) {
+  .article-body p { font-size: calc(1.06rem * var(--article-scale, 1)); line-height: 2.05; text-align: right; }
+  .article-body p:first-of-type::first-letter { font-size: 2.6em; }
+}
+
+html.reader-focus nav,
+html.reader-focus footer,
+html.reader-focus .reader-hide-focus {
+  display: none !important;
+}
+
+html.reader-focus body {
+  background: rgb(var(--c-canvas));
+}
+
+html.reader-focus .article-body {
+  max-width: 68ch;
+  margin-inline: auto;
+}
+
+
+/* ---------- إتاحة الوصول ---------- */
+.skip-link {
+  position: fixed; top: -100px; right: 1rem; z-index: 400;
+  background: rgb(var(--c-accent)); color: #fff; padding: .7rem 1.2rem;
+  border-radius: 999px; font-weight: 600; transition: top .3s;
+}
+.skip-link:focus { top: 1rem; }
+
+:focus-visible {
+  outline: 2px solid rgb(var(--c-accent));
+  outline-offset: 3px;
+  border-radius: 4px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: .01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: .01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* الخريطة */
+iframe { color-scheme: light; }
+
+/* «كوكبة التوقيعات» — نجوم فوق أفق شعري، تتلألأ وتتوهج عند اللمس */
+.sig-star {
+  position: absolute;
+  top: 13px;
+  right: 50%;
+  width: 6px;
+  height: 6px;
+  border-radius: 9999px;
+  background: rgb(var(--c-accent) / 0.9);
+  transform: translate(50%, var(--dy, -8px)) scale(1);
+  transition: transform 0.45s var(--E), box-shadow 0.45s var(--E);
+  animation: sig-twinkle 4.5s ease-in-out infinite;
+  animation-delay: var(--tw, 0s);
+}
+.sig-item:hover .sig-star {
+  transform: translate(50%, var(--dy, -8px)) scale(1.9);
+  box-shadow: 0 0 16px 3px rgb(var(--c-accent) / 0.4);
+  animation-play-state: paused;
+  opacity: 1;
+}
+@keyframes sig-twinkle {
+  0%, 100% { opacity: 0.45; }
+  50% { opacity: 1; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .sig-star { animation: none; }
+}

@@ -1,0 +1,56 @@
+{
+  "name": "مِراس",
+  "short_name": "مِراس",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "display_override": ["standalone", "minimal-ui", "browser"],
+  "orientation": "portrait-primary",
+  "background_color": "#0f172a",
+  "theme_color": "#4f46e5",
+  "dir": "rtl",
+  "lang": "ar",
+  "categories": ["education", "productivity"],
+  "description": "منصة تعليمية عربية لإدارة الاختبارات، الطلبة، التسليمات، والتنبيهات الأكاديمية.",
+  "shortcuts": [
+    {
+      "name": "دخول الطالب",
+      "short_name": "الطالب",
+      "url": "/?miras_entry=student",
+      "icons": [{ "src": "/ios-icon-192-v7.png", "sizes": "192x192", "type": "image/png" }]
+    },
+    {
+      "name": "دخول المعلم",
+      "short_name": "المعلم",
+      "url": "/?miras_entry=teacher",
+      "icons": [{ "src": "/ios-icon-192-v7.png", "sizes": "192x192", "type": "image/png" }]
+    }
+  ],
+  "icons": [
+    {
+      "src": "/ios-icon-192-v7.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/ios-icon-512-v7.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/maskable-icon-v7.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    },
+    {
+      "src": "/apple-touch-icon-v7.png",
+      "sizes": "180x180",
+      "type": "image/png",
+      "purpose": "any"
+    }
+  ],
+  "id": "/"
+}

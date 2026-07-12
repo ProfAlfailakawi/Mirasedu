@@ -1,0 +1,14 @@
+{
+  "projects": {
+    "default": "meras-320eb"
+  },
+  "targets": {
+    "meras-320eb": {
+      "hosting": {
+        "mirasedu": [
+          "mirasedu"
+        ]
+      }
+    }
+  }
+}

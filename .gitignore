@@ -1,0 +1,25 @@
+node_modules/
+build/
+# محرّك PDF.js (public/pdfjs/build/pdf.mjs + pdf.worker.mjs) لازم للنشر حتى
+# تُعرض معاينة PowerPoint/PDF. قاعدة build/ أعلاه كانت تستبعده فيُحذف من الموقع
+# ويظهر العارض فارغًا. لا تُزل هذا الاستثناء.
+!public/pdfjs/build/
+dist/
+coverage/
+.DS_Store
+*.log
+.env*
+!.env.example
+
+# Runtime database/cache — never ship development data or an empty cache in source ZIPs
+data/
+!data/.gitkeep
+
+# كاش نشر Firebase المحلي
+.firebase/
+
+# إعدادات Claude Code المحلية (شخصية — لا تُرفع)
+.claude/settings.local.json
+
+# لا تُرفع ملفات مضغوطة للمستودع
+*.zip
