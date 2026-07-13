@@ -43169,7 +43169,7 @@ ${rows
         >
           <div className="flex max-h-[94dvh] w-full max-w-3xl flex-col overflow-hidden rounded-[30px] border border-white/10 bg-white shadow-[0_40px_120px_rgba(2,6,23,0.55)]">
             {/* رأس الرادار */}
-            <div className="relative overflow-hidden bg-gradient-to-l from-slate-950 via-indigo-950 to-slate-900 px-5 py-5 text-white">
+            <div className="relative shrink-0 overflow-hidden bg-gradient-to-l from-slate-950 via-indigo-950 to-slate-900 px-5 py-5 text-white">
               <div className="pointer-events-none absolute -left-10 -top-10 h-40 w-40 rounded-full bg-indigo-500/20 blur-3xl"></div>
               <div className="pointer-events-none absolute -bottom-12 right-10 h-32 w-32 rounded-full bg-emerald-400/10 blur-3xl"></div>
               <div className="relative flex items-center justify-between gap-3">
@@ -43228,7 +43228,7 @@ ${rows
               </div>
             </div>
             {/* التبويبات */}
-            <div className="flex items-center justify-between gap-2 border-b border-slate-100 bg-slate-50/70 px-4 py-2.5">
+            <div className="flex shrink-0 items-center justify-between gap-2 border-b border-slate-100 bg-slate-50/70 px-4 py-2.5">
               <div className="flex gap-1.5">
                 {(
                   [
@@ -43265,7 +43265,7 @@ ${rows
                 )}
             </div>
             {/* القائمة */}
-            <div className="flex-1 space-y-2.5 overflow-y-auto p-4">
+            <div className="min-h-0 flex-1 space-y-2.5 overflow-y-auto p-4">
               {mirasRadarTab === "notifications" ? (
                 mirasNotificationAuditData.items.length === 0 ? (
                   <div className="grid place-items-center py-14 text-center">
