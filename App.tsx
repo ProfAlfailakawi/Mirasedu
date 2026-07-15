@@ -2340,6 +2340,63 @@ const mirasRequestLooksMutating = (
   );
 };
 
+// حالة أيقونة التبويب تتبع فقط الإجراءات التي بدأها الطالب/المعلم فعلياً.
+// نستبعد نبضات الخلفية والمراقبة والإشعارات كي لا تومض الأيقونة بلا سبب،
+// كما نعالج رفع ملفات الطالب يدوياً لأنه قد ينتقل من fetch إلى XHR أثناء
+// الاستكمال أو المسار الاحتياطي. لا يغيّر هذا أي طلب أو نتيجة؛ هو بث بصري فقط.
+const mirasRequestShouldAffectFavicon = (
+  input: RequestInfo | URL,
+  init?: RequestInit,
+) => {
+  if (!mirasRequestLooksMutating(input, init)) return false;
+  const pathname = mirasRequestPathFromInput(input);
+  return !(
+    pathname === "/api/monitor/report" ||
+    pathname.startsWith("/api/live/") ||
+    pathname === "/api/notifications/mark-seen" ||
+    pathname === "/api/notifications/register-token" ||
+    pathname === "/api/notifications/unregister-token" ||
+    pathname.startsWith("/api/submissions/upload") ||
+    pathname.startsWith("/api/exam-integrity/") ||
+    pathname.startsWith("/api/seb/") ||
+    pathname.endsWith("/log-violation") ||
+    pathname.endsWith("/snapshot") ||
+    pathname.includes("heartbeat") ||
+    pathname.includes("session-status") ||
+    pathname === "/api/auth/passkey/status"
+  );
+};
+
+type MirasFaviconActionOutcome = "success" | "attention";
+let mirasFaviconActionsInFlight = 0;
+const notifyMirasFaviconActionNetwork = (phase: "start" | "end") => {
+  if (typeof window === "undefined") return;
+  try {
+    if (phase === "start") {
+      mirasFaviconActionsInFlight += 1;
+      window.dispatchEvent(new CustomEvent("miras-favicon-action-start"));
+      return;
+    }
+    mirasFaviconActionsInFlight = Math.max(0, mirasFaviconActionsInFlight - 1);
+    if (mirasFaviconActionsInFlight === 0) {
+      window.dispatchEvent(new CustomEvent("miras-favicon-action-idle"));
+    }
+  } catch {}
+};
+const notifyMirasFaviconActionResult = (
+  outcome: MirasFaviconActionOutcome,
+  status = 0,
+) => {
+  if (typeof window === "undefined") return;
+  try {
+    window.dispatchEvent(
+      new CustomEvent("miras-favicon-action-result", {
+        detail: { outcome, status },
+      }),
+    );
+  } catch {}
+};
+
 let mirasMutatingFetchesInFlight = 0;
 const notifyMirasActionNetwork = (phase: "start" | "end") => {
   if (typeof window === "undefined") return;
@@ -2470,7 +2527,9 @@ async function mirasFetch(
     return Promise.reject(new Error("window.fetch is not available"));
   }
   const trackMutatingRequest = mirasRequestLooksMutating(input, init);
+  const trackFaviconRequest = mirasRequestShouldAffectFavicon(input, init);
   if (trackMutatingRequest) notifyMirasActionNetwork("start");
+  if (trackFaviconRequest) notifyMirasFaviconActionNetwork("start");
   try {
     let requestAuthToken = "";
     const requestPath = mirasRequestPathFromInput(input);
@@ -2586,9 +2645,16 @@ async function mirasFetch(
         console.error("Error in fetch interceptor:", e);
       }
     }
+    if (trackFaviconRequest) {
+      notifyMirasFaviconActionResult(resp.ok ? "success" : "attention", resp.status);
+    }
     return resp;
+  } catch (error) {
+    if (trackFaviconRequest) notifyMirasFaviconActionResult("attention");
+    throw error;
   } finally {
     if (trackMutatingRequest) notifyMirasActionNetwork("end");
+    if (trackFaviconRequest) notifyMirasFaviconActionNetwork("end");
   }
 }
 
@@ -2785,6 +2851,138 @@ export default function App() {
     return "signup";
   });
   const [studentDeviceLockMessage, setStudentDeviceLockMessage] = useState("");
+
+  // مؤشر حالة هادئ داخل favicon فقط — لا يضيف أي عنصر للواجهة ولا يغيّر
+  // الأزرار أو التنقل. يعمل في حساب الطالب والمعلم: أزرق أثناء التنفيذ،
+  // برتقالي عند حاجة الإجراء إلى تدخل، وأخضر لثوانٍ بعد الاكتمال.
+  useEffect(() => {
+    if (typeof window === "undefined" || typeof document === "undefined") return;
+
+    const isWorkspace =
+      currentView === "student_workspace" || currentView === "teacher_workspace";
+    const iconLinks = Array.from(
+      document.querySelectorAll<HTMLLinkElement>('link[rel~="icon"]'),
+    );
+    const originalHrefs = iconLinks.map((link) => ({
+      link,
+      href: link.getAttribute("href") || "/favicon-32.png",
+    }));
+    const restoreOriginal = () => {
+      originalHrefs.forEach(({ link, href }) => link.setAttribute("href", href));
+    };
+
+    if (!isWorkspace || iconLinks.length === 0) {
+      restoreOriginal();
+      return;
+    }
+
+    type FaviconVisualState = "idle" | "building" | "attention" | "completed";
+    let disposed = false;
+    let visualState: FaviconVisualState = "idle";
+    let pendingOutcome: MirasFaviconActionOutcome | null = null;
+    let completedTimer: number | null = null;
+    const baseIcon = new Image();
+
+    const clearCompletedTimer = () => {
+      if (completedTimer !== null) window.clearTimeout(completedTimer);
+      completedTimer = null;
+    };
+
+    const paint = () => {
+      if (disposed) return;
+      if (visualState === "idle" || !baseIcon.complete || !baseIcon.naturalWidth) {
+        restoreOriginal();
+        return;
+      }
+      try {
+        const size = 64;
+        const canvas = document.createElement("canvas");
+        canvas.width = size;
+        canvas.height = size;
+        const ctx = canvas.getContext("2d");
+        if (!ctx) return restoreOriginal();
+        ctx.clearRect(0, 0, size, size);
+        ctx.drawImage(baseIcon, 0, 0, size, size);
+
+        const fill =
+          visualState === "building"
+            ? "#2563eb"
+            : visualState === "attention"
+              ? "#f59e0b"
+              : "#16a34a";
+        // حلقة بيضاء رفيعة تحفظ وضوح النقطة فوق شعار مِراس في الوضعين الفاتح
+        // والداكن، من دون استبدال الشعار أو تغيير هويته.
+        ctx.beginPath();
+        ctx.arc(50.5, 50.5, 12.5, 0, Math.PI * 2);
+        ctx.fillStyle = "#ffffff";
+        ctx.fill();
+        ctx.beginPath();
+        ctx.arc(50.5, 50.5, 9.5, 0, Math.PI * 2);
+        ctx.fillStyle = fill;
+        ctx.fill();
+
+        const dataUrl = canvas.toDataURL("image/png");
+        iconLinks.forEach((link) => link.setAttribute("href", dataUrl));
+      } catch {
+        restoreOriginal();
+      }
+    };
+
+    const setVisualState = (next: FaviconVisualState) => {
+      clearCompletedTimer();
+      visualState = next;
+      paint();
+      if (next === "completed") {
+        completedTimer = window.setTimeout(() => {
+          visualState = "idle";
+          restoreOriginal();
+        }, 3200);
+      }
+    };
+
+    baseIcon.onload = paint;
+    baseIcon.onerror = restoreOriginal;
+    baseIcon.src = "/favicon-64.png";
+
+    const onActionStart = () => {
+      // عند تزامن عمليتين لا نمسح نتيجة الأولى؛ النتيجة البرتقالية لأي فشل
+      // تبقى أولوية حتى تهدأ جميع الإجراءات الجارية.
+      if (visualState !== "building") pendingOutcome = null;
+      setVisualState("building");
+    };
+    const onActionResult = (event: Event) => {
+      const outcome = (event as CustomEvent)?.detail?.outcome as
+        | MirasFaviconActionOutcome
+        | undefined;
+      if (outcome === "attention") pendingOutcome = "attention";
+      else if (outcome === "success" && pendingOutcome !== "attention")
+        pendingOutcome = "success";
+    };
+    const onActionIdle = () => {
+      setVisualState(pendingOutcome === "attention" ? "attention" : "completed");
+      pendingOutcome = null;
+    };
+    const acknowledgeAttention = () => {
+      if (visualState === "attention") setVisualState("idle");
+    };
+
+    window.addEventListener("miras-favicon-action-start", onActionStart);
+    window.addEventListener("miras-favicon-action-result", onActionResult);
+    window.addEventListener("miras-favicon-action-idle", onActionIdle);
+    document.addEventListener("pointerdown", acknowledgeAttention, true);
+    document.addEventListener("keydown", acknowledgeAttention, true);
+
+    return () => {
+      disposed = true;
+      clearCompletedTimer();
+      window.removeEventListener("miras-favicon-action-start", onActionStart);
+      window.removeEventListener("miras-favicon-action-result", onActionResult);
+      window.removeEventListener("miras-favicon-action-idle", onActionIdle);
+      document.removeEventListener("pointerdown", acknowledgeAttention, true);
+      document.removeEventListener("keydown", acknowledgeAttention, true);
+      restoreOriginal();
+    };
+  }, [currentView]);
 
   const forceStudentDeviceLock = (message?: string) => {
     try {
@@ -9682,6 +9880,9 @@ export default function App() {
 
     setIsUploading(true);
     setErrorMsg("");
+    let faviconUploadCompleted = 0;
+    let faviconUploadNeedsAttention = false;
+    notifyMirasFaviconActionNetwork("start");
 
     try {
       for (const file of filesList) {
@@ -9692,6 +9893,7 @@ export default function App() {
         // 1. Validate file size (max 25MB)
         const maxSizeBytes = MIRAS_MAX_SUBMISSION_FILE_SIZE_BYTES;
         if (file.size > maxSizeBytes) {
+          faviconUploadNeedsAttention = true;
           setErrorMsg(
             `حجم الملف "${cleanFileName}" يتجاوز الحد المسموح به (25 ميجابايت).`,
           );
@@ -9723,6 +9925,7 @@ export default function App() {
           ".scr",
         ];
         if (dangerousExtensions.includes(ext)) {
+          faviconUploadNeedsAttention = true;
           setErrorMsg(
             `صيغة الملف "${cleanFileName}" غير مسموحة. الصيغ المتاحة: ${MIRAS_ALLOWED_SUBMISSION_FORMATS_LABEL}.`,
           );
@@ -9731,6 +9934,7 @@ export default function App() {
 
         const formatCheck = validateMirasSubmissionFileFormat(cleanFileName);
         if (!formatCheck.ok) {
+          faviconUploadNeedsAttention = true;
           setErrorMsg(formatCheck.message);
           continue;
         }
@@ -9964,13 +10168,16 @@ export default function App() {
               dataUrl: data.attachment?.dataUrl || persistentDataUrl,
             });
             if (!persistedAttachment) {
+              faviconUploadNeedsAttention = true;
               setErrorMsg(
                 `لم يرجع الخادم رابطًا دائمًا للملف "${cleanFileName}".`,
               );
               continue;
             }
             setCurrentAttachments((prev) => [...prev, persistedAttachment]);
+            faviconUploadCompleted += 1;
           } else {
+            faviconUploadNeedsAttention = true;
             setErrorMsg(
               extractApiErrorReason(
                 { ...data, status: resp.status },
@@ -9979,6 +10186,7 @@ export default function App() {
             );
           }
         } catch (err: any) {
+          faviconUploadNeedsAttention = true;
           setErrorMsg(
             err?.name === "AbortError"
               ? `تعذر رفع الملف "${cleanFileName}": استغرق الرفع وقتًا طويلاً. تحقق من الاتصال وحاول مرة أخرى.`
@@ -9987,6 +10195,12 @@ export default function App() {
         }
       }
     } finally {
+      notifyMirasFaviconActionResult(
+        faviconUploadNeedsAttention || faviconUploadCompleted === 0
+          ? "attention"
+          : "success",
+      );
+      notifyMirasFaviconActionNetwork("end");
       setIsUploading(false);
       setUploadProgress(0);
       setUploadEtaSec(null);
