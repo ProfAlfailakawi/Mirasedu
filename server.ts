@@ -11218,9 +11218,17 @@ app.post("/api/teacher/data-heal", (req, res) => {
 
 // Dynamic Mock device lock validation helper
 
+// قائمة بريد المشرفين (السوبر-أدمن) — مطابقة تامّة لا "احتواء".
+// أمن (CWE-697): استخدام includes كان يمنح صلاحية المشرف لأي بريد يحتوي هذه
+// السلسلة (مثل ahmad.alfailakawi.attacker@gmail.com)، وبما أن أحد بريدَي المشرف
+// على gmail (لا يقتصر على نطاق المؤسسة)، كان بإمكان حساب معلم مسجَّل ببريد
+// متشابه الحصول على صلاحيات المشرف كاملة. المطابقة التامّة تُغلق هذا التصعيد.
+const MIRAS_ADMIN_EMAILS = new Set<string>([
+  "ah.alfailakawi@paaet.edu.kw",
+  "dr.ahmad.alfailakawi@gmail.com",
+]);
 function isAdminEmail(email?: string): boolean {
-  const norm = String(email || "").toLowerCase();
-  return norm.includes("ah.alfailakawi") || norm.includes("ahmad.alfailakawi");
+  return MIRAS_ADMIN_EMAILS.has(String(email || "").trim().toLowerCase());
 }
 
 function extractEmailFromSectionCode(code?: string): string {
