@@ -16572,7 +16572,25 @@ ${rows
       // ANY subsequent user interaction across the WHOLE screen will intercept and force FaceID instantly
       // using the user-gesture token.
       if (!hasAttemptedGesturePasskeyRef.current) {
-        const onFirstInteraction = () => {
+        const onFirstInteraction = (event?: Event) => {
+          // استثناء المخرج الاحتياطي «الدخول بكلمة المرور» من اختطاف الإيماءة.
+          //
+          // هذا المستمع مسجَّل على document بمرحلة الالتقاط (capture)، أي يسبق
+          // onClick الخاص بالزر نفسه. فحين يضغط المستخدم زر كلمة المرور كانت
+          // تُطلق محاولة بصمة جديدة فتفتح نافذة النظام *فوق* نموذج كلمة المرور
+          // الذي طلبه للتوّ — ومن تعطّلت بصمته كان يواجه ذلك في كل فتحة بلا مخرج.
+          // (كذلك عند الكتابة في حقل كلمة المرور: keydown يختطف الضغطة فينهار
+          // الكيبورد ويفقد الحقل تركيزه في iOS.)
+          const target = (event?.target as Element | null) || null;
+          if (
+            passkeyPasswordFallback ||
+            (target &&
+              typeof target.closest === "function" &&
+              target.closest("[data-miras-passkey-fallback]"))
+          ) {
+            cleanupGesture();
+            return;
+          }
           if (
             !isPasskeyAuthenticatingRef.current &&
             !passkeyBusy &&
@@ -16618,6 +16636,7 @@ ${rows
     teacherSession,
     studentSession,
     passkeyBusy,
+    passkeyPasswordFallback,
   ]);
 
   useEffect(() => {
@@ -30039,6 +30058,7 @@ ${rows
 
                           <button
                             type="button"
+                            data-miras-passkey-fallback="true"
                             title="الدخول بكلمة المرور"
                             aria-label="الدخول بكلمة المرور"
                             onClick={() => setPasskeyPasswordFallback(true)}
