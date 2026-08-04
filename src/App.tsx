@@ -244,6 +244,7 @@ import {
   UserCheck,
   Fingerprint,
 } from "lucide-react";
+import { SmartIconGuidance } from "./components/SmartIconGuidance";
 
 const DEFAULT_ALLOWED_STUDENTS_TEXT = "";
 
@@ -21154,14 +21155,16 @@ ${rows
                   </tbody>
                 </table>
               </div>
-              <button
-                onClick={applyAllowedExcelMapping}
-                title="اعتماد الأعمدة وحفظ كشف الطلاب"
-                aria-label="اعتماد الأعمدة وحفظ كشف الطلاب"
-                className="inline-flex h-12 w-12 items-center justify-center rounded-2xl bg-indigo-600 text-white hover:bg-slate-950"
-              >
-                <Save className="h-5 w-5" />
-              </button>
+              <SmartIconGuidance guidanceKey="excel_mapping_apply" hint="اعتماد أعمدة الملف وحفظ كشف الطلاب">
+                <button
+                  onClick={applyAllowedExcelMapping}
+                  title="اعتماد الأعمدة وحفظ كشف الطلاب"
+                  aria-label="اعتماد الأعمدة وحفظ كشف الطلاب"
+                  className="inline-flex h-12 w-12 items-center justify-center rounded-2xl bg-indigo-600 text-white hover:bg-slate-950"
+                >
+                  <Save className="h-5 w-5" />
+                </button>
+              </SmartIconGuidance>
             </div>
           )}
 
@@ -22106,19 +22109,8 @@ ${rows
     );
   };
 
-  const showTeacherOnboarding =
-    currentView === "teacher_workspace" &&
-    !!teacherSession &&
-    !!teacherOnboardingKey &&
-    !dismissedOnboarding[teacherOnboardingKey] &&
-    !isOnboardingDone(teacherOnboardingKey);
-  const showStudentOnboarding =
-    currentView === "student_workspace" &&
-    !!studentSession &&
-    !selectedChapterQuiz &&
-    !!studentOnboardingKey &&
-    !dismissedOnboarding[studentOnboardingKey] &&
-    !isOnboardingDone(studentOnboardingKey);
+  const showTeacherOnboarding = false;
+  const showStudentOnboarding = false;
   const isStudentMessageSurface = currentView !== "teacher_workspace";
   const isTransientActivationCameraMessage = (message: any) =>
     /تعذر تشغيل الكاميرا|تعذّر تشغيل الكاميرا|العدسة لم تجهز|camera-video-not-ready|NotReadable|TrackStart|Overconstrained|AbortError|Could not start video source|camera-unavailable/i.test(
@@ -22199,15 +22191,17 @@ ${rows
           </span>
         </div>
         <div className="flex shrink-0 items-center gap-2">
-          <button
-            type="button"
-            title="تفعيل الإشعارات"
-            aria-label="تفعيل الإشعارات"
-            onClick={handleEnableBrowserNotifications}
-            className="inline-flex h-9 w-9 items-center justify-center rounded-xl bg-indigo-600 text-white shadow-md transition-all hover:bg-indigo-700 hover:shadow-lg hover:scale-[1.02] active:scale-95"
-          >
-            <Check className="h-4 w-4" />
-          </button>
+          <SmartIconGuidance guidanceKey="enable_browser_notifications" hint="تفعيل إشعارات المتصفح الفورية للتنبيهات">
+            <button
+              type="button"
+              title="تفعيل الإشعارات"
+              aria-label="تفعيل الإشعارات"
+              onClick={handleEnableBrowserNotifications}
+              className="inline-flex h-9 w-9 items-center justify-center rounded-xl bg-indigo-600 text-white shadow-md transition-all hover:bg-indigo-700 hover:shadow-lg hover:scale-[1.02] active:scale-95"
+            >
+              <Check className="h-4 w-4" />
+            </button>
+          </SmartIconGuidance>
           <button
             type="button"
             title="ليس الآن"
@@ -23409,15 +23403,17 @@ ${rows
 
             <div className="meras-auth-card w-full max-w-xl h-auto max-h-[calc(100dvh-2rem)] overflow-y-auto flex flex-col justify-center glass-panel rounded-[2rem] shadow-premium-lg p-8 sm:p-10 border border-white/60 relative z-10 transition-all duration-300">
               {!isAppStandalone && (
-                <button
-                  type="button"
-                  onClick={triggerPwaInstallation}
-                  className="absolute top-6 left-6 inline-flex h-11 w-11 items-center justify-center rounded-2xl bg-gradient-to-br from-indigo-50 to-indigo-100 border border-indigo-200/50 text-indigo-700 shadow-md transition-all duration-300 hover:scale-105 active:scale-95 pwa-glowing-btn cursor-pointer z-20"
-                  title="تثبيت منصة مِراس على جهازك"
-                  aria-label="تثبيت مِراس"
-                >
-                  <Smartphone className="h-5 w-5 text-indigo-650" />
-                </button>
+                <SmartIconGuidance guidanceKey="install_pwa_app" hint="تثبيت منصة مِراس كتطبيق مباشر على جهازك">
+                  <button
+                    type="button"
+                    onClick={triggerPwaInstallation}
+                    className="absolute top-6 left-6 inline-flex h-11 w-11 items-center justify-center rounded-2xl bg-gradient-to-br from-indigo-50 to-indigo-100 border border-indigo-200/50 text-indigo-700 shadow-md transition-all duration-300 hover:scale-105 active:scale-95 pwa-glowing-btn cursor-pointer z-20"
+                    title="تثبيت منصة مِراس على جهازك"
+                    aria-label="تثبيت مِراس"
+                  >
+                    <Smartphone className="h-5 w-5 text-indigo-650" />
+                  </button>
+                </SmartIconGuidance>
               )}
 
               <div className="text-center mb-6">
@@ -24101,20 +24097,22 @@ ${rows
                     <p className="mb-3 text-[11px] font-black text-emerald-800">
                       فعّل الدخول بالبصمة لهذا الجهاز قبل إكمال الانضمام.
                     </p>
-                    <button
-                      type="button"
-                      title="تفعيل الدخول بالبصمة لهذا الجهاز"
-                      aria-label="تفعيل الدخول بالبصمة لهذا الجهاز"
-                      onClick={registerPasskeyForCurrentSession}
-                      disabled={passkeyBusy}
-                      className="mx-auto inline-flex h-12 w-12 items-center justify-center rounded-2xl border border-emerald-100 bg-white text-emerald-700 shadow-sm hover:bg-emerald-100 disabled:opacity-60"
-                    >
-                      {passkeyBusy ? (
-                        <RefreshCw className="h-5 w-5 animate-spin" />
-                      ) : (
-                        <Fingerprint className="h-5 w-5" />
-                      )}
-                    </button>
+                    <SmartIconGuidance guidanceKey="register_passkey" hint="تفعيل الدخول السريع ببصمة الوجه أو الأصبع">
+                      <button
+                        type="button"
+                        title="تفعيل الدخول بالبصمة لهذا الجهاز"
+                        aria-label="تفعيل الدخول بالبصمة لهذا الجهاز"
+                        onClick={registerPasskeyForCurrentSession}
+                        disabled={passkeyBusy}
+                        className="mx-auto inline-flex h-12 w-12 items-center justify-center rounded-2xl border border-emerald-100 bg-white text-emerald-700 shadow-sm hover:bg-emerald-100 disabled:opacity-60"
+                      >
+                        {passkeyBusy ? (
+                          <RefreshCw className="h-5 w-5 animate-spin" />
+                        ) : (
+                          <Fingerprint className="h-5 w-5" />
+                        )}
+                      </button>
+                    </SmartIconGuidance>
                   </div>
                 )}
 
@@ -24628,30 +24626,34 @@ ${rows
                           </button>
                         )}
                         {!isAppStandalone && (
-                          <button
-                            title="تثبيت منصة مِراس على الشاشة الرئيسية"
-                            aria-label="تثبيت مِراس على جهازك"
-                            onClick={triggerPwaInstallation}
-                            className="inline-flex h-12 w-12 items-center justify-center rounded-2xl border border-indigo-150 bg-gradient-to-br from-white to-indigo-50/50 text-indigo-700 shadow-sm hover:bg-indigo-100 relative pwa-glowing-btn"
-                          >
-                            <Smartphone className="h-4.5 w-4.5 text-indigo-650" />
-                          </button>
+                          <SmartIconGuidance guidanceKey="install_pwa_app" hint="تثبيت منصة مِراس كتطبيق مباشر على جهازك">
+                            <button
+                              title="تثبيت منصة مِراس على الشاشة الرئيسية"
+                              aria-label="تثبيت مِراس على جهازك"
+                              onClick={triggerPwaInstallation}
+                              className="inline-flex h-12 w-12 items-center justify-center rounded-2xl border border-indigo-150 bg-gradient-to-br from-white to-indigo-50/50 text-indigo-700 shadow-sm hover:bg-indigo-100 relative pwa-glowing-btn"
+                            >
+                              <Smartphone className="h-4.5 w-4.5 text-indigo-650" />
+                            </button>
+                          </SmartIconGuidance>
                         )}
                         {!passkeyEnabledForCurrentSession &&
                           !isSafeExamBrowserSession() && (
-                            <button
-                              title="تفعيل الدخول بالبصمة لهذا الجهاز"
-                              aria-label="تفعيل الدخول بالبصمة لهذا الجهاز"
-                              onClick={registerPasskeyForCurrentSession}
-                              disabled={passkeyBusy}
-                              className="inline-flex h-12 w-12 items-center justify-center rounded-2xl border border-emerald-100 bg-emerald-50 text-emerald-700 shadow-sm hover:bg-emerald-100 disabled:opacity-60"
-                            >
-                              {passkeyBusy ? (
-                                <RefreshCw className="h-5 w-5 animate-spin" />
-                              ) : (
-                                <Fingerprint className="h-5 w-5" />
-                              )}
-                            </button>
+                            <SmartIconGuidance guidanceKey="register_passkey" hint="تفعيل الدخول السريع ببصمة الوجه أو الأصبع">
+                              <button
+                                title="تفعيل الدخول بالبصمة لهذا الجهاز"
+                                aria-label="تفعيل الدخول بالبصمة لهذا الجهاز"
+                                onClick={registerPasskeyForCurrentSession}
+                                disabled={passkeyBusy}
+                                className="inline-flex h-12 w-12 items-center justify-center rounded-2xl border border-emerald-100 bg-emerald-50 text-emerald-700 shadow-sm hover:bg-emerald-100 disabled:opacity-60"
+                              >
+                                {passkeyBusy ? (
+                                  <RefreshCw className="h-5 w-5 animate-spin" />
+                                ) : (
+                                  <Fingerprint className="h-5 w-5" />
+                                )}
+                              </button>
+                            </SmartIconGuidance>
                           )}
                         {shouldShowStudentNotificationsButton && (
                           <button
@@ -24705,14 +24707,16 @@ ${rows
                                   : "لا تنبيهات"}
                               </span>
                               <div className="flex shrink-0 items-center justify-end gap-1.5 ml-0.5">
-                                <button
-                                  type="button"
-                                  aria-label="تحديد الكل كمقروء"
-                                  onClick={markAllStudentNotificationsRead}
-                                  className="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-emerald-150 bg-emerald-50 text-emerald-700 shadow-sm hover:bg-emerald-100 hover:text-emerald-800 transition-all"
-                                >
-                                  <CheckCircle2 className="h-5 w-5" />
-                                </button>
+                                <SmartIconGuidance guidanceKey="mark_all_notifications_read" hint="تحديد جميع التنبيهات كمقروءة">
+                                  <button
+                                    type="button"
+                                    aria-label="تحديد الكل كمقروء"
+                                    onClick={markAllStudentNotificationsRead}
+                                    className="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-emerald-150 bg-emerald-50 text-emerald-700 shadow-sm hover:bg-emerald-100 hover:text-emerald-800 transition-all"
+                                  >
+                                    <CheckCircle2 className="h-5 w-5" />
+                                  </button>
+                                </SmartIconGuidance>
                                 <button
                                   type="button"
                                   aria-label="إغلاق التنبيهات"
@@ -26731,30 +26735,34 @@ ${rows
                           <Home className="h-5 w-5" />
                         </button>
                         {!isAppStandalone && (
-                          <button
-                            title="تثبيت منصة مِراس على هذا الجهاز"
-                            aria-label="تثبيت مِراس على جهازك"
-                            onClick={triggerPwaInstallation}
-                            className="student-icon-btn text-indigo-650 bg-gradient-to-br from-white to-indigo-50/50 border-indigo-150 hover:text-indigo-800 relative shadow-sm pwa-glowing-btn"
-                          >
-                            <Smartphone className="h-5 w-5 text-indigo-650" />
-                          </button>
+                          <SmartIconGuidance guidanceKey="install_pwa_app" hint="تثبيت منصة مِراس كتطبيق مباشر على جهازك">
+                            <button
+                              title="تثبيت منصة مِراس على هذا الجهاز"
+                              aria-label="تثبيت مِراس على جهازك"
+                              onClick={triggerPwaInstallation}
+                              className="student-icon-btn text-indigo-650 bg-gradient-to-br from-white to-indigo-50/50 border-indigo-150 hover:text-indigo-800 relative shadow-sm pwa-glowing-btn"
+                            >
+                              <Smartphone className="h-5 w-5 text-indigo-650" />
+                            </button>
+                          </SmartIconGuidance>
                         )}
                         {!passkeyEnabledForCurrentSession &&
                           !isSafeExamBrowserSession() && (
-                            <button
-                              title="تفعيل الدخول بالبصمة لهذا الجهاز"
-                              aria-label="تفعيل الدخول بالبصمة لهذا الجهاز"
-                              onClick={registerPasskeyForCurrentSession}
-                              disabled={passkeyBusy}
-                              className="student-icon-btn text-emerald-700 relative bg-gradient-to-br from-white to-emerald-50 border-emerald-100 transition-all duration-200 disabled:opacity-60"
-                            >
-                              {passkeyBusy ? (
-                                <RefreshCw className="h-5 w-5 animate-spin" />
-                              ) : (
-                                <Fingerprint className="h-5 w-5" />
-                              )}
-                            </button>
+                            <SmartIconGuidance guidanceKey="register_passkey" hint="تفعيل الدخول السريع ببصمة الوجه أو الأصبع">
+                              <button
+                                title="تفعيل الدخول بالبصمة لهذا الجهاز"
+                                aria-label="تفعيل الدخول بالبصمة لهذا الجهاز"
+                                onClick={registerPasskeyForCurrentSession}
+                                disabled={passkeyBusy}
+                                className="student-icon-btn text-emerald-700 relative bg-gradient-to-br from-white to-emerald-50 border-emerald-100 transition-all duration-200 disabled:opacity-60"
+                              >
+                                {passkeyBusy ? (
+                                  <RefreshCw className="h-5 w-5 animate-spin" />
+                                ) : (
+                                  <Fingerprint className="h-5 w-5" />
+                                )}
+                              </button>
+                            </SmartIconGuidance>
                           )}
                         {shouldShowTeacherImportantNotificationsButton && (
                           <div
@@ -26815,16 +26823,18 @@ ${rows
                                       : "لا تنبيهات"}
                                   </span>
                                   <div className="flex shrink-0 items-center justify-end gap-1.5 ml-0.5">
-                                    <button
-                                      type="button"
-                                      aria-label="تحديد الكل كمقروء"
-                                      onClick={
-                                        markAllTeacherImportantNotificationsRead
-                                      }
-                                      className="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-emerald-150 bg-emerald-50 text-emerald-700 shadow-sm hover:bg-emerald-100 hover:text-emerald-800 transition-all"
-                                    >
-                                      <CheckCircle2 className="h-5 w-5" />
-                                    </button>
+                                    <SmartIconGuidance guidanceKey="mark_all_notifications_read" hint="تحديد جميع التنبيهات كمقروءة">
+                                      <button
+                                        type="button"
+                                        aria-label="تحديد الكل كمقروء"
+                                        onClick={
+                                          markAllTeacherImportantNotificationsRead
+                                        }
+                                        className="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-emerald-150 bg-emerald-50 text-emerald-700 shadow-sm hover:bg-emerald-100 hover:text-emerald-800 transition-all"
+                                      >
+                                        <CheckCircle2 className="h-5 w-5" />
+                                      </button>
+                                    </SmartIconGuidance>
                                     <button
                                       type="button"
                                       aria-label="إغلاق التنبيهات"
@@ -29150,19 +29160,21 @@ ${rows
                           className="min-h-[160px] w-full resize-y rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-bold leading-7"
                         />
                         <div className="flex justify-center pt-1">
-                          <button
-                            type="button"
-                            onClick={createLocalProject}
-                            title={
-                              editingProjectId ? "حفظ التعديل" : "حفظ المشروع"
-                            }
-                            aria-label={
-                              editingProjectId ? "حفظ التعديل" : "حفظ المشروع"
-                            }
-                            className="inline-flex h-12 w-12 items-center justify-center rounded-2xl bg-emerald-600 text-white shadow-sm"
-                          >
-                            <Save className="h-5 w-5" />
-                          </button>
+                          <SmartIconGuidance guidanceKey="save_local_project" hint="حفظ بيانات المشروع العملي والتغييرات">
+                            <button
+                              type="button"
+                              onClick={createLocalProject}
+                              title={
+                                editingProjectId ? "حفظ التعديل" : "حفظ المشروع"
+                              }
+                              aria-label={
+                                editingProjectId ? "حفظ التعديل" : "حفظ المشروع"
+                              }
+                              className="inline-flex h-12 w-12 items-center justify-center rounded-2xl bg-emerald-600 text-white shadow-sm"
+                            >
+                              <Save className="h-5 w-5" />
+                            </button>
+                          </SmartIconGuidance>
                         </div>
                       </div>
                     )}
@@ -30130,14 +30142,16 @@ ${rows
                                 </div>
 
                                 <div className="flex items-center justify-center">
-                                  <button
-                                    title="حفظ السؤال"
-                                    aria-label="حفظ السؤال"
-                                    onClick={saveNewQuestion}
-                                    className="inline-flex h-12 w-12 items-center justify-center rounded-2xl bg-indigo-600 text-white shadow-sm transition hover:-translate-y-0.5 hover:bg-slate-950"
-                                  >
-                                    <Save className="h-5 w-5" />
-                                  </button>
+                                  <SmartIconGuidance guidanceKey="save_question_builder" hint="حفظ السؤال الحالي وإضافته لبنك الأسئلة">
+                                    <button
+                                      title="حفظ السؤال"
+                                      aria-label="حفظ السؤال"
+                                      onClick={saveNewQuestion}
+                                      className="inline-flex h-12 w-12 items-center justify-center rounded-2xl bg-indigo-600 text-white shadow-sm transition hover:-translate-y-0.5 hover:bg-slate-950"
+                                    >
+                                      <Save className="h-5 w-5" />
+                                    </button>
+                                  </SmartIconGuidance>
                                 </div>
                               </div>
                             </div>
@@ -30746,23 +30760,25 @@ ${rows
                           >
                             <X className="h-5 w-5" />
                           </button>
-                          <button
-                            type="button"
-                            onClick={saveSection}
-                            title={
-                              editingSectionCode
-                                ? "حفظ تعديل المقرر"
-                                : "حفظ المقرر"
-                            }
-                            aria-label={
-                              editingSectionCode
-                                ? "حفظ تعديل المقرر"
-                                : "حفظ المقرر"
-                            }
-                            className="inline-flex h-12 w-14 items-center justify-center rounded-2xl bg-slate-900 text-white shadow-sm transition-all hover:bg-indigo-600"
-                          >
-                            <Save className="h-5 w-5" />
-                          </button>
+                          <SmartIconGuidance guidanceKey="save_course_section" hint="حفظ بيانات المقرر والتغييرات">
+                            <button
+                              type="button"
+                              onClick={saveSection}
+                              title={
+                                editingSectionCode
+                                  ? "حفظ تعديل المقرر"
+                                  : "حفظ المقرر"
+                              }
+                              aria-label={
+                                editingSectionCode
+                                  ? "حفظ تعديل المقرر"
+                                  : "حفظ المقرر"
+                              }
+                              className="inline-flex h-12 w-14 items-center justify-center rounded-2xl bg-slate-900 text-white shadow-sm transition-all hover:bg-indigo-600"
+                            >
+                              <Save className="h-5 w-5" />
+                            </button>
+                          </SmartIconGuidance>
                         </div>
                       </div>
                     )}
@@ -31348,16 +31364,18 @@ ${rows
                                     <span className={`grid h-11 w-11 place-items-center rounded-2xl ${heal.canHeal ? "bg-indigo-600 text-white" : "bg-emerald-500 text-white"}`}>
                                       {heal.canHeal ? <Sparkles className="h-5 w-5" /> : <CheckCircle2 className="h-5 w-5" />}
                                     </span>
-                                    <button
-                                      type="button"
-                                      title={heal.summary || "أصلح بذكاء"}
-                                      aria-label="أصلح بذكاء"
-                                      onClick={handleDataHeal}
-                                      disabled={dataHealBusy || !heal.canHeal}
-                                      className="grid h-11 w-11 place-items-center rounded-2xl bg-white text-indigo-600 shadow-sm transition btn-spring-active disabled:opacity-50"
-                                    >
-                                      {dataHealBusy ? <RefreshCw className="h-5 w-5 animate-spin" /> : <Sparkles className="h-5 w-5" />}
-                                    </button>
+                                    <SmartIconGuidance guidanceKey="smart_data_heal" hint="إصلاح ومعالجة تعارضات البيانات وتنبيهاتها تلقائيًا">
+                                      <button
+                                        type="button"
+                                        title={heal.summary || "أصلح بذكاء"}
+                                        aria-label="أصلح بذكاء"
+                                        onClick={handleDataHeal}
+                                        disabled={dataHealBusy || !heal.canHeal}
+                                        className="grid h-11 w-11 place-items-center rounded-2xl bg-white text-indigo-600 shadow-sm transition btn-spring-active disabled:opacity-50"
+                                      >
+                                        {dataHealBusy ? <RefreshCw className="h-5 w-5 animate-spin" /> : <Sparkles className="h-5 w-5" />}
+                                      </button>
+                                    </SmartIconGuidance>
                                   </div>
                                   <div className="mt-3 flex flex-wrap gap-1.5">
                                     {(Array.isArray(heal.items) ? heal.items : []).slice(0, 4).map((item: any) => (
@@ -33657,14 +33675,16 @@ ${rows
                                 }
                                 className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-xs font-bold outline-none focus:ring-2 focus:ring-indigo-100"
                               />
-                              <button
-                                onClick={handleCreateJoinCodes}
-                                title="توليد رموز عامة"
-                                aria-label="توليد رموز عامة"
-                                className="inline-flex h-12 w-12 items-center justify-center rounded-2xl bg-indigo-600 text-white hover:bg-slate-950 disabled:bg-slate-300 disabled:text-slate-500 shadow-sm"
-                              >
-                                <Key className="h-5 w-5" />
-                              </button>
+                              <SmartIconGuidance guidanceKey="generate_batch_join_codes" hint="توليد كود تفعيل عام لدفعة من الطلاب">
+                                <button
+                                  onClick={handleCreateJoinCodes}
+                                  title="توليد رموز عامة"
+                                  aria-label="توليد رموز عامة"
+                                  className="inline-flex h-12 w-12 items-center justify-center rounded-2xl bg-indigo-600 text-white hover:bg-slate-950 disabled:bg-slate-300 disabled:text-slate-500 shadow-sm"
+                                >
+                                  <Key className="h-5 w-5" />
+                                </button>
+                              </SmartIconGuidance>
                               {lastGeneratedJoinCodes.length > 0 && (
                                 <div className="rounded-3xl border border-indigo-100 bg-indigo-50/60 p-3 text-right shadow-sm">
                                   <div className="flex items-center justify-between gap-3">
@@ -33807,14 +33827,16 @@ ${rows
                                   الرقم غير موجود في كشف هذا المقرر.
                                 </p>
                               )}
-                            <button
-                              title="توليد رمز خاص"
-                              aria-label="توليد رمز خاص"
-                              onClick={handleCreateSingleStudentCode}
-                              className="inline-flex h-12 w-12 items-center justify-center rounded-2xl bg-emerald-600 text-white hover:bg-emerald-700 shadow-sm"
-                            >
-                              <UserPlus className="h-5 w-5" />
-                            </button>
+                            <SmartIconGuidance guidanceKey="generate_single_student_code" hint="إنشاء كود تفعيل خاص بطالب محدد">
+                              <button
+                                title="توليد رمز خاص"
+                                aria-label="توليد رمز خاص"
+                                onClick={handleCreateSingleStudentCode}
+                                className="inline-flex h-12 w-12 items-center justify-center rounded-2xl bg-emerald-600 text-white hover:bg-emerald-700 shadow-sm"
+                              >
+                                <UserPlus className="h-5 w-5" />
+                              </button>
+                            </SmartIconGuidance>
                           </div>
 	                        )}
 	                      </div>
@@ -34142,15 +34164,17 @@ ${rows
                             >
                               <RefreshCw className={`h-4 w-4 ${activationAttemptBusy ? "animate-spin" : ""}`} />
                             </button>
-                            <button
-                              type="button"
-                              onClick={exportActivationAttemptsToCSV}
-                              title="تصدير سجل المحاولات"
-                              aria-label="تصدير سجل المحاولات"
-                              className="inline-flex h-11 w-11 items-center justify-center rounded-2xl bg-slate-950 text-white shadow-sm transition hover:bg-indigo-700"
-                            >
-                              <Download className="h-4 w-4" />
-                            </button>
+                            <SmartIconGuidance guidanceKey="export_activation_log_csv" hint="تصدير سجل محاولات التفعيل لملف CSV">
+                              <button
+                                type="button"
+                                onClick={exportActivationAttemptsToCSV}
+                                title="تصدير سجل المحاولات"
+                                aria-label="تصدير سجل المحاولات"
+                                className="inline-flex h-11 w-11 items-center justify-center rounded-2xl bg-slate-950 text-white shadow-sm transition hover:bg-indigo-700"
+                              >
+                                <Download className="h-4 w-4" />
+                              </button>
+                            </SmartIconGuidance>
                           </div>
                         </div>
 
