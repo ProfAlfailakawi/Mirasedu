@@ -1,9 +1,8 @@
-import React, { useState, useEffect, useRef, useLayoutEffect } from "react";
+import React, { useState, useEffect, useLayoutEffect, useRef } from "react";
 import { createPortal } from "react-dom";
 import { motion, AnimatePresence } from "motion/react";
 
 const STORAGE_PREFIX = "miras_smart_icon_guidance_v1_";
-const GUTTER = 12;
 
 /**
  * Checks whether a specific guidance key has already been learned by the user.
@@ -24,6 +23,7 @@ export function markGuidanceLearned(key: string): void {
   if (typeof window === "undefined" || !key) return;
   try {
     localStorage.setItem(STORAGE_PREFIX + key, "true");
+    // Dispatch custom event to notify other mounted components in the same session
     window.dispatchEvent(new CustomEvent("miras_icon_guidance_updated", { detail: { key } }));
   } catch {}
 }
@@ -58,81 +58,15 @@ export function SmartIconGuidance({
   const [showTooltip, setShowTooltip] = useState(false);
   const [learned, setLearned] = useState<boolean>(() => isGuidanceLearned(guidanceKey));
   const [coords, setCoords] = useState<{
-    left: number;
     top: number;
+    left: number;
     arrowLeft: number;
-    isTopPlacement: boolean;
+    actualPlacement: "top" | "bottom";
   } | null>(null);
 
-  const wrapperRef = useRef<HTMLDivElement>(null);
-  const tooltipRef = useRef<HTMLDivElement>(null);
+  const containerRef = useRef<HTMLDivElement | null>(null);
+  const tooltipRef = useRef<HTMLDivElement | null>(null);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
-
-  const updatePosition = () => {
-    if (!wrapperRef.current) return;
-    const targetRect = wrapperRef.current.getBoundingClientRect();
-    const iconCenterX = targetRect.left + targetRect.width / 2;
-
-    const viewportWidth = window.innerWidth;
-    const viewportHeight = window.innerHeight;
-
-    let tooltipWidth = 180;
-    let tooltipHeight = 60;
-
-    if (tooltipRef.current) {
-      const rect = tooltipRef.current.getBoundingClientRect();
-      if (rect.width > 0) tooltipWidth = rect.width;
-      if (rect.height > 0) tooltipHeight = rect.height;
-    }
-
-    // Horizontal positioning & clamping inside viewport with 12px gutter
-    const idealLeft = iconCenterX - tooltipWidth / 2;
-    const minLeft = GUTTER;
-    const maxLeft = Math.max(GUTTER, viewportWidth - GUTTER - tooltipWidth);
-    const actualLeft = Math.min(Math.max(idealLeft, minLeft), maxLeft);
-
-    // Arrow pointer position relative to tooltip box
-    const arrowOffsetX = iconCenterX - actualLeft;
-    const clampedArrowLeft = Math.min(Math.max(arrowOffsetX, 14), Math.max(14, tooltipWidth - 14));
-
-    // Vertical positioning
-    let isTop = placement === "top";
-    let actualTop = isTop ? targetRect.top - tooltipHeight - 10 : targetRect.bottom + 10;
-
-    if (isTop && actualTop < GUTTER) {
-      isTop = false;
-      actualTop = targetRect.bottom + 10;
-    } else if (!isTop && actualTop + tooltipHeight > viewportHeight - GUTTER) {
-      isTop = true;
-      actualTop = targetRect.top - tooltipHeight - 10;
-    }
-
-    setCoords({
-      left: actualLeft,
-      top: actualTop,
-      arrowLeft: clampedArrowLeft,
-      isTopPlacement: isTop,
-    });
-  };
-
-  useLayoutEffect(() => {
-    if (showTooltip) {
-      updatePosition();
-      const frame = requestAnimationFrame(() => updatePosition());
-      return () => cancelAnimationFrame(frame);
-    }
-  }, [showTooltip, hint]);
-
-  useEffect(() => {
-    if (!showTooltip) return;
-    const handleUpdate = () => updatePosition();
-    window.addEventListener("scroll", handleUpdate, true);
-    window.addEventListener("resize", handleUpdate);
-    return () => {
-      window.removeEventListener("scroll", handleUpdate, true);
-      window.removeEventListener("resize", handleUpdate);
-    };
-  }, [showTooltip]);
 
   // Sync state if learned status changes globally
   useEffect(() => {
@@ -149,12 +83,67 @@ export function SmartIconGuidance({
     };
   }, [guidanceKey]);
 
-  // Auto-dismiss tooltip after 3.5 seconds
+  // Recalculate fixed portal coordinates with viewport clamping (gutter: 12px)
+  const updatePosition = () => {
+    if (!containerRef.current) return;
+
+    const targetRect = containerRef.current.getBoundingClientRect();
+    const targetCenterX = targetRect.left + targetRect.width / 2;
+
+    const tooltipEl = tooltipRef.current;
+    const ttWidth = tooltipEl ? tooltipEl.offsetWidth : 180;
+    const ttHeight = tooltipEl ? tooltipEl.offsetHeight : 54;
+
+    const GUTTER = 12;
+    const viewportWidth = window.innerWidth;
+
+    let actualPlacement: "top" | "bottom" = placement;
+    if (placement === "top" && targetRect.top - ttHeight - GUTTER < 0) {
+      actualPlacement = "bottom";
+    }
+
+    const calculatedTop =
+      actualPlacement === "top"
+        ? Math.max(GUTTER, targetRect.top - ttHeight - 10)
+        : Math.min(window.innerHeight - ttHeight - GUTTER, targetRect.bottom + 10);
+
+    const idealLeft = targetCenterX - ttWidth / 2;
+    const calculatedLeft = Math.max(
+      GUTTER,
+      Math.min(idealLeft, viewportWidth - ttWidth - GUTTER)
+    );
+
+    const arrowRelativeX = targetCenterX - calculatedLeft;
+    const clampedArrowLeft = Math.max(16, Math.min(arrowRelativeX, ttWidth - 16));
+
+    setCoords({
+      top: calculatedTop,
+      left: calculatedLeft,
+      arrowLeft: clampedArrowLeft,
+      actualPlacement,
+    });
+  };
+
+  // Reposition on mount/show, scroll, or resize
+  useLayoutEffect(() => {
+    if (showTooltip) {
+      updatePosition();
+      const handleScrollOrResize = () => updatePosition();
+      window.addEventListener("scroll", handleScrollOrResize, true);
+      window.addEventListener("resize", handleScrollOrResize);
+      return () => {
+        window.removeEventListener("scroll", handleScrollOrResize, true);
+        window.removeEventListener("resize", handleScrollOrResize);
+      };
+    }
+  }, [showTooltip, placement, hint]);
+
+  // Auto-dismiss tooltip after 3.8 seconds
   useEffect(() => {
     if (showTooltip) {
       timerRef.current = setTimeout(() => {
         setShowTooltip(false);
-      }, 3500);
+      }, 3800);
     }
     return () => {
       if (timerRef.current) clearTimeout(timerRef.current);
@@ -168,7 +157,7 @@ export function SmartIconGuidance({
     const currentlyLearned = learned || isGuidanceLearned(guidanceKey);
 
     if (isTouch && !currentlyLearned) {
-      // First tap on mobile: Intercept click, show guidance tooltip, mark as learned!
+      // First tap on mobile: Intercept click, show guidance tooltip in portal, mark as learned!
       e.preventDefault();
       e.stopPropagation();
 
@@ -192,28 +181,31 @@ export function SmartIconGuidance({
     onClick: handleIntercept,
   });
 
-  const isTop = coords?.isTopPlacement ?? (placement === "top");
-
   return (
-    <div ref={wrapperRef} className={`relative inline-flex items-center justify-center ${className}`}>
+    <div
+      ref={containerRef}
+      className={`inline-flex items-center justify-center ${className}`}
+    >
       {child}
+
+      {/* Render tooltip via React Portal in document.body with fixed positioning */}
       {typeof document !== "undefined" &&
         createPortal(
           <AnimatePresence>
-            {showTooltip && coords && (
+            {showTooltip && (
               <motion.div
                 ref={tooltipRef}
-                initial={{ opacity: 0, scale: 0.88, y: isTop ? 6 : -6 }}
+                initial={{ opacity: 0, scale: 0.88, y: coords?.actualPlacement === "top" ? 6 : -6 }}
                 animate={{ opacity: 1, scale: 1, y: 0 }}
-                exit={{ opacity: 0, scale: 0.88, y: isTop ? 6 : -6 }}
+                exit={{ opacity: 0, scale: 0.88, y: coords?.actualPlacement === "top" ? 6 : -6 }}
                 transition={{ duration: 0.18, ease: "easeOut" }}
                 style={{
                   position: "fixed",
-                  left: `${coords.left}px`,
-                  top: `${coords.top}px`,
-                  zIndex: 99999,
+                  top: coords ? `${coords.top}px` : "-9999px",
+                  left: coords ? `${coords.left}px` : "-9999px",
+                  zIndex: 999999,
                   maxWidth: "220px",
-                  minWidth: "130px",
+                  minWidth: "135px",
                   width: "max-content",
                 }}
                 className="pointer-events-none bg-slate-950/95 text-slate-100 text-[11px] font-medium px-3.5 py-2 rounded-2xl shadow-2xl border border-slate-700/80 backdrop-blur-md text-center leading-tight dir-rtl whitespace-normal select-none"
@@ -224,15 +216,20 @@ export function SmartIconGuidance({
                 </div>
                 <div className="text-slate-100 font-medium leading-snug">{hint}</div>
 
-                {/* Arrow indicator strictly aligned with the center of the icon */}
-                <div
-                  style={{ left: `${coords.arrowLeft}px` }}
-                  className={`absolute -translate-x-1/2 border-4 border-transparent ${
-                    isTop
-                      ? "top-full -mt-px border-t-slate-950/95"
-                      : "bottom-full -mb-px border-b-slate-950/95"
-                  }`}
-                />
+                {/* Arrow Pointer positioned accurately to match target button center */}
+                {coords && (
+                  <div
+                    className={`absolute border-4 border-transparent ${
+                      coords.actualPlacement === "top"
+                        ? "top-full -mt-px border-t-slate-950/95"
+                        : "bottom-full -mb-px border-b-slate-950/95"
+                    }`}
+                    style={{
+                      left: `${coords.arrowLeft}px`,
+                      transform: "translateX(-50%)",
+                    }}
+                  />
+                )}
               </motion.div>
             )}
           </AnimatePresence>,
