@@ -22109,8 +22109,19 @@ ${rows
     );
   };
 
-  const showTeacherOnboarding = false;
-  const showStudentOnboarding = false;
+  const showTeacherOnboarding =
+    currentView === "teacher_workspace" &&
+    !!teacherSession &&
+    !!teacherOnboardingKey &&
+    !dismissedOnboarding[teacherOnboardingKey] &&
+    !isOnboardingDone(teacherOnboardingKey);
+  const showStudentOnboarding =
+    currentView === "student_workspace" &&
+    !!studentSession &&
+    !selectedChapterQuiz &&
+    !!studentOnboardingKey &&
+    !dismissedOnboarding[studentOnboardingKey] &&
+    !isOnboardingDone(studentOnboardingKey);
   const isStudentMessageSurface = currentView !== "teacher_workspace";
   const isTransientActivationCameraMessage = (message: any) =>
     /تعذر تشغيل الكاميرا|تعذّر تشغيل الكاميرا|العدسة لم تجهز|camera-video-not-ready|NotReadable|TrackStart|Overconstrained|AbortError|Could not start video source|camera-unavailable/i.test(
