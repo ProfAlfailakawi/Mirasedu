@@ -16975,66 +16975,13 @@ ${rows
         triggerAutoPasskey();
       }
 
-      // If the above automatic launch was blocked or showed the Apple system "Use Passkey" prompt,
-      // ANY subsequent user interaction across the WHOLE screen will intercept and force FaceID instantly
-      // using the user-gesture token.
-      if (!hasAttemptedGesturePasskeyRef.current) {
-        const onFirstInteraction = (event?: Event) => {
-          // استثناء المخرج الاحتياطي «الدخول بكلمة المرور» من اختطاف الإيماءة.
-          //
-          // هذا المستمع مسجَّل على document بمرحلة الالتقاط (capture)، أي يسبق
-          // onClick الخاص بالزر نفسه. فحين يضغط المستخدم زر كلمة المرور كانت
-          // تُطلق محاولة بصمة جديدة فتفتح نافذة النظام *فوق* نموذج كلمة المرور
-          // الذي طلبه للتوّ — ومن تعطّلت بصمته كان يواجه ذلك في كل فتحة بلا مخرج.
-          // (كذلك عند الكتابة في حقل كلمة المرور: keydown يختطف الضغطة فينهار
-          // الكيبورد ويفقد الحقل تركيزه في iOS.)
-          const target = (event?.target as Element | null) || null;
-          if (
-            passkeyPasswordFallback ||
-            (target &&
-              typeof target.closest === "function" &&
-              target.closest("[data-miras-passkey-fallback]"))
-          ) {
-            cleanupGesture();
-            return;
-          }
-          if (
-            !isPasskeyAuthenticatingRef.current &&
-            !passkeyBusy &&
-            typeof document !== "undefined" &&
-            document.visibilityState !== "hidden"
-          ) {
-            hasAttemptedGesturePasskeyRef.current = true;
-            isPasskeyAuthenticatingRef.current = true;
-            void loginWithPasskey({ automatic: true }).finally(() => {
-              isPasskeyAuthenticatingRef.current = false;
-            });
-          }
-          cleanupGesture();
-        };
-
-        const cleanupGesture = () => {
-          if (typeof document !== "undefined") {
-            document.removeEventListener(
-              "pointerdown",
-              onFirstInteraction,
-              true,
-            );
-            document.removeEventListener("keydown", onFirstInteraction, true);
-          }
-        };
-
-        document.addEventListener("pointerdown", onFirstInteraction, {
-          capture: true,
-          once: true,
-        });
-        document.addEventListener("keydown", onFirstInteraction, {
-          capture: true,
-          once: true,
-        });
-
-        return cleanupGesture;
-      }
+      // ملاحظة: كانت هناك آلية إضافية تجعل «أي لمسة أولى على الشاشة» (حتى لو
+      // لم تكن نيّة المستخدم إعادة محاولة البصمة — لمسة حقل، زر آخر، أي مكان)
+      // تُطلق طلب Face ID جديداً فوراً. هذا كان يسبب قفز البصمة أكثر من مرة
+      // بصرياً ويمنع المستخدم من إكمال المصادقة (كل لمسة تُختطف). حُذفت عمداً:
+      // محاولة تلقائية واحدة فقط عند الفتح تكفي؛ إن فشلت يبقى زر البصمة
+      // الصريح المرئي أصلاً (onClick={() => loginWithPasskey()}) كمسار واعٍ
+      // بضغطة واحدة، بلا اختطاف لأي لمسة أخرى على الشاشة.
     }
   }, [
     currentView,
