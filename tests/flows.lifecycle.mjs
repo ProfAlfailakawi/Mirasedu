@@ -184,17 +184,17 @@ await (async () => {
 
   // admin login
   const ajar = makeJar();
-  const alogin = await api("POST", "/api/auth/login", { idNumber: "ahmad.alfailakawi@test.kw", password: "***REDACTED***" }, { jar: ajar, deviceToken: "admin-dev" });
+  const alogin = await api("POST", "/api/auth/login", { idNumber: "ah.alfailakawi@paaet.edu.kw", password: "***REDACTED***" }, { jar: ajar, deviceToken: "admin-dev" });
   check("L7b) super-admin login", alogin.ok && alogin.data.role === "admin", `${alogin.status} ${JSON.stringify(alogin.data).slice(0, 120)}`);
 
   // code-integrity returns dataHealth for admin, and 1001's ghosts are detected
-  const intel = await api("GET", `/api/teacher/code-integrity?teacherEmail=${encodeURIComponent("ahmad.alfailakawi@test.kw")}`, null, { jar: ajar, deviceToken: "admin-dev" });
+  const intel = await api("GET", `/api/teacher/code-integrity?teacherEmail=${encodeURIComponent("ah.alfailakawi@paaet.edu.kw")}`, null, { jar: ajar, deviceToken: "admin-dev" });
   const dh = intel.data?.dataHealth;
   check("L7c) intelligence panel includes dataHealth (admin only)", !!dh && typeof dh.totalIssues === "number", JSON.stringify(dh));
   check("L7d) data health payload is available before heal", !!dh && typeof dh.totalIssues === "number", JSON.stringify(dh));
 
   // one-tap heal
-  const heal = await api("POST", "/api/teacher/data-heal", { teacherEmail: "ahmad.alfailakawi@test.kw" }, { jar: ajar, deviceToken: "admin-dev" });
+  const heal = await api("POST", "/api/teacher/data-heal", { teacherEmail: "ah.alfailakawi@paaet.edu.kw" }, { jar: ajar, deviceToken: "admin-dev" });
   check("L7e) one-tap heal endpoint succeeds", heal.ok && heal.data.success === true, `${heal.status} ${JSON.stringify(heal.data).slice(0,160)}`);
   check("L7f) after heal: ghost students are gone", heal.data.dataHealth && heal.data.dataHealth.ghostStudents === 0, JSON.stringify(heal.data.dataHealth));
 })();
@@ -203,8 +203,8 @@ await (async () => {
 // Must NOT auto-enroll, name must show, and a fresh code must work end-to-end.
 await (async () => {
   const ajar = makeJar();
-  await api("POST", "/api/auth/login", { idNumber: "ahmad.alfailakawi@test.kw", password: "***REDACTED***" }, { jar: ajar, deviceToken: "admin-dev" });
-  const S888 = "888-ahmad.alfailakawi@test.kw";
+  await api("POST", "/api/auth/login", { idNumber: "ah.alfailakawi@paaet.edu.kw", password: "***REDACTED***" }, { jar: ajar, deviceToken: "admin-dev" });
+  const S888 = "888-ah.alfailakawi@paaet.edu.kw";
   const codeName = (s) => { const e = (s?.enrollments||[]).find(x=>String(x.courseCode||x.sectionCode||"").toLowerCase()===S888); return e ? [e.isActive, e.courseName] : null; };
 
   await api("POST", "/api/teacher/sections", { code: "888", courseName: "نواة", semester: "الفصل الأول 2026", isOpen: true }, { jar: ajar, deviceToken: "admin-dev" });

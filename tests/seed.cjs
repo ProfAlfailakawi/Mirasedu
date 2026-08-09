@@ -35,10 +35,10 @@ const code = (c, sectionCode, owner, extra = {}) => ({
 
 const db = {
   lastUpdated: Date.now(),
-  // ملاحظة: السوبر أدمن يُعرّف بالبريد المتضمّن "ahmad.alfailakawi" (isAdminEmail)
+  // السوبر أدمن يطابق قائمة البريد الصريحة في الخادم (مطابقة تامة وآمنة).
   teachers: [
     teacher(AA, "د. معلم أ"), teacher(BB, "د. معلم ب"), teacher(CC, "د. معلم ج"), teacher(DD, "د. معلم د"),
-    teacher("ahmad.alfailakawi@test.kw", "السوبر أدمن"),
+    teacher("ah.alfailakawi@paaet.edu.kw", "السوبر أدمن"),
   ],
   sections: [
     section(S_A1, "مقدمة (أ)", AA), section(S_A2, "متقدم (أ)", AA), section(S_C, "خاص (أ)", AA),
@@ -145,7 +145,22 @@ const db = {
     },
   ],
   teacherProjects: [], teacherSubmissions: [], sebAttempts: [], passwordResetRequests: [],
-  activationAttempts: [], notificationTokens: [], inAppNotifications: [], passkeyCredentials: [],
+  activationAttempts: [], notificationTokens: [], inAppNotifications: [], passkeyCredentials: [
+    {
+      id: "teacher-aa-public-device-test",
+      userId: AA,
+      userName: "د. معلم أ",
+      role: "teacher",
+      credentialId: "bWlyYXMtcHVibGljLWRldmljZS10ZXN0LWNyZWRlbnRpYWw",
+      publicKey: [165,1,2,3,38,32,1,33,88,32,127,33,123,21,183,147,147,153,141,156,229,89,98,215,212,110,177,118,8,84,200,109,186,53,139,6,30,86,178,247,153,133,34,88,32,227,81,108,81,156,9,105,174,27,97,252,165,31,197,22,219,209,158,232,235,91,86,57,24,101,25,30,77,180,243,212,183],
+      counter: 0,
+      transports: ["internal"],
+      deviceType: "singleDevice",
+      backedUp: false,
+      createdAt: now,
+      updatedAt: now,
+    },
+  ],
   examSessions: [],
 };
 

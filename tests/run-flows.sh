@@ -76,6 +76,7 @@ run_group tests/flows.exam-create.mjs
 run_group tests/flows.notifications.mjs
 run_group tests/flows.grade-release.mjs
 run_group tests/flows.device-lock.mjs
+run_group tests/flows.public-device-login.mjs
 stop_server
 
 echo ""
