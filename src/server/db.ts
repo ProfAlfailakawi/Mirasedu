@@ -86,6 +86,97 @@ try {
   console.error("⚠️ Failed to initialize Firebase on backend server:", e);
 }
 
+// طلبات الدخول من جهاز عام تبدأ في متصفح الكمبيوتر وتُعتمد من الهاتف. في
+// Cloud Run قد يصل الطلبان إلى نسختين مختلفتين من الخادم، لذلك لا يجوز إبقاء
+// حالة الربط في ذاكرة عملية واحدة. هذا المخزن الصغير منفصل تماماً عن قاعدة
+// بيانات مِراس الأساسية، ويستعمل الذاكرة فقط عندما لا تكون Firestore مهيأة
+// (بيئة الاختبارات والتطوير المحلي).
+const RUNTIME_AUTH_COLLECTION = "mirasRuntimeAuthChallenges";
+const runtimeAuthFallback = new Map<string, Record<string, any>>();
+
+function runtimeAuthDoc(id: string) {
+  const safeId = String(id || "").trim();
+  if (!/^[A-Za-z0-9_-]{20,160}$/.test(safeId)) {
+    throw new Error("INVALID_RUNTIME_AUTH_ID");
+  }
+  return dbFS?.collection(RUNTIME_AUTH_COLLECTION).doc(safeId) || null;
+}
+
+export async function getRuntimeAuthChallenge(id: string) {
+  const doc = runtimeAuthDoc(id);
+  if (!doc) return runtimeAuthFallback.get(id) || null;
+  const snapshot = await doc.get();
+  return snapshot.exists ? snapshot.data() || null : null;
+}
+
+export async function setRuntimeAuthChallenge(
+  id: string,
+  record: Record<string, any>,
+) {
+  const doc = runtimeAuthDoc(id);
+  if (!doc) {
+    runtimeAuthFallback.set(id, record);
+    return;
+  }
+  await doc.set(record);
+}
+
+export async function deleteRuntimeAuthChallenge(id: string) {
+  const doc = runtimeAuthDoc(id);
+  if (!doc) {
+    runtimeAuthFallback.delete(id);
+    return;
+  }
+  await doc.delete();
+}
+
+export type RuntimeAuthMutation<T> = {
+  result: T;
+  next?: Record<string, any> | null;
+};
+
+export async function mutateRuntimeAuthChallenge<T>(
+  id: string,
+  transform: (
+    current: Record<string, any> | null,
+  ) => RuntimeAuthMutation<T>,
+): Promise<T> {
+  const doc = runtimeAuthDoc(id);
+  if (!doc) {
+    const mutation = transform(runtimeAuthFallback.get(id) || null);
+    if (mutation.next === null) runtimeAuthFallback.delete(id);
+    else if (mutation.next) runtimeAuthFallback.set(id, mutation.next);
+    return mutation.result;
+  }
+  return dbFS.runTransaction(async (transaction: any) => {
+    const snapshot = await transaction.get(doc);
+    const mutation = transform(
+      snapshot.exists ? snapshot.data() || null : null,
+    );
+    if (mutation.next === null) transaction.delete(doc);
+    else if (mutation.next) transaction.set(doc, mutation.next);
+    return mutation.result;
+  });
+}
+
+export async function cleanupRuntimeAuthChallenges(now = Date.now()) {
+  if (!dbFS) {
+    for (const [id, record] of runtimeAuthFallback.entries()) {
+      if (Number(record?.purgeAt || 0) <= now) runtimeAuthFallback.delete(id);
+    }
+    return;
+  }
+  const snapshot = await dbFS
+    .collection(RUNTIME_AUTH_COLLECTION)
+    .where("purgeAt", "<=", now)
+    .limit(25)
+    .get();
+  if (snapshot.empty) return;
+  const batch = dbFS.batch();
+  snapshot.docs.forEach((doc: any) => batch.delete(doc.ref));
+  await batch.commit();
+}
+
 // Ensure data directory exists
 const DATA_DIR = path.join(process.cwd(), "data");
 if (!fs.existsSync(DATA_DIR)) {

@@ -4,7 +4,7 @@ const { check, done } = createReporter("FLOWS / SECURITY");
 const teacherJar = makeJar();
 const adminJar = makeJar();
 await api("POST", "/api/auth/login", { idNumber: AA, password: "***REDACTED***" }, { deviceToken: "teacher-dev", jar: teacherJar });
-await api("POST", "/api/auth/login", { idNumber: "ahmad.alfailakawi@test.kw", password: "***REDACTED***" }, { deviceToken: "admin-dev", jar: adminJar });
+await api("POST", "/api/auth/login", { idNumber: "ah.alfailakawi@paaet.edu.kw", password: "***REDACTED***" }, { deviceToken: "admin-dev", jar: adminJar });
 
 // 1) Legacy code remains valid.
 await api("POST", "/api/auth/register", { idNumber: "1002", password: "GoodPass9", email: "1002@paaet.edu.kw" }, { deviceToken: "sec-tok-1002" });
