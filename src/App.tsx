@@ -218,6 +218,7 @@ import {
   Clock,
   Download,
   Search,
+  Command,
   FolderTree,
   Sparkles,
   Lock,
@@ -2757,6 +2758,21 @@ export default function App() {
       manualActivation: false,
     },
   );
+  // نافذة البحث السريع الشاملة لمعلم مِراس (تُفتح بأزرار البحث وزر ⌘ بالنص واختصار ⌘K)
+  const [teacherGlobalSearchOpen, setTeacherGlobalSearchOpen] = useState(false);
+  const [teacherGlobalQuery, setTeacherGlobalQuery] = useState("");
+
+  useEffect(() => {
+    const handleGlobalCmdK = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
+        e.preventDefault();
+        setTeacherGlobalSearchOpen((prev) => !prev);
+      }
+    };
+    window.addEventListener("keydown", handleGlobalCmdK);
+    return () => window.removeEventListener("keydown", handleGlobalCmdK);
+  }, []);
+
   // بحث سريع داخل "تفعيل فوري لملفات الطلبة يدوياً" بالرقم الجامعي أو الاسم —
   // ضروري عند وجود آلاف الطلبة حتى لا تُعرض القائمة كاملة.
   const [manualActivationSearch, setManualActivationSearch] = useState("");
@@ -26603,6 +26619,16 @@ ${rows
                   <User className="h-5 w-5" />
                 </button>
                 <button
+                  type="button"
+                  title="البحث السريع (⌘K)"
+                  aria-label="البحث السريع"
+                  onClick={() => setTeacherGlobalSearchOpen(true)}
+                  className="relative inline-flex h-12 w-12 shrink-0 items-center justify-center rounded-full border-2 border-slate-800 bg-gradient-to-b from-slate-900 via-slate-950 to-black text-amber-400 shadow-[0_8px_25px_rgba(15,23,42,0.4)] ring-2 ring-amber-400/20 transition-all hover:scale-110 active:scale-95 group -translate-y-1 mx-0.5"
+                >
+                  <Search className="h-5 w-5 text-amber-400 group-hover:scale-110 transition-transform duration-200 drop-shadow-[0_2px_8px_rgba(251,191,36,0.5)]" />
+                  <span className="absolute -bottom-1 h-1.5 w-1.5 rounded-full bg-amber-400 shadow-[0_0_8px_#fbbf24]" />
+                </button>
+                <button
                   title="بنك الأسئلة والاختبارات والمشاريع"
                   aria-label="بنك الأسئلة والاختبارات والمشاريع"
                   onClick={() => openTeacherTab("questions")}
@@ -26657,6 +26683,15 @@ ${rows
                 <h1>{teacherTabTitle[teacherTab]}</h1>
               </div>
               <div className="miras-zero-actions-row">
+                <button
+                  type="button"
+                  title="البحث السريع (⌘K)"
+                  aria-label="البحث السريع"
+                  onClick={() => setTeacherGlobalSearchOpen(true)}
+                  className="miras-zero-action-btn bg-slate-950 text-amber-400 border-slate-800 hover:bg-slate-900"
+                >
+                  <Search className="h-5 w-5 text-amber-400" />
+                </button>
                 <button
                   type="button"
                   title="الرئيسية"
@@ -26716,6 +26751,171 @@ ${rows
                   </div>
                 </div>
               )}
+              {/* نافذة البحث السريع الشاملة لمعلم مِراس — (⌘K) */}
+              {teacherGlobalSearchOpen && (
+                <div
+                  className="fixed inset-0 z-50 flex items-start justify-center bg-slate-950/70 p-3 pt-12 backdrop-blur-md sm:pt-20"
+                  onClick={() => setTeacherGlobalSearchOpen(false)}
+                >
+                  <div
+                    className="w-full max-w-2xl overflow-hidden rounded-[2.2rem] border border-slate-800 bg-slate-900/95 p-4 text-white shadow-[0_25px_70px_rgba(0,0,0,0.6)] backdrop-blur-2xl sm:p-6 space-y-4"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    <div className="flex items-center gap-3 rounded-[1.6rem] border border-slate-700 bg-slate-950/80 px-4 py-3 shadow-inner">
+                      <Search className="h-6 w-6 shrink-0 text-amber-400" />
+                      <input
+                        autoFocus
+                        value={teacherGlobalQuery}
+                        onChange={(e) => setTeacherGlobalQuery(e.target.value)}
+                        placeholder="ابحث بالاسم، الرقم الجامعي، مفتاح الدخول، الاختبار..."
+                        className="w-full bg-transparent text-sm font-black text-white placeholder-slate-400 outline-none dir-rtl"
+                      />
+                      {teacherGlobalQuery && (
+                        <button
+                          type="button"
+                          onClick={() => setTeacherGlobalQuery("")}
+                          className="flex h-7 w-7 shrink-0 items-center justify-center rounded-xl bg-slate-800 text-xs text-slate-400 hover:bg-slate-700 hover:text-white"
+                        >
+                          ✕
+                        </button>
+                      )}
+                      <button
+                        type="button"
+                        onClick={() => setTeacherGlobalSearchOpen(false)}
+                        className="flex h-9 w-9 shrink-0 items-center justify-center rounded-2xl bg-slate-800 text-slate-300 hover:bg-slate-700 hover:text-white transition"
+                      >
+                        <X className="h-5 w-5" />
+                      </button>
+                    </div>
+
+                    {!teacherGlobalQuery.trim() ? (
+                      <div className="p-6 text-center text-slate-400 space-y-3">
+                        <div className="inline-flex h-12 w-12 items-center justify-center rounded-full bg-slate-800/80 text-amber-400 border border-slate-700">
+                          <Search className="h-6 w-6 text-amber-400" />
+                        </div>
+                        <p className="text-xs font-bold leading-relaxed">
+                          اكتب اسم طالب، رقماً جامعياً، رمز انضمام، أو اسم اختبار للوصول المباشر إليه
+                        </p>
+                        <div className="flex justify-center gap-2 pt-1 text-[11px] font-extrabold text-slate-500">
+                          <span className="rounded-lg bg-slate-800 px-2.5 py-1 border border-slate-700">اختصار لوحة المفاتيح: ⌘K</span>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="max-h-[60vh] overflow-y-auto space-y-3 dir-rtl pr-1">
+                        {/* 1. نتائج كشف الطلبة */}
+                        {(() => {
+                          const q = normalizeArabicDigits(teacherGlobalQuery).toLowerCase().trim();
+                          const matchedStudents = (students || []).filter((s: any) =>
+                            String(s.name || "").toLowerCase().includes(q) ||
+                            String(s.studentId || "").toLowerCase().includes(q)
+                          ).slice(0, 8);
+
+                          if (matchedStudents.length === 0) return null;
+                          return (
+                            <div className="space-y-1.5">
+                              <span className="text-[11px] font-black text-emerald-400 block px-2">الطلبة ({matchedStudents.length})</span>
+                              {matchedStudents.map((st: any) => (
+                                <button
+                                  key={`gsearch-st-${st.studentId || st.id}`}
+                                  onClick={() => {
+                                    setStudentDirectorySearch(st.studentId || st.name || "");
+                                    openTeacherTab("students");
+                                    setTeacherGlobalSearchOpen(false);
+                                  }}
+                                  className="w-full flex items-center justify-between rounded-2xl border border-slate-800 bg-slate-950/60 p-3 text-right hover:border-emerald-500/50 hover:bg-slate-800/60 transition"
+                                >
+                                  <div className="flex items-center gap-3">
+                                    <User className="h-5 w-5 text-emerald-400 shrink-0" />
+                                    <div>
+                                      <div className="text-xs font-black text-white">{st.name || "طالب"}</div>
+                                      <div className="text-[11px] font-bold text-slate-400" dir="ltr">{st.studentId}</div>
+                                    </div>
+                                  </div>
+                                  <ChevronLeft className="h-4 w-4 text-slate-500" />
+                                </button>
+                              ))}
+                            </div>
+                          );
+                        })()}
+
+                        {/* 2. نتائج مفاتيح الدخول */}
+                        {(() => {
+                          const q = normalizeArabicDigits(teacherGlobalQuery).toLowerCase().trim();
+                          const matchedCodes = (joinCodesList || []).filter((c: any) =>
+                            String(c.code || "").toLowerCase().includes(q) ||
+                            String(c.studentName || "").toLowerCase().includes(q) ||
+                            String(c.studentId || "").toLowerCase().includes(q)
+                          ).slice(0, 6);
+
+                          if (matchedCodes.length === 0) return null;
+                          return (
+                            <div className="space-y-1.5 pt-2">
+                              <span className="text-[11px] font-black text-indigo-400 block px-2">مفاتيح الدخول ({matchedCodes.length})</span>
+                              {matchedCodes.map((cd: any) => (
+                                <button
+                                  key={`gsearch-cd-${cd.id || cd.code}`}
+                                  onClick={() => {
+                                    setCodesFilterSearch(cd.code || "");
+                                    openTeacherTab("codes");
+                                    setTeacherGlobalSearchOpen(false);
+                                  }}
+                                  className="w-full flex items-center justify-between rounded-2xl border border-slate-800 bg-slate-950/60 p-3 text-right hover:border-indigo-500/50 hover:bg-slate-800/60 transition"
+                                >
+                                  <div className="flex items-center gap-3">
+                                    <Key className="h-5 w-5 text-indigo-400 shrink-0" />
+                                    <div>
+                                      <div className="text-xs font-black text-amber-300 tracking-wider font-mono" dir="ltr">{cd.code}</div>
+                                      <div className="text-[11px] font-bold text-slate-400">{cd.studentName || cd.studentId || "عام"}</div>
+                                    </div>
+                                  </div>
+                                  <ChevronLeft className="h-4 w-4 text-slate-500" />
+                                </button>
+                              ))}
+                            </div>
+                          );
+                        })()}
+
+                        {/* 3. نتائج بنك الأسئلة والاختبارات */}
+                        {(() => {
+                          const q = normalizeArabicDigits(teacherGlobalQuery).toLowerCase().trim();
+                          const matchedExams = (questions || []).filter((item: any) =>
+                            String(item.title || "").toLowerCase().includes(q) ||
+                            String(item.category || "").toLowerCase().includes(q)
+                          ).slice(0, 6);
+
+                          if (matchedExams.length === 0) return null;
+                          return (
+                            <div className="space-y-1.5 pt-2">
+                              <span className="text-[11px] font-black text-violet-400 block px-2">الاختبارات والمشاريع ({matchedExams.length})</span>
+                              {matchedExams.map((ex: any) => (
+                                <button
+                                  key={`gsearch-ex-${ex.id}`}
+                                  onClick={() => {
+                                    setQuestionSearch(ex.title || "");
+                                    openTeacherTab("questions");
+                                    setTeacherGlobalSearchOpen(false);
+                                  }}
+                                  className="w-full flex items-center justify-between rounded-2xl border border-slate-800 bg-slate-950/60 p-3 text-right hover:border-violet-500/50 hover:bg-slate-800/60 transition"
+                                >
+                                  <div className="flex items-center gap-3">
+                                    <Layers className="h-5 w-5 text-violet-400 shrink-0" />
+                                    <div>
+                                      <div className="text-xs font-black text-white">{ex.title}</div>
+                                      <div className="text-[11px] font-bold text-slate-400">{ex.category || "اختبار"}</div>
+                                    </div>
+                                  </div>
+                                  <ChevronLeft className="h-4 w-4 text-slate-500" />
+                                </button>
+                              ))}
+                            </div>
+                          );
+                        })()}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
               <header className="meras-topbar teacher-topbar teacher-command-header miras-teacher-v5-header sticky top-0 z-20 mb-6 rounded-[2.2rem] border border-slate-200/80 bg-white/90 px-4 py-1 shadow-premium-md backdrop-blur-2xl sm:px-6 sm:py-2">
                 <div className="flex flex-col gap-5">
                   <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
@@ -26738,6 +26938,14 @@ ${rows
                         className="relative flex items-center gap-2.5"
                         onClick={(e) => e.stopPropagation()}
                       >
+                        <button
+                          title="البحث السريع الشامل (⌘K)"
+                          aria-label="البحث السريع"
+                          onClick={() => setTeacherGlobalSearchOpen(true)}
+                          className="student-icon-btn text-amber-400 relative bg-gradient-to-br from-slate-900 via-slate-950 to-black border-slate-800 hover:border-amber-400/50 shadow-md transition-all duration-200 group"
+                        >
+                          <Search className="h-5 w-5 text-amber-400 group-hover:scale-110 transition-transform duration-200" />
+                        </button>
                         <button
                           title="الرئيسية"
                           onClick={() => openTeacherTab("home")}
@@ -27024,6 +27232,16 @@ ${rows
                         className={`inline-flex h-12 w-12 items-center justify-center rounded-[1.2rem] border shadow-sm transition-all hover:-translate-y-0.5 ${teacherTab === "students" ? "border-emerald-200 bg-gradient-to-br from-emerald-600 to-teal-500 text-white shadow-emerald-200" : "border-slate-200 bg-white/90 text-slate-700 hover:bg-emerald-50 hover:text-emerald-700"}`}
                       >
                         <User className="h-5 w-5" />
+                      </button>
+                      <button
+                        type="button"
+                        title="البحث السريع (⌘K)"
+                        aria-label="البحث السريع"
+                        onClick={() => setTeacherGlobalSearchOpen(true)}
+                        className="relative inline-flex h-12 w-12 shrink-0 items-center justify-center rounded-full border-2 border-slate-800 bg-gradient-to-b from-slate-900 via-slate-950 to-black text-amber-400 shadow-[0_8px_25px_rgba(15,23,42,0.4)] ring-2 ring-amber-400/20 transition-all hover:scale-110 active:scale-95 group -translate-y-1 mx-0.5"
+                      >
+                        <Search className="h-5 w-5 text-amber-400 group-hover:scale-110 transition-transform duration-200 drop-shadow-[0_2px_8px_rgba(251,191,36,0.5)]" />
+                        <span className="absolute -bottom-1 h-1.5 w-1.5 rounded-full bg-amber-400 shadow-[0_0_8px_#fbbf24]" />
                       </button>
                       <button
                         title="بنك الأسئلة والاختبارات والمشاريع"
