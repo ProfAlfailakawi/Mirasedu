@@ -6,6 +6,7 @@ import os from "os";
 import fileUpload from "express-fileupload";
 import crypto from "crypto";
 import dotenv from "dotenv";
+import QRCode from "qrcode";
 import { execFileSync, spawn } from "child_process";
 import { createServer as createViteServer } from "vite";
 import { GoogleGenAI, Type } from "@google/genai";
@@ -32,6 +33,11 @@ import {
   ExamSession,
   firestoreQuotaExceeded,
   firestoreQuotaErrorDetail,
+  getRuntimeAuthChallenge,
+  setRuntimeAuthChallenge,
+  deleteRuntimeAuthChallenge,
+  mutateRuntimeAuthChallenge,
+  cleanupRuntimeAuthChallenges,
 } from "./src/server/db.js";
 import type { SharingRingGraph } from "./src/shared/types";
 
@@ -76,6 +82,46 @@ const pendingPasskeyAuthentications = new Map<
 >();
 const PASSKEY_CHALLENGE_TTL_MS = 5 * 60 * 1000;
 
+type PublicDeviceLoginStatus = "pending" | "approved" | "delivered";
+type PendingPublicDeviceLogin = {
+  id: string;
+  teacherEmail: string;
+  teacherName: string;
+  appOrigin: string;
+  desktopSecretHash: string;
+  approvalSecretHash: string;
+  desktopDeviceHash: string;
+  desktopLabel: string;
+  pairingCode: string;
+  startedAt: number;
+  expiresAt: number;
+  status: PublicDeviceLoginStatus;
+  approvedAt?: number;
+  approvedCredentialId?: string;
+  deliveredAt?: number;
+  sessionIssuedAt?: number;
+  sessionExpiresAt?: number;
+  approvalChallenge?: string;
+  approvalChallengeStartedAt?: number;
+  purgeAt: number;
+};
+const publicDeviceStartBuckets = new Map<
+  string,
+  { count: number; windowStartedAt: number }
+>();
+const PUBLIC_DEVICE_LOGIN_TTL_MS = 2 * 60 * 1000;
+const PUBLIC_DEVICE_DELIVERY_GRACE_MS = 45 * 1000;
+const PUBLIC_DEVICE_START_WINDOW_MS = 5 * 60 * 1000;
+const PUBLIC_DEVICE_START_MAX = 8;
+const PUBLIC_DEVICE_TEACHER_SESSION_TTL_MS = 4 * 60 * 60 * 1000;
+const PUBLIC_DEVICE_ADMIN_SESSION_TTL_MS = 60 * 60 * 1000;
+const MIRAS_PUBLIC_LOGIN_DEFAULT_ORIGINS = new Set([
+  "https://mirasedu.web.app",
+  "https://mirasedu.firebaseapp.com",
+  "https://meras-320eb.web.app",
+  "https://meras-320eb.firebaseapp.com",
+]);
+
 const MIRAS_SESSION_COOKIE = "miras_session";
 const MIRAS_DEVICE_COOKIE = "miras_device_secret";
 const MIRAS_SESSION_SECRET =
@@ -89,6 +135,7 @@ type MirasVerifiedSession = {
   userId: string;
   email?: string;
   deviceTokenHash?: string;
+  publicDeviceSession?: boolean;
   issuedAt: number;
   expiresAt: number;
 };
@@ -127,6 +174,13 @@ function cookieOptions(req: express.Request, maxAgeSeconds = 60 * 60 * 24 * 14) 
   return `Path=/; HttpOnly; SameSite=Lax; Max-Age=${maxAgeSeconds}${secure ? "; Secure" : ""}`;
 }
 
+function transientCookieOptions(req: express.Request) {
+  const secure = String(
+    req.headers["x-forwarded-proto"] || req.protocol || "",
+  ).includes("https");
+  return `Path=/; HttpOnly; SameSite=Lax${secure ? "; Secure" : ""}`;
+}
+
 function ensureDeviceSecretCookie(req: express.Request, res: express.Response) {
   const requestExisting = String((req as any).mirasDeviceSecret || "").trim();
   if (requestExisting && requestExisting.length >= 24) return requestExisting;
@@ -153,14 +207,15 @@ function serverBoundDeviceHash(req: express.Request, rawDeviceToken?: any) {
   return hashMirasValue(`${secret}:${raw}`);
 }
 
-function createMirasSessionToken(session: Omit<MirasVerifiedSession, "issuedAt" | "expiresAt"> & { ttlMs?: number }) {
-  const issuedAt = Date.now();
+function createMirasSessionToken(session: Omit<MirasVerifiedSession, "issuedAt" | "expiresAt"> & { ttlMs?: number; issuedAt?: number }) {
+  const issuedAt = Number(session.issuedAt || 0) || Date.now();
   const expiresAt = issuedAt + (session.ttlMs || MIRAS_SESSION_TTL_MS);
   const payload = base64urlEncode(JSON.stringify({
     role: session.role,
     userId: String(session.userId || ""),
     email: session.email ? String(session.email).toLowerCase() : undefined,
     deviceTokenHash: session.deviceTokenHash || undefined,
+    publicDeviceSession: session.publicDeviceSession === true || undefined,
     issuedAt,
     expiresAt,
   }));
@@ -213,6 +268,7 @@ function verifyMirasSessionTokenValue(
       userId: String(parsed.userId || ""),
       email: parsed.email ? String(parsed.email).toLowerCase() : undefined,
       deviceTokenHash: parsed.deviceTokenHash || undefined,
+      publicDeviceSession: parsed.publicDeviceSession === true,
       issuedAt: Number(parsed.issuedAt || 0),
       expiresAt: Number(parsed.expiresAt || 0),
     };
@@ -228,7 +284,21 @@ function verifyMirasSessionToken(req: express.Request): MirasVerifiedSession | n
     console.warn(`[AUTH_DEBUG] No token found in request: ${req.method} ${req.path}`);
     return null;
   }
-  return verifyMirasSessionTokenValue(token, `${req.method} ${req.path}`);
+  const session = verifyMirasSessionTokenValue(
+    token,
+    `${req.method} ${req.path}`,
+  );
+  if (!session) return null;
+  if (session.publicDeviceSession) {
+    const currentDeviceToken = getRequestDeviceToken(req);
+    if (
+      !currentDeviceToken ||
+      !session.deviceTokenHash ||
+      hashMirasValue(currentDeviceToken) !== session.deviceTokenHash
+    )
+      return null;
+  }
+  return session;
 }
 
 function attachMirasSessionCookie(req: express.Request, res: express.Response, token: string) {
@@ -247,6 +317,42 @@ function createTeacherAuthPayload(req: express.Request, res: express.Response, t
   });
   attachMirasSessionCookie(req, res, authToken);
   return authToken;
+}
+
+function buildPublicDeviceTeacherAuthPayload(
+  req: express.Request,
+  teacher: any,
+  sessionIssuedAt?: number,
+) {
+  const rawDevice = getRequestDeviceToken(req);
+  const ttlMs = isAdminEmail(teacher?.email)
+    ? PUBLIC_DEVICE_ADMIN_SESSION_TTL_MS
+    : PUBLIC_DEVICE_TEACHER_SESSION_TTL_MS;
+  const authToken = createMirasSessionToken({
+    role: isAdminEmail(teacher?.email) ? "admin" : "teacher",
+    userId: String(teacher?.email || teacher?.id || "").toLowerCase(),
+    email: String(teacher?.email || "").toLowerCase(),
+    deviceTokenHash: rawDevice ? hashMirasValue(rawDevice) : undefined,
+    publicDeviceSession: true,
+    ttlMs,
+    issuedAt: sessionIssuedAt,
+  });
+  const verified = verifyMirasSessionTokenValue(
+    authToken,
+    "public device teacher session",
+  );
+  return { authToken, expiresAt: verified?.expiresAt || Date.now() + ttlMs };
+}
+
+function attachPublicDeviceTeacherCookie(
+  req: express.Request,
+  res: express.Response,
+  authToken: string,
+) {
+  res.append(
+    "Set-Cookie",
+    `${MIRAS_SESSION_COOKIE}=${encodeURIComponent(authToken)}; ${transientCookieOptions(req)}`,
+  );
 }
 
 function createStudentAuthPayload(req: express.Request, res: express.Response, student: any) {
@@ -364,6 +470,121 @@ function getPasskeyRpId(req: express.Request) {
   } catch {
     return "localhost";
   }
+}
+
+function publicLoginAllowedOrigins() {
+  const configured = String(process.env.MIRAS_PUBLIC_LOGIN_ORIGINS || "")
+    .split(",")
+    .map((item) => item.trim().replace(/\/$/, ""))
+    .filter(Boolean);
+  return new Set([...MIRAS_PUBLIC_LOGIN_DEFAULT_ORIGINS, ...configured]);
+}
+
+function publicLoginAppOrigin(req: express.Request) {
+  const requestOrigin = String(req.headers.origin || "")
+    .trim()
+    .replace(/\/$/, "");
+  try {
+    const parsed = new URL(requestOrigin);
+    const isLocal =
+      parsed.protocol === "http:" &&
+      (parsed.hostname === "localhost" || parsed.hostname === "127.0.0.1");
+    if (isLocal || publicLoginAllowedOrigins().has(parsed.origin))
+      return parsed.origin;
+  } catch {}
+
+  const configuredOrigin = String(process.env.MIRAS_PUBLIC_APP_URL || "")
+    .trim()
+    .replace(/\/$/, "");
+  if (configuredOrigin) {
+    try {
+      const parsed = new URL(configuredOrigin);
+      if (parsed.protocol === "https:") return parsed.origin;
+    } catch {}
+  }
+  return "";
+}
+
+function publicLoginDesktopLabel(req: express.Request) {
+  const ua = String(req.headers["user-agent"] || "");
+  const browser = /Edg\//i.test(ua)
+    ? "Microsoft Edge"
+    : /Firefox\//i.test(ua)
+      ? "Firefox"
+      : /Chrome\//i.test(ua) && !/Edg\//i.test(ua)
+        ? "Chrome"
+        : /Safari\//i.test(ua) && !/Chrome\//i.test(ua)
+          ? "Safari"
+          : "متصفح";
+  const system = /Windows/i.test(ua)
+    ? "Windows"
+    : /Macintosh|Mac OS X/i.test(ua)
+      ? "macOS"
+      : /Linux/i.test(ua)
+        ? "Linux"
+        : /iPad/i.test(ua)
+          ? "iPad"
+          : "كمبيوتر";
+  return `${browser} على ${system}`;
+}
+
+function publicLoginSecretMatches(rawSecret: any, expectedHash: string) {
+  const actual = Buffer.from(hashMirasValue(rawSecret), "hex");
+  const expected = Buffer.from(String(expectedHash || ""), "hex");
+  return (
+    actual.length === expected.length &&
+    actual.length > 0 &&
+    crypto.timingSafeEqual(actual, expected)
+  );
+}
+
+function parsePublicLoginApprovalToken(value: any) {
+  const raw = String(value || "").trim();
+  const separator = raw.indexOf(".");
+  if (separator <= 0) return null;
+  const requestId = raw.slice(0, separator);
+  const approvalSecret = raw.slice(separator + 1);
+  if (
+    !/^[A-Za-z0-9_-]{20,}$/.test(requestId) ||
+    !/^[A-Za-z0-9_-]{32,}$/.test(approvalSecret)
+  )
+    return null;
+  return { requestId, approvalSecret };
+}
+
+async function cleanupPublicDeviceLogins() {
+  const now = Date.now();
+  await cleanupRuntimeAuthChallenges(now);
+  for (const [key, bucket] of publicDeviceStartBuckets.entries()) {
+    if (now - bucket.windowStartedAt > PUBLIC_DEVICE_START_WINDOW_MS)
+      publicDeviceStartBuckets.delete(key);
+  }
+}
+
+function consumePublicDeviceStartLimit(req: express.Request, email: string) {
+  const now = Date.now();
+  const key = `${req.ip || "127.0.0.1"}:${String(email || "").toLowerCase()}`;
+  let bucket = publicDeviceStartBuckets.get(key);
+  if (!bucket || now - bucket.windowStartedAt > PUBLIC_DEVICE_START_WINDOW_MS)
+    bucket = { count: 0, windowStartedAt: now };
+  bucket.count += 1;
+  publicDeviceStartBuckets.set(key, bucket);
+  return bucket.count <= PUBLIC_DEVICE_START_MAX;
+}
+
+function findPublicLoginTeacher(email: any) {
+  const normalized = String(email || "").trim().toLowerCase();
+  const user = findPasskeyUser("teacher", normalized);
+  if (!user) return null;
+  const credentials = dbInstance
+    .getPasskeyCredentials()
+    .filter(
+      (item: any) =>
+        item.role === "teacher" &&
+        String(item.userId || "").trim().toLowerCase() ===
+          String(user.id || "").trim().toLowerCase(),
+    );
+  return credentials.length ? { user, credentials } : null;
 }
 
 function cleanupPasskeyChallenges() {
@@ -13725,6 +13946,482 @@ app.post("/api/auth/passkey/login/finish", async (req, res) => {
         : "تعذّر الدخول بالبصمة. حاول مرة أخرى أو استخدم كلمة المرور.";
     return res.status(Number(e?.statusCode || 401)).json({ error: smart });
   }
+});
+
+// دخول آمن من كمبيوتر عام — مسار مستقل للأساتذة والسوبر أدمن فقط.
+// لا يغيّر تسجيل الدخول العادي ولا يقبل أي Passkey لطالب. هاتف الأستاذ يوقّع
+// طلباً قصير العمر، ثم يُسلَّم التوكن المؤقت للكمبيوتر الذي أنشأ الطلب وحده.
+app.post("/api/auth/public-device/availability", (req, res) => {
+  res.setHeader("Cache-Control", "no-store");
+  if (!publicLoginAppOrigin(req)) return res.json({ available: false });
+  const email = String(req.body?.email || "").trim().toLowerCase();
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))
+    return res.json({ available: false });
+  return res.json({ available: !!findPublicLoginTeacher(email) });
+});
+
+app.post("/api/auth/public-device/start", async (req, res) => {
+  res.setHeader("Cache-Control", "no-store");
+  try {
+    await cleanupPublicDeviceLogins().catch(() => {});
+    const appOrigin = publicLoginAppOrigin(req);
+    if (!appOrigin)
+      return res
+        .status(403)
+        .json({ error: "افتح مِراس من رابطه الرسمي ثم حاول مرة أخرى." });
+    const email = String(req.body?.email || "").trim().toLowerCase();
+    const found = findPublicLoginTeacher(email);
+    if (!found)
+      return res.status(404).json({
+        error: "فعّل البصمة لهذا الحساب من جهازك الشخصي أولاً.",
+      });
+    if (!consumePublicDeviceStartLimit(req, email)) {
+      res.setHeader("Retry-After", "300");
+      return res.status(429).json({
+        error: "تم إنشاء عدة طلبات دخول. انتظر خمس دقائق ثم حاول مرة أخرى.",
+      });
+    }
+    const desktopDeviceToken = getRequestDeviceToken(req);
+    if (!desktopDeviceToken || desktopDeviceToken.length < 16)
+      return res.status(400).json({
+        error: "تعذر إنشاء هوية مؤقتة لهذا المتصفح. أوقف التصفح الخاص ثم حاول.",
+      });
+
+    const desktopDeviceHash = hashMirasValue(desktopDeviceToken);
+    const requestId = crypto.randomBytes(24).toString("base64url");
+    const desktopSecret = crypto.randomBytes(32).toString("base64url");
+    const approvalSecret = crypto.randomBytes(32).toString("base64url");
+    const pairingCode = String(crypto.randomInt(1000, 10000));
+    const startedAt = Date.now();
+    const expiresAt = startedAt + PUBLIC_DEVICE_LOGIN_TTL_MS;
+    const approvalToken = `${requestId}.${approvalSecret}`;
+    const approvalUrl = `${appOrigin}/#miras-public-login=${encodeURIComponent(approvalToken)}`;
+    const qrDataUrl = await QRCode.toDataURL(approvalUrl, {
+      width: 360,
+      margin: 2,
+      errorCorrectionLevel: "M",
+      color: { dark: "#0f172a", light: "#ffffff" },
+    });
+    const record: PendingPublicDeviceLogin = {
+      id: requestId,
+      teacherEmail: email,
+      teacherName: found.user.name,
+      appOrigin,
+      desktopSecretHash: hashMirasValue(desktopSecret),
+      approvalSecretHash: hashMirasValue(approvalSecret),
+      desktopDeviceHash,
+      desktopLabel: publicLoginDesktopLabel(req),
+      pairingCode,
+      startedAt,
+      expiresAt,
+      status: "pending",
+      purgeAt: expiresAt,
+    };
+    await setRuntimeAuthChallenge(requestId, record);
+    return res.json({
+      success: true,
+      requestId,
+      desktopSecret,
+      approvalUrl,
+      qrDataUrl,
+      pairingCode,
+      desktopLabel: record.desktopLabel,
+      expiresAt,
+    });
+  } catch (error: any) {
+    console.error("public device login start failed", error);
+    return res
+      .status(500)
+      .json({ error: "تعذر تجهيز رمز الدخول حالياً. حاول مرة أخرى." });
+  }
+});
+
+app.post("/api/auth/public-device/approval/start", async (req, res) => {
+  res.setHeader("Cache-Control", "no-store");
+  try {
+    await cleanupPublicDeviceLogins().catch(() => {});
+    const parsed = parsePublicLoginApprovalToken(req.body?.approvalToken);
+    const record = parsed
+      ? ((await getRuntimeAuthChallenge(
+          parsed.requestId,
+        )) as PendingPublicDeviceLogin | null)
+      : null;
+    if (
+      !parsed ||
+      !record ||
+      !publicLoginSecretMatches(
+        parsed.approvalSecret,
+        record.approvalSecretHash,
+      ) ||
+      Date.now() > record.expiresAt
+    )
+      return res
+        .status(410)
+        .json({ error: "انتهت صلاحية رمز الدخول. أنشئ رمزاً جديداً من الكمبيوتر." });
+    if (getRequestOrigin(req).replace(/\/$/, "") !== record.appOrigin)
+      return res.status(403).json({ error: "رابط الدخول غير موثوق." });
+    if (record.status !== "pending")
+      return res.status(409).json({ error: "تم استخدام طلب الدخول بالفعل." });
+
+    const found = findPublicLoginTeacher(record.teacherEmail);
+    if (!found)
+      return res.status(404).json({ error: "لم تعد بصمة الحساب متاحة." });
+    const options = await generateAuthenticationOptions({
+      rpID: new URL(record.appOrigin).hostname,
+      allowCredentials: found.credentials.map((item: any) => ({
+        id: item.credentialId,
+        transports: item.transports,
+      })),
+      userVerification: "required",
+      timeout: 60000,
+    });
+    const challengeStartedAt = Date.now();
+    const stored = await mutateRuntimeAuthChallenge(
+      record.id,
+      (current): { result: boolean; next?: Record<string, any> } => {
+        const latest = current as PendingPublicDeviceLogin | null;
+        if (
+          !latest ||
+          latest.status !== "pending" ||
+          Date.now() > latest.expiresAt ||
+          latest.approvalSecretHash !== record.approvalSecretHash
+        )
+          return { result: false };
+        return {
+          result: true,
+          next: {
+            ...latest,
+            approvalChallenge: options.challenge,
+            approvalChallengeStartedAt: challengeStartedAt,
+          },
+        };
+      },
+    );
+    if (!stored)
+      return res.status(409).json({ error: "تم استخدام طلب الدخول بالفعل." });
+    return res.json({
+      success: true,
+      options,
+      pairingCode: record.pairingCode,
+      desktopLabel: record.desktopLabel,
+      teacherName: record.teacherName,
+      expiresAt: record.expiresAt,
+    });
+  } catch (error: any) {
+    console.error("public device approval start failed", error);
+    return res
+      .status(500)
+      .json({ error: "تعذر بدء التحقق من الهاتف حالياً." });
+  }
+});
+
+app.post("/api/auth/public-device/approval/finish", async (req, res) => {
+  res.setHeader("Cache-Control", "no-store");
+  try {
+    await cleanupPublicDeviceLogins().catch(() => {});
+    const parsed = parsePublicLoginApprovalToken(req.body?.approvalToken);
+    const response = req.body?.response as AuthenticationResponseJSON;
+    const record = parsed
+      ? ((await getRuntimeAuthChallenge(
+          parsed.requestId,
+        )) as PendingPublicDeviceLogin | null)
+      : null;
+    if (
+      !parsed ||
+      !record ||
+      !response?.id ||
+      !publicLoginSecretMatches(
+        parsed.approvalSecret,
+        record.approvalSecretHash,
+      ) ||
+      Date.now() > record.expiresAt
+    )
+      return res
+        .status(410)
+        .json({ error: "انتهت صلاحية رمز الدخول. أنشئ رمزاً جديداً من الكمبيوتر." });
+    if (getRequestOrigin(req).replace(/\/$/, "") !== record.appOrigin)
+      return res.status(403).json({ error: "رابط الدخول غير موثوق." });
+    if (record.status !== "pending")
+      return res.status(409).json({ error: "تم اعتماد طلب الدخول بالفعل." });
+    if (
+      !record.approvalChallenge ||
+      !record.approvalChallengeStartedAt ||
+      Date.now() - record.approvalChallengeStartedAt >
+        PASSKEY_CHALLENGE_TTL_MS
+    )
+      return res.status(410).json({ error: "انتهت مهلة التحقق من البصمة." });
+
+    const saved = dbInstance
+      .getPasskeyCredentials()
+      .find(
+        (item: any) =>
+          item.credentialId === response.id &&
+          item.role === "teacher" &&
+          String(item.userId || "").trim().toLowerCase() ===
+            record.teacherEmail,
+      );
+    if (!saved)
+      return res.status(403).json({
+        error: "هذه البصمة لا تخص حساب المعلم المطلوب على الكمبيوتر.",
+      });
+
+    const verification = await verifyAuthenticationResponse({
+      response,
+      expectedChallenge: record.approvalChallenge,
+      expectedOrigin: record.appOrigin,
+      expectedRPID: new URL(record.appOrigin).hostname,
+      credential: credentialForVerification(saved),
+      requireUserVerification: true,
+    });
+    if (!verification.verified)
+      return res.status(401).json({ error: "لم يكتمل التحقق من البصمة." });
+
+    const approvedAt = Date.now();
+    const approvedRecord = await mutateRuntimeAuthChallenge(
+      record.id,
+      (
+        current,
+      ): {
+        result: PendingPublicDeviceLogin | null;
+        next?: Record<string, any>;
+      } => {
+        const latest = current as PendingPublicDeviceLogin | null;
+        if (
+          !latest ||
+          latest.status !== "pending" ||
+          latest.approvalChallenge !== record.approvalChallenge ||
+          Date.now() > latest.expiresAt
+        )
+          return { result: null };
+        const next: PendingPublicDeviceLogin = {
+          ...latest,
+          status: "approved",
+          approvedAt,
+          expiresAt: Math.max(
+            latest.expiresAt,
+            approvedAt + PUBLIC_DEVICE_DELIVERY_GRACE_MS,
+          ),
+          approvedCredentialId: saved.credentialId,
+          purgeAt: Math.max(
+            latest.expiresAt,
+            approvedAt + PUBLIC_DEVICE_DELIVERY_GRACE_MS,
+          ),
+        };
+        return { result: next, next };
+      },
+    );
+    if (!approvedRecord)
+      return res.status(409).json({ error: "تم اعتماد طلب الدخول بالفعل." });
+    dbInstance.updatePasskeyCredential(saved.credentialId, {
+      counter: verification.authenticationInfo.newCounter,
+      lastUsedAt: new Date().toISOString(),
+    } as any);
+    try {
+      dbInstance.addActivityLog({
+        studentName: approvedRecord.teacherName,
+        actorEmail: approvedRecord.teacherEmail,
+        teacherEmail: approvedRecord.teacherEmail,
+        action: "اعتماد دخول من جهاز عام",
+        details: `تمت الموافقة من الهاتف على دخول مؤقت إلى ${approvedRecord.desktopLabel}.`,
+        ip: req.ip || "127.0.0.1",
+        userAgent: req.headers["user-agent"] || "Unknown",
+        os: "هاتف موثوق",
+        browser: "Passkey / QR",
+        isViolationWarning: false,
+      });
+    } catch {}
+    return res.json({
+      success: true,
+      pairingCode: approvedRecord.pairingCode,
+      desktopLabel: approvedRecord.desktopLabel,
+      teacherName: approvedRecord.teacherName,
+      message: "تم اعتماد الدخول. يمكنك العودة إلى الكمبيوتر.",
+    });
+  } catch (error: any) {
+    console.error("public device approval finish failed", error);
+    return res.status(401).json({
+      error: "تعذر اعتماد الدخول. تحقق من البصمة وحاول برمز جديد.",
+    });
+  }
+});
+
+app.post("/api/auth/public-device/status", async (req, res) => {
+  res.setHeader("Cache-Control", "no-store");
+  try {
+    const requestId = String(req.body?.requestId || "").trim();
+    const desktopSecret = String(req.body?.desktopSecret || "").trim();
+    if (!/^[A-Za-z0-9_-]{20,160}$/.test(requestId))
+      return res.status(404).json({ error: "طلب الدخول غير موجود." });
+    const record = (await getRuntimeAuthChallenge(
+      requestId,
+    )) as PendingPublicDeviceLogin | null;
+    if (
+      !record ||
+      !publicLoginSecretMatches(desktopSecret, record.desktopSecretHash)
+    )
+      return res.status(404).json({ error: "طلب الدخول غير موجود." });
+    if (record.status !== "delivered" && Date.now() > record.expiresAt)
+      return res.status(410).json({
+        status: "expired",
+        error: "انتهت صلاحية الرمز. أنشئ رمزاً جديداً.",
+      });
+    const desktopDeviceToken = getRequestDeviceToken(req);
+    if (
+      !desktopDeviceToken ||
+      hashMirasValue(desktopDeviceToken) !== record.desktopDeviceHash
+    )
+      return res.status(403).json({ error: "هذا الطلب لا يخص هذا الكمبيوتر." });
+    if (record.status === "pending")
+      return res.json({
+        success: true,
+        status: "pending",
+        expiresAt: record.expiresAt,
+      });
+
+    const found = findPasskeyUser("teacher", record.teacherEmail);
+    if (!found)
+      return res.status(404).json({ error: "حساب المعلم لم يعد متاحاً." });
+    const delivery = await mutateRuntimeAuthChallenge(
+      record.id,
+      (
+        current,
+      ): {
+        result:
+          | { kind: "approved"; record: PendingPublicDeviceLogin }
+          | { kind: "pending"; expiresAt: number }
+          | { kind: "invalid" }
+          | { kind: "expired" };
+        next?: Record<string, any> | null;
+      } => {
+        const latest = current as PendingPublicDeviceLogin | null;
+        if (
+          !latest ||
+          !publicLoginSecretMatches(
+            desktopSecret,
+            latest.desktopSecretHash,
+          ) ||
+          latest.desktopDeviceHash !== hashMirasValue(desktopDeviceToken)
+        )
+          return { result: { kind: "invalid" } };
+        const now = Date.now();
+        if (
+          (latest.status !== "delivered" && now > latest.expiresAt) ||
+          (latest.status === "delivered" &&
+            (!latest.deliveredAt ||
+              now - latest.deliveredAt > PUBLIC_DEVICE_DELIVERY_GRACE_MS))
+        )
+          return { result: { kind: "expired" }, next: null };
+        if (latest.status === "pending")
+          return {
+            result: { kind: "pending", expiresAt: latest.expiresAt },
+          };
+        if (latest.status === "approved") {
+          const ttlMs = isAdminEmail(found.raw?.email)
+            ? PUBLIC_DEVICE_ADMIN_SESSION_TTL_MS
+            : PUBLIC_DEVICE_TEACHER_SESSION_TTL_MS;
+          const next: PendingPublicDeviceLogin = {
+            ...latest,
+            sessionIssuedAt: now,
+            sessionExpiresAt: now + ttlMs,
+            status: "delivered",
+            deliveredAt: now,
+            purgeAt: now + PUBLIC_DEVICE_DELIVERY_GRACE_MS,
+          };
+          return {
+            result: { kind: "approved", record: next },
+            next,
+          };
+        }
+        if (
+          latest.status === "delivered" &&
+          latest.sessionIssuedAt &&
+          latest.sessionExpiresAt
+        )
+          return {
+            result: { kind: "approved", record: latest },
+          };
+        return { result: { kind: "invalid" } };
+      },
+    );
+    if (delivery.kind === "invalid")
+      return res.status(404).json({ error: "طلب الدخول غير موجود." });
+    if (delivery.kind === "expired")
+      return res.status(410).json({
+        status: "expired",
+        error: "انتهت صلاحية الرمز. أنشئ رمزاً جديداً.",
+      });
+    if (delivery.kind === "pending")
+      return res.json({
+        success: true,
+        status: "pending",
+        expiresAt: delivery.expiresAt,
+      });
+    const deliveredRecord = delivery.record;
+    const issued = buildPublicDeviceTeacherAuthPayload(
+      req,
+      found.raw,
+      deliveredRecord.sessionIssuedAt,
+    );
+    attachPublicDeviceTeacherCookie(
+      req,
+      res,
+      issued.authToken,
+    );
+    const effectiveRole = isAdminEmail(found.raw?.email)
+      ? "admin"
+      : "teacher";
+    return res.json({
+      success: true,
+      status: "approved",
+      role: effectiveRole,
+      authToken: issued.authToken,
+      publicDeviceSession: true,
+      expiresAt: deliveredRecord.sessionExpiresAt,
+      teacher: {
+        id: found.raw.id,
+        name: found.raw.name,
+        email: found.raw.email,
+        role: effectiveRole,
+        authToken: issued.authToken,
+        publicDeviceSession: true,
+        publicDeviceExpiresAt: deliveredRecord.sessionExpiresAt,
+        publicDeviceLabel: deliveredRecord.desktopLabel,
+      },
+    });
+  } catch (error) {
+    console.error("public device login status failed", error);
+    return res
+      .status(503)
+      .json({ error: "تعذر التحقق من حالة الدخول حالياً. حاول مرة أخرى." });
+  }
+});
+
+app.post("/api/auth/public-device/cancel", async (req, res) => {
+  res.setHeader("Cache-Control", "no-store");
+  try {
+    const requestId = String(req.body?.requestId || "").trim();
+    const desktopSecret = String(req.body?.desktopSecret || "").trim();
+    if (!/^[A-Za-z0-9_-]{20,160}$/.test(requestId))
+      return res.json({ success: true });
+    const record = (await getRuntimeAuthChallenge(
+      requestId,
+    )) as PendingPublicDeviceLogin | null;
+    if (
+      record &&
+      publicLoginSecretMatches(desktopSecret, record.desktopSecretHash)
+    ) {
+      await deleteRuntimeAuthChallenge(requestId);
+    }
+    return res.json({ success: true });
+  } catch {
+    return res.json({ success: true });
+  }
+});
+
+app.post("/api/auth/logout", (req, res) => {
+  res.setHeader("Cache-Control", "no-store");
+  clearAuthCookies(req, res);
+  return res.json({ success: true });
 });
 
 // Student Login
