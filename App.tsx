@@ -5253,7 +5253,12 @@ export default function App() {
     passkeyUnlockRequired &&
     !!activeLocalPasskeyLock &&
     !passkeyPasswordFallback &&
-    !isSafeExamBrowserSession();
+    !isSafeExamBrowserSession() &&
+    // أثناء الموافقة على دخول جهاز عام من الهاتف: لا نُظهر شاشة قفل بصمة الهاتف
+    // ولا محاولتها التلقائية، وإلا تنافست بصمةُ فتحِ الجلسة بصمةَ الموافقة فتقفز
+    // شاشة Face ID أكثر من مرة ويتعذّر إتمام المصادقة. الموافقة نفسها مصادقة
+    // مكتملة، فتكفي وحدها.
+    !publicLoginApprovalToken;
 
   useEffect(() => {
     if (!shouldShowPasskeyLockScreen) return;
@@ -34298,12 +34303,6 @@ ${rows
                           />
                         )}
                         {teacherSession?.name || "حساب المعلم"}
-                        {teacherSession?.publicDeviceSession && (
-                          <span className="inline-flex items-center gap-1 rounded-full border border-indigo-100 bg-white/90 px-2 py-0.5 text-[8px] font-black text-indigo-700">
-                            <Laptop className="h-2.5 w-2.5" />
-                            جهاز عام · جلسة مؤقتة
-                          </span>
-                        )}
                         {connectionPopoverOpen && (
                           <span className="absolute right-0 bottom-full z-[60] mb-2 whitespace-nowrap rounded-xl border border-emerald-100 bg-white/95 px-3 py-1.5 text-[10px] font-black text-emerald-700 shadow-lg backdrop-blur-md">
                             {isAppOffline
@@ -34314,6 +34313,12 @@ ${rows
                           </span>
                         )}
                       </div>
+                      {teacherSession?.publicDeviceSession && (
+                        <span className="-mt-2 mb-3 inline-flex items-center gap-1.5 self-end whitespace-nowrap rounded-full border border-indigo-100 bg-indigo-50/70 px-2.5 py-1 text-[9.5px] font-black text-indigo-600 shadow-sm">
+                          <Laptop className="h-3 w-3 shrink-0" />
+                          جهاز عام · جلسة مؤقتة
+                        </span>
+                      )}
                       <h1 className="w-full text-right text-[1.9rem] font-black tracking-tight text-slate-950 sm:text-[2.15rem]">
                         {teacherTabTitle[teacherTab]}
                       </h1>
