@@ -33964,10 +33964,10 @@ ${rows
             >
               <div className="miras-teacher-nav-track teacher-orbit-dock-track rounded-[1.6rem] border border-white/80 bg-white/70 p-2 shadow-inner backdrop-blur-xl">
                 <button
-                  title="بحث سريع (⌘K)"
+                  title="بحث سريع"
                   aria-label="بحث سريع"
                   onClick={() => setCmdkOpen(true)}
-                  className="miras-dock-search-btn inline-flex h-12 w-12 items-center justify-center rounded-[1.2rem] border border-indigo-100 bg-indigo-50/60 text-indigo-500 shadow-sm transition-all hover:-translate-y-0.5 hover:border-indigo-200 hover:bg-indigo-100/70 hover:text-indigo-700"
+                  className="miras-dock-search-btn relative -top-3 z-10 inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-slate-900 text-white shadow-[0_10px_25px_rgba(15,23,42,0.35)] ring-4 ring-white/80 transition-all hover:-translate-y-0.5 hover:bg-slate-800"
                 >
                   <Search className="h-[18px] w-[18px]" />
                 </button>
@@ -34490,12 +34490,12 @@ ${rows
                   >
                     <div className="miras-teacher-nav-track teacher-orbit-dock-track rounded-[1.6rem] border border-white/80 bg-white/70 p-2 shadow-inner backdrop-blur-xl">
                       <button
-                        title="بحث سريع (⌘K)"
+                        title="بحث سريع"
                         aria-label="بحث سريع"
                         onClick={() => setCmdkOpen(true)}
-                        className="miras-dock-search-btn inline-flex h-12 w-12 items-center justify-center rounded-[1.2rem] border border-indigo-300 bg-gradient-to-br from-indigo-600 to-blue-600 text-white shadow-sm shadow-indigo-200 transition-all hover:-translate-y-0.5 hover:from-indigo-700 hover:to-blue-700"
+                        className="miras-dock-search-btn relative -top-3 z-10 inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-slate-900 text-white shadow-[0_10px_25px_rgba(15,23,42,0.35)] ring-4 ring-white/80 transition-all hover:-translate-y-0.5 hover:bg-slate-800"
                       >
-                        <Search className="h-5 w-5" />
+                        <Search className="h-[18px] w-[18px]" />
                       </button>
                       <button
                         title="المقررات"
