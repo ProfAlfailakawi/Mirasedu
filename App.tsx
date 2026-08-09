@@ -1290,6 +1290,40 @@ const MIRAS_PASSKEY_LOCAL_LOCK_KEY = "miras_passkey_local_lock_v1";
 const MIRAS_PASSKEY_BACKGROUND_AT_KEY = "miras_passkey_background_at_v1";
 const MIRAS_PASSKEY_LAST_UNLOCK_AT_KEY = "miras_passkey_last_unlock_at";
 const MIRAS_PASSKEY_GRACE_MS = 90 * 60 * 1000;
+const MIRAS_PUBLIC_TEACHER_SESSION_KEY =
+  "miras_public_teacher_session_v1";
+const readMirasPublicTeacherSession = () => {
+  try {
+    const raw = sessionStorage.getItem(MIRAS_PUBLIC_TEACHER_SESSION_KEY);
+    const parsed = raw ? JSON.parse(raw) : null;
+    const expiresAt = Number(parsed?.publicDeviceExpiresAt || 0);
+    if (
+      !parsed?.authToken ||
+      !parsed?.publicDeviceSession ||
+      !expiresAt ||
+      Date.now() >= expiresAt
+    ) {
+      sessionStorage.removeItem(MIRAS_PUBLIC_TEACHER_SESSION_KEY);
+      return null;
+    }
+    return parsed;
+  } catch {
+    return null;
+  }
+};
+const readMirasPublicLoginApprovalToken = () => {
+  try {
+    const marker = "#miras-public-login=";
+    const hash = String(window.location.hash || "");
+    if (!hash.startsWith(marker)) return "";
+    const token = decodeURIComponent(hash.slice(marker.length)).trim();
+    return /^[A-Za-z0-9_-]{20,}\.[A-Za-z0-9_-]{32,}$/.test(token)
+      ? token
+      : "";
+  } catch {
+    return "";
+  }
+};
 const normalizeMirasPasskeyIdentity = (role: any, userId: any) => {
   const id = String(userId || "").trim();
   return role === "teacher" || role === "admin" ? id.toLowerCase() : id;
@@ -2363,7 +2397,9 @@ const mirasRequestShouldAffectFavicon = (
     pathname.endsWith("/snapshot") ||
     pathname.includes("heartbeat") ||
     pathname.includes("session-status") ||
-    pathname === "/api/auth/passkey/status"
+    pathname === "/api/auth/passkey/status" ||
+    pathname === "/api/auth/public-device/availability" ||
+    pathname === "/api/auth/public-device/status"
   );
 };
 
@@ -2420,7 +2456,10 @@ const readStoredSessionAuthToken = (storageKey: string) => {
   try {
     const raw = localStorage.getItem(storageKey);
     const parsed = raw ? JSON.parse(raw) : null;
-    return String(parsed?.authToken || "");
+    if (parsed?.authToken) return String(parsed.authToken);
+    if (storageKey === "miras_teacher_session")
+      return String(readMirasPublicTeacherSession()?.authToken || "");
+    return "";
   } catch {
     return "";
   }
@@ -2444,9 +2483,16 @@ const mirasRequestIsSafeToRetry = (
   ).toUpperCase();
   if (method === "GET" || method === "HEAD") return true;
   const path = mirasRequestPathFromInput(input);
-  // This endpoint only reads the passkey state; Safari can report a transient
-  // "Load failed" while the app is resuming from the background.
-  return method === "POST" && path === "/api/auth/passkey/status";
+  // These POST endpoints are read-only/idempotent; Safari can report a
+  // transient "Load failed" while the app is resuming from the background.
+  return (
+    method === "POST" &&
+    [
+      "/api/auth/passkey/status",
+      "/api/auth/public-device/availability",
+      "/api/auth/public-device/status",
+    ].includes(path)
+  );
 };
 
 const mirasDirectApiFallbackInput = (
@@ -2847,6 +2893,13 @@ export default function App() {
           return "teacher_workspace";
         }
       }
+      const publicTeacher = readMirasPublicTeacherSession();
+      if (
+        publicTeacher &&
+        (publicTeacher.email || publicTeacher.id) &&
+        publicTeacher.authToken
+      )
+        return "teacher_workspace";
     } catch {}
     return "signup";
   });
@@ -3041,6 +3094,8 @@ export default function App() {
     try {
       const stored = localStorage.getItem("miras_teacher_session");
       const parsed = stored ? JSON.parse(stored) : null;
+      const publicSession = readMirasPublicTeacherSession();
+      if (!parsed?.authToken && publicSession?.authToken) return publicSession;
       const parsedRole = parsed?.role === "admin" ? "admin" : "teacher";
       return sessionNeedsPasskeyUnlock(parsedRole, parsed) ||
         !parsed?.authToken
@@ -3083,6 +3138,7 @@ export default function App() {
       ) {
         try {
           localStorage.removeItem("miras_teacher_session");
+          sessionStorage.removeItem(MIRAS_PUBLIC_TEACHER_SESSION_KEY);
         } catch {}
         setTeacherSession(null);
         if (isTeacherSurface) setCurrentView("signup");
@@ -5145,6 +5201,20 @@ export default function App() {
     password: "",
   });
   const [loginForm, setLoginForm] = useState({ idNumber: "", password: "" });
+  const [publicDeviceAvailability, setPublicDeviceAvailability] = useState<
+    "idle" | "checking" | "available" | "unavailable"
+  >("idle");
+  const [publicDeviceLogin, setPublicDeviceLogin] = useState<any>({
+    phase: "idle",
+  });
+  const [publicDeviceClock, setPublicDeviceClock] = useState(() => Date.now());
+  const publicDevicePollBusyRef = useRef(false);
+  const [publicLoginApprovalToken] = useState(() =>
+    readMirasPublicLoginApprovalToken(),
+  );
+  const [publicLoginApproval, setPublicLoginApproval] = useState<any>({
+    phase: publicLoginApprovalToken ? "loading" : "idle",
+  });
   const [passkeyBusy, setPasskeyBusy] = useState(false);
   const [passkeyStatus, setPasskeyStatus] = useState("");
   const [passkeyUnlockRequired, setPasskeyUnlockRequired] = useState(() =>
@@ -9274,9 +9344,19 @@ export default function App() {
       return;
     }
     await unregisterCurrentNotificationToken();
+    if (teacherSession?.publicDeviceSession) {
+      try {
+        await fetch("/api/auth/logout", {
+          method: "POST",
+          cache: "no-store",
+          headers: jsonHeaders({ auth: "teacher", session: teacherSession }),
+        });
+      } catch {}
+    }
     try {
       localStorage.removeItem("miras_student_session");
       localStorage.removeItem("miras_teacher_session");
+      sessionStorage.removeItem(MIRAS_PUBLIC_TEACHER_SESSION_KEY);
     } catch {}
     const wasStudent = !!studentSession;
     setStudentSession(null);
@@ -11597,7 +11677,10 @@ export default function App() {
     try {
       const raw = localStorage.getItem(storageKey);
       const parsed = raw ? JSON.parse(raw) : null;
-      return parsed?.authToken ? String(parsed.authToken) : "";
+      if (parsed?.authToken) return String(parsed.authToken);
+      if (storageKey === "miras_teacher_session")
+        return String(readMirasPublicTeacherSession()?.authToken || "");
+      return "";
     } catch {
       return "";
     }
@@ -15889,7 +15972,7 @@ ${rows
 
   const applyAuthResponse = async (
     data: any,
-    method: "password" | "passkey" = "password",
+    method: "password" | "passkey" | "public-device" = "password",
   ) => {
     setPasskeyUnlockRequired(false);
     setPasskeyPasswordFallback(false);
@@ -15908,14 +15991,32 @@ ${rows
           data.teacher?.authToken ||
           teacherSession?.authToken ||
           "",
+        ...(method === "public-device"
+          ? {
+              publicDeviceSession: true,
+              publicDeviceExpiresAt:
+                data.expiresAt || data.teacher?.publicDeviceExpiresAt,
+            }
+          : {}),
       };
-      try {
-        localStorage.setItem(
-          "miras_teacher_session",
-          JSON.stringify(teacherWithAuth),
-        );
-      } catch {}
-      rememberMirasPasskeyUnlockNow();
+      if (method === "public-device") {
+        try {
+          localStorage.removeItem("miras_teacher_session");
+          sessionStorage.setItem(
+            MIRAS_PUBLIC_TEACHER_SESSION_KEY,
+            JSON.stringify(teacherWithAuth),
+          );
+        } catch {}
+      } else {
+        try {
+          sessionStorage.removeItem(MIRAS_PUBLIC_TEACHER_SESSION_KEY);
+          localStorage.setItem(
+            "miras_teacher_session",
+            JSON.stringify(teacherWithAuth),
+          );
+        } catch {}
+        rememberMirasPasskeyUnlockNow();
+      }
       setTeacherSession(teacherWithAuth);
       if (method === "passkey") {
         rememberPasskeyForSession(
@@ -15945,6 +16046,8 @@ ${rows
       setSuccessMsg(
         method === "passkey"
           ? `مرحباً ${teacherWithAuth.name}. تم الدخول بالبصمة وفتح لوحة التحكم.`
+          : method === "public-device"
+            ? `مرحباً ${teacherWithAuth.name}. فُتحت جلسة آمنة ومؤقتة على هذا الكمبيوتر.`
           : `مرحباً ${teacherWithAuth.name}. تم فتح لوحة التحكم الرئيسية.`,
       );
       setCurrentView("teacher_workspace");
@@ -15964,6 +16067,7 @@ ${rows
     if (data.student) {
       try {
         localStorage.removeItem("miras_teacher_session");
+        sessionStorage.removeItem(MIRAS_PUBLIC_TEACHER_SESSION_KEY);
       } catch {}
       setTeacherSession(null);
       const studentWithAuth = {
@@ -16086,6 +16190,300 @@ ${rows
       return "أعد تسجيل الدخول مرة واحدة لتجديد البصمة.";
     }
     return fallback;
+  };
+
+  useEffect(() => {
+    if (
+      currentView !== "signup" ||
+      !instructorMode ||
+      shouldShowPasskeyLockScreen
+    ) {
+      setPublicDeviceAvailability("idle");
+      return;
+    }
+    const email = String(loginForm.idNumber || "").trim().toLowerCase();
+    if (!isValidEmailFormat(email)) {
+      setPublicDeviceAvailability("idle");
+      return;
+    }
+    setPublicDeviceAvailability("checking");
+    const controller = new AbortController();
+    const timer = window.setTimeout(async () => {
+      try {
+        const resp = await fetch("/api/auth/public-device/availability", {
+          method: "POST",
+          cache: "no-store",
+          signal: controller.signal,
+          headers: jsonHeaders({ auth: "none" }),
+          body: JSON.stringify({ email }),
+        });
+        const data = await resp.json().catch(() => ({}));
+        if (!controller.signal.aborted)
+          setPublicDeviceAvailability(
+            resp.ok && data.available ? "available" : "unavailable",
+          );
+      } catch (error: any) {
+        if (!controller.signal.aborted)
+          setPublicDeviceAvailability("unavailable");
+      }
+    }, 420);
+    return () => {
+      window.clearTimeout(timer);
+      controller.abort();
+    };
+  }, [
+    loginForm.idNumber,
+    currentView,
+    instructorMode,
+    shouldShowPasskeyLockScreen,
+  ]);
+
+  const cancelPublicDeviceLogin = async (close = true) => {
+    const active = publicDeviceLogin;
+    if (close) setPublicDeviceLogin({ phase: "idle" });
+    if (!active?.requestId || !active?.desktopSecret) return;
+    try {
+      await fetch("/api/auth/public-device/cancel", {
+        method: "POST",
+        cache: "no-store",
+        headers: jsonHeaders({ auth: "none" }),
+        body: JSON.stringify({
+          requestId: active.requestId,
+          desktopSecret: active.desktopSecret,
+        }),
+      });
+    } catch {}
+  };
+
+  const startPublicDeviceLogin = async () => {
+    const email = String(loginForm.idNumber || "").trim().toLowerCase();
+    if (
+      publicDeviceAvailability !== "available" ||
+      !isValidEmailFormat(email)
+    )
+      return;
+    setErrorMsg("");
+    setSuccessMsg("");
+    setPublicDeviceLogin({ phase: "starting", email });
+    try {
+      const resp = await fetch("/api/auth/public-device/start", {
+        method: "POST",
+        cache: "no-store",
+        headers: jsonHeaders({ auth: "none" }),
+        body: JSON.stringify({ email, deviceToken: getMirasDeviceId() }),
+      });
+      const data = await resp.json().catch(() => ({}));
+      if (!resp.ok) {
+        setPublicDeviceLogin({
+          phase: "error",
+          email,
+          error: data.error || "تعذر تجهيز رمز الدخول.",
+        });
+        return;
+      }
+      setPublicDeviceClock(Date.now());
+      setPublicDeviceLogin({
+        phase: "waiting",
+        email,
+        requestId: data.requestId,
+        desktopSecret: data.desktopSecret,
+        qrDataUrl: data.qrDataUrl,
+        pairingCode: data.pairingCode,
+        desktopLabel: data.desktopLabel,
+        expiresAt: Number(data.expiresAt || 0),
+      });
+    } catch (error: any) {
+      setPublicDeviceLogin({
+        phase: "error",
+        email,
+        error: "تعذر الاتصال بالخادم. تحقق من الشبكة وحاول مرة أخرى.",
+      });
+    }
+  };
+
+  useEffect(() => {
+    if (publicDeviceLogin.phase !== "waiting") return;
+    let cancelled = false;
+    const tick = async () => {
+      if (cancelled || publicDevicePollBusyRef.current) return;
+      const now = Date.now();
+      setPublicDeviceClock(now);
+      if (now >= Number(publicDeviceLogin.expiresAt || 0) + 10_000) {
+        setPublicDeviceLogin((prev: any) => ({
+          ...prev,
+          phase: "expired",
+          error: "انتهت صلاحية الرمز. أنشئ رمزاً جديداً.",
+        }));
+        return;
+      }
+      publicDevicePollBusyRef.current = true;
+      try {
+        const resp = await fetch("/api/auth/public-device/status", {
+          method: "POST",
+          cache: "no-store",
+          headers: jsonHeaders({ auth: "none" }),
+          body: JSON.stringify({
+            requestId: publicDeviceLogin.requestId,
+            desktopSecret: publicDeviceLogin.desktopSecret,
+            deviceToken: getMirasDeviceId(),
+          }),
+        });
+        const data = await resp.json().catch(() => ({}));
+        if (cancelled) return;
+        if (resp.ok && data.status === "approved") {
+          setPublicDeviceLogin((prev: any) => ({
+            ...prev,
+            phase: "connecting",
+          }));
+          await applyAuthResponse(data, "public-device");
+          try {
+            await fetch("/api/auth/public-device/cancel", {
+              method: "POST",
+              cache: "no-store",
+              headers: jsonHeaders({ auth: "none" }),
+              body: JSON.stringify({
+                requestId: publicDeviceLogin.requestId,
+                desktopSecret: publicDeviceLogin.desktopSecret,
+                deviceToken: getMirasDeviceId(),
+              }),
+            });
+          } catch {}
+          if (!cancelled) setPublicDeviceLogin({ phase: "idle" });
+          return;
+        }
+        if (resp.status === 410 || data.status === "expired") {
+          setPublicDeviceLogin((prev: any) => ({
+            ...prev,
+            phase: "expired",
+            error: data.error || "انتهت صلاحية الرمز.",
+          }));
+        } else if (!resp.ok && resp.status !== 404) {
+          setPublicDeviceLogin((prev: any) => ({
+            ...prev,
+            phase: "error",
+            error: data.error || "تعذر متابعة طلب الدخول.",
+          }));
+        }
+      } catch {
+        // انقطاع عابر لا يلغي الطلب؛ النبضة التالية تعيد المحاولة حتى انتهاء الرمز.
+      } finally {
+        publicDevicePollBusyRef.current = false;
+      }
+    };
+    void tick();
+    const timer = window.setInterval(tick, 1250);
+    return () => {
+      cancelled = true;
+      window.clearInterval(timer);
+      publicDevicePollBusyRef.current = false;
+    };
+  }, [
+    publicDeviceLogin.phase,
+    publicDeviceLogin.requestId,
+    publicDeviceLogin.desktopSecret,
+    publicDeviceLogin.expiresAt,
+  ]);
+
+  useEffect(() => {
+    if (!publicLoginApprovalToken) return;
+    try {
+      window.history.replaceState(
+        {},
+        "",
+        `${window.location.pathname}${window.location.search}`,
+      );
+    } catch {}
+    const controller = new AbortController();
+    const prepare = async () => {
+      try {
+        const resp = await fetch(
+          "/api/auth/public-device/approval/start",
+          {
+            method: "POST",
+            cache: "no-store",
+            signal: controller.signal,
+            headers: jsonHeaders({ auth: "none" }),
+            body: JSON.stringify({
+              approvalToken: publicLoginApprovalToken,
+            }),
+          },
+        );
+        const data = await resp.json().catch(() => ({}));
+        if (controller.signal.aborted) return;
+        if (!resp.ok) {
+          setPublicLoginApproval({
+            phase: "error",
+            error: data.error || "تعذر قراءة طلب الدخول.",
+          });
+          return;
+        }
+        setPublicLoginApproval({
+          phase: "ready",
+          ...data,
+        });
+      } catch (error: any) {
+        if (!controller.signal.aborted)
+          setPublicLoginApproval({
+            phase: "error",
+            error: "تعذر الاتصال بمِراس. تحقق من الشبكة ثم امسح رمزاً جديداً.",
+          });
+      }
+    };
+    void prepare();
+    return () => controller.abort();
+  }, [publicLoginApprovalToken]);
+
+  const confirmPublicDeviceLoginApproval = async () => {
+    if (
+      !publicLoginApprovalToken ||
+      publicLoginApproval.phase !== "ready" ||
+      !publicLoginApproval.options
+    )
+      return;
+    setPublicLoginApproval((prev: any) => ({
+      ...prev,
+      phase: "verifying",
+      error: "",
+    }));
+    try {
+      const webAuthn = await loadMirasWebAuthn();
+      if (!webAuthn.browserSupportsWebAuthn())
+        throw new Error("unsupported");
+      const response = await webAuthn.startAuthentication({
+        optionsJSON: publicLoginApproval.options,
+      });
+      const resp = await fetch("/api/auth/public-device/approval/finish", {
+        method: "POST",
+        cache: "no-store",
+        headers: jsonHeaders({ auth: "none" }),
+        body: JSON.stringify({
+          approvalToken: publicLoginApprovalToken,
+          response,
+        }),
+      });
+      const data = await resp.json().catch(() => ({}));
+      if (!resp.ok) {
+        setPublicLoginApproval((prev: any) => ({
+          ...prev,
+          phase: "error",
+          error: data.error || "تعذر اعتماد الدخول.",
+        }));
+        return;
+      }
+      setPublicLoginApproval({
+        phase: "success",
+        ...data,
+      });
+    } catch (error: any) {
+      setPublicLoginApproval((prev: any) => ({
+        ...prev,
+        phase: "ready",
+        error: passkeyFriendlyError(
+          error,
+          "تعذر التحقق من بصمة المعلم على هذا الهاتف.",
+        ),
+      }));
+    }
   };
 
   const lockActivePasskeySession = (reason = "background") => {
@@ -28111,6 +28509,265 @@ ${rows
       className={`bg-slate-50 text-slate-800 font-sans text-right flex flex-col ${currentView === "teacher_workspace" ? "miras-app-teacher-root miras-teacher-viewport-v5 min-h-screen justify-start overflow-x-hidden" : currentView === "student_workspace" ? "min-h-screen justify-start overflow-x-hidden" : "min-h-screen justify-between"}`}
       dir="rtl"
     >
+      {publicLoginApprovalToken && (
+        <div className="fixed inset-0 z-[200500] flex min-h-[100dvh] items-center justify-center overflow-y-auto bg-[radial-gradient(circle_at_top_right,#e0e7ff_0,transparent_42%),radial-gradient(circle_at_bottom_left,#d1fae5_0,transparent_40%),#f8fafc] px-4 py-7">
+          <div className="relative w-full max-w-md overflow-hidden rounded-[2.25rem] border border-white/90 bg-white/90 p-6 text-center shadow-[0_32px_100px_rgba(15,23,42,0.18)] backdrop-blur-2xl sm:p-8">
+            <div className="absolute inset-x-16 top-0 h-px bg-gradient-to-r from-transparent via-indigo-400 to-transparent" />
+            <span className="mx-auto grid h-16 w-16 place-items-center rounded-[1.4rem] border border-indigo-100 bg-gradient-to-br from-white to-indigo-50 shadow-[0_16px_40px_rgba(79,70,229,0.14)]">
+              <img
+                src="/icon-192.png"
+                alt="مِراس"
+                className="h-12 w-12 object-contain"
+              />
+            </span>
+
+            {publicLoginApproval.phase === "loading" && (
+              <div className="py-8">
+                <RefreshCw className="mx-auto h-7 w-7 animate-spin text-indigo-600" />
+                <p className="mt-4 text-sm font-black text-slate-800">
+                  جارٍ التحقق من طلب الكمبيوتر…
+                </p>
+              </div>
+            )}
+
+            {(publicLoginApproval.phase === "ready" ||
+              publicLoginApproval.phase === "verifying") && (
+              <div className="mt-5">
+                <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-100 bg-emerald-50 px-3 py-1 text-[10px] font-black text-emerald-700">
+                  <Lock className="h-3.5 w-3.5" />
+                  موافقة آمنة من هاتفك
+                </span>
+                <h1 className="mt-4 text-xl font-black tracking-tight text-slate-950">
+                  السماح بالدخول إلى الكمبيوتر؟
+                </h1>
+                <p className="mt-2 text-[12px] font-bold leading-6 text-slate-500">
+                  لن تُرسل كلمة المرور، ولن يُعتمد الكمبيوتر كجهاز شخصي.
+                </p>
+
+                <div className="mt-5 rounded-[1.6rem] border border-slate-100 bg-slate-50/80 p-4 text-right">
+                  <div className="flex items-center gap-3">
+                    <span className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-white text-indigo-650 shadow-sm">
+                      <Laptop className="h-5 w-5" />
+                    </span>
+                    <div className="min-w-0 flex-1">
+                      <p className="text-[10px] font-black text-slate-400">
+                        الجهاز الذي يطلب الدخول
+                      </p>
+                      <p className="mt-1 truncate text-[13px] font-black text-slate-900">
+                        {publicLoginApproval.desktopLabel || "كمبيوتر جديد"}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="mt-3 flex items-center justify-between rounded-2xl border border-indigo-100 bg-white px-4 py-3">
+                    <span className="text-[11px] font-black text-slate-500">
+                      طابق هذا الرمز مع الكمبيوتر
+                    </span>
+                    <strong
+                      dir="ltr"
+                      className="font-mono text-xl font-black tracking-[0.18em] text-indigo-700"
+                    >
+                      {publicLoginApproval.pairingCode}
+                    </strong>
+                  </div>
+                </div>
+
+                {publicLoginApproval.error && (
+                  <p
+                    role="alert"
+                    className="mt-4 rounded-2xl border border-amber-100 bg-amber-50 px-4 py-3 text-[11px] font-black leading-5 text-amber-800"
+                  >
+                    {publicLoginApproval.error}
+                  </p>
+                )}
+
+                <button
+                  type="button"
+                  disabled={publicLoginApproval.phase === "verifying"}
+                  onClick={confirmPublicDeviceLoginApproval}
+                  className="mt-5 flex w-full items-center justify-center gap-2.5 rounded-2xl bg-slate-950 px-5 py-4 text-sm font-black text-white shadow-[0_16px_35px_rgba(15,23,42,0.2)] transition hover:bg-indigo-700 disabled:cursor-wait disabled:opacity-70"
+                >
+                  {publicLoginApproval.phase === "verifying" ? (
+                    <RefreshCw className="h-5 w-5 animate-spin" />
+                  ) : (
+                    <Fingerprint className="h-5 w-5" />
+                  )}
+                  {publicLoginApproval.phase === "verifying"
+                    ? "جارٍ التحقق…"
+                    : "موافقة بالبصمة أو Face ID"}
+                </button>
+                <p className="mt-3 text-[10px] font-bold leading-5 text-slate-400">
+                  إذا لم تكن أنت من بدأ الطلب، أغلق هذه الصفحة ولا توافق.
+                </p>
+              </div>
+            )}
+
+            {publicLoginApproval.phase === "success" && (
+              <div className="mt-5 py-5">
+                <span className="mx-auto grid h-16 w-16 place-items-center rounded-full bg-emerald-50 text-emerald-600 ring-8 ring-emerald-50/60">
+                  <CheckCircle2 className="h-8 w-8" />
+                </span>
+                <h1 className="mt-5 text-xl font-black text-slate-950">
+                  تم اعتماد الدخول
+                </h1>
+                <p className="mt-2 text-[12px] font-bold leading-6 text-slate-500">
+                  سيُفتح مِراس على الكمبيوتر تلقائيًا. يمكنك إغلاق هذه الصفحة.
+                </p>
+                <button
+                  type="button"
+                  onClick={() => window.location.replace("/")}
+                  className="mt-5 rounded-2xl border border-slate-200 bg-white px-5 py-3 text-[12px] font-black text-slate-700 shadow-sm hover:bg-slate-50"
+                >
+                  العودة إلى مِراس
+                </button>
+              </div>
+            )}
+
+            {publicLoginApproval.phase === "error" && (
+              <div className="mt-5 py-5">
+                <span className="mx-auto grid h-14 w-14 place-items-center rounded-full bg-amber-50 text-amber-600">
+                  <AlertTriangle className="h-7 w-7" />
+                </span>
+                <h1 className="mt-5 text-lg font-black text-slate-950">
+                  تعذر اعتماد الطلب
+                </h1>
+                <p className="mt-2 text-[12px] font-bold leading-6 text-slate-500">
+                  {publicLoginApproval.error ||
+                    "أنشئ رمزًا جديدًا من الكمبيوتر ثم امسحه مرة أخرى."}
+                </p>
+                <button
+                  type="button"
+                  onClick={() => window.location.replace("/")}
+                  className="mt-5 rounded-2xl bg-slate-950 px-6 py-3 text-[12px] font-black text-white hover:bg-indigo-700"
+                >
+                  إغلاق والعودة
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {!publicLoginApprovalToken && publicDeviceLogin.phase !== "idle" && (
+        <div
+          className="fixed inset-0 z-[200400] flex items-center justify-center overflow-y-auto bg-slate-950/65 px-4 py-6 backdrop-blur-md"
+          role="dialog"
+          aria-modal="true"
+          aria-label="الدخول الآمن من جهاز عام"
+        >
+          <div className="relative w-full max-w-md overflow-hidden rounded-[2.25rem] border border-white/20 bg-white p-6 text-center shadow-[0_35px_110px_rgba(15,23,42,0.45)] sm:p-8">
+            <button
+              type="button"
+              onClick={() => void cancelPublicDeviceLogin(true)}
+              className="absolute left-4 top-4 grid h-10 w-10 place-items-center rounded-2xl border border-slate-200 bg-white text-slate-500 shadow-sm transition hover:bg-rose-50 hover:text-rose-600"
+              title="إلغاء"
+              aria-label="إلغاء الدخول بالهاتف"
+            >
+              <X className="h-4.5 w-4.5" />
+            </button>
+            <span className="mx-auto grid h-14 w-14 place-items-center rounded-[1.25rem] bg-gradient-to-br from-indigo-600 to-sky-500 text-white shadow-[0_14px_35px_rgba(79,70,229,0.3)]">
+              <Smartphone className="h-7 w-7" />
+            </span>
+            <h2 className="mt-4 text-xl font-black tracking-tight text-slate-950">
+              الدخول بهاتفك من جهاز عام
+            </h2>
+
+            {publicDeviceLogin.phase === "starting" && (
+              <div className="py-12">
+                <RefreshCw className="mx-auto h-8 w-8 animate-spin text-indigo-600" />
+                <p className="mt-4 text-[12px] font-black text-slate-600">
+                  جارٍ إنشاء رمز آمن…
+                </p>
+              </div>
+            )}
+
+            {(publicDeviceLogin.phase === "waiting" ||
+              publicDeviceLogin.phase === "connecting") && (
+              <>
+                <p className="mt-2 text-[11px] font-bold leading-5 text-slate-500">
+                  افتح كاميرا هاتفك الشخصي وامسح الرمز، ثم وافق بالبصمة.
+                </p>
+                <div className="mx-auto mt-5 w-fit rounded-[1.75rem] border border-slate-100 bg-white p-3 shadow-[0_18px_55px_rgba(15,23,42,0.1)]">
+                  <img
+                    src={publicDeviceLogin.qrDataUrl}
+                    alt="رمز QR للدخول الآمن"
+                    className="h-56 w-56 rounded-2xl object-contain sm:h-60 sm:w-60"
+                  />
+                </div>
+                <div className="mx-auto mt-4 flex max-w-[15rem] items-center justify-between rounded-2xl border border-indigo-100 bg-indigo-50/70 px-4 py-3">
+                  <span className="text-right text-[10px] font-black leading-4 text-indigo-800">
+                    رمز المطابقة
+                  </span>
+                  <strong
+                    dir="ltr"
+                    className="font-mono text-xl font-black tracking-[0.18em] text-indigo-700"
+                  >
+                    {publicDeviceLogin.pairingCode}
+                  </strong>
+                </div>
+                <div className="mt-4 flex items-center justify-center gap-2 text-[10px] font-black text-slate-400">
+                  {publicDeviceLogin.phase === "connecting" ? (
+                    <>
+                      <RefreshCw className="h-3.5 w-3.5 animate-spin text-emerald-600" />
+                      تم الاعتماد، جارٍ فتح لوحة التحكم…
+                    </>
+                  ) : (
+                    <>
+                      <Clock className="h-3.5 w-3.5" />
+                      ينتهي الرمز خلال
+                      <span className="font-mono text-slate-700">
+                        {Math.max(
+                          0,
+                          Math.ceil(
+                            (Number(publicDeviceLogin.expiresAt || 0) -
+                              publicDeviceClock) /
+                              1000,
+                          ),
+                        )}
+                      </span>
+                      ثانية
+                    </>
+                  )}
+                </div>
+                <div className="mt-5 grid grid-cols-3 gap-2 border-t border-slate-100 pt-5">
+                  {["امسح", "طابق الرمز", "وافق بالبصمة"].map(
+                    (label, index) => (
+                      <div key={label} className="text-center">
+                        <span className="mx-auto grid h-7 w-7 place-items-center rounded-full bg-slate-100 font-mono text-[10px] font-black text-slate-600">
+                          {index + 1}
+                        </span>
+                        <p className="mt-1.5 text-[9px] font-black text-slate-500">
+                          {label}
+                        </p>
+                      </div>
+                    ),
+                  )}
+                </div>
+              </>
+            )}
+
+            {(publicDeviceLogin.phase === "expired" ||
+              publicDeviceLogin.phase === "error") && (
+              <div className="py-8">
+                <span className="mx-auto grid h-14 w-14 place-items-center rounded-full bg-amber-50 text-amber-600">
+                  <AlertTriangle className="h-7 w-7" />
+                </span>
+                <p className="mx-auto mt-4 max-w-xs text-[12px] font-black leading-6 text-slate-700">
+                  {publicDeviceLogin.error || "تعذر تجهيز رمز الدخول."}
+                </p>
+                <button
+                  type="button"
+                  onClick={startPublicDeviceLogin}
+                  className="mt-5 inline-flex items-center justify-center gap-2 rounded-2xl bg-slate-950 px-6 py-3 text-[12px] font-black text-white hover:bg-indigo-700"
+                >
+                  <RefreshCw className="h-4 w-4" />
+                  إنشاء رمز جديد
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
       <style>{`
 
         /* MIRAS V5 hard teacher viewport: this style tag is rendered after all CSS files. */
@@ -30142,6 +30799,27 @@ ${rows
                       >
                         نسيت كلمة المرور؟
                       </button>
+
+                      {publicDeviceAvailability === "available" && (
+                        <button
+                          type="button"
+                          onClick={startPublicDeviceLogin}
+                          className="group flex w-full items-center gap-3 rounded-[1.35rem] border border-indigo-100 bg-gradient-to-l from-indigo-50/90 via-white to-emerald-50/70 px-4 py-3.5 text-right shadow-[0_10px_28px_rgba(79,70,229,0.08)] transition hover:-translate-y-0.5 hover:border-indigo-200 hover:shadow-[0_15px_35px_rgba(79,70,229,0.13)] active:translate-y-0"
+                        >
+                          <span className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-white text-indigo-700 shadow-sm ring-1 ring-indigo-100 transition group-hover:scale-105">
+                            <Smartphone className="h-5 w-5" />
+                          </span>
+                          <span className="min-w-0 flex-1">
+                            <span className="block text-[12px] font-black text-slate-900">
+                              الدخول بهاتفي من جهاز عام
+                            </span>
+                            <span className="mt-0.5 block text-[9.5px] font-bold leading-4 text-slate-500">
+                              لكمبيوتر الكلية أو أي جهاز غير شخصي
+                            </span>
+                          </span>
+                          <ChevronLeft className="h-4 w-4 shrink-0 text-indigo-400 transition-transform group-hover:-translate-x-0.5" />
+                        </button>
+                      )}
 
                       <div className="flex items-center justify-center gap-3">
                         <button
@@ -33620,6 +34298,12 @@ ${rows
                           />
                         )}
                         {teacherSession?.name || "حساب المعلم"}
+                        {teacherSession?.publicDeviceSession && (
+                          <span className="inline-flex items-center gap-1 rounded-full border border-indigo-100 bg-white/90 px-2 py-0.5 text-[8px] font-black text-indigo-700">
+                            <Laptop className="h-2.5 w-2.5" />
+                            جهاز عام · جلسة مؤقتة
+                          </span>
+                        )}
                         {connectionPopoverOpen && (
                           <span className="absolute right-0 bottom-full z-[60] mb-2 whitespace-nowrap rounded-xl border border-emerald-100 bg-white/95 px-3 py-1.5 text-[10px] font-black text-emerald-700 shadow-lg backdrop-blur-md">
                             {isAppOffline
