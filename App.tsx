@@ -16353,7 +16353,11 @@ ${rows
               }),
             });
           } catch {}
-          if (!cancelled) setPublicDeviceLogin({ phase: "idle" });
+          // إغلاق شاشة QR دائماً بعد نجاح الدخول. لا نحرسها بـ!cancelled: فضبط
+          // phase:"connecting" أعلاه أعاد تشغيل هذا الـeffect وضبط cancelled=true،
+          // فكان الحرس يمنع الإغلاق ويترك الشاشة عالقة على «جارٍ فتح لوحة التحكم».
+          // الدخول اكتمل فعلاً (الجلسة مضبوطة ولوحة التحكم مفتوحة)، فالإغلاق صحيح.
+          setPublicDeviceLogin({ phase: "idle" });
           return;
         }
         if (resp.status === 410 || data.status === "expired") {
@@ -30805,7 +30809,13 @@ ${rows
                         نسيت كلمة المرور؟
                       </button>
 
-                      {publicDeviceAvailability === "available" && (
+                      {/* «الدخول بهاتفي من جهاز عام» يظهر فقط على جهاز غير شخصي:
+                          إذا كان لهذا الجهاز بصمة مسجّلة (activeLocalPasskeyLock)
+                          فهو جهاز المالك — يدخل ببصمته مباشرة، فلا داعي لخيار QR.
+                          يظهر الخيار فقط حين لا توجد بصمة محليّة (كمبيوتر عام/غريب)
+                          مع توفّر بصمة الحساب على هاتفه (publicDeviceAvailability). */}
+                      {publicDeviceAvailability === "available" &&
+                        !activeLocalPasskeyLock && (
                         <button
                           type="button"
                           onClick={startPublicDeviceLogin}
@@ -30817,9 +30827,6 @@ ${rows
                           <span className="min-w-0 flex-1">
                             <span className="block text-[12px] font-black text-slate-900">
                               الدخول بهاتفي من جهاز عام
-                            </span>
-                            <span className="mt-0.5 block text-[9.5px] font-bold leading-4 text-slate-500">
-                              لكمبيوتر الكلية أو أي جهاز غير شخصي
                             </span>
                           </span>
                           <ChevronLeft className="h-4 w-4 shrink-0 text-indigo-400 transition-transform group-hover:-translate-x-0.5" />
@@ -33960,9 +33967,9 @@ ${rows
                   title="بحث سريع (⌘K)"
                   aria-label="بحث سريع"
                   onClick={() => setCmdkOpen(true)}
-                  className="miras-dock-search-btn inline-flex h-12 w-12 items-center justify-center rounded-[1.2rem] border border-indigo-300 bg-gradient-to-br from-indigo-600 to-blue-600 text-white shadow-sm shadow-indigo-200 transition-all hover:-translate-y-0.5 hover:from-indigo-700 hover:to-blue-700"
+                  className="miras-dock-search-btn inline-flex h-12 w-12 items-center justify-center rounded-[1.2rem] border border-indigo-100 bg-indigo-50/60 text-indigo-500 shadow-sm transition-all hover:-translate-y-0.5 hover:border-indigo-200 hover:bg-indigo-100/70 hover:text-indigo-700"
                 >
-                  <Search className="h-5 w-5" />
+                  <Search className="h-[18px] w-[18px]" />
                 </button>
                 <button
                   title="المقررات"
