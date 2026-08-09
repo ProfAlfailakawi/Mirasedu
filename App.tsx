@@ -33909,16 +33909,16 @@ ${rows
               onBlur={() => shrinkTeacherDockSoon(850)}
               aria-label="تنقل حساب المعلم"
             >
-              <button
-                type="button"
-                title="بحث سريع"
-                aria-label="بحث سريع"
-                onClick={() => setCmdkOpen(true)}
-                className="miras-dock-search-btn absolute left-1/2 top-0 z-20 inline-flex h-11 w-11 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-2xl bg-slate-900 text-white shadow-[0_10px_25px_rgba(15,23,42,0.35)] ring-4 ring-white/85 transition-all hover:scale-105 hover:bg-slate-800"
-              >
-                <Search className="h-[18px] w-[18px]" />
-              </button>
               <div className="miras-teacher-nav-track teacher-orbit-dock-track rounded-[1.6rem] border border-white/80 bg-white/70 p-2 shadow-inner backdrop-blur-xl">
+                <button
+                  type="button"
+                  title="بحث سريع"
+                  aria-label="بحث سريع"
+                  onClick={() => setCmdkOpen(true)}
+                  className="miras-dock-search-btn inline-flex h-12 w-12 items-center justify-center rounded-[1.2rem] border border-indigo-100 bg-indigo-50/60 text-indigo-500 shadow-sm transition-all hover:-translate-y-0.5 hover:border-indigo-200 hover:bg-indigo-100/70 hover:text-indigo-700"
+                >
+                  <Search className="h-[18px] w-[18px]" />
+                </button>
                 <button
                   title="المقررات"
                   aria-label="المقررات"
@@ -34436,16 +34436,16 @@ ${rows
                     className={`miras-teacher-nav-shell teacher-orbit-dock teacher-nav-desktop rounded-[2.2rem] border border-white/80 bg-white/75 p-3 shadow-[0_22px_70px_rgba(15,23,42,0.08)] backdrop-blur-2xl ${selectedSubmissionDetail ? "hidden" : ""} ${dockShrunkRef.current ? "teacher-orbit-dock-shrunk" : ""}`}
                     aria-label="تنقل حساب المعلم"
                   >
-                    <button
-                      type="button"
-                      title="بحث سريع"
-                      aria-label="بحث سريع"
-                      onClick={() => setCmdkOpen(true)}
-                      className="miras-dock-search-btn absolute left-1/2 top-0 z-20 inline-flex h-11 w-11 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-2xl bg-slate-900 text-white shadow-[0_10px_25px_rgba(15,23,42,0.35)] ring-4 ring-white/85 transition-all hover:scale-105 hover:bg-slate-800"
-                    >
-                      <Search className="h-[18px] w-[18px]" />
-                    </button>
                     <div className="miras-teacher-nav-track teacher-orbit-dock-track rounded-[1.6rem] border border-white/80 bg-white/70 p-2 shadow-inner backdrop-blur-xl">
+                      <button
+                        type="button"
+                        title="بحث سريع"
+                        aria-label="بحث سريع"
+                        onClick={() => setCmdkOpen(true)}
+                        className="miras-dock-search-btn inline-flex h-12 w-12 items-center justify-center rounded-[1.2rem] border border-indigo-100 bg-indigo-50/60 text-indigo-500 shadow-sm transition-all hover:-translate-y-0.5 hover:border-indigo-200 hover:bg-indigo-100/70 hover:text-indigo-700"
+                      >
+                        <Search className="h-[18px] w-[18px]" />
+                      </button>
                       <button
                         title="المقررات"
                         aria-label="المقررات"
