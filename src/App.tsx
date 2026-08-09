@@ -26585,6 +26585,20 @@ ${rows
             className={`meras-teacher-shell miras-teacher-v5-shell flex-1 min-h-0 teacher-calm-shell teacher-density-${teacherDensityMode}`}
             dir="rtl"
           >
+            {/* Floating Quick Search Button positioned floating directly ABOVE the mobile bottom dock */}
+            <div className="fixed bottom-[calc(5.6rem+env(safe-area-inset-bottom,0px))] left-1/2 -translate-x-1/2 z-30 md:hidden">
+              <button
+                type="button"
+                title="البحث السريع (⌘K)"
+                aria-label="البحث السريع"
+                onClick={() => setTeacherGlobalSearchOpen(true)}
+                className="relative flex h-12 w-12 items-center justify-center rounded-full border-2 border-slate-800 bg-gradient-to-b from-slate-900 via-slate-950 to-black text-amber-400 shadow-[0_12px_32px_rgba(15,23,42,0.5)] ring-2 ring-amber-400/25 transition-all hover:scale-110 active:scale-95 group"
+              >
+                <Search className="h-5 w-5 text-amber-400 group-hover:scale-110 transition-transform duration-200 drop-shadow-[0_2px_8px_rgba(251,191,36,0.6)]" />
+                <span className="absolute -bottom-1 h-1.5 w-1.5 rounded-full bg-amber-400 shadow-[0_0_8px_#fbbf24]" />
+              </button>
+            </div>
+
             {/* Mobile bottom navigation dock - situated at the root wrapper to avoid nested containing-block / backdrop-filter clipping in mobile viewport */}
             <nav
               className={`miras-teacher-nav-shell teacher-orbit-dock teacher-nav-mobile rounded-[2.2rem] border border-white/80 bg-white/75 p-3 shadow-[0_22px_70px_rgba(15,23,42,0.08)] backdrop-blur-2xl `}
@@ -26617,16 +26631,6 @@ ${rows
                   className={`inline-flex h-12 w-12 items-center justify-center rounded-[1.2rem] border shadow-sm transition-all hover:-translate-y-0.5 ${teacherTab === "students" ? "border-emerald-200 bg-gradient-to-br from-emerald-600 to-teal-500 text-white shadow-emerald-200" : "border-slate-200 bg-white/90 text-slate-700 hover:bg-emerald-50 hover:text-emerald-700"}`}
                 >
                   <User className="h-5 w-5" />
-                </button>
-                <button
-                  type="button"
-                  title="البحث السريع (⌘K)"
-                  aria-label="البحث السريع"
-                  onClick={() => setTeacherGlobalSearchOpen(true)}
-                  className="relative inline-flex h-12 w-12 shrink-0 items-center justify-center rounded-full border-2 border-slate-800 bg-gradient-to-b from-slate-900 via-slate-950 to-black text-amber-400 shadow-[0_8px_25px_rgba(15,23,42,0.4)] ring-2 ring-amber-400/20 transition-all hover:scale-110 active:scale-95 group -translate-y-1 mx-0.5"
-                >
-                  <Search className="h-5 w-5 text-amber-400 group-hover:scale-110 transition-transform duration-200 drop-shadow-[0_2px_8px_rgba(251,191,36,0.5)]" />
-                  <span className="absolute -bottom-1 h-1.5 w-1.5 rounded-full bg-amber-400 shadow-[0_0_8px_#fbbf24]" />
                 </button>
                 <button
                   title="بنك الأسئلة والاختبارات والمشاريع"
