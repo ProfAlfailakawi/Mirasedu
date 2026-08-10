@@ -1291,6 +1291,45 @@ const MIRAS_PASSKEY_BACKGROUND_AT_KEY = "miras_passkey_background_at_v1";
 const MIRAS_PASSKEY_LAST_UNLOCK_AT_KEY = "miras_passkey_last_unlock_at";
 const MIRAS_PASSKEY_GRACE_MS = 90 * 60 * 1000;
 
+// ═══ تسجيل تشخيصي مؤقت للبصمة (يُحذف بعد تحديد السبب) ══════════════════════
+// يرسل كل حدث بصمة إلى رادار مِراس كي نرى على جهاز المالك الحقيقي: كم محاولة
+// انطلقت، من أي مسار، وما الخطأ الحقيقي (المحاولة التلقائية تكتم أخطاءها، فلا
+// تظهر أبداً في الواجهة). لا يغيّر أي سلوك، ولا يُرسل كلمات مرور ولا بيانات
+// حساسة — فقط اسم الحدث ونوع الخطأ التقني.
+let mirasPasskeyProbeSeq = 0;
+const mirasPasskeyProbe = (event: string, detail?: any) => {
+  try {
+    mirasPasskeyProbeSeq += 1;
+    const parts: string[] = [`🔑 بصمة #${mirasPasskeyProbeSeq} — ${event}`];
+    if (detail && typeof detail === "object") {
+      const name = String(detail.name || detail.error || "").slice(0, 60);
+      const msg = String(detail.message || "").slice(0, 140);
+      if (name) parts.push(`نوع: ${name}`);
+      if (msg) parts.push(`تفصيل: ${msg}`);
+    } else if (detail !== undefined) {
+      parts.push(String(detail).slice(0, 140));
+    }
+    let vis = "";
+    try {
+      vis = typeof document !== "undefined" ? document.visibilityState : "";
+    } catch {}
+    if (vis) parts.push(`الصفحة: ${vis}`);
+    void fetch("/api/monitor/report", {
+      method: "POST",
+      keepalive: true,
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        message: parts.join(" | "),
+        stack: "",
+        url: "/passkey-probe",
+        source: "client",
+        role: "",
+        userId: "",
+      }),
+    }).catch(() => undefined);
+  } catch {}
+};
+
 // ═══ حارس بنيوي لعمليات WebAuthn ═══════════════════════════════════════════
 // استدعاء navigator.credentials.get() مرة ثانية بينما الأولى ما زالت معلّقة
 // يُجهض الأولى (خطأ "unable"/NotAllowedError على iOS) ويفتح نافذة نظام جديدة —
@@ -16549,6 +16588,9 @@ ${rows
     const studentMatches =
       studentSession && passkeyLockMatchesSession("student", studentSession);
     if (!teacherMatches && !studentMatches) return;
+    // لو ظهر هذا في الرادار أثناء الدخول فمعناه أن شيئاً يُبطل الجلسة الناجحة
+    // ويُعيد القفل — وهو ما يُطلق محاولة بصمة جديدة.
+    mirasPasskeyProbe(`أُعيد قفل الجلسة (السبب: ${reason})`);
     passkeyAutoAttemptRef.current = false;
     hasAttemptedAutoPasskeyRef.current = false;
     hasAttemptedGesturePasskeyRef.current = false;
@@ -16700,6 +16742,9 @@ ${rows
   };
 
   const loginWithPasskey = async (_options?: { automatic?: boolean }) => {
+    mirasPasskeyProbe(
+      _options?.automatic ? "طلب دخول تلقائي (بلا لمسة)" : "طلب دخول بضغطة زر",
+    );
     setErrorMsg("");
     setSuccessMsg("");
     setPasskeyStatus("");
@@ -16709,10 +16754,16 @@ ${rows
       );
       return;
     }
-    if (!(await ensurePasskeyAvailable())) return;
+    if (!(await ensurePasskeyAvailable())) {
+      mirasPasskeyProbe("توقّف: البصمة غير متاحة على هذا الجهاز");
+      return;
+    }
     // عملية تحقّق أخرى جارية الآن؟ لا نبدأ ثانية — بدؤها يُجهض الأولى ويفتح
     // نافذة نظام جديدة (سبب تكرار شاشة البصمة ورسالة "unable").
-    if (!beginMirasPasskeyCeremony()) return;
+    if (!beginMirasPasskeyCeremony()) {
+      mirasPasskeyProbe("مُنع: عملية بصمة أخرى جارية بالفعل ✋");
+      return;
+    }
     try {
       setPasskeyBusy(true);
       setPasskeyStatus("");
@@ -16727,15 +16778,21 @@ ${rows
       });
       const startData = await startResp.json().catch(() => ({}));
       if (!startResp.ok) {
+        mirasPasskeyProbe("فشل /login/start", {
+          name: `HTTP ${startResp.status}`,
+          message: startData.error,
+        });
         if (!_options?.automatic) {
           setErrorMsg(startData.error || "فعّل البصمة أولًا لتتمكن من الدخول");
         }
         return;
       }
       const { startAuthentication } = await loadMirasWebAuthn();
+      mirasPasskeyProbe("فتح نافذة النظام الآن (startAuthentication)");
       const response = await startAuthentication({
         optionsJSON: startData.options,
       });
+      mirasPasskeyProbe("نجح Face ID ✅ — إرسال للخادم");
       const finishResp = await fetch("/api/auth/passkey/login/finish", {
         method: "POST",
         headers: jsonHeaders({ auth: "none" }),
@@ -16743,6 +16800,10 @@ ${rows
       });
       const finishData = await finishResp.json().catch(() => ({}));
       if (!finishResp.ok) {
+        mirasPasskeyProbe("فشل /login/finish (الخادم رفض)", {
+          name: `HTTP ${finishResp.status}`,
+          message: finishData.error,
+        });
         if (!_options?.automatic) {
           setErrorMsg(
             finishData.error ||
@@ -16752,8 +16813,18 @@ ${rows
         return;
       }
       await applyAuthResponse(finishData, "passkey");
+      mirasPasskeyProbe("اكتمل الدخول وفُتحت اللوحة 🎉");
       setPasskeyStatus("تم الدخول بالبصمة بنجاح.");
     } catch (e: any) {
+      // أهم سطر في التشخيص كله: هذا الخطأ مكتوم تماماً في الوضع التلقائي،
+      // وهو الذي سيكشف NotAllowedError (رفض النظام لغياب لمسة المستخدم)
+      // أو AbortError (إجهاض عملية بسبب أخرى).
+      mirasPasskeyProbe(
+        _options?.automatic
+          ? "❌ فشل صامت في المحاولة التلقائية"
+          : "❌ فشل في المحاولة اليدوية",
+        e,
+      );
       if (!_options?.automatic) {
         setErrorMsg(passkeyFriendlyError(e));
       } else {
@@ -17012,6 +17083,9 @@ ${rows
         // أمام الحالتين. الضغط الصريح على زر البصمة لا يمرّ من هنا فلا يتأثر.
         !hasMirasPasskeyAutoAttempted()
       ) {
+        // يكشف إن كان المكوّن يُعاد تركيبه (الـrefs تُصفَّر) — لو ظهر هذا السطر
+        // أكثر من مرة في جلسة واحدة فالسبب إعادة تركيب/تحميل، لا مستدعٍ ثانٍ.
+        mirasPasskeyProbe("بوّابة المحاولة التلقائية فُتحت (أول مرة بالجلسة)");
         hasAttemptedAutoPasskeyRef.current = true;
         isPasskeyAuthenticatingRef.current = true;
         markMirasPasskeyAutoAttempted();
