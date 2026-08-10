@@ -1290,6 +1290,46 @@ const MIRAS_PASSKEY_LOCAL_LOCK_KEY = "miras_passkey_local_lock_v1";
 const MIRAS_PASSKEY_BACKGROUND_AT_KEY = "miras_passkey_background_at_v1";
 const MIRAS_PASSKEY_LAST_UNLOCK_AT_KEY = "miras_passkey_last_unlock_at";
 const MIRAS_PASSKEY_GRACE_MS = 90 * 60 * 1000;
+
+// ═══ حارس بنيوي لعمليات WebAuthn ═══════════════════════════════════════════
+// استدعاء navigator.credentials.get() مرة ثانية بينما الأولى ما زالت معلّقة
+// يُجهض الأولى (خطأ "unable"/NotAllowedError على iOS) ويفتح نافذة نظام جديدة —
+// وهذا ما كان يجعل شاشة البصمة تظهر ٣-٤ مرات متتالية بلا أي لمسة. الحارس
+// موضوع على مستوى الوحدة (لا داخل المكوّن) كي ينجو من إعادة تركيب المكوّن
+// وتصفير الـrefs، فيستحيل بنيوياً وجود عمليتَي تحقّق في آنٍ واحد مهما كان
+// المسار الذي استدعاها (دخول تلقائي، زر صريح، موافقة جهاز عام، إجراء إداري).
+let mirasPasskeyCeremonyBusy = false;
+const beginMirasPasskeyCeremony = () => {
+  if (mirasPasskeyCeremonyBusy) return false;
+  mirasPasskeyCeremonyBusy = true;
+  return true;
+};
+const endMirasPasskeyCeremony = () => {
+  mirasPasskeyCeremonyBusy = false;
+};
+
+// المحاولة التلقائية عند الفتح تُنفَّذ مرة واحدة لكل جلسة تبويب. sessionStorage
+// (لا useRef) كي تصمد أمام إعادة تركيب المكوّن أو إعادة تحميل الصفحة أثناء
+// نافذة البصمة. الضغط الصريح على زر البصمة لا يتأثر بهذا الحدّ إطلاقاً.
+const MIRAS_PASSKEY_AUTO_ATTEMPT_KEY = "miras_passkey_auto_attempted_v1";
+const hasMirasPasskeyAutoAttempted = () => {
+  try {
+    return sessionStorage.getItem(MIRAS_PASSKEY_AUTO_ATTEMPT_KEY) === "1";
+  } catch {
+    return false;
+  }
+};
+const markMirasPasskeyAutoAttempted = () => {
+  try {
+    sessionStorage.setItem(MIRAS_PASSKEY_AUTO_ATTEMPT_KEY, "1");
+  } catch {}
+};
+const clearMirasPasskeyAutoAttempted = () => {
+  try {
+    sessionStorage.removeItem(MIRAS_PASSKEY_AUTO_ATTEMPT_KEY);
+  } catch {}
+};
+
 const MIRAS_PUBLIC_TEACHER_SESSION_KEY =
   "miras_public_teacher_session_v1";
 const readMirasPublicTeacherSession = () => {
@@ -9370,6 +9410,8 @@ export default function App() {
     hasAttemptedAutoPasskeyRef.current = false;
     hasAttemptedGesturePasskeyRef.current = false;
     isPasskeyAuthenticatingRef.current = false;
+    // خروج صريح: نسمح بمحاولة تلقائية جديدة عند الدخول القادم.
+    clearMirasPasskeyAutoAttempted();
     setAvailableChapters([]);
     setTeacherQuestions([]);
     setInstructorMode(true);
@@ -16454,6 +16496,7 @@ ${rows
       phase: "verifying",
       error: "",
     }));
+    if (!beginMirasPasskeyCeremony()) return;
     try {
       const webAuthn = await loadMirasWebAuthn();
       if (!webAuthn.browserSupportsWebAuthn())
@@ -16492,6 +16535,8 @@ ${rows
           "تعذر التحقق من بصمة المعلم على هذا الهاتف.",
         ),
       }));
+    } finally {
+      endMirasPasskeyCeremony();
     }
   };
 
@@ -16508,6 +16553,8 @@ ${rows
     hasAttemptedAutoPasskeyRef.current = false;
     hasAttemptedGesturePasskeyRef.current = false;
     isPasskeyAuthenticatingRef.current = false;
+    // قفل متعمّد بعد غياب طويل: محاولة تلقائية واحدة جديدة مسموحة.
+    clearMirasPasskeyAutoAttempted();
     setPasskeyPasswordFallback(false);
     setPasskeyUnlockRequired(true);
     setCurrentView("signup");
@@ -16663,6 +16710,9 @@ ${rows
       return;
     }
     if (!(await ensurePasskeyAvailable())) return;
+    // عملية تحقّق أخرى جارية الآن؟ لا نبدأ ثانية — بدؤها يُجهض الأولى ويفتح
+    // نافذة نظام جديدة (سبب تكرار شاشة البصمة ورسالة "unable").
+    if (!beginMirasPasskeyCeremony()) return;
     try {
       setPasskeyBusy(true);
       setPasskeyStatus("");
@@ -16710,6 +16760,7 @@ ${rows
         console.warn("Automatic passkey login skipped or failed:", e);
       }
     } finally {
+      endMirasPasskeyCeremony();
       setPasskeyBusy(false);
     }
   };
@@ -16954,10 +17005,16 @@ ${rows
     ) {
       if (
         !hasAttemptedAutoPasskeyRef.current &&
-        !isPasskeyAuthenticatingRef.current
+        !isPasskeyAuthenticatingRef.current &&
+        // حدّ صامد: المحاولة التلقائية مرة واحدة لكل جلسة تبويب. الـrefs أعلاه
+        // تُصفَّر إن أُعيد تركيب المكوّن (أو أُعيد تحميل الصفحة أثناء نافذة
+        // البصمة)، فكانت المحاولة تنطلق من جديد في كل مرة. sessionStorage يصمد
+        // أمام الحالتين. الضغط الصريح على زر البصمة لا يمرّ من هنا فلا يتأثر.
+        !hasMirasPasskeyAutoAttempted()
       ) {
         hasAttemptedAutoPasskeyRef.current = true;
         isPasskeyAuthenticatingRef.current = true;
+        markMirasPasskeyAutoAttempted();
 
         const triggerAutoPasskey = () => {
           if (
