@@ -5344,6 +5344,25 @@ export default function App() {
     // مكتملة، فتكفي وحدها.
     !publicLoginApprovalToken;
 
+  // شاشة دخول مضغوطة لجهاز المعلم الذي فيه بصمة مسجّلة: نعرض الاسم + البصمة
+  // فقط، ولا نرسم حقلَي الرقم وكلمة المرور إطلاقاً. السبب: iOS يعرض اقتراح
+  // «تعبئة كلمة المرور» لمجرد وجود حقل type="password" في الصفحة (يتجاهل
+  // autocomplete="off")، فتتزاحم رسالته مع نافذة البصمة. إخفاء الحقول من شجرة
+  // الصفحة يُنهي الاقتراح من أصله فتبقى نافذة واحدة نظيفة.
+  //
+  // ملاحظة نطاق: نموذج الدخول هذا يخصّ المعلم حصراً — للطالب فرع منفصل تماماً
+  // (نموذج التفعيل/التسجيل تحت !instructorMode)، فكود الطالب لا يتأثر بهذا إطلاقاً.
+  // الأجهزة بلا بصمة (كمبيوتر الكلية) تبقى بشاشتها الكاملة كما هي، وكلمة المرور
+  // تبقى على بُعد ضغطة واحدة عبر زر القفل داخل البطاقة.
+  const showCompactPasskeyLogin =
+    shouldShowPasskeyLockScreen ||
+    (!!activeLocalPasskeyLock &&
+      activeLocalPasskeyLock.role !== "student" &&
+      instructorMode === true &&
+      !passkeyPasswordFallback &&
+      !isSafeExamBrowserSession() &&
+      !publicLoginApprovalToken);
+
   useEffect(() => {
     if (!shouldShowPasskeyLockScreen) return;
     // لا تظهر شاشة القفل المحلية أثناء ثواني التفعيل نفسها؛ كان ذلك يطرد
@@ -30845,7 +30864,7 @@ ${rows
               ) : (
                 /* Login Form */
                 <div className="space-y-5 animate-fade-in">
-                  {shouldShowPasskeyLockScreen ? (
+                  {showCompactPasskeyLogin ? (
                     <div className="miras-passkey-shield-card miras-passkey-shield-card--minimal rounded-[2rem] border border-emerald-100/80 bg-gradient-to-br from-white via-emerald-50/70 to-indigo-50/40 px-5 py-8 text-center shadow-[0_18px_55px_rgba(16,185,129,0.11)]">
                       <div className="flex flex-col items-center gap-6">
                         <div className="flex items-center justify-center gap-6">
