@@ -17117,6 +17117,13 @@ ${rows
       shouldShowPasskeyLockScreen ||
       (currentView === "signup" && instructorMode === true);
 
+    // شرط يقيني لا تخميني: لا تنطلق البصمة إطلاقاً ما دامت شاشة البداية ظاهرة.
+    // شاشة البداية تغطّي الواجهة (fixed inset-0 z-100) ومدّتها قد تتقدّم أو
+    // تتأخّر، وإطلاق الطلب خلفها كان يُرفض بـNotAllowedError (الصفحة ليست
+    // جاهزة للتفاعل). بربط الإطلاق بحالة showSplash نفسها نضمن أنه يقع بعدها
+    // دائماً مهما تغيّر توقيتها — لا اعتماد على أي مؤقّت مقدَّر.
+    if (showSplash) return;
+
     if (
       isLoginVisible &&
       !teacherSession &&
@@ -17199,6 +17206,8 @@ ${rows
     shouldShowPasskeyLockScreen,
     // ظهور البطاقة الأنيقة هو المُطلِق الفعلي للضغط التلقائي على زر البصمة.
     showCompactPasskeyLogin,
+    // اختفاء شاشة البداية يُعيد تشغيل الأثر فتنطلق البصمة بعدها مباشرة.
+    showSplash,
     teacherSession,
     studentSession,
     passkeyBusy,
