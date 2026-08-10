@@ -17015,6 +17015,16 @@ ${rows
         markHidden();
         return;
       }
+      // لا نتحقق من حاجة القفل أثناء تحقّق بصمة نشط الآن. نافذة Face ID
+      // النظامية نفسها تُطلق visibilitychange (إخفاء ثم إظهار) عند ظهورها
+      // واختفائها؛ فكان هذا الفحص يشتغل لحظة "الإظهار" تلك بينما لا يزال
+      // localStorage يحمل الحالة القديمة (الكتابة الفعلية تنتظر رد الخادم من
+      // /passkey/login/finish بعد نجاح Face ID)، فيُستنتج خطأً أن الجلسة تحتاج
+      // قفلاً ويُبطلها فوراً بعد نجاحها ويُصفّر كل الأعلام — فتنطلق محاولة
+      // بصمة جديدة تلقائياً، وهذا بالضبط ما كان يُظهر شاشة البصمة ٣-٤ مرات
+      // متتالية. isPasskeyAuthenticatingRef يبقى true طوال محاولة البصمة
+      // كاملةً (بما فيها انتظار تطبيق الجلسة)، فهو الحارس الدقيق لهذا السباق.
+      if (isPasskeyAuthenticatingRef.current) return;
       if (storedSessionNeedsPasskeyUnlock()) {
         lockActivePasskeySession("background");
       }
