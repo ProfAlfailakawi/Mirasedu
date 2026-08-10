@@ -1350,6 +1350,11 @@ const endMirasPasskeyCeremony = () => {
 // المحاولة التلقائية عند الفتح تُنفَّذ مرة واحدة لكل جلسة تبويب. sessionStorage
 // (لا useRef) كي تصمد أمام إعادة تركيب المكوّن أو إعادة تحميل الصفحة أثناء
 // نافذة البصمة. الضغط الصريح على زر البصمة لا يتأثر بهذا الحدّ إطلاقاً.
+// مهلة استقرار الواجهة قبل فتح نافذة البصمة تلقائياً. إطلاقها لحظة الإقلاع كان
+// يصطدم بشاشة البداية (الصفحة ما زالت hidden → NotAllowedError) وباقتراح كلمة
+// المرور من iOS في اللحظة نفسها، فتتزاحم النوافذ ويفشل الطلب صامتاً فتنطلق
+// محاولة جديدة. الانتظار حتى يستقر كل شيء يجعلها نافذة واحدة نظيفة تلقائية.
+const MIRAS_PASSKEY_AUTO_SETTLE_MS = 1200;
 const MIRAS_PASSKEY_AUTO_ATTEMPT_KEY = "miras_passkey_auto_attempted_v1";
 const hasMirasPasskeyAutoAttempted = () => {
   try {
@@ -17117,26 +17122,42 @@ ${rows
             isPasskeyAuthenticatingRef.current = false;
           });
         };
-        // دليل الرادار: المحاولة التلقائية كانت تنطلق أحياناً والصفحة ما زالت
-        // "hidden" أثناء إقلاع التطبيق، فيرفضها iOS فوراً بـNotAllowedError
-        // (فشل صامت لا يراه المستخدم). بدل الاستسلام حينها، ننتظر أول لحظة
-        // تصبح فيها الصفحة ظاهرة فعلاً ثم نحاول — فتُحترم شروط النظام.
-        if (
-          typeof document !== "undefined" &&
-          document.visibilityState === "hidden"
-        ) {
-          mirasPasskeyProbe("مؤجَّلة: الصفحة مخفية — ننتظر ظهورها");
-          const onVisible = () => {
-            if (document.visibilityState !== "visible") return;
-            document.removeEventListener("visibilitychange", onVisible);
-            mirasPasskeyProbe("الصفحة ظهرت — تشغيل المحاولة المؤجّلة");
+        // دليل الرادار: المحاولة التلقائية كانت تنطلق لحظة الإقلاع بينما الصفحة
+        // ما زالت "hidden" (شاشة البداية) فيرفضها iOS بـNotAllowedError صامتاً،
+        // أو تتزاحم مع اقتراح كلمة المرور من iOS فتفشل. الحل: ننتظر شرطين معاً —
+        // (١) أن تكون الصفحة ظاهرة فعلاً، (٢) أن تستقر الواجهة (انتهاء شاشة
+        // البداية ورسم نموذج الدخول) — ثم نفتح نافذة واحدة نظيفة.
+        const armAutoPasskeyWhenSettled = () => {
+          if (
+            typeof document !== "undefined" &&
+            document.visibilityState !== "visible"
+          ) {
+            mirasPasskeyProbe("مؤجَّلة: الصفحة مخفية — ننتظر ظهورها");
+            const onVisible = () => {
+              if (document.visibilityState !== "visible") return;
+              document.removeEventListener("visibilitychange", onVisible);
+              armAutoPasskeyWhenSettled();
+            };
+            document.addEventListener("visibilitychange", onVisible);
+            return;
+          }
+          mirasPasskeyProbe(
+            `تأجيل ${MIRAS_PASSKEY_AUTO_SETTLE_MS}ms حتى تستقر الواجهة`,
+          );
+          window.setTimeout(() => {
+            // اختفت الصفحة أثناء الانتظار؟ نعيد الترتيب بدل الفشل الصامت.
+            if (
+              typeof document !== "undefined" &&
+              document.visibilityState !== "visible"
+            ) {
+              armAutoPasskeyWhenSettled();
+              return;
+            }
+            mirasPasskeyProbe("الواجهة استقرت — فتح البصمة تلقائياً الآن");
             triggerAutoPasskey();
-          };
-          document.addEventListener("visibilitychange", onVisible);
-        } else {
-          // Trigger auto without setTimeout to maintain gesture context from previous button clicks.
-          triggerAutoPasskey();
-        }
+          }, MIRAS_PASSKEY_AUTO_SETTLE_MS);
+        };
+        armAutoPasskeyWhenSettled();
       }
 
       // ملاحظة: كانت هناك آلية إضافية تجعل «أي لمسة أولى على الشاشة» (حتى لو
