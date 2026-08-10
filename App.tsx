@@ -16793,11 +16793,33 @@ ${rows
         optionsJSON: startData.options,
       });
       mirasPasskeyProbe("نجح Face ID ✅ — إرسال للخادم");
-      const finishResp = await fetch("/api/auth/passkey/login/finish", {
-        method: "POST",
-        headers: jsonHeaders({ auth: "none" }),
-        body: JSON.stringify({ response, deviceToken: getMirasDeviceId() }),
-      });
+      // دليل الرادار: TypeError "Load failed" — فتحُ نافذة Face ID ينقل الصفحة
+      // إلى الخلفية، فيقطع Safari الطلب الجاري. النتيجة: البصمة تنجح فعلاً لكن
+      // التأكيد لا يصل الخادم، فتفشل العملية صامتةً ويظنّ المستخدم أنها لم تعمل
+      // (ثم تنطلق محاولة تلقائية جديدة). نعيد المحاولة على أعطال الشبكة فقط:
+      // التوقيع بيد العميل صالح، والخادم يقبل أي تحدٍّ ما زال ضمن مهلته، فإعادة
+      // الإرسال آمنة. لا نعيد المحاولة على ردّ خادم فعلي (رفض حقيقي).
+      let finishResp: Response | null = null;
+      let finishNetworkError: any = null;
+      for (let attempt = 0; attempt < 3; attempt += 1) {
+        try {
+          finishResp = await fetch("/api/auth/passkey/login/finish", {
+            method: "POST",
+            headers: jsonHeaders({ auth: "none" }),
+            body: JSON.stringify({ response, deviceToken: getMirasDeviceId() }),
+          });
+          finishNetworkError = null;
+          break;
+        } catch (netErr: any) {
+          finishNetworkError = netErr;
+          mirasPasskeyProbe(
+            `انقطاع شبكة عند التأكيد — إعادة المحاولة ${attempt + 1}/3`,
+            netErr,
+          );
+          await new Promise((r) => setTimeout(r, 400 * (attempt + 1)));
+        }
+      }
+      if (!finishResp) throw finishNetworkError || new Error("finish failed");
       const finishData = await finishResp.json().catch(() => ({}));
       if (!finishResp.ok) {
         mirasPasskeyProbe("فشل /login/finish (الخادم رفض)", {
@@ -17091,19 +17113,30 @@ ${rows
         markMirasPasskeyAutoAttempted();
 
         const triggerAutoPasskey = () => {
-          if (
-            typeof document !== "undefined" &&
-            document.visibilityState === "hidden"
-          ) {
-            isPasskeyAuthenticatingRef.current = false;
-            return;
-          }
           void loginWithPasskey({ automatic: true }).finally(() => {
             isPasskeyAuthenticatingRef.current = false;
           });
         };
-        // Trigger auto without setTimeout to maintain gesture context from previous button clicks.
-        triggerAutoPasskey();
+        // دليل الرادار: المحاولة التلقائية كانت تنطلق أحياناً والصفحة ما زالت
+        // "hidden" أثناء إقلاع التطبيق، فيرفضها iOS فوراً بـNotAllowedError
+        // (فشل صامت لا يراه المستخدم). بدل الاستسلام حينها، ننتظر أول لحظة
+        // تصبح فيها الصفحة ظاهرة فعلاً ثم نحاول — فتُحترم شروط النظام.
+        if (
+          typeof document !== "undefined" &&
+          document.visibilityState === "hidden"
+        ) {
+          mirasPasskeyProbe("مؤجَّلة: الصفحة مخفية — ننتظر ظهورها");
+          const onVisible = () => {
+            if (document.visibilityState !== "visible") return;
+            document.removeEventListener("visibilitychange", onVisible);
+            mirasPasskeyProbe("الصفحة ظهرت — تشغيل المحاولة المؤجّلة");
+            triggerAutoPasskey();
+          };
+          document.addEventListener("visibilitychange", onVisible);
+        } else {
+          // Trigger auto without setTimeout to maintain gesture context from previous button clicks.
+          triggerAutoPasskey();
+        }
       }
 
       // ملاحظة: كانت هناك آلية إضافية تجعل «أي لمسة أولى على الشاشة» (حتى لو
