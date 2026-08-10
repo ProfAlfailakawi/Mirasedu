@@ -1354,7 +1354,9 @@ const endMirasPasskeyCeremony = () => {
 // يصطدم بشاشة البداية (الصفحة ما زالت hidden → NotAllowedError) وباقتراح كلمة
 // المرور من iOS في اللحظة نفسها، فتتزاحم النوافذ ويفشل الطلب صامتاً فتنطلق
 // محاولة جديدة. الانتظار حتى يستقر كل شيء يجعلها نافذة واحدة نظيفة تلقائية.
-const MIRAS_PASSKEY_AUTO_SETTLE_MS = 1200;
+// مهلة قصيرة بعد ظهور البطاقة الأنيقة فعلياً (لا تخميناً): تكفي لاكتمال الرسم
+// واستقرار iOS بعد شاشة البداية، وتبقى محسوسة كـ«ضغط تلقائي فوري» على الزر.
+const MIRAS_PASSKEY_AUTO_SETTLE_MS = 450;
 const MIRAS_PASSKEY_AUTO_ATTEMPT_KEY = "miras_passkey_auto_attempted_v1";
 const hasMirasPasskeyAutoAttempted = () => {
   try {
@@ -17107,7 +17109,11 @@ ${rows
       typeof window !== "undefined" &&
       typeof window.PublicKeyCredential !== "undefined";
     const savedAccount = readMirasPasskeyLocalLock();
+    // نربط المحاولة التلقائية بظهور «الشاشة الأنيقة» نفسها (البطاقة المضغوطة)
+    // بدل مجرد كون المستخدم على مسار الدخول: فبمجرد أن تُرسم البطاقة يُضغط زر
+    // البصمة تلقائياً — وهو بالضبط سلوك «الضغط التلقائي» المطلوب.
     const isLoginVisible =
+      showCompactPasskeyLogin ||
       shouldShowPasskeyLockScreen ||
       (currentView === "signup" && instructorMode === true);
 
@@ -17191,6 +17197,8 @@ ${rows
     currentView,
     instructorMode,
     shouldShowPasskeyLockScreen,
+    // ظهور البطاقة الأنيقة هو المُطلِق الفعلي للضغط التلقائي على زر البصمة.
+    showCompactPasskeyLogin,
     teacherSession,
     studentSession,
     passkeyBusy,
