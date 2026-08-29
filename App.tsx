@@ -9,6 +9,8 @@ import {
 import { createPortal } from "react-dom";
 import { motion, AnimatePresence } from "motion/react";
 import logoImg from "./src/assets/images/meras_logo_1781178543060.png";
+import LearningIntelligencePanel from "./src/features/learning-intelligence/LearningIntelligencePanel";
+import { mirasPhoneticWordMatch } from "./src/shared/phonetic-search";
 
 // البصمة مسار اختياري؛ لا نحمل مكتبتها مع أول شاشة لكل طالب. تُجلب مرة واحدة
 // عند استخدام البصمة فقط، فتخف حزمة البداية من دون تغيير أي سلوك أمني.
@@ -447,50 +449,8 @@ async function loadMirasBlazeFace(): Promise<any> {
 // صوتي موحّد (نُبقي الحروف الساكنة ونسقط المتحركات) فيتطابق الاسم مهما اختلفت
 // كتابته: محمد = Mohammed = Mohemd = mhmd. الأزواج اللاتينية (kh/gh/sh/th)
 // تُدمج أولاً حتى تقابل خ/غ/ش/ث، وق↔g/q، وك↔c/k.
-const MIRAS_AR2LAT: Record<string, string> = {
-  "ا": "a", "أ": "a", "إ": "a", "آ": "a", "ى": "a", "ء": "", "ئ": "y", "ؤ": "w",
-  "ب": "b", "ت": "t", "ث": "T", "ج": "j", "ح": "h", "خ": "K", "د": "d", "ذ": "T",
-  "ر": "r", "ز": "z", "س": "s", "ش": "S", "ص": "s", "ض": "d", "ط": "t", "ظ": "z",
-  "ع": "a", "غ": "G", "ف": "f", "ق": "g", "ك": "k", "ل": "l", "م": "m", "ن": "n",
-  "ه": "h", "ة": "", "و": "w", "ي": "y",
-};
-const mirasPhoneticSkeleton = (value: any): string => {
-  let s = String(value || "")
-    .toLowerCase()
-    .replace(/[ًٌٍَُِّْـ]/g, "");
-  s = s
-    .replace(/kh/g, "K")
-    .replace(/gh/g, "G")
-    .replace(/sh/g, "S")
-    .replace(/th/g, "T")
-    .replace(/ph/g, "f")
-    .replace(/ou|oo/g, "u")
-    .replace(/ee/g, "i")
-    .replace(/q/g, "g")
-    .replace(/c/g, "k")
-    .replace(/p/g, "b")
-    .replace(/v/g, "f")
-    .replace(/e/g, "i")
-    .replace(/o/g, "u");
-  s = s
-    .split("")
-    .map((ch) => (MIRAS_AR2LAT[ch] !== undefined ? MIRAS_AR2LAT[ch] : ch))
-    .join("");
-  s = s.replace(/[^a-zA-Z0-9]/g, "").toLowerCase();
-  s = s.replace(/[aiouwy]/g, "").replace(/(.)\1+/g, "$1");
-  return s;
-};
-// مطابقة صوتية بين كلمتين: هيكلاهما يتضمّن أحدهما الآخر (بحد أدنى حرفين).
-const mirasPhoneticWordMatch = (queryWord: string, textWord: string): number => {
-  const qs = mirasPhoneticSkeleton(queryWord);
-  if (qs.length < 2) return 0;
-  const ts = mirasPhoneticSkeleton(textWord);
-  if (ts.length < 2) return 0;
-  if (qs === ts) return 24;
-  if (ts.startsWith(qs) || qs.startsWith(ts)) return 18;
-  if (ts.includes(qs) || qs.includes(ts)) return 12;
-  return 0;
-};
+// MIRAS_AR2LAT / mirasPhoneticSkeleton / mirasPhoneticWordMatch were extracted
+// verbatim to src/shared/phonetic-search.ts (imported at the top of this file).
 
 const mirasExamUsesCamera = (exam: any) => {
   if (!exam) return false;
@@ -32748,6 +32708,18 @@ ${rows
                       </div>
                     </div>
 
+                    <LearningIntelligencePanel
+                      mode="student"
+                      headers={() => jsonHeaders({ auth: "student" })}
+                      studentId={studentSession?.id || ""}
+                      courseCode={
+                        studentCourseFilter === "all"
+                          ? studentSession?.sectionCode || ""
+                          : studentCourseFilter
+                      }
+                      courseName={selectedStudentCourseName}
+                    />
+
                     {/* Row 3: grade alerts and submissions */}
                     <div className="grid grid-cols-12 gap-4 mt-2">
                       {/* Recent submissions summary */}
@@ -34832,6 +34804,17 @@ ${rows
                       icon={ShieldAlert}
                     />
                   </div>
+
+                  <LearningIntelligencePanel
+                    mode="teacher"
+                    headers={() => teacherHeaders()}
+                    courseCode={activeCourseCode}
+                    courseName={
+                      visibleTeacherSections.find((sec: any) =>
+                        sectionCodeEquivalent(sec.code, activeCourseCode),
+                      )?.courseName || ""
+                    }
+                  />
 
                   {actionablePasswordResetRequests.length > 0 && (
                     <div className="rounded-[2rem] border border-amber-100 bg-amber-50/80 p-4 text-right shadow-sm">
