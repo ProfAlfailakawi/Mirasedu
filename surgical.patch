@@ -1,0 +1,100 @@
+diff --git a/App.tsx b/App.tsx
+index d653d55..20ee2c8 100644
+--- a/App.tsx
++++ b/App.tsx
+@@ -10,6 +10,7 @@ import { createPortal } from "react-dom";
+ import { motion, AnimatePresence } from "motion/react";
+ import logoImg from "./src/assets/images/meras_logo_1781178543060.png";
+ import LearningIntelligencePanel from "./src/features/learning-intelligence/LearningIntelligencePanel";
++import { mirasPhoneticWordMatch } from "./src/shared/phonetic-search";
+ 
+ // البصمة مسار اختياري؛ لا نحمل مكتبتها مع أول شاشة لكل طالب. تُجلب مرة واحدة
+ // عند استخدام البصمة فقط، فتخف حزمة البداية من دون تغيير أي سلوك أمني.
+@@ -448,50 +449,8 @@ async function loadMirasBlazeFace(): Promise<any> {
+ // صوتي موحّد (نُبقي الحروف الساكنة ونسقط المتحركات) فيتطابق الاسم مهما اختلفت
+ // كتابته: محمد = Mohammed = Mohemd = mhmd. الأزواج اللاتينية (kh/gh/sh/th)
+ // تُدمج أولاً حتى تقابل خ/غ/ش/ث، وق↔g/q، وك↔c/k.
+-const MIRAS_AR2LAT: Record<string, string> = {
+-  "ا": "a", "أ": "a", "إ": "a", "آ": "a", "ى": "a", "ء": "", "ئ": "y", "ؤ": "w",
+-  "ب": "b", "ت": "t", "ث": "T", "ج": "j", "ح": "h", "خ": "K", "د": "d", "ذ": "T",
+-  "ر": "r", "ز": "z", "س": "s", "ش": "S", "ص": "s", "ض": "d", "ط": "t", "ظ": "z",
+-  "ع": "a", "غ": "G", "ف": "f", "ق": "g", "ك": "k", "ل": "l", "م": "m", "ن": "n",
+-  "ه": "h", "ة": "", "و": "w", "ي": "y",
+-};
+-const mirasPhoneticSkeleton = (value: any): string => {
+-  let s = String(value || "")
+-    .toLowerCase()
+-    .replace(/[ًٌٍَُِّْـ]/g, "");
+-  s = s
+-    .replace(/kh/g, "K")
+-    .replace(/gh/g, "G")
+-    .replace(/sh/g, "S")
+-    .replace(/th/g, "T")
+-    .replace(/ph/g, "f")
+-    .replace(/ou|oo/g, "u")
+-    .replace(/ee/g, "i")
+-    .replace(/q/g, "g")
+-    .replace(/c/g, "k")
+-    .replace(/p/g, "b")
+-    .replace(/v/g, "f")
+-    .replace(/e/g, "i")
+-    .replace(/o/g, "u");
+-  s = s
+-    .split("")
+-    .map((ch) => (MIRAS_AR2LAT[ch] !== undefined ? MIRAS_AR2LAT[ch] : ch))
+-    .join("");
+-  s = s.replace(/[^a-zA-Z0-9]/g, "").toLowerCase();
+-  s = s.replace(/[aiouwy]/g, "").replace(/(.)\1+/g, "$1");
+-  return s;
+-};
+-// مطابقة صوتية بين كلمتين: هيكلاهما يتضمّن أحدهما الآخر (بحد أدنى حرفين).
+-const mirasPhoneticWordMatch = (queryWord: string, textWord: string): number => {
+-  const qs = mirasPhoneticSkeleton(queryWord);
+-  if (qs.length < 2) return 0;
+-  const ts = mirasPhoneticSkeleton(textWord);
+-  if (ts.length < 2) return 0;
+-  if (qs === ts) return 24;
+-  if (ts.startsWith(qs) || qs.startsWith(ts)) return 18;
+-  if (ts.includes(qs) || qs.includes(ts)) return 12;
+-  return 0;
+-};
++// MIRAS_AR2LAT / mirasPhoneticSkeleton / mirasPhoneticWordMatch were extracted
++// verbatim to src/shared/phonetic-search.ts (imported at the top of this file).
+ 
+ const mirasExamUsesCamera = (exam: any) => {
+   if (!exam) return false;
+diff --git a/server.ts b/server.ts
+index 88888c7..bf44833 100644
+--- a/server.ts
++++ b/server.ts
+@@ -14723,6 +14723,11 @@ app.post("/api/auth/login", (req, res) => {
+   const authToken = createStudentAuthPayload(req, res, responseStudent);
+   return res.json({
+     success: true,
++    // Symmetric role field so clients/tests can detect the authenticated role
++    // the same way for students as for teacher/admin. The frontend still keys
++    // off `student` (see App.tsx serverStudent = data?.student), so this is
++    // purely additive and changes no existing behavior.
++    role: "student",
+     authToken,
+     student: { ...responseStudent, authToken },
+     sebSession: describeSebPass(sebLoginPass || null),
+@@ -22829,8 +22834,18 @@ app.post("/api/learning-intelligence/rubric-feedback", (req, res) => {
+   const scoped = teacherScopedLearningPayload(req) as any;
+   if (scoped.error) return res.status(scoped.status || 401).json({ error: scoped.error });
+   const submissionId = String(req.body?.submissionId || req.body?.submission?.id || "").trim();
++  // Look first in the active-scoped submissions, but fall back to the raw
++  // submissions store by id: a submission whose parent project/exam is not in
++  // the currently "active" set is still a legitimate review target for the
++  // owning teacher. Course ownership is re-verified below via
++  // teacherCanReviewLearningCourse, so this only widens lookup, not authority.
+   const submission =
+     scoped.submissions.find((item: any) => String(item.id || "") === submissionId) ||
++    (submissionId
++      ? dbInstance
++          .getTeacherSubmissions()
++          .find((item: any) => String(item.id || "") === submissionId)
++      : null) ||
+     req.body?.submission ||
+     null;
+   if (!submission) return res.status(404).json({ error: "لم يتم العثور على التسليم ضمن نطاق الأستاذ." });

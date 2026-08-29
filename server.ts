@@ -40,6 +40,15 @@ import {
   cleanupRuntimeAuthChallenges,
 } from "./src/server/db.js";
 import type { SharingRingGraph } from "./src/shared/types";
+import {
+  buildAdaptiveTutorDraft,
+  buildCourseUnderstandingDraft,
+  buildRubricFeedbackDraft,
+  buildTeacherLearningSummary,
+  buildVivaDraft,
+  MIRAS_LEARNING_DECISION_BOUNDARY_AR,
+  stripUnsafeLearningDecisionFields,
+} from "./src/features/learning-intelligence/core.js";
 
 dotenv.config();
 
@@ -14714,6 +14723,11 @@ app.post("/api/auth/login", (req, res) => {
   const authToken = createStudentAuthPayload(req, res, responseStudent);
   return res.json({
     success: true,
+    // Symmetric role field so clients/tests can detect the authenticated role
+    // the same way for students as for teacher/admin. The frontend still keys
+    // off `student` (see App.tsx serverStudent = data?.student), so this is
+    // purely additive and changes no existing behavior.
+    role: "student",
     authToken,
     student: { ...responseStudent, authToken },
     sebSession: describeSebPass(sebLoginPass || null),
@@ -22691,6 +22705,231 @@ app.post("/api/teacher/submissions/return", (req, res) => {
     success: true,
     status: "returned",
     returnWindowRefreshed,
+  });
+});
+
+function teacherScopedLearningSections(teacherEmail: string, courseCode?: any) {
+  const normalizedTeacher = String(teacherEmail || "").trim().toLowerCase();
+  const requestedCourse = String(courseCode || "").trim();
+  return activeSections().filter((section: any) => {
+    const owner = String(section.ownerEmail || sectionOwnerEmail(section.code)).toLowerCase();
+    const owned =
+      isAdminEmail(normalizedTeacher) ||
+      owner === normalizedTeacher ||
+      teacherOwnsCourseCode(section.code, normalizedTeacher);
+    if (!owned) return false;
+    if (!requestedCourse) return true;
+    return sectionCodeEquivalent(section.code, requestedCourse);
+  });
+}
+
+function teacherCanReviewLearningCourse(teacherEmail: string, courseCode?: any) {
+  const normalizedTeacher = String(teacherEmail || "").trim().toLowerCase();
+  const requestedCourse = String(courseCode || "").trim();
+  if (!normalizedTeacher) return false;
+  if (!requestedCourse) return true;
+  return (
+    isAdminEmail(normalizedTeacher) ||
+    teacherOwnsCourseCode(requestedCourse, normalizedTeacher) ||
+    teacherScopedLearningSections(normalizedTeacher, requestedCourse).length > 0
+  );
+}
+
+function teacherScopedLearningSubmissions(teacherEmail: string, courseCode?: any) {
+  const normalizedTeacher = String(teacherEmail || "").trim().toLowerCase();
+  const requestedCourse = String(courseCode || "").trim();
+  return activeRuntimeTeacherSubmissions().filter((submission: any) => {
+    const subCourse = submission.courseCode || submission.sectionCode || submission.studentSection;
+    if (requestedCourse && !sectionCodeEquivalent(subCourse, requestedCourse)) return false;
+    return (
+      isAdminEmail(normalizedTeacher) ||
+      teacherOwnsCourseCode(subCourse, normalizedTeacher)
+    );
+  });
+}
+
+function teacherScopedLearningStudents(teacherEmail: string, courseCode?: any) {
+  const sections = teacherScopedLearningSections(teacherEmail, courseCode);
+  const sectionCodes = sections.map((section: any) => section.code);
+  return dbInstance.getStudents().filter((student: any) =>
+    sectionCodes.some((code: any) => studentHasEnrollmentInCourse(student, code)),
+  );
+}
+
+function teacherScopedLearningPayload(req: express.Request) {
+  const teacherEmail = teacherEmailFromRequest(req);
+  if (!teacherEmail) return { error: "جلسة الأستاذ غير صالحة." };
+  const courseCode = String(req.body?.courseCode || req.query?.courseCode || "").trim();
+  if (!teacherCanReviewLearningCourse(teacherEmail, courseCode)) {
+    return { error: "غير مصرح لك بمراجعة هذا المقرر.", status: 403 };
+  }
+  const sections = teacherScopedLearningSections(teacherEmail, courseCode);
+  return {
+    teacherEmail,
+    courseCode,
+    sections,
+    students: teacherScopedLearningStudents(teacherEmail, courseCode),
+    submissions: teacherScopedLearningSubmissions(teacherEmail, courseCode),
+    exams: activeTeacherExams().filter((exam: any) =>
+      teacherCanReviewLearningCourse(teacherEmail, exam.courseCode) &&
+      (!courseCode || sectionCodeEquivalent(exam.courseCode, courseCode)),
+    ),
+    projects: activeRuntimeTeacherProjects().filter((project: any) =>
+      teacherCanReviewLearningCourse(teacherEmail, project.courseCode) &&
+      (!courseCode || sectionCodeEquivalent(project.courseCode, courseCode)),
+    ),
+  };
+}
+
+app.post("/api/learning-intelligence/student/tutor", (req, res) => {
+  const verifiedSession = verifyMirasSessionToken(req);
+  const sessionStudentId =
+    verifiedSession?.role === "student"
+      ? normalizeStudentId(verifiedSession.userId)
+      : "";
+  if (!sessionStudentId) {
+    return res.status(401).json({
+      error: "STUDENT_SESSION_REQUIRED",
+      code: "STUDENT_SESSION_REQUIRED",
+    });
+  }
+  const requestedStudentId = normalizeStudentId(req.body?.studentId || sessionStudentId);
+  if (requestedStudentId && requestedStudentId !== sessionStudentId) {
+    return res.status(403).json({ error: "لا يمكن تشغيل Tutor باسم طالب آخر." });
+  }
+  const student = dbInstance
+    .getStudents()
+    .find((item: any) => normalizeStudentId(item.id) === sessionStudentId);
+  if (!student) {
+    return res.status(401).json({
+      error: "STUDENT_SESSION_REQUIRED",
+      code: "STUDENT_SESSION_REQUIRED",
+    });
+  }
+  const requestedCourse = String(req.body?.courseCode || student.sectionCode || "").trim();
+  if (requestedCourse && !studentHasEnrollmentInCourse(student, requestedCourse)) {
+    return res.status(403).json({ error: "هذا المقرر غير مفعّل لهذا الطالب." });
+  }
+  const course =
+    activeSections().find((section: any) => sectionCodeEquivalent(section.code, requestedCourse)) ||
+    { code: requestedCourse, courseName: req.body?.courseName || "المقرر" };
+  const submissions = activeRuntimeTeacherSubmissions()
+    .filter((item: any) =>
+      normalizeStudentId(item.studentId) === sessionStudentId &&
+      (!requestedCourse || sectionCodeEquivalent(item.courseCode || item.sectionCode, requestedCourse)),
+    )
+    .slice(-12);
+  const draft = buildAdaptiveTutorDraft({
+    course,
+    question: req.body?.question,
+    answerText: req.body?.answerText,
+    submissions,
+    assignment: req.body?.assignment,
+    materials: req.body?.materials,
+  });
+  return res.json(stripUnsafeLearningDecisionFields(draft));
+});
+
+app.post("/api/learning-intelligence/rubric-feedback", (req, res) => {
+  const scoped = teacherScopedLearningPayload(req) as any;
+  if (scoped.error) return res.status(scoped.status || 401).json({ error: scoped.error });
+  const submissionId = String(req.body?.submissionId || req.body?.submission?.id || "").trim();
+  // Look first in the active-scoped submissions, but fall back to the raw
+  // submissions store by id: a submission whose parent project/exam is not in
+  // the currently "active" set is still a legitimate review target for the
+  // owning teacher. Course ownership is re-verified below via
+  // teacherCanReviewLearningCourse, so this only widens lookup, not authority.
+  const submission =
+    scoped.submissions.find((item: any) => String(item.id || "") === submissionId) ||
+    (submissionId
+      ? dbInstance
+          .getTeacherSubmissions()
+          .find((item: any) => String(item.id || "") === submissionId)
+      : null) ||
+    req.body?.submission ||
+    null;
+  if (!submission) return res.status(404).json({ error: "لم يتم العثور على التسليم ضمن نطاق الأستاذ." });
+  const subCourse = submission.courseCode || submission.sectionCode || scoped.courseCode;
+  if (subCourse && !teacherCanReviewLearningCourse(scoped.teacherEmail, subCourse)) {
+    return res.status(403).json({ error: "غير مصرح لك بمراجعة هذا التسليم." });
+  }
+  const draft = buildRubricFeedbackDraft({
+    course: scoped.sections.find((section: any) => sectionCodeEquivalent(section.code, subCourse)),
+    assignment: {
+      title: submission.activityTitle,
+      kind: submission.kind,
+    },
+    answerText: submission.answerText || req.body?.answerText,
+    rubric: req.body?.rubric || submission.rubric,
+  });
+  return res.json(stripUnsafeLearningDecisionFields(draft));
+});
+
+app.post("/api/learning-intelligence/teacher-summary", (req, res) => {
+  const scoped = teacherScopedLearningPayload(req) as any;
+  if (scoped.error) return res.status(scoped.status || 401).json({ error: scoped.error });
+  const draft = buildTeacherLearningSummary({
+    course: scoped.sections[0],
+    students: scoped.students,
+    submissions: scoped.submissions,
+    exams: scoped.exams,
+    projects: scoped.projects,
+  });
+  return res.json(stripUnsafeLearningDecisionFields(draft));
+});
+
+app.post("/api/learning-intelligence/course-understanding", (req, res) => {
+  const scoped = teacherScopedLearningPayload(req) as any;
+  if (scoped.error) return res.status(scoped.status || 401).json({ error: scoped.error });
+  const draft = buildCourseUnderstandingDraft({
+    course: scoped.sections[0] || { courseName: req.body?.courseName || scoped.courseCode },
+    assignment: req.body?.assignment,
+    materials: Array.isArray(req.body?.materials) ? req.body.materials.slice(0, 6) : [],
+  });
+  return res.json(stripUnsafeLearningDecisionFields(draft));
+});
+
+app.post("/api/learning-intelligence/viva", (req, res) => {
+  const verifiedSession = verifyMirasSessionToken(req);
+  if (verifiedSession?.role === "student") {
+    const sessionStudentId = normalizeStudentId(verifiedSession.userId);
+    const student = dbInstance
+      .getStudents()
+      .find((item: any) => normalizeStudentId(item.id) === sessionStudentId);
+    if (!student) {
+      return res.status(401).json({ error: "STUDENT_SESSION_REQUIRED" });
+    }
+    const courseCode = String(req.body?.courseCode || student.sectionCode || "").trim();
+    if (courseCode && !studentHasEnrollmentInCourse(student, courseCode)) {
+      return res.status(403).json({ error: "هذا المقرر غير مفعّل لهذا الطالب." });
+    }
+    const course =
+      activeSections().find((section: any) => sectionCodeEquivalent(section.code, courseCode)) ||
+      { code: courseCode, courseName: req.body?.courseName || "المقرر" };
+    const draft = buildVivaDraft({
+      course,
+      assignment: req.body?.assignment,
+      answerText: req.body?.answerText || req.body?.question,
+      transcript: req.body?.transcript,
+    });
+    return res.json(stripUnsafeLearningDecisionFields(draft));
+  }
+
+  const scoped = teacherScopedLearningPayload(req) as any;
+  if (scoped.error) return res.status(scoped.status || 401).json({ error: scoped.error });
+  const draft = buildVivaDraft({
+    course: scoped.sections[0],
+    assignment: req.body?.assignment,
+    answerText: req.body?.answerText || req.body?.question,
+    transcript: req.body?.transcript,
+  });
+  return res.json(stripUnsafeLearningDecisionFields(draft));
+});
+
+app.get("/api/learning-intelligence/policy", (_req, res) => {
+  return res.json({
+    success: true,
+    decisionBoundary: MIRAS_LEARNING_DECISION_BOUNDARY_AR,
   });
 });
 
