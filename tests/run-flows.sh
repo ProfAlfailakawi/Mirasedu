@@ -69,6 +69,7 @@ run_group() { # <label> <test-file>
 run_group tests/flows.main.mjs
 run_group tests/flows.lifecycle.mjs
 run_group tests/flows.security.mjs
+run_group tests/flows.learning-intelligence.mjs
 run_group tests/flows.grading.mjs
 run_group tests/flows.student-submit.mjs
 run_group tests/flows.quiz-grading.mjs
