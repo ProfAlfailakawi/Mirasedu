@@ -10,6 +10,7 @@ import { createPortal } from "react-dom";
 import { motion, AnimatePresence } from "motion/react";
 import logoImg from "./src/assets/images/meras_logo_1781178543060.png";
 import LearningIntelligencePanel from "./src/features/learning-intelligence/LearningIntelligencePanel";
+import { normalizeArabicIndicDigits, stripArabicIndicDigitsFromInput } from "./src/shared/arabic-text";
 import { mirasPhoneticWordMatch } from "./src/shared/phonetic-search";
 
 // البصمة مسار اختياري؛ لا نحمل مكتبتها مع أول شاشة لكل طالب. تُجلب مرة واحدة
@@ -94,17 +95,6 @@ const createEmptyMirasReportSnapshot = () => ({
   students: [],
   inactiveOrStruggling: [],
 });
-
-const normalizeArabicIndicDigits = (value: any) =>
-  String(value ?? "").replace(/[٠-٩۰-۹]/g, (ch) => {
-    const code = ch.charCodeAt(0);
-    if (code >= 0x0660 && code <= 0x0669) return String(code - 0x0660);
-    if (code >= 0x06f0 && code <= 0x06f9) return String(code - 0x06f0);
-    return ch;
-  });
-
-const stripArabicIndicDigitsFromInput = (value: any) =>
-  String(value ?? "").replace(/[\u0660-\u0669\u06f0-\u06f9\uff10-\uff19]/g, "");
 
 const todayDateInputValue = () => {
   const now = new Date();
