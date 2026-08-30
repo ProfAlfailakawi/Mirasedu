@@ -26801,7 +26801,7 @@ ${rows
                           const q = normalizeArabicDigits(teacherGlobalQuery).toLowerCase().trim();
                           const matchedStudents = (courseStudentDirectory || []).filter((s: any) =>
                             String(s.name || "").toLowerCase().includes(q) ||
-                            String(s.studentId || s.idNumber || "").toLowerCase().includes(q)
+                            String(s.studentId || "").toLowerCase().includes(q)
                           ).slice(0, 8);
 
                           if (matchedStudents.length === 0) return null;
