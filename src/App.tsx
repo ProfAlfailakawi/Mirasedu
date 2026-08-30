@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useMemo } from "react";
 import { motion, AnimatePresence } from "motion/react";
+import { normalizeArabicIndicDigits, stripArabicIndicDigitsFromInput } from "./shared/arabic-text";
 import {
   startRegistration,
   startAuthentication,
@@ -76,17 +77,6 @@ const createEmptyMirasReportSnapshot = () => ({
   students: [],
   inactiveOrStruggling: [],
 });
-
-const normalizeArabicIndicDigits = (value: any) =>
-  String(value ?? "").replace(/[٠-٩۰-۹]/g, (ch) => {
-    const code = ch.charCodeAt(0);
-    if (code >= 0x0660 && code <= 0x0669) return String(code - 0x0660);
-    if (code >= 0x06f0 && code <= 0x06f9) return String(code - 0x06f0);
-    return ch;
-  });
-
-const stripArabicIndicDigitsFromInput = (value: any) =>
-  String(value ?? "").replace(/[\u0660-\u0669\u06f0-\u06f9\uff10-\uff19]/g, "");
 
 const todayDateInputValue = () => {
   const now = new Date();
@@ -26809,7 +26799,7 @@ ${rows
                         {/* 1. نتائج كشف الطلبة */}
                         {(() => {
                           const q = normalizeArabicDigits(teacherGlobalQuery).toLowerCase().trim();
-                          const matchedStudents = (students || []).filter((s: any) =>
+                          const matchedStudents = (courseStudentDirectory || []).filter((s: any) =>
                             String(s.name || "").toLowerCase().includes(q) ||
                             String(s.studentId || "").toLowerCase().includes(q)
                           ).slice(0, 8);
@@ -26882,7 +26872,7 @@ ${rows
                         {/* 3. نتائج بنك الأسئلة والاختبارات */}
                         {(() => {
                           const q = normalizeArabicDigits(teacherGlobalQuery).toLowerCase().trim();
-                          const matchedExams = (questions || []).filter((item: any) =>
+                          const matchedExams = (teacherCreatedExams || []).filter((item: any) =>
                             String(item.title || "").toLowerCase().includes(q) ||
                             String(item.category || "").toLowerCase().includes(q)
                           ).slice(0, 6);
