@@ -32708,6 +32708,8 @@ ${rows
                       </div>
                     </div>
 
+                    {/* Learning Intelligence hidden for now — may be re-enabled later */}
+                    {false && (
                     <LearningIntelligencePanel
                       mode="student"
                       headers={() => jsonHeaders({ auth: "student" })}
@@ -32719,6 +32721,7 @@ ${rows
                       }
                       courseName={selectedStudentCourseName}
                     />
+                    )}
 
                     {/* Row 3: grade alerts and submissions */}
                     <div className="grid grid-cols-12 gap-4 mt-2">
@@ -34805,6 +34808,8 @@ ${rows
                     />
                   </div>
 
+                  {/* Learning Intelligence hidden for now — may be re-enabled later */}
+                  {false && (
                   <LearningIntelligencePanel
                     mode="teacher"
                     headers={() => teacherHeaders()}
@@ -34815,6 +34820,7 @@ ${rows
                       )?.courseName || ""
                     }
                   />
+                  )}
 
                   {actionablePasswordResetRequests.length > 0 && (
                     <div className="rounded-[2rem] border border-amber-100 bg-amber-50/80 p-4 text-right shadow-sm">
