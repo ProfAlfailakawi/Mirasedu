@@ -30,6 +30,12 @@ jobs:
       - name: Install Dependencies
         run: npm ci
 
+      - name: Typecheck / Lint
+        run: npm run lint
+
+      - name: Run Flow Tests
+        run: npm run test:flows
+
       - name: Build Application
         run: npm run build
 
