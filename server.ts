@@ -17948,8 +17948,15 @@ app.post("/api/projects/:id/grade", (req, res) => {
   // حارس ملكية المعلم: يقيّم الأستاذ مشاريع مقرراته فقط (نفس نمط رصد الدرجات).
   // بدون هذا الفحص كان أي معلم موثّق يستطيع الكتابة فوق درجات طلاب معلم آخر.
   const gradeTeacherEmail = teacherEmailFromRequest(req);
+  // دفاع في العمق: لا نعتمد على الوسيط وحده. جلسة أستاذ/أدمن موثّقة شرطٌ صريح هنا،
+  // حتى لا يتخطّى طلبٌ بلا هوية شرطَ الملكية (gradeTeacherEmail && …) ويصل للكتابة.
+  if (!gradeTeacherEmail) {
+    return res.status(401).json({
+      error: "TEACHER_SESSION_REQUIRED",
+      code: "TEACHER_SESSION_REQUIRED",
+    });
+  }
   if (
-    gradeTeacherEmail &&
     !isAdminEmail(gradeTeacherEmail) &&
     sectionOwnerEmail(
       (project as any).courseCode || (project as any).sectionCode,

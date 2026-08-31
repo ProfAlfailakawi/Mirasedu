@@ -132,6 +132,7 @@ const db = {
     // Fixtures for the authorization regression suite (flows.authz-audit).
     { id: "P-TEST-1001", studentId: "1001", studentName: "طالب أول", courseCode: S_A1, sectionCode: S_A1, title: "مشروع اختبار ملكية الطالب", status: "active", createdBy: AA, teacherEmail: AA, createdAt: now, updatedAt: now },
     { id: "P-TEST-2002", studentId: "2002", studentName: "طالب آخر", courseCode: S_A1, sectionCode: S_A1, title: "مشروع اختبار ملكية المعلم", status: "active", createdBy: AA, teacherEmail: AA, createdAt: now, updatedAt: now },
+    { id: "P-TEST-GRADE", studentId: "1001", studentName: "طالب أول", courseCode: S_A1, sectionCode: S_A1, title: "مشروع مصفوفة صلاحية التقييم", status: "active", createdBy: AA, teacherEmail: AA, createdAt: now, updatedAt: now },
   ], quizSubmissions: [], activityLogs: [], otps: [], teacherExams: [
     {
       id: "exam-lock-1",
