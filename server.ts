@@ -10928,10 +10928,9 @@ app.get("/api/teacher/activation-attempts", (req, res) => {
 });
 
 app.get("/api/teacher/code-integrity", (req, res) => {
-  const teacherEmail = String(
-    req.query.teacherEmail || req.headers["x-teacher-email"] || "",
-  ).toLowerCase();
-  const adminView = !teacherEmail || isAdminEmail(teacherEmail);
+  // الهوية من الجلسة الموثّقة فقط: كان بريد فارغ يمنح عرض الأدمن الكامل لأي معلم.
+  const teacherEmail = verifiedTeacherEmailFromSession(req);
+  const adminView = isAdminEmail(teacherEmail);
   const retired =
     typeof (dbInstance as any).getRetiredJoinCodes === "function"
       ? (dbInstance as any).getRetiredJoinCodes()
@@ -17814,6 +17813,16 @@ app.post("/api/projects/submit", (req, res) => {
     .find((p) => p.id === projectId);
   if (!project)
     return res.status(404).json({ error: "المشروع الأكاديمي غير متوفر" });
+  // حارس ملكية: يسلّم الطالب مشروعه هو فقط. بدون هذا الفحص كان أي طالب موثّق
+  // يستطيع الكتابة فوق مشروع طالب آخر وقفله بمجرد تخمين معرّف المشروع (فضاء
+  // المعرّفات صغير). هوية الفاعل تُؤخذ من الجلسة الموثّقة أو تصريح SEB الذي تحقق
+  // منه الوسيط مسبقاً — لا من جسم الطلب.
+  const submitActorId =
+    verifiedStudentIdFromSession(req) ||
+    normalizeStudentId((req as any).mirasSebPass?.studentId || "");
+  if (!submitActorId || normalizeStudentId(project.studentId) !== submitActorId) {
+    return res.status(403).json({ error: "لا يمكنك تسليم مشروع لا يخصك." });
+  }
   if (project.status === "submitted" || project.status === "graded") {
     return res
       .status(409)
@@ -17935,6 +17944,24 @@ app.post("/api/projects/:id/grade", (req, res) => {
     .find((p) => p.id === req.params.id);
   if (!project)
     return res.status(404).json({ error: "المشروع غير متوفر للتدقيق" });
+
+  // حارس ملكية المعلم: يقيّم الأستاذ مشاريع مقرراته فقط (نفس نمط رصد الدرجات).
+  // بدون هذا الفحص كان أي معلم موثّق يستطيع الكتابة فوق درجات طلاب معلم آخر.
+  const gradeTeacherEmail = teacherEmailFromRequest(req);
+  if (
+    gradeTeacherEmail &&
+    !isAdminEmail(gradeTeacherEmail) &&
+    sectionOwnerEmail(
+      (project as any).courseCode || (project as any).sectionCode,
+    ) !== gradeTeacherEmail &&
+    String(
+      (project as any).createdBy || (project as any).teacherEmail || "",
+    ).toLowerCase() !== gradeTeacherEmail
+  ) {
+    return res
+      .status(403)
+      .json({ error: "لا تملك صلاحية تقييم هذا المشروع." });
+  }
 
   dbInstance.updatePersonalizedProject(project.id, {
     grade: Number(grade),
@@ -21197,9 +21224,8 @@ app.post("/api/teacher/exercises/activate", (req, res) => {
 
 // Get Audit Logs & Security warnings
 app.get("/api/teacher/logs", (req, res) => {
-  const teacherEmail = String(
-    req.query.teacherEmail || req.headers["x-teacher-email"] || "",
-  );
+  // الهوية من الجلسة الموثّقة فقط: كان بريد فارغ/منتحَل يكشف سجلات معلمين آخرين.
+  const teacherEmail = verifiedTeacherEmailFromSession(req);
   // سقف: أحدث ٣٠٠ سجل فقط. السجل ينمو بلا حدود مع الاستخدام الفعلي (كل دخول
   // /محاولة/تسليم = سجل جديد)، وإرسال آلاف السجلات في كل تحميل كان يبطّئ الجوال
   // بشكل متصاعد. أحدث ٣٠٠ يكفي للمتابعة الحيّة ويبقي الحمولة صغيرة وثابتة.
@@ -21217,9 +21243,8 @@ app.get("/api/teacher/logs", (req, res) => {
 });
 
 app.get("/api/teacher/password-reset-requests", (req, res) => {
-  const teacherEmail = String(
-    req.query.teacherEmail || req.headers["x-teacher-email"] || "",
-  ).toLowerCase();
+  // الهوية من الجلسة الموثّقة فقط: منع كشف طلبات إعادة تعيين كلمات مرور معلم آخر.
+  const teacherEmail = verifiedTeacherEmailFromSession(req);
   const requests = withLiveStudentNames(
     dbInstance
       .getPasswordResetRequests()
@@ -23121,9 +23146,9 @@ app.post("/api/teacher/seed-allowed-list", (req, res) => {
 
 // Custom Reset (Student data and operations only)
 app.post("/api/teacher/database/custom-reset", (req, res) => {
-  const teacherEmail = String(
-    req.body?.teacherEmail || req.headers["x-teacher-email"] || "",
-  ).toLowerCase();
+  // الهوية من الجلسة الموثّقة فقط (الوسيط يضمن جلسة معلم صالحة لكل /api/teacher).
+  // منع انتحال بريد معلم آخر عبر جسم الطلب لتطهير بياناته.
+  const teacherEmail = verifiedTeacherEmailFromSession(req);
   const teacher = dbInstance
     .getTeachers()
     .find((t) => t.email.toLowerCase() === teacherEmail);
@@ -23176,9 +23201,9 @@ app.post("/api/teacher/database/custom-reset", (req, res) => {
 
 // Full Reset (Wipe everything including curriculum and questions)
 app.post("/api/teacher/database/full-reset", (req, res) => {
-  const teacherEmail = String(
-    req.body?.teacherEmail || req.headers["x-teacher-email"] || "",
-  ).toLowerCase();
+  // الهوية من الجلسة الموثّقة فقط. منع تصعيد معلم عادي إلى سوبر أدمن بتمرير بريد
+  // الأدمن (وهو عام في حزمة الواجهة) في جسم الطلب لتنفيذ تصفير كامل للقاعدة.
+  const teacherEmail = verifiedTeacherEmailFromSession(req);
   const teacher = dbInstance
     .getTeachers()
     .find((t) => t.email.toLowerCase() === teacherEmail);
