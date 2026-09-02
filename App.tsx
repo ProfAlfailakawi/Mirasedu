@@ -24932,6 +24932,128 @@ ${rows
       dockLongPressTimerRef.current = null;
     }
   };
+  // ===== MIRAS DOCK V23 — شريط تنقّل سفلي بلغة بصرية واحدة =====
+  // كان الشريط سبعة أزرار، كل واحد بتدرّج لونه وحدّه وظلّه الخاص وبلا أي
+  // تسمية نصية، داخل إطارين متداخلين، مع نبض دائم للزر النشط وخفوت/ضبابية
+  // عند الانكماش. النتيجة: ضجيج بصري وأهداف لمس أصغر من 44px.
+  // النسخة الحالية تتبنّى لغة شريط academicos: لوح زجاجي واحد، أيقونة فوق
+  // تسمية، لون علامة واحد (indigo) للحالة النشطة فقط، وزر البحث مرفوع في
+  // منتصف الشريط كإجراء رئيسي. الوظائف كما هي دون حذف أي زر.
+  const renderTeacherDockTrack = () => {
+    const navItem = (opts: {
+      tab: typeof teacherTab;
+      label: string;
+      title: string;
+      Icon: any;
+      onClick: () => void;
+      badgeTone?: string;
+      extraClass?: string;
+      handlers?: Record<string, any>;
+    }) => {
+      const active = teacherTab === opts.tab;
+      const Icon = opts.Icon;
+      return (
+        <button
+          type="button"
+          title={opts.title}
+          aria-label={opts.title}
+          aria-current={active ? "page" : undefined}
+          onClick={opts.onClick}
+          className={`miras-dock-item${active ? " is-active" : ""}${opts.extraClass ? " " + opts.extraClass : ""}`}
+          {...(opts.handlers ?? {})}
+        >
+          <Icon className="miras-dock-icon" />
+          <span className="miras-dock-label">{opts.label}</span>
+          {opts.badgeTone ? renderDockBadge(opts.tab, opts.badgeTone) : null}
+        </button>
+      );
+    };
+    return (
+      <div className="miras-teacher-nav-track teacher-orbit-dock-track miras-dock-v2">
+        {navItem({
+          tab: "sections",
+          label: "المقررات",
+          title: "المقررات",
+          Icon: Compass,
+          onClick: () => openTeacherDockTab("sections"),
+        })}
+        {navItem({
+          tab: "students",
+          label: "الطلبة",
+          title: "الطلبة",
+          Icon: User,
+          onClick: () => openTeacherDockTab("students"),
+          badgeTone: "bg-emerald-500",
+        })}
+        {navItem({
+          tab: "questions",
+          label: "الأسئلة",
+          title: "بنك الأسئلة والاختبارات والمشاريع",
+          Icon: Layers,
+          onClick: () => openTeacherDockTab("questions"),
+          badgeTone: "bg-violet-500",
+        })}
+        <button
+          type="button"
+          title="بحث سريع"
+          aria-label="بحث سريع"
+          onClick={() => setCmdkOpen(true)}
+          className="miras-dock-item miras-dock-fab miras-dock-search-btn"
+        >
+          <span className="miras-dock-fab-orb">
+            <Search className="miras-dock-icon" />
+          </span>
+          <span className="miras-dock-label">بحث</span>
+        </button>
+        {navItem({
+          tab: "submissions",
+          label: "التسليمات",
+          title: "تسليمات الاختبارات والمشاريع",
+          Icon: Award,
+          onClick: () => openTeacherDockTab("submissions"),
+          badgeTone: "bg-amber-500",
+        })}
+        {navItem({
+          tab: "codes",
+          label: "الأكواد",
+          title: "مفاتيح الدخول",
+          Icon: Key,
+          extraClass: "miras-dock-codes-btn",
+          onClick: () => {
+            endDockLongPress();
+            dismissDockBadge("codes");
+            openTeacherTab("codes");
+            setTeacherCodesOpen(true);
+            fetchJoinCodes();
+          },
+          badgeTone: "bg-indigo-500",
+          handlers: {
+            onPointerDown: () => startDockLongPress("codes"),
+            onPointerUp: endDockLongPress,
+            onPointerLeave: endDockLongPress,
+            onPointerCancel: endDockLongPress,
+            onContextMenu: (e: any) => {
+              e.preventDefault();
+              setDockQuickMenu(dockQuickMenu === "codes" ? null : "codes");
+            },
+          },
+        })}
+        {navItem({
+          tab: "analytics",
+          label: "المتابعة",
+          title: "مركز المتابعة",
+          Icon: ShieldAlert,
+          onClick: () => {
+            setDockQuickMenu(null);
+            dismissDockBadge("analytics");
+            openTeacherTab("analytics");
+            fetchLogs();
+          },
+          badgeTone: "bg-rose-500",
+        })}
+      </div>
+    );
+  };
   useEffect(() => {
     setDockQuickMenu(null);
   }, [teacherTab]);
@@ -29511,6 +29633,156 @@ ${rows
         @media (orientation: portrait), (pointer: fine) {
           .miras-orientation-guard { display: none !important; }
         }
+          /* ===== MIRAS DOCK V23 — الشريط السفلي الهادئ =====
+             يلغي لغة "قوس قزح بلا تسميات" السابقة ويستبدلها بلوح زجاجي واحد:
+             أيقونة + تسمية، لون علامة واحد للحالة النشطة، وزر بحث مرفوع. */
+          .teacher-orbit-dock.miras-dock-shell-v2.miras-dock-shell-v2 {
+            padding: 6px 8px !important;
+            border-radius: 24px !important;
+            border: 1px solid rgba(226, 232, 240, 0.92) !important;
+            background: rgba(255, 255, 255, 0.9) !important;
+            box-shadow:
+              0 14px 40px rgba(15, 23, 42, 0.14),
+              inset 0 1px 0 rgba(255, 255, 255, 0.9) !important;
+            backdrop-filter: blur(22px) saturate(1.3) !important;
+            -webkit-backdrop-filter: blur(22px) saturate(1.3) !important;
+            overflow: visible !important;
+          }
+
+          .miras-teacher-nav-track.teacher-orbit-dock-track.miras-dock-v2.miras-dock-v2 {
+            display: grid !important;
+            grid-auto-flow: column !important;
+            grid-auto-columns: minmax(0, 1fr) !important;
+            align-items: stretch !important;
+            gap: 2px !important;
+            padding: 0 !important;
+            border: 0 !important;
+            border-radius: 0 !important;
+            background: transparent !important;
+            box-shadow: none !important;
+            overflow: visible !important;
+          }
+
+          .teacher-orbit-dock-track.miras-dock-v2 button.miras-dock-item.miras-dock-item {
+            position: relative !important;
+            display: flex !important;
+            flex-direction: column !important;
+            align-items: center !important;
+            justify-content: center !important;
+            gap: 3px !important;
+            width: auto !important;
+            min-width: 0 !important;
+            height: auto !important;
+            min-height: 46px !important;
+            padding: 6px 1px 5px !important;
+            border: 0 !important;
+            border-radius: 15px !important;
+            background: transparent !important;
+            color: #64748b !important;
+            box-shadow: none !important;
+            transform: none !important;
+            animation: none !important;
+            transition: background-color .18s ease, color .18s ease !important;
+          }
+
+          .teacher-orbit-dock-track.miras-dock-v2 button.miras-dock-item.miras-dock-item:hover {
+            background: rgba(241, 245, 249, 0.9) !important;
+            color: #0f172a !important;
+          }
+
+          .teacher-orbit-dock-track.miras-dock-v2 button.miras-dock-item.miras-dock-item:active {
+            transform: scale(.96) !important;
+          }
+
+          .teacher-orbit-dock-track.miras-dock-v2 button.miras-dock-item.miras-dock-item.is-active {
+            background: rgba(79, 70, 229, 0.1) !important;
+            color: #4f46e5 !important;
+          }
+
+          .teacher-orbit-dock-track.miras-dock-v2 button.miras-dock-item .miras-dock-icon {
+            width: 20px !important;
+            height: 20px !important;
+            min-width: 20px !important;
+            stroke-width: 2 !important;
+            flex: 0 0 auto !important;
+          }
+
+          .teacher-orbit-dock-track.miras-dock-v2 button.miras-dock-item .miras-dock-label {
+            max-width: 100% !important;
+            overflow: hidden !important;
+            font-size: 9px !important;
+            font-weight: 800 !important;
+            line-height: 1 !important;
+            letter-spacing: -.02em !important;
+            white-space: nowrap !important;
+            text-overflow: ellipsis !important;
+          }
+
+          /* زر البحث المرفوع في منتصف الشريط — الإجراء الرئيسي */
+          .teacher-orbit-dock-track.miras-dock-v2 button.miras-dock-item.miras-dock-fab {
+            justify-content: flex-end !important;
+            background: transparent !important;
+            color: #4f46e5 !important;
+          }
+
+          .teacher-orbit-dock-track.miras-dock-v2 .miras-dock-fab .miras-dock-fab-orb {
+            display: flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+            width: 42px !important;
+            height: 42px !important;
+            margin-top: -20px !important;
+            border-radius: 15px !important;
+            background: linear-gradient(145deg, #4f46e5, #3b82f6) !important;
+            color: #fff !important;
+            box-shadow:
+              0 10px 24px rgba(79, 70, 229, 0.34),
+              inset 0 1px 0 rgba(255, 255, 255, 0.3) !important;
+          }
+
+          .teacher-orbit-dock-track.miras-dock-v2 .miras-dock-fab .miras-dock-icon {
+            color: #fff !important;
+          }
+
+          .teacher-orbit-dock-track.miras-dock-v2 .miras-dock-fab .miras-dock-label {
+            color: #4f46e5 !important;
+          }
+
+          @media (max-width: 920px), (pointer: coarse) and (hover: none) {
+            /* لوح ممتد بهامش 10px بدل شريط ملتصق بحافة الشاشة */
+            .miras-teacher-v5-shell .teacher-nav-mobile.teacher-orbit-dock.miras-dock-shell-v2.miras-dock-shell-v2 {
+              left: 10px !important;
+              right: 10px !important;
+              width: auto !important;
+              max-width: none !important;
+              transform: var(--miras-teacher-dock-motion, translateY(0) scale(1)) !important;
+            }
+
+            /* الانكماش التلقائي كان يخفت الشريط ويطمسه (opacity .64 + blur)
+               فيبدو معطلاً؛ صار انزياحًا خفيفًا فقط. */
+            .miras-teacher-v5-shell .teacher-nav-mobile.teacher-orbit-dock.teacher-orbit-dock-shrunk.miras-dock-shell-v2.miras-dock-shell-v2 {
+              --miras-teacher-dock-motion: translateY(2px) scale(.985);
+              opacity: .97 !important;
+              filter: none !important;
+              box-shadow:
+                0 10px 28px rgba(15, 23, 42, 0.1),
+                inset 0 1px 0 rgba(255, 255, 255, 0.9) !important;
+            }
+
+            .miras-teacher-v5-shell .teacher-nav-mobile.teacher-orbit-dock.miras-dock-shell-v2.miras-dock-shell-v2:hover,
+            .miras-teacher-v5-shell .teacher-nav-mobile.teacher-orbit-dock.miras-dock-shell-v2.miras-dock-shell-v2:focus-within,
+            .miras-teacher-v5-shell .teacher-nav-mobile.teacher-orbit-dock.miras-dock-shell-v2.miras-dock-shell-v2[data-miras-dock-state="open"] {
+              --miras-teacher-dock-motion: translateY(0) scale(1);
+              opacity: 1 !important;
+              filter: none !important;
+            }
+          }
+
+          @media (max-width: 360px) {
+            .teacher-orbit-dock-track.miras-dock-v2 button.miras-dock-item .miras-dock-label {
+              font-size: 8.5px !important;
+            }
+          }
       `}</style>
       <div
         className="miras-orientation-guard"
@@ -34088,7 +34360,7 @@ ${rows
           >
             {/* Mobile bottom navigation dock - situated at the root wrapper to avoid nested containing-block / backdrop-filter clipping in mobile viewport */}
             <nav
-              className={`miras-teacher-nav-shell teacher-orbit-dock teacher-nav-mobile rounded-[2.2rem] border border-white/80 bg-white/75 p-3 shadow-[0_22px_70px_rgba(15,23,42,0.08)] backdrop-blur-2xl ${selectedSubmissionDetail ? "hidden" : ""} ${dockShrunkRef.current ? "teacher-orbit-dock-shrunk" : ""}`}
+              className={`miras-teacher-nav-shell miras-dock-shell-v2 teacher-orbit-dock teacher-nav-mobile ${selectedSubmissionDetail ? "hidden" : ""} ${dockShrunkRef.current ? "teacher-orbit-dock-shrunk" : ""}`}
               data-miras-dock-state={dockShrunkRef.current ? "shrunk" : "open"}
               // Deliberately no onPointerDown/onTouchStart expand trigger here:
               // expanding on the same touch that starts a tap resized/shifted
@@ -34105,87 +34377,7 @@ ${rows
               onBlur={() => shrinkTeacherDockSoon(850)}
               aria-label="تنقل حساب المعلم"
             >
-              <div className="miras-teacher-nav-track teacher-orbit-dock-track rounded-[1.6rem] border border-white/80 bg-white/70 p-2 shadow-inner backdrop-blur-xl">
-                <button
-                  type="button"
-                  title="بحث سريع"
-                  aria-label="بحث سريع"
-                  onClick={() => setCmdkOpen(true)}
-                  className="miras-dock-search-btn inline-flex h-12 w-12 items-center justify-center rounded-[1.2rem] border border-indigo-100 bg-indigo-50/60 text-indigo-500 shadow-sm transition-all hover:-translate-y-0.5 hover:border-indigo-200 hover:bg-indigo-100/70 hover:text-indigo-700"
-                >
-                  <Search className="h-[18px] w-[18px]" />
-                </button>
-                <button
-                  title="المقررات"
-                  aria-label="المقررات"
-                  onClick={() => openTeacherDockTab("sections")}
-                  className={`inline-flex h-12 w-12 items-center justify-center rounded-[1.2rem] border shadow-sm transition-all hover:-translate-y-0.5 ${teacherTab === "sections" ? "border-indigo-200 bg-gradient-to-br from-indigo-600 to-blue-600 text-white shadow-indigo-200" : "border-slate-200 bg-white/90 text-slate-700 hover:bg-indigo-50 hover:text-indigo-700"}`}
-                >
-                  <Compass className="h-5 w-5" />
-                </button>
-                <button
-                  title="الطلبة"
-                  aria-label="الطلبة"
-                  onClick={() => openTeacherDockTab("students")}
-                  className={`relative inline-flex h-12 w-12 items-center justify-center rounded-[1.2rem] border shadow-sm transition-all hover:-translate-y-0.5 ${teacherTab === "students" ? "border-emerald-200 bg-gradient-to-br from-emerald-600 to-teal-500 text-white shadow-emerald-200" : "border-slate-200 bg-white/90 text-slate-700 hover:bg-emerald-50 hover:text-emerald-700"}`}
-                >
-                  <User className="h-5 w-5" />
-                  {renderDockBadge("students", "bg-emerald-500")}
-                </button>
-                <button
-                  title="بنك الأسئلة والاختبارات والمشاريع"
-                  aria-label="بنك الأسئلة والاختبارات والمشاريع"
-                  onClick={() => openTeacherDockTab("questions")}
-                  className={`relative inline-flex h-12 w-12 items-center justify-center rounded-[1.2rem] border shadow-sm transition-all hover:-translate-y-0.5 ${teacherTab === "questions" ? "border-violet-200 bg-gradient-to-br from-violet-600 to-indigo-600 text-white shadow-violet-200" : "border-slate-200 bg-white/90 text-slate-700 hover:bg-violet-50 hover:text-violet-700"}`}
-                >
-                  <Layers className="h-5 w-5" />
-                  {renderDockBadge("questions", "bg-violet-500")}
-                </button>
-                <button
-                  title="تسليمات الاختبارات والمشاريع"
-                  aria-label="تسليمات الاختبارات والمشاريع"
-                  onClick={() => openTeacherDockTab("submissions")}
-                  className={`relative inline-flex h-12 w-12 items-center justify-center rounded-[1.2rem] border shadow-sm transition-all hover:-translate-y-0.5 ${teacherTab === "submissions" ? "border-blue-200 bg-gradient-to-br from-blue-600 to-indigo-600 text-white shadow-blue-200" : "border-slate-200 bg-white/90 text-slate-700 hover:bg-blue-50 hover:text-blue-700"}`}
-                >
-                  <Award className="h-5 w-5" />
-                  {renderDockBadge("submissions", "bg-amber-500")}
-                </button>
-                <span className="mx-1 h-8 w-px bg-slate-200" />
-                <button
-                  title="مفاتيح الدخول"
-                  aria-label="مفاتيح الدخول"
-                  onPointerDown={() => startDockLongPress("codes")}
-                  onPointerUp={endDockLongPress}
-                  onPointerLeave={endDockLongPress}
-                  onPointerCancel={endDockLongPress}
-                  onContextMenu={(e) => { e.preventDefault(); setDockQuickMenu(dockQuickMenu === "codes" ? null : "codes"); }}
-                  onClick={() => {
-                    endDockLongPress();
-                    dismissDockBadge("codes");
-                    openTeacherTab("codes");
-                    setTeacherCodesOpen(true);
-                    fetchJoinCodes();
-                  }}
-                  className={`miras-dock-codes-btn relative inline-flex h-10 w-10 items-center justify-center rounded-2xl border shadow-sm transition-all ${teacherTab === "codes" ? "border-indigo-200 bg-indigo-500 text-white" : "border-indigo-100 bg-white/90 text-indigo-700 hover:bg-indigo-50"}`}
-                >
-                  <Key className="h-4 w-4" />
-                  {renderDockBadge("codes", "bg-indigo-500")}
-                </button>
-                <button
-                  title="مركز المتابعة"
-                  aria-label="مركز المتابعة"
-                  onClick={() => {
-                    setDockQuickMenu(null);
-                    dismissDockBadge("analytics");
-                    openTeacherTab("analytics");
-                    fetchLogs();
-                  }}
-                  className={`relative inline-flex h-10 w-10 items-center justify-center rounded-2xl border shadow-sm transition-all ${teacherTab === "analytics" ? "border-amber-200 bg-amber-500 text-white" : "border-amber-100 bg-white/90 text-amber-700 hover:bg-amber-50"}`}
-                >
-                  <ShieldAlert className="h-4 w-4" />
-                  {renderDockBadge("analytics", "bg-rose-500")}
-                </button>
-              </div>
+              {renderTeacherDockTrack()}
             </nav>
             {dockQuickMenu === "codes" && (
               <div
@@ -34629,92 +34821,10 @@ ${rows
                     </div>
                   </div>
                   <nav
-                    className={`miras-teacher-nav-shell teacher-orbit-dock teacher-nav-desktop rounded-[2.2rem] border border-white/80 bg-white/75 p-3 shadow-[0_22px_70px_rgba(15,23,42,0.08)] backdrop-blur-2xl ${selectedSubmissionDetail ? "hidden" : ""} ${dockShrunkRef.current ? "teacher-orbit-dock-shrunk" : ""}`}
+                    className={`miras-teacher-nav-shell miras-dock-shell-v2 teacher-orbit-dock teacher-nav-desktop ${selectedSubmissionDetail ? "hidden" : ""} ${dockShrunkRef.current ? "teacher-orbit-dock-shrunk" : ""}`}
                     aria-label="تنقل حساب المعلم"
                   >
-                    <div className="miras-teacher-nav-track teacher-orbit-dock-track rounded-[1.6rem] border border-white/80 bg-white/70 p-2 shadow-inner backdrop-blur-xl">
-                      <button
-                        type="button"
-                        title="بحث سريع"
-                        aria-label="بحث سريع"
-                        onClick={() => setCmdkOpen(true)}
-                        className="miras-dock-search-btn inline-flex h-12 w-12 items-center justify-center rounded-[1.2rem] border border-indigo-100 bg-indigo-50/60 text-indigo-500 shadow-sm transition-all hover:-translate-y-0.5 hover:border-indigo-200 hover:bg-indigo-100/70 hover:text-indigo-700"
-                      >
-                        <Search className="h-[18px] w-[18px]" />
-                      </button>
-                      <button
-                        title="المقررات"
-                        aria-label="المقررات"
-                        onClick={() => openTeacherDockTab("sections")}
-                        className={`inline-flex h-12 w-12 items-center justify-center rounded-[1.2rem] border shadow-sm transition-all hover:-translate-y-0.5 ${teacherTab === "sections" ? "border-indigo-200 bg-gradient-to-br from-indigo-600 to-blue-600 text-white shadow-indigo-200" : "border-slate-200 bg-white/90 text-slate-700 hover:bg-indigo-50 hover:text-indigo-700"}`}
-                      >
-                        <Compass className="h-5 w-5" />
-                      </button>
-                      <button
-                        title="الطلبة"
-                        aria-label="الطلبة"
-                        onClick={() => openTeacherDockTab("students")}
-                        className={`relative inline-flex h-12 w-12 items-center justify-center rounded-[1.2rem] border shadow-sm transition-all hover:-translate-y-0.5 ${teacherTab === "students" ? "border-emerald-200 bg-gradient-to-br from-emerald-600 to-teal-500 text-white shadow-emerald-200" : "border-slate-200 bg-white/90 text-slate-700 hover:bg-emerald-50 hover:text-emerald-700"}`}
-                      >
-                        <User className="h-5 w-5" />
-                        {renderDockBadge("students", "bg-emerald-500")}
-                      </button>
-                      <button
-                        title="بنك الأسئلة والاختبارات والمشاريع"
-                        aria-label="بنك الأسئلة والاختبارات والمشاريع"
-                        onClick={() => openTeacherDockTab("questions")}
-                        className={`relative inline-flex h-12 w-12 items-center justify-center rounded-[1.2rem] border shadow-sm transition-all hover:-translate-y-0.5 ${teacherTab === "questions" ? "border-violet-200 bg-gradient-to-br from-violet-600 to-indigo-600 text-white shadow-violet-200" : "border-slate-200 bg-white/90 text-slate-700 hover:bg-violet-50 hover:text-violet-700"}`}
-                      >
-                        <Layers className="h-5 w-5" />
-                        {renderDockBadge("questions", "bg-violet-500")}
-                      </button>
-                      <button
-                        title="تسليمات الاختبارات والمشاريع"
-                        aria-label="تسليمات الاختبارات والمشاريع"
-                        onClick={() => openTeacherDockTab("submissions")}
-                        className={`relative inline-flex h-12 w-12 items-center justify-center rounded-[1.2rem] border shadow-sm transition-all hover:-translate-y-0.5 ${teacherTab === "submissions" ? "border-blue-200 bg-gradient-to-br from-blue-600 to-indigo-600 text-white shadow-blue-200" : "border-slate-200 bg-white/90 text-slate-700 hover:bg-blue-50 hover:text-blue-700"}`}
-                      >
-                        <Award className="h-5 w-5" />
-                        {latestSubmissionRows(teacherSubmissions).some((sub: any) => !teacherVisibleGradeText(sub) && !isTeacherReturnedSubmission(sub)) && (
-                          <span className="absolute -left-0.5 -top-0.5 h-2.5 w-2.5 rounded-full bg-amber-400 ring-2 ring-white" />
-                        )}
-                      </button>
-                      <span className="mx-1 h-8 w-px bg-slate-200" />
-                      <button
-                        title="مفاتيح الدخول"
-                        aria-label="مفاتيح الدخول"
-                        onPointerDown={() => startDockLongPress("codes")}
-                        onPointerUp={endDockLongPress}
-                        onPointerLeave={endDockLongPress}
-                        onPointerCancel={endDockLongPress}
-                        onContextMenu={(e) => { e.preventDefault(); setDockQuickMenu(dockQuickMenu === "codes" ? null : "codes"); }}
-                        onClick={() => {
-                          endDockLongPress();
-                          dismissDockBadge("codes");
-                          openTeacherTab("codes");
-                          setTeacherCodesOpen(true);
-                          fetchJoinCodes();
-                        }}
-                        className={`miras-dock-codes-btn relative inline-flex h-10 w-10 items-center justify-center rounded-2xl border shadow-sm transition-all ${teacherTab === "codes" ? "border-indigo-200 bg-indigo-500 text-white" : "border-indigo-100 bg-white/90 text-indigo-700 hover:bg-indigo-50"}`}
-                      >
-                        <Key className="h-4 w-4" />
-                        {renderDockBadge("codes", "bg-indigo-500")}
-                      </button>
-                      <button
-                        title="مركز المتابعة"
-                        aria-label="مركز المتابعة"
-                        onClick={() => {
-                          setDockQuickMenu(null);
-                          dismissDockBadge("analytics");
-                          openTeacherTab("analytics");
-                          fetchLogs();
-                        }}
-                        className={`relative inline-flex h-10 w-10 items-center justify-center rounded-2xl border shadow-sm transition-all ${teacherTab === "analytics" ? "border-amber-200 bg-amber-500 text-white" : "border-amber-100 bg-white/90 text-amber-700 hover:bg-amber-50"}`}
-                      >
-                        <ShieldAlert className="h-4 w-4" />
-                        {renderDockBadge("analytics", "bg-rose-500")}
-                      </button>
-                    </div>
+                    {renderTeacherDockTrack()}
                   </nav>
                 </div>
               </header>
