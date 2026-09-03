@@ -4605,13 +4605,13 @@ body,
   }
 
   .meras-teacher-shell.teacher-calm-shell .miras-teacher-home-panel .miras-metric-card {
-    min-height: 7.15rem !important;
+    min-height: 0 !important;
     padding: 1.05rem !important;
     border-radius: 1.35rem !important;
   }
 
   .meras-teacher-shell.teacher-calm-shell .miras-teacher-home-panel .miras-metric-card .relative.z-10 {
-    min-height: 5.05rem !important;
+    min-height: 3.1rem !important;
     align-items: center !important;
   }
 
@@ -17795,50 +17795,19 @@ html.miras-teacher-scroll-locked .meras-teacher-shell.teacher-calm-shell .teache
   --miras-splash-from: #0A0A12;
 }
 
-/* ═══ ١) نصف القطر — ثلاث قيم ═══ */
-.rounded-\[0\.85rem\], .rounded-\[1rem\], .rounded-\[1\.08rem\],
-.rounded-\[1\.1rem\], .rounded-\[1\.15rem\] { border-radius: var(--miras-r-md) !important; }
-
-.rounded-\[1\.2rem\], .rounded-\[1\.25rem\], .rounded-\[1\.35rem\], .rounded-\[1\.4rem\],
-.rounded-\[1\.45rem\], .rounded-\[1\.5rem\], .rounded-\[1\.55rem\],
-.rounded-\[1\.6rem\] { border-radius: var(--miras-r-lg) !important; }
-
-.rounded-\[1\.65rem\], .rounded-\[1\.7rem\], .rounded-\[1\.75rem\], .rounded-\[1\.8rem\],
-.rounded-\[2rem\], .rounded-\[2\.2rem\], .rounded-\[2\.25rem\],
+/* ═══ ١) نصف القطر — ثلاث قيم
+   القيم العشوائية استُبدلت بالرموز في المصدر مباشرة؛ يبقى هنا تطبيع
+   ‎rounded-3xl‎ وحده لأنه صنف Tailwind قياسي. ═══ */
 .rounded-3xl { border-radius: var(--miras-r-xl) !important; }
 
-/* ═══ ٢) الظلال — أربعة مستويات ═══ */
-[class*="shadow-[0_4px"], [class*="shadow-[0_5px"], [class*="shadow-[0_6px"],
-[class*="shadow-[0_7px"], [class*="shadow-[0_8px"], [class*="shadow-[0_9px"],
-[class*="shadow-[0_10px"], [class*="shadow-[0_11px"] { box-shadow: var(--miras-e1) !important; }
-
-[class*="shadow-[0_12px"], [class*="shadow-[0_13px"], [class*="shadow-[0_14px"],
-[class*="shadow-[0_15px"], [class*="shadow-[0_16px"], [class*="shadow-[0_17px"],
-[class*="shadow-[0_18px"], [class*="shadow-[0_19px"],
-[class*="shadow-[0_20px"] { box-shadow: var(--miras-e2) !important; }
-
-[class*="shadow-[0_21px"], [class*="shadow-[0_22px"], [class*="shadow-[0_24px"],
-[class*="shadow-[0_26px"], [class*="shadow-[0_28px"], [class*="shadow-[0_29px"],
-[class*="shadow-[0_30px"], [class*="shadow-[0_31px"] { box-shadow: var(--miras-e3) !important; }
-
-[class*="shadow-[0_32px"], [class*="shadow-[0_34px"], [class*="shadow-[0_36px"],
-[class*="shadow-[0_38px"], [class*="shadow-[0_40px"] { box-shadow: var(--miras-e4) !important; }
-
-/* الظلال ذات النبرة البنفسجية مقصودة (أزرار الفعل) — تُعاد كتوهّج موحّد */
-[class*="shadow-"][class*="rgba(79,70,229"],
-[class*="shadow-"][class*="rgba(67,56,202"] { box-shadow: var(--miras-glow) !important; }
-
-/* ═══ ٣) الوزن — النص الصغير ٧٠٠، والعناوين ٩٠٠ ═══ */
-[class*="text-[9px]"].font-black,  [class*="text-[10px]"].font-black,
-[class*="text-[11px]"].font-black, [class*="text-[12px]"].font-black,
-[class*="text-[13px]"].font-black, [class*="text-[14px]"].font-black,
-.text-xs.font-black, .text-sm.font-black { font-weight: 700 !important; }
-
-p.font-black, span.font-black, label.font-black,
-td.font-black, li.font-black { font-weight: 700 !important; }
-
-h1.font-black, h2.font-black, h3.font-black,
-h1 .font-black, h2 .font-black, h3 .font-black { font-weight: 900 !important; }
+/* ═══ ٢) الظلال — أربعة مستويات + توهّج
+   تُعرَّف كأصناف لا كقيم عشوائية داخل ‎shadow-[]‎: Tailwind v4 يلفّ الظل
+   العشوائي بآلية ‎--tw-shadow-color‎ فلا يقبل متغيّراً متعدّد الطبقات. ═══ */
+.miras-shadow-1 { box-shadow: var(--miras-e1) !important; }
+.miras-shadow-2 { box-shadow: var(--miras-e2) !important; }
+.miras-shadow-3 { box-shadow: var(--miras-e3) !important; }
+.miras-shadow-4 { box-shadow: var(--miras-e4) !important; }
+.miras-shadow-glow { box-shadow: var(--miras-glow) !important; }
 
 /* ═══ ٤) التتبّع الحرفي
    ‎letter-spacing‎ يفكّ وصل الحروف العربية، فيُحيَّد فيما عدا الأرقام. ═══ */
@@ -18786,3 +18755,56 @@ html[data-theme="dark"] #root [class~="to-red-50"] {
   background-image: none !important;
   background-color: var(--miras-surface) !important;
 }
+
+/* ═══ ٢٢) رابط التخطّي — مخفي حتى يصله التركيز بلوحة المفاتيح ═══ */
+.miras-skip {
+  position: fixed;
+  top: -100px;
+  inset-inline-start: 50%;
+  transform: translateX(50%);
+  z-index: 2147483646;
+  padding: .7rem 1.2rem;
+  border-radius: var(--miras-r-md);
+  background: var(--miras-brand);
+  color: var(--miras-brand-on);
+  font: 800 13px/1 Tajawal, system-ui, sans-serif;
+  text-decoration: none;
+  box-shadow: var(--miras-e3);
+  transition: top .18s ease;
+}
+.miras-skip:focus {
+  top: max(.8rem, env(safe-area-inset-top, 0px));
+  outline: 2px solid var(--miras-brand-on);
+  outline-offset: 2px;
+}
+
+/* ═══ ٢٣) أداء الجوال — تعطيل الضباب الخلفي
+   ‎backdrop-filter‎ يُعيد تركيب ما خلف العنصر في كل إطار، وهو من أثقل خصائص
+   CSS على معالجات الجوال. يُعطَّل على الشاشات الصغيرة، وتُعتَّم الأسطح
+   الشفافة عالية العتامة كي لا تفقد وضوحها بلا ضباب. الطبقات الزخرفية
+   منخفضة العتامة (‎bg-white/10‎) تبقى كما هي. ═══ */
+@media (max-width: 820px) {
+  [class*="backdrop-blur"],
+  .glass-panel, .glass-nav, .meras-auth-card {
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+  }
+  [class*="backdrop-blur"][class*="bg-white/7"],
+  [class*="backdrop-blur"][class*="bg-white/8"],
+  [class*="backdrop-blur"][class*="bg-white/9"],
+  .glass-panel, .meras-auth-card {
+    background-color: var(--miras-surface) !important;
+  }
+  html[data-theme="dark"] #root [class*="backdrop-blur"][class*="bg-white/7"],
+  html[data-theme="dark"] #root [class*="backdrop-blur"][class*="bg-white/8"],
+  html[data-theme="dark"] #root [class*="backdrop-blur"][class*="bg-white/9"] {
+    background-color: var(--miras-surface) !important;
+  }
+}
+
+/* ═══ ٢٤) بطاقة المؤشّر — الارتفاع من المحتوى
+   تراكمت على هذا الصنف أكثر من عشر قواعد ‎min-height‎ بقيم مختلفة عبر نقاط
+   توقّف متعدّدة، جميعها مقاسة على تصميم بطاقة أقدم وأكبر، فبقي أسفلها فراغ
+   ميّت. تُحسم هنا بقاعدة واحدة تعلو عليها جميعاً (‎#root‎). ═══ */
+#root .miras-metric-card { min-height: 0 !important; }
+#root .miras-metric-card > div { min-height: 0 !important; }

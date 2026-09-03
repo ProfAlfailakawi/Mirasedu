@@ -2098,7 +2098,7 @@ const isOnboardingDone = (key: string) => {
 // إطار المصغّرة، بنفس لغة بطاقات مِراس.
 function TourCard({ children }: { children: any }) {
   return (
-    <div className="w-full max-w-[19rem] rounded-[var(--miras-r-lg)] border border-white/15 bg-white/10 p-3.5 shadow-[0_24px_60px_rgba(5,8,25,0.35)] backdrop-blur-xl">
+    <div className="w-full max-w-[19rem] rounded-[var(--miras-r-lg)] border border-white/15 bg-white/10 p-3.5 miras-shadow-3 backdrop-blur-xl">
       {children}
     </div>
   );
@@ -2338,7 +2338,7 @@ function RoleOnboardingOverlay({
     >
       <div className="miras-onboarding-backdrop absolute inset-0 bg-slate-950/70 backdrop-blur-md" />
 
-      <div className="miras-onboarding-panel relative flex w-full max-w-4xl max-h-[calc(100dvh-1.5rem)] flex-col overflow-hidden rounded-[var(--miras-r-xl)] border border-white/60 bg-white text-right shadow-[0_34px_120px_rgba(2,6,23,0.36)] sm:max-h-[calc(100dvh-3rem)]">
+      <div className="miras-onboarding-panel relative flex w-full max-w-4xl max-h-[calc(100dvh-1.5rem)] flex-col overflow-hidden rounded-[var(--miras-r-xl)] border border-white/60 bg-white text-right miras-shadow-4 sm:max-h-[calc(100dvh-3rem)]">
         <div className="flex h-full flex-col lg:grid lg:grid-cols-[1fr_1fr]">
           {/* المسرح — أرضية هوية واحدة لا تتغيّر بين الخطوات */}
           <div className="miras-tour-stage relative flex shrink-0 flex-col justify-between overflow-hidden p-6 text-white sm:p-8 lg:min-h-full">
@@ -4496,7 +4496,7 @@ export default function App() {
                 {cmdkQuery.trim() ? (
                   <div className="flex flex-col items-center gap-2 py-4 text-center">
                     <span className="text-3xl opacity-80">🔍</span>
-                    <span className="text-[13px] font-black text-slate-500">
+                    <span className="text-[13px] font-bold text-slate-500">
                       لا نتائج لـ «{cmdkQuery}»
                     </span>
                     <span className="text-[11px] font-medium text-slate-400">
@@ -4506,7 +4506,7 @@ export default function App() {
                 ) : (
                   <div className="flex flex-col items-center gap-2.5 py-6 text-center">
                     <span className="text-3xl opacity-70">✨</span>
-                    <span className="text-[13px] font-black text-slate-500">
+                    <span className="text-[13px] font-bold text-slate-500">
                       ابحث عن أي شيء في مِراس
                     </span>
                     <span className="text-[11px] font-medium leading-6 text-slate-400">
@@ -19530,10 +19530,10 @@ ${rows
     const live = alert && Number.isFinite(numeric) && numeric > 0;
 
     return (
-      <div className="miras-metric-card relative isolate overflow-hidden rounded-[1.7rem] border border-slate-200/70 bg-white p-4">
+      <div className="miras-metric-card relative isolate overflow-hidden rounded-[var(--miras-r-xl)] border border-slate-200/70 bg-white p-4">
         <div className="relative z-10 flex flex-row-reverse items-center justify-between gap-3">
           <div className="min-w-0 text-right">
-            <span className="block truncate text-[11px] font-bold leading-5 text-slate-500">
+            <span className="block text-[11px] font-bold leading-[1.45] text-slate-500">
               {label}
             </span>
             <span className="mt-0.5 block text-[1.65rem] font-black leading-tight tracking-tight text-slate-950">
@@ -20024,7 +20024,7 @@ ${rows
     return (
       <div
         key={key}
-        className={`overflow-hidden rounded-[1.35rem] border bg-white/90 text-right shadow-sm transition-all duration-200 ${isOpen ? "border-amber-200/80 shadow-[0_18px_42px_rgba(120,53,15,0.08)]" : "border-amber-100/70 hover:border-amber-200/80"}`}
+        className={`overflow-hidden rounded-[var(--miras-r-lg)] border bg-white/90 text-right shadow-sm transition-all duration-200 ${isOpen ? "border-amber-200/80 miras-shadow-2" : "border-amber-100/70 hover:border-amber-200/80"}`}
       >
         <button
           type="button"
@@ -20038,10 +20038,10 @@ ${rows
             </span>
             <div className="min-w-0 flex-1">
               <div className="flex min-w-0 items-center gap-2">
-                <span className="truncate text-[13px] font-black text-slate-900">
+                <span className="truncate text-[13px] font-bold text-slate-900">
                   {req.studentName || "طالب غير محدد"}
                 </span>
-                <span className={`shrink-0 rounded-full px-2 py-0.5 text-[9px] font-black ${passwordResetStatusClass(status)}`}>
+                <span className={`shrink-0 rounded-full px-2 py-0.5 text-[9px] font-bold ${passwordResetStatusClass(status)}`}>
                   {passwordResetStatusLabel(status)}
                 </span>
               </div>
@@ -26565,11 +26565,11 @@ ${rows
       courseCodesMatch(course.courseCode, code),
     );
     const palette = [
-      "bg-indigo-500 shadow-[0_0_16px_rgba(99,102,241,0.45)]",
-      "bg-emerald-500 shadow-[0_0_16px_rgba(16,185,129,0.45)]",
-      "bg-sky-500 shadow-[0_0_16px_rgba(14,165,233,0.45)]",
-      "bg-violet-500 shadow-[0_0_16px_rgba(139,92,246,0.45)]",
-      "bg-amber-500 shadow-[0_0_16px_rgba(245,158,11,0.40)]",
+      "bg-indigo-500 miras-shadow-2",
+      "bg-emerald-500 miras-shadow-2",
+      "bg-sky-500 miras-shadow-2",
+      "bg-violet-500 miras-shadow-2",
+      "bg-amber-500 miras-shadow-2",
     ];
     const index = foundIndex >= 0 ? foundIndex : fallbackIndex;
     return palette[Math.abs(index) % palette.length];
@@ -27535,7 +27535,7 @@ ${rows
 
           <div className="space-y-3 rounded-3xl border border-emerald-100 bg-emerald-50/40 p-4">
             <div className="flex items-center justify-between gap-3">
-              <p className="text-xs font-black text-emerald-800">
+              <p className="text-xs font-bold text-emerald-800">
                 إضافة طالب يدوياً
               </p>
               <button
@@ -27600,7 +27600,7 @@ ${rows
                       {(manualStudentResolvedName ||
                         manualStudentLookupBusy) && (
                         <p
-                          className={`text-[10px] font-black ${manualStudentResolvedName ? "text-emerald-700" : "text-indigo-500"}`}
+                          className={`text-[10px] font-bold ${manualStudentResolvedName ? "text-emerald-700" : "text-indigo-500"}`}
                         >
                           {manualStudentResolvedName
                             ? "تم جلب الاسم تلقائياً من سجلات النظام."
@@ -27610,7 +27610,7 @@ ${rows
                       {manualStudentWasRemoved && (
                         <span
                           title="إضافة جديدة نظيفة"
-                          className="inline-flex items-center gap-1 rounded-full border border-violet-100 bg-violet-50 px-2 py-1 text-[10px] font-black text-violet-700"
+                          className="inline-flex items-center gap-1 rounded-full border border-violet-100 bg-violet-50 px-2 py-1 text-[10px] font-bold text-violet-700"
                         >
                           <Sparkles className="h-3 w-3" />
                           نظيفة
@@ -27759,7 +27759,7 @@ ${rows
           {excelMappingOpen && (
             <div className="rounded-3xl border border-indigo-100 bg-white p-4 shadow-sm space-y-4">
               <div className="flex items-center justify-between gap-3">
-                <h3 className="text-sm font-black text-slate-900">
+                <h3 className="text-sm font-bold text-slate-900">
                   تحديد أعمدة ملف Excel
                 </h3>
                 <button
@@ -27804,7 +27804,7 @@ ${rows
                 تجاوز أي صف لاحق غير مكتمل دون إيقاف الاستيراد.
               </div>
               <div
-                className={`rounded-2xl border px-4 py-3 text-[11px] font-black ${allowedExcelImportPreview.error ? "border-rose-100 bg-rose-50 text-rose-700" : "border-emerald-100 bg-emerald-50 text-emerald-700"}`}
+                className={`rounded-2xl border px-4 py-3 text-[11px] font-bold ${allowedExcelImportPreview.error ? "border-rose-100 bg-rose-50 text-rose-700" : "border-emerald-100 bg-emerald-50 text-emerald-700"}`}
               >
                 عدد الطلبة الجاهزين للاستيراد:{" "}
                 {allowedExcelImportPreview.parsed.length} طالب
@@ -27843,7 +27843,7 @@ ${rows
 
           <div className="rounded-3xl border border-slate-100 bg-slate-50 p-4">
             <div className="mb-3 flex items-center justify-between gap-3">
-              <span className="text-[11px] font-black text-slate-700">
+              <span className="text-[11px] font-bold text-slate-700">
                 أسماء الطلبة
               </span>
               <div className="relative w-full max-w-xs">
@@ -27867,15 +27867,15 @@ ${rows
                   return (
                     <div
                       key={row.idNumber}
-                      className={`rounded-2xl border bg-white p-4 shadow-[0_4px_16px_rgba(15,23,42,0.02)] transition-all duration-250 ${
+                      className={`rounded-2xl border bg-white p-4 miras-shadow-1 transition-all duration-250 ${
                         isEditing
                           ? "border-indigo-300 ring-2 ring-indigo-50"
-                          : "border-slate-100 hover:border-slate-200/80 hover:shadow-[0_8px_24px_rgba(15,23,42,0.04)]"
+                          : "border-slate-100 hover:border-slate-200/80 hover:miras-shadow-1"
                       }`}
                     >
                       <div className="grid grid-cols-1 gap-3.5">
                         <div>
-                          <label className="text-[10px] font-black text-indigo-500 block mb-1">
+                          <label className="text-[10px] font-bold text-indigo-500 block mb-1">
                             الرقم الجامعي
                           </label>
                           <div className="font-mono text-base font-black text-indigo-700">
@@ -27900,7 +27900,7 @@ ${rows
                         </div>
 
                         <div>
-                          <label className="text-[10px] font-black text-slate-400 block mb-1">
+                          <label className="text-[10px] font-bold text-slate-400 block mb-1">
                             اسم الطالب
                           </label>
                           <div className="text-[15px] font-black text-slate-800 break-words [overflow-wrap:anywhere]">
@@ -27922,7 +27922,7 @@ ${rows
                           <div>
                             {!isEditing && (
                               <span
-                                className={`inline-flex rounded-full px-2.5 py-1 text-[10px] font-black ${row.isSuspended ? "bg-amber-50 text-amber-700" : row.registered ? "bg-emerald-50 text-emerald-700" : "bg-slate-100 text-slate-500"}`}
+                                className={`inline-flex rounded-full px-2.5 py-1 text-[10px] font-bold ${row.isSuspended ? "bg-amber-50 text-amber-700" : row.registered ? "bg-emerald-50 text-emerald-700" : "bg-slate-100 text-slate-500"}`}
                               >
                                 {row.isSuspended
                                   ? "موقوف بالمقرر"
@@ -28974,9 +28974,9 @@ ${rows
     >
       {publicLoginApprovalToken && (
         <div className="fixed inset-0 z-[200500] flex min-h-[100dvh] items-center justify-center overflow-y-auto bg-[radial-gradient(circle_at_top_right,#e0e7ff_0,transparent_42%),radial-gradient(circle_at_bottom_left,#d1fae5_0,transparent_40%),#f8fafc] px-4 py-7">
-          <div className="relative w-full max-w-md overflow-hidden rounded-[2.25rem] border border-white/90 bg-white/90 p-6 text-center shadow-[0_32px_100px_rgba(15,23,42,0.18)] backdrop-blur-2xl sm:p-8">
+          <div className="relative w-full max-w-md overflow-hidden rounded-[var(--miras-r-xl)] border border-white/90 bg-white/90 p-6 text-center miras-shadow-4 backdrop-blur-2xl sm:p-8">
             <div className="absolute inset-x-16 top-0 h-px bg-gradient-to-r from-transparent via-indigo-400 to-transparent" />
-            <span className="mx-auto grid h-16 w-16 place-items-center rounded-[1.4rem] border border-indigo-100 bg-gradient-to-br from-white to-indigo-50 shadow-[0_16px_40px_rgba(79,70,229,0.14)]">
+            <span className="mx-auto grid h-16 w-16 place-items-center rounded-[var(--miras-r-lg)] border border-indigo-100 bg-gradient-to-br from-white to-indigo-50 miras-shadow-glow">
               <img
                 src="/icon-192.png"
                 alt="مِراس"
@@ -28987,7 +28987,7 @@ ${rows
             {publicLoginApproval.phase === "loading" && (
               <div className="py-8">
                 <RefreshCw className="mx-auto h-7 w-7 animate-spin text-indigo-600" />
-                <p className="mt-4 text-sm font-black text-slate-800">
+                <p className="mt-4 text-sm font-bold text-slate-800">
                   جارٍ التحقق من طلب الكمبيوتر…
                 </p>
               </div>
@@ -28996,7 +28996,7 @@ ${rows
             {(publicLoginApproval.phase === "ready" ||
               publicLoginApproval.phase === "verifying") && (
               <div className="mt-5">
-                <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-100 bg-emerald-50 px-3 py-1 text-[10px] font-black text-emerald-700">
+                <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-100 bg-emerald-50 px-3 py-1 text-[10px] font-bold text-emerald-700">
                   <Lock className="h-3.5 w-3.5" />
                   موافقة آمنة من هاتفك
                 </span>
@@ -29007,22 +29007,22 @@ ${rows
                   لن تُرسل كلمة المرور، ولن يُعتمد الكمبيوتر كجهاز شخصي.
                 </p>
 
-                <div className="mt-5 rounded-[1.6rem] border border-slate-100 bg-slate-50/80 p-4 text-right">
+                <div className="mt-5 rounded-[var(--miras-r-lg)] border border-slate-100 bg-slate-50/80 p-4 text-right">
                   <div className="flex items-center gap-3">
                     <span className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-white text-indigo-600 shadow-sm">
                       <Laptop className="h-5 w-5" />
                     </span>
                     <div className="min-w-0 flex-1">
-                      <p className="text-[10px] font-black text-slate-400">
+                      <p className="text-[10px] font-bold text-slate-400">
                         الجهاز الذي يطلب الدخول
                       </p>
-                      <p className="mt-1 truncate text-[13px] font-black text-slate-900">
+                      <p className="mt-1 truncate text-[13px] font-bold text-slate-900">
                         {publicLoginApproval.desktopLabel || "كمبيوتر جديد"}
                       </p>
                     </div>
                   </div>
                   <div className="mt-3 flex items-center justify-between rounded-2xl border border-indigo-100 bg-white px-4 py-3">
-                    <span className="text-[11px] font-black text-slate-500">
+                    <span className="text-[11px] font-bold text-slate-500">
                       طابق هذا الرمز مع الكمبيوتر
                     </span>
                     <strong
@@ -29037,7 +29037,7 @@ ${rows
                 {publicLoginApproval.error && (
                   <p
                     role="alert"
-                    className="mt-4 rounded-2xl border border-amber-100 bg-amber-50 px-4 py-3 text-[11px] font-black leading-5 text-amber-800"
+                    className="mt-4 rounded-2xl border border-amber-100 bg-amber-50 px-4 py-3 text-[11px] font-bold leading-5 text-amber-800"
                   >
                     {publicLoginApproval.error}
                   </p>
@@ -29047,7 +29047,7 @@ ${rows
                   type="button"
                   disabled={publicLoginApproval.phase === "verifying"}
                   onClick={confirmPublicDeviceLoginApproval}
-                  className="mt-5 flex w-full items-center justify-center gap-2.5 rounded-2xl bg-slate-950 px-5 py-4 text-sm font-black text-white shadow-[0_16px_35px_rgba(15,23,42,0.2)] transition hover:bg-indigo-700 disabled:cursor-wait disabled:opacity-70"
+                  className="mt-5 flex w-full items-center justify-center gap-2.5 rounded-2xl bg-slate-950 px-5 py-4 text-sm font-bold text-white miras-shadow-2 transition hover:bg-indigo-700 disabled:cursor-wait disabled:opacity-70"
                 >
                   {publicLoginApproval.phase === "verifying" ? (
                     <RefreshCw className="h-5 w-5 animate-spin" />
@@ -29078,7 +29078,7 @@ ${rows
                 <button
                   type="button"
                   onClick={() => window.location.replace("/")}
-                  className="mt-5 rounded-2xl border border-slate-200 bg-white px-5 py-3 text-[12px] font-black text-slate-700 shadow-sm hover:bg-slate-50"
+                  className="mt-5 rounded-2xl border border-slate-200 bg-white px-5 py-3 text-[12px] font-bold text-slate-700 shadow-sm hover:bg-slate-50"
                 >
                   العودة إلى مِراس
                 </button>
@@ -29100,7 +29100,7 @@ ${rows
                 <button
                   type="button"
                   onClick={() => window.location.replace("/")}
-                  className="mt-5 rounded-2xl bg-slate-950 px-6 py-3 text-[12px] font-black text-white hover:bg-indigo-700"
+                  className="mt-5 rounded-2xl bg-slate-950 px-6 py-3 text-[12px] font-bold text-white hover:bg-indigo-700"
                 >
                   إغلاق والعودة
                 </button>
@@ -29117,7 +29117,7 @@ ${rows
           aria-modal="true"
           aria-label="الدخول الآمن من جهاز عام"
         >
-          <div className="relative w-full max-w-md overflow-hidden rounded-[2.25rem] border border-white/20 bg-white p-6 text-center shadow-[0_35px_110px_rgba(15,23,42,0.45)] sm:p-8">
+          <div className="relative w-full max-w-md overflow-hidden rounded-[var(--miras-r-xl)] border border-white/20 bg-white p-6 text-center miras-shadow-4 sm:p-8">
             <button
               type="button"
               onClick={() => void cancelPublicDeviceLogin(true)}
@@ -29127,7 +29127,7 @@ ${rows
             >
               <X className="h-4.5 w-4.5" />
             </button>
-            <span className="mx-auto grid h-14 w-14 place-items-center rounded-[1.25rem] bg-gradient-to-br from-indigo-600 to-sky-500 text-white shadow-[0_14px_35px_rgba(79,70,229,0.3)]">
+            <span className="mx-auto grid h-14 w-14 place-items-center rounded-[var(--miras-r-lg)] bg-gradient-to-br from-indigo-600 to-sky-500 text-white miras-shadow-glow">
               <Smartphone className="h-7 w-7" />
             </span>
             <h2 className="mt-4 text-xl font-black tracking-tight text-slate-950">
@@ -29137,7 +29137,7 @@ ${rows
             {publicDeviceLogin.phase === "starting" && (
               <div className="py-12">
                 <RefreshCw className="mx-auto h-8 w-8 animate-spin text-indigo-600" />
-                <p className="mt-4 text-[12px] font-black text-slate-600">
+                <p className="mt-4 text-[12px] font-bold text-slate-600">
                   جارٍ إنشاء رمز آمن…
                 </p>
               </div>
@@ -29149,7 +29149,7 @@ ${rows
                 <p className="mt-2 text-[11px] font-bold leading-5 text-slate-500">
                   افتح كاميرا هاتفك الشخصي وامسح الرمز، ثم وافق بالبصمة.
                 </p>
-                <div className="mx-auto mt-5 w-fit rounded-[1.75rem] border border-slate-100 bg-white p-3 shadow-[0_18px_55px_rgba(15,23,42,0.1)]">
+                <div className="mx-auto mt-5 w-fit rounded-[var(--miras-r-xl)] border border-slate-100 bg-white p-3 miras-shadow-2">
                   <img
                     src={publicDeviceLogin.qrDataUrl}
                     alt="رمز QR للدخول الآمن"
@@ -29157,7 +29157,7 @@ ${rows
                   />
                 </div>
                 <div className="mx-auto mt-4 flex max-w-[15rem] items-center justify-between rounded-2xl border border-indigo-100 bg-indigo-50/70 px-4 py-3">
-                  <span className="text-right text-[10px] font-black leading-4 text-indigo-800">
+                  <span className="text-right text-[10px] font-bold leading-4 text-indigo-800">
                     رمز المطابقة
                   </span>
                   <strong
@@ -29167,7 +29167,7 @@ ${rows
                     {publicDeviceLogin.pairingCode}
                   </strong>
                 </div>
-                <div className="mt-4 flex items-center justify-center gap-2 text-[10px] font-black text-slate-400">
+                <div className="mt-4 flex items-center justify-center gap-2 text-[10px] font-bold text-slate-400">
                   {publicDeviceLogin.phase === "connecting" ? (
                     <>
                       <RefreshCw className="h-3.5 w-3.5 animate-spin text-emerald-600" />
@@ -29195,10 +29195,10 @@ ${rows
                   {["امسح", "طابق الرمز", "وافق بالبصمة"].map(
                     (label, index) => (
                       <div key={label} className="text-center">
-                        <span className="mx-auto grid h-7 w-7 place-items-center rounded-full bg-slate-100 font-mono text-[10px] font-black text-slate-600">
+                        <span className="mx-auto grid h-7 w-7 place-items-center rounded-full bg-slate-100 font-mono text-[10px] font-bold text-slate-600">
                           {index + 1}
                         </span>
-                        <p className="mt-1.5 text-[9px] font-black text-slate-500">
+                        <p className="mt-1.5 text-[9px] font-bold text-slate-500">
                           {label}
                         </p>
                       </div>
@@ -29214,13 +29214,13 @@ ${rows
                 <span className="mx-auto grid h-14 w-14 place-items-center rounded-full bg-amber-50 text-amber-600">
                   <AlertTriangle className="h-7 w-7" />
                 </span>
-                <p className="mx-auto mt-4 max-w-xs text-[12px] font-black leading-6 text-slate-700">
+                <p className="mx-auto mt-4 max-w-xs text-[12px] font-bold leading-6 text-slate-700">
                   {publicDeviceLogin.error || "تعذر تجهيز رمز الدخول."}
                 </p>
                 <button
                   type="button"
                   onClick={startPublicDeviceLogin}
-                  className="mt-5 inline-flex items-center justify-center gap-2 rounded-2xl bg-slate-950 px-6 py-3 text-[12px] font-black text-white hover:bg-indigo-700"
+                  className="mt-5 inline-flex items-center justify-center gap-2 rounded-2xl bg-slate-950 px-6 py-3 text-[12px] font-bold text-white hover:bg-indigo-700"
                 >
                   <RefreshCw className="h-4 w-4" />
                   إنشاء رمز جديد
@@ -30053,7 +30053,7 @@ ${rows
           داخل شريحة الحساب (نقطة بلا كلام، والضغط يُظهر الحالة بأناقة). */}
       {connectionPopoverOpen && studentSession && !teacherSession && (
         <div
-          className="miras-connection-status-popover fixed left-1/2 z-[125] inline-flex max-w-[calc(100vw-2rem)] -translate-x-1/2 items-center gap-2 whitespace-nowrap rounded-full border border-slate-200/80 bg-white/96 px-3.5 py-2 text-[10px] font-black text-slate-700 shadow-[0_14px_38px_rgba(15,23,42,0.14)] backdrop-blur-xl"
+          className="miras-connection-status-popover fixed left-1/2 z-[125] inline-flex max-w-[calc(100vw-2rem)] -translate-x-1/2 items-center gap-2 whitespace-nowrap rounded-full border border-slate-200/80 bg-white/96 px-3.5 py-2 text-[10px] font-bold text-slate-700 miras-shadow-2 backdrop-blur-xl"
           style={{ top: "max(0.8rem, calc(env(safe-area-inset-top, 0px) + 0.45rem))" }}
           role="status"
           aria-live="polite"
@@ -30084,11 +30084,11 @@ ${rows
           className="fixed inset-0 z-[130] flex items-center justify-center bg-slate-950/55 p-4 backdrop-blur-md"
           dir="rtl"
         >
-          <div className="miras-activation-scanner-shell relative w-full max-w-[24rem] overflow-hidden rounded-[2rem] border border-white/80 bg-white p-4 text-right shadow-[0_30px_95px_rgba(15,23,42,0.28)]">
+          <div className="miras-activation-scanner-shell relative w-full max-w-[24rem] overflow-hidden rounded-[var(--miras-r-xl)] border border-white/80 bg-white p-4 text-right miras-shadow-3">
             <div className="pointer-events-none absolute -left-16 -top-16 h-40 w-40 rounded-full bg-indigo-100/70 blur-3xl" />
             <div className="relative flex items-start justify-between gap-3">
               <div>
-                <div className="inline-flex items-center gap-2 rounded-2xl border border-indigo-100 bg-indigo-50/70 px-3 py-1.5 text-[11px] font-black text-indigo-700">
+                <div className="inline-flex items-center gap-2 rounded-2xl border border-indigo-100 bg-indigo-50/70 px-3 py-1.5 text-[11px] font-bold text-indigo-700">
                   <Camera className="h-4 w-4" />
                   مسح كود التفعيل
                 </div>
@@ -30099,23 +30099,23 @@ ${rows
               <button
                 type="button"
                 onClick={stopActivationQrScanner}
-                className="grid h-10 w-10 shrink-0 place-items-center rounded-[1.55rem] border border-slate-100 bg-slate-50/80 text-slate-500 transition hover:bg-slate-100"
+                className="grid h-10 w-10 shrink-0 place-items-center rounded-[var(--miras-r-lg)] border border-slate-100 bg-slate-50/80 text-slate-500 transition hover:bg-slate-100"
                 aria-label="إغلاق كاميرا QR"
               >
                 <X className="h-4 w-4" />
               </button>
             </div>
-            <div className="relative mt-4 overflow-hidden rounded-[1.5rem] border border-slate-100 bg-slate-950 shadow-inner">
+            <div className="relative mt-4 overflow-hidden rounded-[var(--miras-r-lg)] border border-slate-100 bg-slate-950 shadow-inner">
               <video
                 ref={activationQrVideoRef}
                 className="aspect-square w-full object-cover"
                 playsInline
                 muted
               />
-              <div className="pointer-events-none absolute inset-8 rounded-[1.2rem] border-2 border-white/80 shadow-[0_0_0_999px_rgba(15,23,42,0.22)]" />
+              <div className="pointer-events-none absolute inset-8 rounded-[var(--miras-r-lg)] border-2 border-white/80 miras-shadow-4" />
             </div>
             {activationQrScannerStatus && (
-              <div className="mt-3 rounded-2xl border border-indigo-100 bg-indigo-50/70 px-3 py-2 text-center text-[11px] font-black leading-5 text-indigo-700">
+              <div className="mt-3 rounded-2xl border border-indigo-100 bg-indigo-50/70 px-3 py-2 text-center text-[11px] font-bold leading-5 text-indigo-700">
                 {activationQrScannerStatus}
               </div>
             )}
@@ -30132,7 +30132,7 @@ ${rows
             <button
               type="button"
               onClick={() => activationQrFileInputRef.current?.click()}
-              className="mt-3 flex w-full items-center justify-center gap-2 rounded-2xl border border-slate-100 bg-white px-4 py-3 text-[11px] font-black text-slate-700 shadow-sm transition hover:bg-slate-50 active:scale-[0.99]"
+              className="mt-3 flex w-full items-center justify-center gap-2 rounded-2xl border border-slate-100 bg-white px-4 py-3 text-[11px] font-bold text-slate-700 shadow-sm transition hover:bg-slate-50 active:scale-[0.99]"
             >
               <Camera className="h-4 w-4" />
               اختيار صورة QR
@@ -30167,7 +30167,7 @@ ${rows
                     <div className="truncate text-[11.5px] font-black leading-tight">
                       {selectedSubmissionDetail.studentName || "طالب"}
                     </div>
-                    <div className="mt-0.5 text-[9px] font-black text-indigo-400">
+                    <div className="mt-0.5 text-[9px] font-bold text-indigo-400">
                       {selectedSubmissionDetailIndex + 1}/{detailActivitySubmissions.length || 1}
                     </div>
                   </div>
@@ -30258,8 +30258,8 @@ ${rows
             {/* Split Panel / Single Page Workspace */}
             <div className="miras-quick-grading-grid min-h-0 flex-1 p-4 gap-4 overflow-hidden lg:grid lg:grid-cols-[17rem_minmax(0,1fr)]">
               {/* Desktop Sidebar Rail */}
-              <aside className="hidden min-h-0 overflow-hidden rounded-[1.45rem] border border-slate-100 bg-slate-50/70 p-2 lg:flex lg:flex-col">
-                <div className="mb-2 flex items-center justify-between px-2 text-[10px] font-black text-slate-500">
+              <aside className="hidden min-h-0 overflow-hidden rounded-[var(--miras-r-lg)] border border-slate-100 bg-slate-50/70 p-2 lg:flex lg:flex-col">
+                <div className="mb-2 flex items-center justify-between px-2 text-[10px] font-bold text-slate-500">
                   <span>الطلبة</span>
                   <span className="rounded-full bg-white px-2 py-0.5 text-indigo-700">{detailActivitySubmissions.length}</span>
                 </div>
@@ -30285,7 +30285,7 @@ ${rows
                         }`}
                       >
                         <span className="min-w-0">
-                          <span className="block truncate text-[11px] font-black">{row.studentName || "طالب"}</span>
+                          <span className="block truncate text-[11px] font-bold">{row.studentName || "طالب"}</span>
                         </span>
                         <span className={`h-2 w-2 shrink-0 rounded-full ${row.submission ? isActive ? "bg-white" : "bg-emerald-400" : "bg-slate-200"}`} />
                       </button>
@@ -30306,7 +30306,7 @@ ${rows
                       </span>
                     </div>
                     {false && (
-                      <div className="rounded-xl border border-emerald-100 bg-emerald-50/50 px-2.5 py-1 text-[10px] font-black text-emerald-700">
+                      <div className="rounded-xl border border-emerald-100 bg-emerald-50/50 px-2.5 py-1 text-[10px] font-bold text-emerald-700">
                         بصمة عدالة: أصلية {selectedSubmissionDetail.originalGrade || "—"} / بعد مراجعة {selectedSubmissionDetail.reviewedGrade || teacherGradeInputValue(selectedSubmissionDetail) || "—"}
                       </div>
                     )}
@@ -30346,7 +30346,7 @@ ${rows
                     <div className="rounded-2xl border border-rose-100 bg-rose-50/60 p-4">
                       <div className="mb-2 flex items-center gap-2 text-rose-700">
                         <AlertTriangle className="h-4.5 w-4.5 shrink-0" />
-                        <span className="text-[11px] font-black">رصد محاولات غش أو خروج ({selectedSubmissionDetail.cheatingAlerts.length})</span>
+                        <span className="text-[11px] font-bold">رصد محاولات غش أو خروج ({selectedSubmissionDetail.cheatingAlerts.length})</span>
                       </div>
                       <div className="space-y-1.5">
                         {selectedSubmissionDetail.cheatingAlerts.map((c: any, idx: number) => (
@@ -30369,7 +30369,7 @@ ${rows
  
                   {/* Student Text Answer */}
                   <div className="rounded-2xl border border-slate-100 bg-slate-50/30 p-4">
-                    <span className="text-[11px] font-black text-slate-400">إجابة الطالب النصية</span>
+                    <span className="text-[11px] font-bold text-slate-400">إجابة الطالب النصية</span>
                     <p className="mt-1.5 text-[12px] font-bold leading-relaxed text-slate-800 whitespace-pre-line">
                       {selectedSubmissionDetail.studentSolutionText || "لم يقدم الطالب حلاً نصياً."}
                     </p>
@@ -30378,7 +30378,7 @@ ${rows
                   {/* File Attachments Grid */}
                   {selectedSubmissionDetail.attachments && selectedSubmissionDetail.attachments.length > 0 && (
                     <div className="space-y-2 pt-2">
-                      <span className="text-[11px] font-black text-slate-400">
+                      <span className="text-[11px] font-bold text-slate-400">
                         مرفقات الطالب ({selectedSubmissionDetail.attachments.length}):
                       </span>
                       <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
@@ -30399,7 +30399,7 @@ ${rows
                               className="flex items-center justify-between gap-3 rounded-xl border border-slate-100 bg-white p-3 text-right transition hover:border-indigo-200 hover:bg-indigo-50/30 shadow-sm"
                             >
                               <div className="min-w-0 flex-1">
-                                <div className="truncate text-[11px] font-black text-slate-800">
+                                <div className="truncate text-[11px] font-bold text-slate-800">
                                   {mirasCleanAttachmentName(name, "مرفق")}
                                 </div>
                                 <div className="mt-0.5 flex items-center gap-1.5 text-[9px] font-bold text-slate-400">
@@ -30435,7 +30435,7 @@ ${rows
                   {/* Audit Logs */}
                   {false && (
                     <div className="rounded-2xl border border-slate-100 bg-slate-50/60 p-4 space-y-1.5">
-                      <span className="mb-2 block text-[10px] font-black text-slate-400">سجل رصد ومراجعة الدرجات:</span>
+                      <span className="mb-2 block text-[10px] font-bold text-slate-400">سجل رصد ومراجعة الدرجات:</span>
                       {gradeAuditTrailForSubmission(selectedSubmissionDetail).map((audit: any, idx: number) => (
                         <div key={idx} className="flex items-center justify-between rounded-xl bg-white px-3 py-1.5 text-[10px] font-bold text-slate-600 border border-slate-50">
                           <span>الدرجة: {audit.grade} ({audit.changedBy === "teacher" ? "المعلم" : "تحديث تلقائي"})</span>
@@ -30468,9 +30468,9 @@ ${rows
                       dir="ltr"
                       inputMode="decimal"
                       placeholder=""
-                      className="h-10 w-[5.75rem] shrink-0 rounded-2xl border border-slate-200 bg-white px-2 text-center font-mono text-sm font-black text-indigo-700 outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-50"
+                      className="h-10 w-[5.75rem] shrink-0 rounded-2xl border border-slate-200 bg-white px-2 text-center font-mono text-sm font-bold text-indigo-700 outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-50"
                     />
-                    <span className="whitespace-nowrap text-[11px] font-black text-slate-400">
+                    <span className="whitespace-nowrap text-[11px] font-bold text-slate-400">
                       {teacherGradeMaxText(selectedSubmissionDetail)}
                     </span>
                   </div>
@@ -30503,7 +30503,7 @@ ${rows
           onClick={() => setPreviewAttachment(null)}
         >
           <div
-            className={`miras-attachment-preview-panel relative flex w-full max-w-3xl flex-col overflow-hidden rounded-[1.6rem] border border-white/15 bg-white shadow-[0_28px_90px_rgba(15,23,42,0.5)] ${
+            className={`miras-attachment-preview-panel relative flex w-full max-w-3xl flex-col overflow-hidden rounded-[var(--miras-r-lg)] border border-white/15 bg-white miras-shadow-3 ${
               [
                 ".jpg",
                 ".jpeg",
@@ -30528,7 +30528,7 @@ ${rows
           >
             <div className="miras-attachment-preview-header flex items-center justify-between gap-2 border-b border-slate-100 px-4 py-3">
               <p
-                className="min-w-0 flex-1 truncate text-[12px] font-black text-slate-800"
+                className="min-w-0 flex-1 truncate text-[12px] font-bold text-slate-800"
                 title={mirasCleanAttachmentName(
                   previewAttachment.originalName || previewAttachment.name,
                   "مرفق",
@@ -30568,9 +30568,9 @@ ${rows
                       dir="ltr"
                       inputMode="decimal"
                       placeholder=""
-                      className="h-8 w-16 rounded-lg bg-white border border-slate-200 text-center font-mono text-xs font-black text-indigo-700 focus:outline-none focus:border-indigo-400"
+                      className="h-8 w-16 rounded-lg bg-white border border-slate-200 text-center font-mono text-xs font-bold text-indigo-700 focus:outline-none focus:border-indigo-400"
                     />
-                    <span className="text-[10px] font-black text-slate-400 leading-none">
+                    <span className="text-[10px] font-bold text-slate-400 leading-none">
                       {teacherGradeMaxText(selectedSubmissionDetail)}
                     </span>
                   </div>
@@ -30660,7 +30660,7 @@ ${rows
                         [loadKey]: -1 * (Math.abs(prev[loadKey] || 0) + 1),
                       }))
                     }
-                    className="rounded-2xl bg-indigo-600 px-5 py-2.5 text-[12px] font-black text-white hover:bg-indigo-700"
+                    className="rounded-2xl bg-indigo-600 px-5 py-2.5 text-[12px] font-bold text-white hover:bg-indigo-700"
                   >
                     إعادة المحاولة
                   </button>
@@ -30669,7 +30669,7 @@ ${rows
                   return (
                     <div className="flex min-h-[18rem] flex-col items-center justify-center gap-3 p-10 text-center">
                       <FileText className="h-10 w-10 text-rose-400" />
-                      <p className="text-[13px] font-black text-slate-800">
+                      <p className="text-[13px] font-bold text-slate-800">
                         {documentPreviewError}
                       </p>
                       <p className="max-w-full break-words text-[12px] font-bold text-slate-500">
@@ -30681,7 +30681,7 @@ ${rows
                   return (
                     <div className="flex min-h-[18rem] flex-col items-center justify-center gap-3 p-10 text-center">
                       <ImageIcon className="h-10 w-10 text-rose-400" />
-                      <p className="text-[13px] font-black text-slate-800">
+                      <p className="text-[13px] font-bold text-slate-800">
                         تعذر تحميل المرفق من الخادم
                       </p>
                       <p className="max-w-full break-words text-[12px] font-bold text-slate-500">
@@ -30767,7 +30767,7 @@ ${rows
                               key={`${sheet.name}-${idx}`}
                               type="button"
                               onClick={() => setActiveSheetIndex(idx)}
-                              className={`shrink-0 whitespace-nowrap rounded-xl px-3 py-1.5 text-[11px] font-black ${
+                              className={`shrink-0 whitespace-nowrap rounded-xl px-3 py-1.5 text-[11px] font-bold ${
                                 idx === activeSheetIndex
                                   ? "bg-indigo-600 text-white"
                                   : "border border-slate-200 bg-white text-slate-600"
@@ -30843,7 +30843,7 @@ ${rows
                       href={url}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="rounded-2xl bg-indigo-600 px-5 py-2.5 text-[12px] font-black text-white hover:bg-indigo-700"
+                      className="rounded-2xl bg-indigo-600 px-5 py-2.5 text-[12px] font-bold text-white hover:bg-indigo-700"
                     >
                       فتح الملف
                     </a>
@@ -30858,7 +30858,7 @@ ${rows
       {/* Dynamic Alerts */}
       {visibleSuccessMsg && (
         <div
-          className="miras-floating-toast fixed inset-x-3 top-3 z-[120] mx-auto flex max-w-[42rem] items-start gap-2.5 rounded-[1.35rem] border border-emerald-100/80 bg-white/95 px-3.5 py-3 text-right shadow-[0_18px_55px_rgba(15,23,42,0.14)] backdrop-blur-xl sm:inset-x-auto sm:right-4 sm:top-4 sm:mx-0 sm:px-4"
+          className="miras-floating-toast fixed inset-x-3 top-3 z-[120] mx-auto flex max-w-[42rem] items-start gap-2.5 rounded-[var(--miras-r-lg)] border border-emerald-100/80 bg-white/95 px-3.5 py-3 text-right miras-shadow-2 backdrop-blur-xl sm:inset-x-auto sm:right-4 sm:top-4 sm:mx-0 sm:px-4"
           style={{
             position: "fixed",
             left: "0.75rem",
@@ -30871,7 +30871,7 @@ ${rows
           <span className="grid h-9 w-9 shrink-0 place-items-center rounded-2xl bg-emerald-50 text-emerald-600 shadow-inner">
             <CheckCircle className="h-4.5 w-4.5" />
           </span>
-          <span className="min-w-0 flex-1 whitespace-normal break-words text-[12px] font-black leading-6 text-emerald-800 sm:text-sm">
+          <span className="min-w-0 flex-1 whitespace-normal break-words text-[12px] font-bold leading-6 text-emerald-800 sm:text-sm">
             {visibleSuccessMsg}
           </span>
           <button
@@ -30886,7 +30886,7 @@ ${rows
 
       {visibleErrorMsg && (
         <div
-          className="miras-floating-toast fixed inset-x-3 top-3 z-[120] mx-auto flex max-w-[42rem] items-start gap-2.5 rounded-[1.35rem] border border-amber-100/80 bg-white/95 px-3.5 py-3 text-right shadow-[0_18px_55px_rgba(15,23,42,0.14)] backdrop-blur-xl sm:inset-x-auto sm:right-4 sm:top-4 sm:mx-0 sm:px-4"
+          className="miras-floating-toast fixed inset-x-3 top-3 z-[120] mx-auto flex max-w-[42rem] items-start gap-2.5 rounded-[var(--miras-r-lg)] border border-amber-100/80 bg-white/95 px-3.5 py-3 text-right miras-shadow-2 backdrop-blur-xl sm:inset-x-auto sm:right-4 sm:top-4 sm:mx-0 sm:px-4"
           style={{
             position: "fixed",
             left: "0.75rem",
@@ -30899,7 +30899,7 @@ ${rows
           <span className="grid h-9 w-9 shrink-0 place-items-center rounded-2xl bg-amber-50 text-amber-600 shadow-inner">
             <AlertTriangle className="h-4.5 w-4.5" />
           </span>
-          <span className="min-w-0 flex-1 whitespace-normal break-words text-[12px] font-black leading-6 text-amber-800 sm:text-sm">
+          <span className="min-w-0 flex-1 whitespace-normal break-words text-[12px] font-bold leading-6 text-amber-800 sm:text-sm">
             {visibleErrorMsg}
           </span>
           <button
@@ -30917,7 +30917,7 @@ ${rows
           className="fixed inset-0 z-[120] flex items-center justify-center bg-slate-950/45 p-3 backdrop-blur-sm sm:p-4"
           dir="rtl"
         >
-          <div className="relative w-full max-w-[25.5rem] overflow-hidden rounded-[1.75rem] border border-white/80 bg-white p-4 text-right shadow-[0_28px_90px_rgba(15,23,42,0.24)] sm:rounded-[2rem] sm:p-5">
+          <div className="relative w-full max-w-[25.5rem] overflow-hidden rounded-[var(--miras-r-xl)] border border-white/80 bg-white p-4 text-right miras-shadow-3 sm:rounded-[var(--miras-r-xl)] sm:p-5">
             <div className="pointer-events-none absolute -left-14 -top-14 h-36 w-36 rounded-full bg-indigo-100/55 blur-3xl" />
             <div className="relative flex items-start gap-3">
               <div className="grid h-12 w-12 shrink-0 place-items-center rounded-2xl bg-amber-50 text-amber-700 shadow-inner sm:h-14 sm:w-14">
@@ -30950,7 +30950,7 @@ ${rows
                     dialogState.type === "prompt" ? null : false,
                   )
                 }
-                className="rounded-2xl border border-slate-100 bg-slate-50/90 px-5 py-3 text-sm font-black text-slate-600 transition hover:bg-slate-100"
+                className="rounded-2xl border border-slate-100 bg-slate-50/90 px-5 py-3 text-sm font-bold text-slate-600 transition hover:bg-slate-100"
               >
                 إلغاء
               </button>
@@ -30960,7 +30960,7 @@ ${rows
                     dialogState.type === "prompt" ? dialogInput : true,
                   )
                 }
-                className="rounded-2xl bg-gradient-to-br from-indigo-900 to-indigo-600 px-5 py-3 text-sm font-black text-white shadow-[0_16px_36px_rgba(79,70,229,0.22)] transition hover:brightness-110"
+                className="rounded-2xl bg-gradient-to-br from-indigo-900 to-indigo-600 px-5 py-3 text-sm font-bold text-white miras-shadow-glow transition hover:brightness-110"
               >
                 تأكيد
               </button>
@@ -31037,7 +31037,7 @@ ${rows
               </section>
 
               <section className="relative">
-                <div className="rounded-[var(--miras-r-xl)] border border-slate-200/70 bg-white p-4 shadow-[0_34px_84px_rgba(11,16,32,0.10)] md:p-5">
+                <div className="rounded-[var(--miras-r-xl)] border border-slate-200/70 bg-white p-4 miras-shadow-4 md:p-5">
                   <div className="flex items-start justify-between gap-4 px-1 pb-4">
                     <div>
                       <p className="text-[11px] font-bold text-indigo-700">مِراس</p>
@@ -31108,8 +31108,8 @@ ${rows
             dir="rtl"
             className="miras-device-lock-screen min-h-[100svh] flex items-center justify-center bg-[#f4f5f8] px-4 py-8 text-center"
           >
-            <div className="w-full max-w-md rounded-[2rem] border border-white/80 bg-white/95 p-7 shadow-[0_28px_90px_rgba(15,23,42,0.14)] sm:p-9">
-              <span className="mx-auto grid h-16 w-16 place-items-center overflow-hidden rounded-[1.35rem] bg-white shadow-[0_14px_38px_rgba(15,23,42,0.10)] ring-1 ring-amber-100/80">
+            <div className="w-full max-w-md rounded-[var(--miras-r-xl)] border border-white/80 bg-white/95 p-7 miras-shadow-3 sm:p-9">
+              <span className="mx-auto grid h-16 w-16 place-items-center overflow-hidden rounded-[var(--miras-r-lg)] bg-white miras-shadow-2 ring-1 ring-amber-100/80">
                 <img
                   src="/icon-192.png"
                   alt=""
@@ -31130,7 +31130,7 @@ ${rows
                   setCurrentView("signup");
                   setInstructorMode(true);
                 }}
-                className="mt-6 w-full rounded-2xl bg-slate-950 px-5 py-3.5 text-sm font-black text-white shadow-premium-md transition-[background-color,box-shadow,opacity] hover:bg-indigo-700"
+                className="mt-6 w-full rounded-2xl bg-slate-950 px-5 py-3.5 text-sm font-bold text-white shadow-premium-md transition-[background-color,box-shadow,opacity] hover:bg-indigo-700"
               >
                 العودة إلى تسجيل الدخول
               </button>
@@ -31148,7 +31148,7 @@ ${rows
             <div className="absolute top-0 right-1/4 w-96 h-96 hero-glow-1 -z-15" />
             <div className="absolute bottom-0 left-1/4 w-96 h-96 hero-glow-2 -z-15" />
 
-            <div className="meras-auth-card w-full max-w-xl h-auto max-h-[calc(100dvh-2rem)] overflow-y-auto flex flex-col justify-center glass-panel rounded-[2rem] shadow-premium-lg p-8 sm:p-10 border border-white/60 relative z-10 transition-all duration-300">
+            <div className="meras-auth-card w-full max-w-xl h-auto max-h-[calc(100dvh-2rem)] overflow-y-auto flex flex-col justify-center glass-panel rounded-[var(--miras-r-xl)] shadow-premium-lg p-8 sm:p-10 border border-white/60 relative z-10 transition-all duration-300">
               <div className="absolute top-6 left-6 z-20 flex items-center gap-2">
                 <button
                   type="button"
@@ -31207,7 +31207,7 @@ ${rows
               {passwordResetToken ? (
                 <div className="space-y-5 animate-fade-in">
                   <div className="rounded-3xl border border-indigo-100 bg-indigo-50/60 p-4 text-right">
-                    <h3 className="text-sm font-black text-slate-900">
+                    <h3 className="text-sm font-bold text-slate-900">
                       تعيين كلمة مرور جديدة
                     </h3>
                     <p className="mt-2 text-[11px] font-bold leading-6 text-slate-600">
@@ -31275,7 +31275,7 @@ ${rows
                       />
                       {signupLookupStatus !== "found" && (
                         <div
-                          className={`mt-2 rounded-2xl border px-4 py-3 text-xs font-black ${signupLookupStatus === "missing" ? "border-rose-100 bg-rose-50 text-rose-700" : "border-slate-100 bg-white/70 text-slate-500"}`}
+                          className={`mt-2 rounded-2xl border px-4 py-3 text-xs font-bold ${signupLookupStatus === "missing" ? "border-rose-100 bg-rose-50 text-rose-700" : "border-slate-100 bg-white/70 text-slate-500"}`}
                         >
                           {signupLookupStatus === "loading"
                             ? "جاري التحقق من الكشف..."
@@ -31286,7 +31286,7 @@ ${rows
                       )}
                       {signupLookupStatus === "found" && (
                         <div className="mt-3 rounded-3xl border border-emerald-100 bg-white p-4 shadow-sm">
-                          <p className="mb-3 text-[11px] font-black text-slate-500 text-right">
+                          <p className="mb-3 text-[11px] font-bold text-slate-500 text-right">
                             بيانات الحساب الجديد
                           </p>
                           <div className="grid grid-cols-1 gap-2 text-xs font-bold text-slate-700">
@@ -31347,7 +31347,7 @@ ${rows
                 /* Login Form */
                 <div className="space-y-5 animate-fade-in">
                   {showCompactPasskeyLogin ? (
-                    <div className="miras-passkey-shield-card miras-passkey-shield-card--minimal rounded-[2rem] border border-emerald-100/80 bg-gradient-to-br from-white via-emerald-50/70 to-indigo-50/40 px-5 py-8 text-center shadow-[0_18px_55px_rgba(16,185,129,0.11)]">
+                    <div className="miras-passkey-shield-card miras-passkey-shield-card--minimal rounded-[var(--miras-r-xl)] border border-emerald-100/80 bg-gradient-to-br from-white via-emerald-50/70 to-indigo-50/40 px-5 py-8 text-center miras-shadow-2">
                       <div className="flex flex-col items-center gap-6">
                         <div className="flex items-center justify-center gap-6">
                           <button
@@ -31356,7 +31356,7 @@ ${rows
                             aria-label="الدخول بالبصمة"
                             disabled={passkeyBusy}
                             onClick={() => loginWithPasskey()}
-                            className="miras-passkey-auto-button inline-flex h-20 w-20 items-center justify-center rounded-3xl border border-emerald-100 bg-white text-emerald-700 transition-all duration-300 btn-spring-active shadow-[0_12px_35px_rgba(16,185,129,0.13)] hover:bg-emerald-50 disabled:opacity-70"
+                            className="miras-passkey-auto-button inline-flex h-20 w-20 items-center justify-center rounded-3xl border border-emerald-100 bg-white text-emerald-700 transition-all duration-300 btn-spring-active miras-shadow-2 hover:bg-emerald-50 disabled:opacity-70"
                           >
                             {passkeyBusy ? (
                               <RefreshCw className="h-8 w-8 animate-spin" />
@@ -31371,7 +31371,7 @@ ${rows
                             title="الدخول بكلمة المرور"
                             aria-label="الدخول بكلمة المرور"
                             onClick={() => setPasskeyPasswordFallback(true)}
-                            className="miras-passkey-auto-button inline-flex h-20 w-20 items-center justify-center rounded-3xl border border-slate-200 bg-white/80 text-slate-400 transition-all duration-300 btn-spring-active shadow-[0_12px_35px_rgba(0,0,0,0.03)] hover:bg-white hover:text-indigo-600 backdrop-blur-sm"
+                            className="miras-passkey-auto-button inline-flex h-20 w-20 items-center justify-center rounded-3xl border border-slate-200 bg-white/80 text-slate-400 transition-all duration-300 btn-spring-active miras-shadow-2 hover:bg-white hover:text-indigo-600 backdrop-blur-sm"
                           >
                             <Lock className="h-9 w-9" />
                           </button>
@@ -31462,13 +31462,13 @@ ${rows
                         <button
                           type="button"
                           onClick={startPublicDeviceLogin}
-                          className="group flex w-full items-center gap-3 rounded-[1.35rem] border border-indigo-100 bg-gradient-to-l from-indigo-50/90 via-white to-emerald-50/70 px-4 py-3.5 text-right shadow-[0_10px_28px_rgba(79,70,229,0.08)] transition hover:-translate-y-0.5 hover:border-indigo-200 hover:shadow-[0_15px_35px_rgba(79,70,229,0.13)] active:translate-y-0"
+                          className="group flex w-full items-center gap-3 rounded-[var(--miras-r-lg)] border border-indigo-100 bg-gradient-to-l from-indigo-50/90 via-white to-emerald-50/70 px-4 py-3.5 text-right miras-shadow-glow transition hover:-translate-y-0.5 hover:border-indigo-200 hover:miras-shadow-glow active:translate-y-0"
                         >
                           <span className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-white text-indigo-700 shadow-sm ring-1 ring-indigo-100 transition group-hover:scale-105">
                             <Smartphone className="h-5 w-5" />
                           </span>
                           <span className="min-w-0 flex-1">
-                            <span className="block text-[12px] font-black text-slate-900">
+                            <span className="block text-[12px] font-bold text-slate-900">
                               الدخول بهاتفي من جهاز عام
                             </span>
                           </span>
@@ -31511,7 +31511,7 @@ ${rows
                         </button>
                       </div>
                       {passkeyStatus && (
-                        <div className="rounded-2xl border border-emerald-100 bg-emerald-50 px-4 py-3 text-center text-[11px] font-black text-emerald-700">
+                        <div className="rounded-2xl border border-emerald-100 bg-emerald-50 px-4 py-3 text-center text-[11px] font-bold text-emerald-700">
                           {passkeyStatus}
                         </div>
                       )}
@@ -31529,7 +31529,7 @@ ${rows
             dir="rtl"
             className="miras-activation-fixed-page h-[100svh] max-h-[100svh] flex flex-col items-center justify-start bg-[#f4f5f8] px-4 pt-6 pb-8 sm:pt-10 relative overflow-hidden"
           >
-            <div className="w-full max-w-md glass-panel rounded-[2rem] shadow-premium-lg p-8 sm:p-10 text-center relative z-10 border border-white/60">
+            <div className="w-full max-w-md glass-panel rounded-[var(--miras-r-xl)] shadow-premium-lg p-8 sm:p-10 text-center relative z-10 border border-white/60">
               <button
                 type="button"
                 onClick={() => {
@@ -31553,7 +31553,7 @@ ${rows
               </h2>
 
               <div className="mt-8 mb-6">
-                <label className="block text-[10px] font-black text-indigo-700 mb-2 uppercase tracking-widest text-center">
+                <label className="block text-[10px] font-bold text-indigo-700 mb-2 uppercase tracking-widest text-center">
                   رمز المقرر المعتمد
                 </label>
                 <div className="relative">
@@ -31625,7 +31625,7 @@ ${rows
             dir="rtl"
             className="min-h-screen flex-grow flex flex-col items-center justify-center bg-[#f4f5f8] px-4 py-8 relative"
           >
-            <div className="w-full max-w-md glass-panel rounded-[2rem] shadow-premium-lg p-10 border border-white/60 text-center relative z-10">
+            <div className="w-full max-w-md glass-panel rounded-[var(--miras-r-xl)] shadow-premium-lg p-10 border border-white/60 text-center relative z-10">
               <span className="w-14 h-14 bg-indigo-50 border border-indigo-100 rounded-2xl flex items-center justify-center text-indigo-700 mx-auto mb-5 font-black text-xl">
                 🛡️
               </span>
@@ -31672,7 +31672,7 @@ ${rows
             dir="rtl"
             className="min-h-screen flex-grow flex flex-col items-center justify-center bg-[#f4f5f8] py-8 px-4 relative"
           >
-            <div className="w-full max-w-2xl glass-panel rounded-[2.2rem] shadow-premium-lg p-10 border border-white/65 relative z-10">
+            <div className="w-full max-w-2xl glass-panel rounded-[var(--miras-r-xl)] shadow-premium-lg p-10 border border-white/65 relative z-10">
               <div className="flex items-center gap-3 mb-3">
                 <div className="w-11 h-11 bg-indigo-50 border border-indigo-100 rounded-xl flex items-center justify-center text-indigo-700">
                   <Compass className="w-5 h-5 animate-spin-slow" />
@@ -31841,7 +31841,7 @@ ${rows
             dir="rtl"
             className="min-h-screen flex-grow flex flex-col items-center justify-start bg-[#f4f5f8] px-4 pt-6 pb-12 sm:pt-8 relative"
           >
-            <div className="w-full max-w-xl glass-panel rounded-[2.2rem] shadow-premium-lg px-10 pt-7 pb-10 border border-white/65 relative z-10 transition-all duration-300">
+            <div className="w-full max-w-xl glass-panel rounded-[var(--miras-r-xl)] shadow-premium-lg px-10 pt-7 pb-10 border border-white/65 relative z-10 transition-all duration-300">
               <div className="text-center mb-6">
                 <div className="mx-auto w-14 h-14 bg-indigo-50 border border-indigo-100 rounded-2xl flex items-center justify-center mb-4">
                   <Key className="w-6 h-6 text-indigo-700" />
@@ -31890,8 +31890,8 @@ ${rows
               {studentSession &&
                 !passkeyEnabledForCurrentSession &&
                 !isSafeExamBrowserSession() && (
-                  <div className="mb-5 rounded-[1.6rem] border border-emerald-100 bg-emerald-50/80 p-4 text-center shadow-sm">
-                    <p className="mb-3 text-[11px] font-black text-emerald-800">
+                  <div className="mb-5 rounded-[var(--miras-r-lg)] border border-emerald-100 bg-emerald-50/80 p-4 text-center shadow-sm">
+                    <p className="mb-3 text-[11px] font-bold text-emerald-800">
                       فعّل الدخول بالبصمة لهذا الجهاز قبل إكمال الانضمام.
                     </p>
                     <button
@@ -31911,7 +31911,7 @@ ${rows
                   </div>
                 )}
 
-              <div className="mb-8 grid grid-cols-3 gap-2 text-center text-[10px] font-black">
+              <div className="mb-8 grid grid-cols-3 gap-2 text-center text-[10px] font-bold">
                 <div className="rounded-2xl border border-emerald-100 bg-emerald-50 px-2 py-3 text-emerald-700">
                   غير مستخدم
                 </div>
@@ -31925,8 +31925,8 @@ ${rows
 
               <div className="space-y-5">
                 {isStudentPrimaryCourseLocked && (
-                  <div className="rounded-[2rem] border border-amber-100 bg-gradient-to-l from-amber-50 to-white p-6 text-center shadow-premium-sm">
-                    <div className="mx-auto mb-4 inline-flex items-center gap-2 rounded-2xl border border-amber-200 bg-white/85 px-4 py-2 text-[12px] font-black text-amber-800">
+                  <div className="rounded-[var(--miras-r-xl)] border border-amber-100 bg-gradient-to-l from-amber-50 to-white p-6 text-center shadow-premium-sm">
+                    <div className="mx-auto mb-4 inline-flex items-center gap-2 rounded-2xl border border-amber-200 bg-white/85 px-4 py-2 text-[12px] font-bold text-amber-800">
                       <Key className="h-4 w-4" />
                       <span>يتطلب كود دخول</span>
                     </div>
@@ -31937,7 +31937,7 @@ ${rows
                     <p className="mt-3 text-sm font-bold text-slate-500">
                       أدخل كود المقرر للانضمام إلى المسار الدراسي.
                     </p>
-                    <div className="mt-5 rounded-2xl border border-amber-100 bg-white/80 px-4 py-3 text-[11px] font-black leading-6 text-amber-800">
+                    <div className="mt-5 rounded-2xl border border-amber-100 bg-white/80 px-4 py-3 text-[11px] font-bold leading-6 text-amber-800">
                       المقرر ظاهر لك الآن، وللدخول إلى الاختبارات والمشاريع فعّل
                       الكود المخصص لك.
                     </div>
@@ -32013,7 +32013,7 @@ ${rows
             dir="rtl"
             className="min-h-screen flex flex-col items-center justify-center bg-[#f4f5f8] px-4 py-8 text-center"
           >
-            <div className="w-full max-w-md rounded-[2rem] border border-white/70 bg-white/90 p-8 shadow-premium-lg">
+            <div className="w-full max-w-md rounded-[var(--miras-r-xl)] border border-white/70 bg-white/90 p-8 shadow-premium-lg">
               <RefreshCw className="mx-auto mb-4 h-7 w-7 animate-spin text-indigo-700" />
               <h2 className="text-lg font-black text-slate-950">
                 جاري تحميل حساب الطالب
@@ -32043,7 +32043,7 @@ ${rows
                   );
                   setCurrentView("signup");
                 }}
-                className="mt-5 inline-flex items-center justify-center gap-2 rounded-2xl bg-slate-950 px-5 py-3 text-xs font-black text-white shadow-premium-md hover:bg-indigo-700"
+                className="mt-5 inline-flex items-center justify-center gap-2 rounded-2xl bg-slate-950 px-5 py-3 text-xs font-bold text-white shadow-premium-md hover:bg-indigo-700"
               >
                 <RefreshCw className="h-4 w-4" />
                 <span>إعادة المحاولة</span>
@@ -32078,9 +32078,9 @@ ${rows
                 );
               })()}
               <div className="mx-auto flex w-full max-w-4xl flex-1 flex-col overflow-y-auto px-4 py-5 sm:px-6">
-                <div className="bg-white rounded-[2rem] border border-slate-200/80 p-4 sm:p-6 shadow-premium-lg">
+                <div className="bg-white rounded-[var(--miras-r-xl)] border border-slate-200/80 p-4 sm:p-6 shadow-premium-lg">
                   <div className="flex flex-col gap-3 sm:flex-row sm:justify-between sm:items-center bg-slate-950 text-white p-4 rounded-2xl mb-5 shadow-premium-sm font-sans">
-                    <span className="text-sm font-black font-sans">
+                    <span className="text-sm font-bold font-sans">
                       {(() => {
                         const activeExam = teacherCreatedExams.find(
                           (exam: any) =>
@@ -32103,14 +32103,14 @@ ${rows
                       role="alert"
                       aria-live="assertive"
                     >
-                      <div className="w-full max-w-md rounded-[2rem] border border-white/15 bg-white p-5 text-right shadow-[0_30px_90px_rgba(0,0,0,0.35)]">
+                      <div className="w-full max-w-md rounded-[var(--miras-r-xl)] border border-white/15 bg-white p-5 text-right miras-shadow-3">
                         <div className="mx-auto mb-4 grid h-14 w-14 place-items-center rounded-2xl bg-amber-50 text-amber-700 ring-1 ring-amber-100">
                           <ShieldAlert className="h-7 w-7" />
                         </div>
                         <h3 className="text-center text-lg font-black text-slate-950">
                           الاختبار مقفل مؤقتًا
                         </h3>
-                        <p className="mt-3 text-center text-sm font-black leading-7 text-slate-700">
+                        <p className="mt-3 text-center text-sm font-bold leading-7 text-slate-700">
                           {normalExamViewportLock.reason ||
                             "يرجى فتح الاختبار بكامل الشاشة وبالوضع الطولي."}
                         </p>
@@ -32118,7 +32118,7 @@ ${rows
                           الأسئلة تعود تلقائيًا بعد ثبات الشاشة.
                         </p>
                         {normalExamViewportLock.stableRemainingMs > 0 && (
-                          <div className="mt-4 rounded-2xl border border-slate-100 bg-slate-50 px-4 py-3 text-center text-xs font-black text-slate-700">
+                          <div className="mt-4 rounded-2xl border border-slate-100 bg-slate-50 px-4 py-3 text-center text-xs font-bold text-slate-700">
                             فحص الثبات:{" "}
                             {Math.ceil(
                               normalExamViewportLock.stableRemainingMs / 1000,
@@ -32132,7 +32132,7 @@ ${rows
 
                   {localVisionStatus.enabled && !quizScoreResult && (
                     <div
-                      className={`mb-4 rounded-2xl border px-4 py-3 text-[11px] font-black leading-6 ${localVisionStatus.state === "blocked" ? "border-rose-200 bg-rose-50 text-rose-700" : localVisionStatus.state === "degraded" ? "border-amber-200 bg-amber-50 text-amber-700" : "border-emerald-100 bg-emerald-50 text-emerald-700"}`}
+                      className={`mb-4 rounded-2xl border px-4 py-3 text-[11px] font-bold leading-6 ${localVisionStatus.state === "blocked" ? "border-rose-200 bg-rose-50 text-rose-700" : localVisionStatus.state === "degraded" ? "border-amber-200 bg-amber-50 text-amber-700" : "border-emerald-100 bg-emerald-50 text-emerald-700"}`}
                     >
                       <div className="flex items-center justify-between gap-2">
                         <span>الكاميرا مفعّلة</span>
@@ -32162,7 +32162,7 @@ ${rows
                       role="alert"
                       aria-live="assertive"
                     >
-                      <div className="w-full max-w-md rounded-[2rem] border border-white/15 bg-white p-5 text-right shadow-[0_30px_90px_rgba(0,0,0,0.35)]">
+                      <div className="w-full max-w-md rounded-[var(--miras-r-xl)] border border-white/15 bg-white p-5 text-right miras-shadow-3">
                         <div className="mx-auto mb-4 grid h-14 w-14 place-items-center rounded-2xl bg-emerald-50 text-emerald-700 ring-1 ring-emerald-100">
                           <Camera className="h-7 w-7" />
                         </div>
@@ -32173,7 +32173,7 @@ ${rows
                             : localVisionGuidance(localVisionLock.pulseType)
                                 .title}
                         </h3>
-                        <p className="mt-3 text-center text-sm font-black leading-7 text-slate-700">
+                        <p className="mt-3 text-center text-sm font-bold leading-7 text-slate-700">
                           {localVisionLock.reason ||
                             "أعد وجهك والجهاز للوضع الطبيعي."}
                         </p>
@@ -32187,7 +32187,7 @@ ${rows
                           </p>
                         )}
                         <div className="mt-4 rounded-2xl border border-emerald-100 bg-emerald-50 px-4 py-3 text-center">
-                          <div className="text-[11px] font-black text-emerald-800">
+                          <div className="text-[11px] font-bold text-emerald-800">
                             {localVisionLock.pulseType ===
                             "camera_permission_needed"
                               ? "لن يبدأ الاختبار قبل السماح بالكاميرا"
@@ -32212,7 +32212,7 @@ ${rows
                                   Date.now() + 15000;
                                 setLocalVisionRetryNonce((value) => value + 1);
                               }}
-                              className="rounded-2xl bg-emerald-600 px-4 py-3 text-sm font-black text-white shadow-lg shadow-emerald-100"
+                              className="rounded-2xl bg-emerald-600 px-4 py-3 text-sm font-bold text-white shadow-lg shadow-emerald-100"
                             >
                               إعادة طلب الكاميرا
                             </button>
@@ -32233,11 +32233,11 @@ ${rows
                   {localVisionStatus.enabled &&
                     localVisionStatus.state === "starting" &&
                     !quizScoreResult && (
-                      <div className="mb-4 rounded-[1.5rem] border border-emerald-100 bg-white px-4 py-5 text-center shadow-sm">
+                      <div className="mb-4 rounded-[var(--miras-r-lg)] border border-emerald-100 bg-white px-4 py-5 text-center shadow-sm">
                         <div className="mx-auto mb-3 grid h-11 w-11 place-items-center rounded-2xl bg-emerald-50 text-emerald-700 ring-1 ring-emerald-100">
                           <Camera className="h-5 w-5" />
                         </div>
-                        <div className="text-sm font-black text-slate-900">
+                        <div className="text-sm font-bold text-slate-900">
                           تجهيز الكاميرا
                         </div>
                         <div className="mt-1 text-[11px] font-bold text-slate-500">
@@ -32482,7 +32482,7 @@ ${rows
               onClick={closeStudentPanels}
             >
               {studentWorkspaceLoadError && (
-                <div className="mx-auto mt-3 flex w-full max-w-3xl items-center justify-between gap-3 rounded-2xl border border-amber-100 bg-amber-50 px-4 py-3 text-right text-[11px] font-black text-amber-800 shadow-sm">
+                <div className="mx-auto mt-3 flex w-full max-w-3xl items-center justify-between gap-3 rounded-2xl border border-amber-100 bg-amber-50 px-4 py-3 text-right text-[11px] font-bold text-amber-800 shadow-sm">
                   <span>{studentWorkspaceLoadError}</span>
                   <button
                     type="button"
@@ -32490,7 +32490,7 @@ ${rows
                       event.stopPropagation();
                       void loadActivatedStudentWorkspaceData(studentSession);
                     }}
-                    className="inline-flex shrink-0 items-center gap-1.5 rounded-xl bg-white px-3 py-2 text-[10px] font-black text-amber-800 shadow-sm ring-1 ring-amber-100 hover:bg-amber-100"
+                    className="inline-flex shrink-0 items-center gap-1.5 rounded-xl bg-white px-3 py-2 text-[10px] font-bold text-amber-800 shadow-sm ring-1 ring-amber-100 hover:bg-amber-100"
                   >
                     <RefreshCw className="h-3.5 w-3.5" />
                     <span>إعادة المحاولة</span>
@@ -32498,7 +32498,7 @@ ${rows
                 </div>
               )}
               {liveConnectionTrouble && !studentWorkspaceLoadError && (
-                <div className="mx-auto mt-3 flex w-full max-w-3xl items-center justify-center gap-2 rounded-2xl border border-amber-100 bg-amber-50 px-4 py-2.5 text-center text-[11px] font-black text-amber-800 shadow-sm">
+                <div className="mx-auto mt-3 flex w-full max-w-3xl items-center justify-center gap-2 rounded-2xl border border-amber-100 bg-amber-50 px-4 py-2.5 text-center text-[11px] font-bold text-amber-800 shadow-sm">
                   <RefreshCw className="h-3.5 w-3.5 animate-spin" />
                   <span>
                     تعذّر تحديث البيانات — تحقّق من اتصالك بالإنترنت. سنواصل
@@ -32507,14 +32507,14 @@ ${rows
                 </div>
               )}
               <main className="mx-auto flex w-full max-w-7xl flex-col justify-start px-3 py-0 sm:px-4 lg:px-5">
-                <header className="meras-topbar sticky top-0 z-20 mb-1.5 rounded-2xl border border-white/70 bg-white/88 px-3.5 py-1.5 shadow-[0_12px_45px_rgba(15,23,42,0.06)] backdrop-blur-2xl sm:px-4 sm:py-2">
+                <header className="meras-topbar sticky top-0 z-20 mb-1.5 rounded-2xl border border-white/70 bg-white/88 px-3.5 py-1.5 miras-shadow-2 backdrop-blur-2xl sm:px-4 sm:py-2">
                   <div
                     className="miras-student-header-stack flex flex-col gap-1.5 text-right"
                     dir="rtl"
                   >
                     <div className="miras-student-identity min-w-0 flex flex-col items-start gap-1 pt-0.5 text-right">
                       <div
-                        className="miras-student-account-pill relative inline-flex shrink-0 cursor-pointer items-center gap-1.5 rounded-full bg-indigo-50 px-2.5 py-0.5 text-[9px] font-black text-indigo-700 select-none"
+                        className="miras-student-account-pill relative inline-flex shrink-0 cursor-pointer items-center gap-1.5 rounded-full bg-indigo-50 px-2.5 py-0.5 text-[9px] font-bold text-indigo-700 select-none"
                         role="button"
                         tabIndex={0}
                         aria-label="عرض حالة الاتصال"
@@ -32551,7 +32551,7 @@ ${rows
 
                     {sebSessionInfo && (
                       <div className="flex flex-wrap items-center justify-start gap-1.5">
-                        <span className="inline-flex items-center gap-1.5 rounded-full border border-indigo-100 bg-indigo-50/50 px-2.5 py-0.5 text-[9px] font-black text-indigo-700">
+                        <span className="inline-flex items-center gap-1.5 rounded-full border border-indigo-100 bg-indigo-50/50 px-2.5 py-0.5 text-[9px] font-bold text-indigo-700">
                           <Lock className="h-3 w-3" /> جلسة SEB آمنة لهذا
                           الاختبار فقط
                         </span>
@@ -32682,7 +32682,7 @@ ${rows
                             {renderNotificationGate("student")}
                             {visibleNotificationMessage && (
                               <div className="rounded-2xl border border-emerald-200/60 bg-gradient-to-br from-emerald-50 to-teal-50/50 text-emerald-900 p-3.5 mb-2 shadow-sm">
-                                <span className="text-[13px] font-black block leading-relaxed">
+                                <span className="text-[13px] font-bold block leading-relaxed">
                                   {visibleNotificationMessage}
                                 </span>
                               </div>
@@ -32907,13 +32907,13 @@ ${rows
                             closedEnrollmentOptions.length === 0
                               ? "miras-student-access-panel-compact"
                               : ""
-                          } col-span-12 !min-h-0 !h-auto self-start rounded-[1.55rem] border border-white/75 bg-white/82 p-2.5 shadow-[0_12px_34px_rgba(79,70,229,0.045)] backdrop-blur-xl relative overflow-hidden ${activationSoftReveal ? "miras-activation-soft-reveal" : ""}`}
+                          } col-span-12 !min-h-0 !h-auto self-start rounded-[var(--miras-r-lg)] border border-white/75 bg-white/82 p-2.5 miras-shadow-glow backdrop-blur-xl relative overflow-hidden ${activationSoftReveal ? "miras-activation-soft-reveal" : ""}`}
                         >
                           <div className="pointer-events-none absolute -top-12 right-8 h-28 w-28 rounded-full bg-indigo-100/35 blur-3xl" />
 
                           <div className="relative z-10 flex min-h-0 flex-col justify-start gap-2">
                             {shouldShowActivationBanner(studentSession) && (
-                              <div className="miras-student-activation-pill inline-flex max-w-full flex-wrap items-center gap-2 rounded-2xl border border-emerald-100 bg-emerald-50 px-4 py-3 text-[11px] font-black text-emerald-800">
+                              <div className="miras-student-activation-pill inline-flex max-w-full flex-wrap items-center gap-2 rounded-2xl border border-emerald-100 bg-emerald-50 px-4 py-3 text-[11px] font-bold text-emerald-800">
                                 <CheckCircle className="h-4 w-4" />
                                 <span>
                                   حسابك مفعّل. أي مقرر جديد سيظهر هنا كبطاقة
@@ -32943,7 +32943,7 @@ ${rows
                                         <Lock className="h-3 w-3" /> تم إيقاف
                                         دخولك لهذا المقرر مؤقتًا
                                       </div>
-                                      <h3 className="miras-locked-course-title mt-2 text-sm font-black text-slate-900">
+                                      <h3 className="miras-locked-course-title mt-2 text-sm font-bold text-slate-900">
                                         {cleanStudentCourseName(
                                           course.courseName,
                                           course.courseCode,
@@ -32967,7 +32967,7 @@ ${rows
                                     <div className="miras-locked-course-chip">
                                       <Lock className="h-3 w-3" /> المقرر مقفل
                                     </div>
-                                    <h3 className="miras-locked-course-title mt-2 text-sm font-black text-slate-900">
+                                    <h3 className="miras-locked-course-title mt-2 text-sm font-bold text-slate-900">
                                       {cleanStudentCourseName(
                                         course.courseName,
                                         course.courseCode,
@@ -32990,7 +32990,7 @@ ${rows
                                           <Key className="h-3 w-3" /> تفعيل مقرر
                                           جديد
                                         </div>
-                                        <h3 className="miras-locked-course-title mt-2 text-sm font-black text-slate-900">
+                                        <h3 className="miras-locked-course-title mt-2 text-sm font-bold text-slate-900">
                                           {cleanStudentCourseName(
                                             course.courseName ||
                                               courseNameForCode(
@@ -33106,7 +33106,7 @@ ${rows
                     </div>
 
                     <div className="hidden" aria-hidden="true">
-                      <div className="rounded-[2rem] border border-indigo-100 bg-white p-5 shadow-premium-md">
+                      <div className="rounded-[var(--miras-r-xl)] border border-indigo-100 bg-white p-5 shadow-premium-md">
                         <div className="flex items-center justify-between mb-4">
                           <CalendarDays className="h-5 w-5 text-indigo-600" />
                         </div>
@@ -33117,7 +33117,7 @@ ${rows
                               className="flex items-center justify-between rounded-2xl bg-slate-50 px-4 py-3 border border-slate-100"
                             >
                               <div>
-                                <p className="text-xs font-black text-slate-900">
+                                <p className="text-xs font-bold text-slate-900">
                                   {sanitizeCourseIdentifiersForDisplay(
                                     item.title,
                                   )}
@@ -33126,7 +33126,7 @@ ${rows
                                   {item.open} إلى {item.close}
                                 </p>
                               </div>
-                              <span className="text-[10px] font-black text-indigo-700 bg-indigo-50 px-3 py-1 rounded-full">
+                              <span className="text-[10px] font-bold text-indigo-700 bg-indigo-50 px-3 py-1 rounded-full">
                                 {sanitizeCourseIdentifiersForDisplay(
                                   item.status,
                                 )}
@@ -33135,7 +33135,7 @@ ${rows
                           ))}
                         </div>
                       </div>
-                      <div className="rounded-[2rem] border border-emerald-100 bg-emerald-50/40 p-5 shadow-premium-md">
+                      <div className="rounded-[var(--miras-r-xl)] border border-emerald-100 bg-emerald-50/40 p-5 shadow-premium-md">
                         <div className="flex items-center justify-between mb-4">
                           <Bell className="h-5 w-5 text-emerald-600" />
                         </div>
@@ -33186,7 +33186,7 @@ ${rows
                       </div>
 
                       {/* Student Mirror advisor fast advice */}
-                      <div className="col-span-12 md:col-span-6 bg-white rounded-[2rem] border border-slate-200/80 p-6 flex flex-col justify-between shadow-premium-md">
+                      <div className="col-span-12 md:col-span-6 bg-white rounded-[var(--miras-r-xl)] border border-slate-200/80 p-6 flex flex-col justify-between shadow-premium-md">
                         <div>
                           <span className="text-indigo-600 text-[10px] font-extrabold uppercase tracking-wider block mb-1">
                             توصيات المقرر
@@ -33231,16 +33231,16 @@ ${rows
                     {/* Row 3: grade alerts and submissions */}
                     <div className="grid grid-cols-12 gap-4 mt-2">
                       {/* Recent submissions summary */}
-                      <div className="miras-student-overview-card col-span-12 overflow-hidden rounded-[1.7rem] border border-white/75 bg-white/86 p-2.5 shadow-[0_16px_50px_rgba(79,70,229,0.055)] backdrop-blur-xl sm:p-4">
-                        <div className="relative overflow-hidden rounded-[1.55rem] border border-indigo-100/55 bg-gradient-to-br from-white via-indigo-50/25 to-emerald-50/20 p-2.5 shadow-inner sm:p-3.5">
+                      <div className="miras-student-overview-card col-span-12 overflow-hidden rounded-[var(--miras-r-xl)] border border-white/75 bg-white/86 p-2.5 miras-shadow-glow backdrop-blur-xl sm:p-4">
+                        <div className="relative overflow-hidden rounded-[var(--miras-r-lg)] border border-indigo-100/55 bg-gradient-to-br from-white via-indigo-50/25 to-emerald-50/20 p-2.5 shadow-inner sm:p-3.5">
                           <div className="pointer-events-none absolute -left-10 -top-10 h-32 w-32 rounded-full bg-indigo-200/18 blur-3xl" />
                           <div className="pointer-events-none absolute -bottom-12 right-10 h-36 w-36 rounded-full bg-emerald-200/18 blur-3xl" />
                           <div className="relative z-10 space-y-3 text-right">
                             {(studentVisibleExamCards.length > 0 ||
                               studentVisibleProjectCards.length > 0) && (
-                              <div className="miras-now-available rounded-[1.65rem] border border-white/85 bg-white/82 p-3 shadow-[0_12px_34px_rgba(79,70,229,0.045)] backdrop-blur">
+                              <div className="miras-now-available rounded-[var(--miras-r-xl)] border border-white/85 bg-white/82 p-3 miras-shadow-glow backdrop-blur">
                                 <div className="mb-1 flex items-center justify-end px-1">
-                                  <span className="text-[12px] font-black text-slate-700">
+                                  <span className="text-[12px] font-bold text-slate-700">
                                     المتاح الآن
                                   </span>
                                 </div>
@@ -33256,11 +33256,11 @@ ${rows
                                         setPracticeSubTab("quizzes");
                                         await loadPracticeData();
                                       }}
-                                      className="group relative overflow-hidden rounded-[1.35rem] border border-indigo-100/80 bg-white/86 p-2.5 shadow-[0_9px_24px_rgba(79,70,229,0.045)] backdrop-blur transition hover:-translate-y-0.5 hover:bg-white hover:shadow-[0_14px_34px_rgba(79,70,229,0.065)] text-right"
+                                      className="group relative overflow-hidden rounded-[var(--miras-r-lg)] border border-indigo-100/80 bg-white/86 p-2.5 miras-shadow-glow backdrop-blur transition hover:-translate-y-0.5 hover:bg-white hover:miras-shadow-glow text-right"
                                     >
                                       <span className="pointer-events-none absolute -bottom-8 -left-8 h-24 w-24 rounded-full bg-indigo-200/25 blur-2xl" />
                                       <span className="relative flex items-center gap-3">
-                                        <span className="inline-flex shrink-0 h-10 w-10 items-center justify-center rounded-[1rem] border border-indigo-100 bg-indigo-50/60 text-indigo-700 shadow-sm transition group-hover:scale-105">
+                                        <span className="inline-flex shrink-0 h-10 w-10 items-center justify-center rounded-[var(--miras-r-md)] border border-indigo-100 bg-indigo-50/60 text-indigo-700 shadow-sm transition group-hover:scale-105">
                                           <FileText className="h-5 w-5" />
                                         </span>
                                         <span>
@@ -33285,11 +33285,11 @@ ${rows
                                         setPracticeSubTab("exercises");
                                         await loadPracticeData();
                                       }}
-                                      className="group relative overflow-hidden rounded-[1.35rem] border border-indigo-100/80 bg-white/86 p-2.5 shadow-[0_9px_24px_rgba(79,70,229,0.045)] backdrop-blur transition hover:-translate-y-0.5 hover:bg-white hover:shadow-[0_14px_34px_rgba(79,70,229,0.065)] text-right"
+                                      className="group relative overflow-hidden rounded-[var(--miras-r-lg)] border border-indigo-100/80 bg-white/86 p-2.5 miras-shadow-glow backdrop-blur transition hover:-translate-y-0.5 hover:bg-white hover:miras-shadow-glow text-right"
                                     >
                                       <span className="pointer-events-none absolute -bottom-8 -left-8 h-24 w-24 rounded-full bg-indigo-200/25 blur-2xl" />
                                       <span className="relative flex items-center gap-3">
-                                        <span className="inline-flex shrink-0 h-10 w-10 items-center justify-center rounded-[1rem] border border-indigo-100 bg-indigo-50/60 text-indigo-700 shadow-sm transition group-hover:scale-105">
+                                        <span className="inline-flex shrink-0 h-10 w-10 items-center justify-center rounded-[var(--miras-r-md)] border border-indigo-100 bg-indigo-50/60 text-indigo-700 shadow-sm transition group-hover:scale-105">
                                           <Send className="h-5 w-5" />
                                         </span>
                                         <span>
@@ -33308,7 +33308,7 @@ ${rows
                             )}
 
                             {studentCourseOptions.length > 0 && (
-                              <div className="miras-study-path rounded-[1.45rem] border border-white/85 bg-white/76 p-2.5 shadow-[0_10px_30px_rgba(15,23,42,0.035)] backdrop-blur">
+                              <div className="miras-study-path rounded-[var(--miras-r-lg)] border border-white/85 bg-white/76 p-2.5 miras-shadow-1 backdrop-blur">
                                 <div
                                   className="flex flex-col items-end justify-start gap-1.5 text-right"
                                   dir="rtl"
@@ -33321,8 +33321,8 @@ ${rows
                                       className="w-full max-w-[17.5rem] self-end"
                                       aria-label="اختيار المقرر"
                                     >
-                                      <label className="miras-student-course-picker group relative block h-[3.45rem] overflow-hidden rounded-[1.08rem] border border-slate-200/70 bg-white/68 px-3 py-2 text-right shadow-[inset_0_1px_0_rgba(255,255,255,0.86),0_7px_18px_rgba(15,23,42,0.018)] backdrop-blur transition focus-within:border-indigo-200/80 focus-within:bg-white/88 focus-within:shadow-[0_10px_24px_rgba(79,70,229,0.045)]">
-                                        <span className="pointer-events-none absolute right-3 top-1/2 z-20 inline-flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-[0.85rem] border border-indigo-100/70 bg-indigo-50/45 text-indigo-500 shadow-sm transition group-focus-within:bg-indigo-600 group-focus-within:text-white group-focus-within:ring-4 group-focus-within:ring-indigo-100/70">
+                                      <label className="miras-student-course-picker group relative block h-[3.45rem] overflow-hidden rounded-[var(--miras-r-md)] border border-slate-200/70 bg-white/68 px-3 py-2 text-right miras-shadow-1 backdrop-blur transition focus-within:border-indigo-200/80 focus-within:bg-white/88 focus-within:miras-shadow-glow">
+                                        <span className="pointer-events-none absolute right-3 top-1/2 z-20 inline-flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-[var(--miras-r-md)] border border-indigo-100/70 bg-indigo-50/45 text-indigo-500 shadow-sm transition group-focus-within:bg-indigo-600 group-focus-within:text-white group-focus-within:ring-4 group-focus-within:ring-indigo-100/70">
                                           <BookOpen className="h-3.5 w-3.5" />
                                         </span>
                                         <span className="pointer-events-none absolute left-3 top-1/2 z-20 inline-flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-full bg-slate-50/80 text-indigo-500 ring-1 ring-slate-200/70 transition group-focus-within:bg-indigo-600 group-focus-within:text-white group-focus-within:ring-indigo-100">
@@ -33370,7 +33370,7 @@ ${rows
                                       className="w-full max-w-[17.5rem] self-end"
                                       aria-label="المقرر المفعّل"
                                     >
-                                      <div className="flex w-full items-center justify-end gap-2 rounded-[1.08rem] border border-indigo-100/70 bg-indigo-50/40 px-3 py-2 text-right">
+                                      <div className="flex w-full items-center justify-end gap-2 rounded-[var(--miras-r-md)] border border-indigo-100/70 bg-indigo-50/40 px-3 py-2 text-right">
                                         <span className="flex min-w-0 flex-col items-end">
                                           <span className="mb-0.5 block text-[0.55rem] font-bold leading-none tracking-[-0.02em] text-slate-400">
                                             المقرر المفعّل
@@ -33392,7 +33392,7 @@ ${rows
                                             )}
                                           </span>
                                         </span>
-                                        <span className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-[0.85rem] border border-indigo-100/70 bg-white text-indigo-500 shadow-sm">
+                                        <span className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-[var(--miras-r-md)] border border-indigo-100/70 bg-white text-indigo-500 shadow-sm">
                                           <BookOpen className="h-3.5 w-3.5" />
                                         </span>
                                       </div>
@@ -33400,9 +33400,9 @@ ${rows
                                   )}
                                 </div>
 
-                                <div className="mt-2.5 rounded-[1.35rem] border border-white/85 bg-white/62 p-2.5 shadow-inner backdrop-blur">
+                                <div className="mt-2.5 rounded-[var(--miras-r-lg)] border border-white/85 bg-white/62 p-2.5 shadow-inner backdrop-blur">
                                   <div className="mb-2 flex items-center justify-between gap-4">
-                                    <span className="text-[11px] font-black text-slate-500">
+                                    <span className="text-[11px] font-bold text-slate-500">
                                       المكتمل
                                     </span>
                                     <span className="miras-student-progress-number font-mono text-[1.55rem] font-black leading-none text-slate-950">
@@ -33414,33 +33414,33 @@ ${rows
                                   </div>
                                   <div className="h-2.5 overflow-hidden rounded-full bg-slate-200/70 shadow-inner">
                                     <div
-                                      className="h-full rounded-full bg-gradient-to-l from-emerald-400 via-indigo-500 to-slate-950 shadow-[0_0_24px_rgba(79,70,229,0.24)]"
+                                      className="h-full rounded-full bg-gradient-to-l from-emerald-400 via-indigo-500 to-slate-950 miras-shadow-glow"
                                       style={{
                                         width: `${studentCourseProgressDisplayPercent}%`,
                                       }}
                                     />
                                   </div>
                                   <div
-                                    className="mt-2.5 flex flex-wrap items-center justify-center gap-x-4 gap-y-1.5 rounded-[1.1rem] border border-slate-100/80 bg-slate-50/45 px-3 py-2 text-center text-[10px] font-semibold text-slate-500"
+                                    className="mt-2.5 flex flex-wrap items-center justify-center gap-x-4 gap-y-1.5 rounded-[var(--miras-r-md)] border border-slate-100/80 bg-slate-50/45 px-3 py-2 text-center text-[10px] font-semibold text-slate-500"
                                     dir="rtl"
                                   >
                                     <span className="inline-flex items-baseline justify-center gap-1.5 whitespace-nowrap">
                                       <span>مطلوب</span>
-                                      <span className="font-sans text-[12px] font-black tabular-nums text-slate-950">
+                                      <span className="font-sans text-[12px] font-bold tabular-nums text-slate-950">
                                         {studentSubmissionNeedsActionCount}
                                       </span>
                                     </span>
                                     <span className="text-slate-300">·</span>
                                     <span className="inline-flex items-baseline justify-center gap-1.5 whitespace-nowrap">
                                       <span>مرصود</span>
-                                      <span className="font-sans text-[12px] font-black tabular-nums text-emerald-700">
+                                      <span className="font-sans text-[12px] font-bold tabular-nums text-emerald-700">
                                         {studentSubmissionGradedCount}
                                       </span>
                                     </span>
                                     <span className="text-slate-300">·</span>
                                     <span className="inline-flex items-baseline justify-center gap-1.5 whitespace-nowrap">
                                       <span>تسليم</span>
-                                      <span className="font-sans text-[12px] font-black tabular-nums text-indigo-700">
+                                      <span className="font-sans text-[12px] font-bold tabular-nums text-indigo-700">
                                         {studentSubmissionTimeline.length}
                                       </span>
                                     </span>
@@ -33449,7 +33449,7 @@ ${rows
                               </div>
                             )}
 
-                            <div className="miras-student-last-submission-wrap overflow-hidden rounded-[1.35rem] border border-slate-100/80 bg-slate-50/45 p-2.5">
+                            <div className="miras-student-last-submission-wrap overflow-hidden rounded-[var(--miras-r-lg)] border border-slate-100/80 bg-slate-50/45 p-2.5">
                               <div className="space-y-4 pr-1 text-right">
                                 {studentSubmissionTimeline
                                   .slice(0, 1)
@@ -33483,7 +33483,7 @@ ${rows
                                         key={sub.id || idx}
                                         className="relative"
                                       >
-                                        <div className="miras-student-last-submission-card relative overflow-hidden rounded-[1.25rem] border border-white bg-white/92 px-3.5 py-3.5 shadow-[0_7px_22px_rgba(15,23,42,0.035)] transition-[box-shadow,background-color,border-color,opacity] hover:shadow-[0_12px_32px_rgba(15,23,42,0.055)]">
+                                        <div className="miras-student-last-submission-card relative overflow-hidden rounded-[var(--miras-r-lg)] border border-white bg-white/92 px-3.5 py-3.5 miras-shadow-1 transition-[box-shadow,background-color,border-color,opacity] hover:miras-shadow-2">
                                           {/* Embedded elegant clickable Clipboard Button */}
                                           <button
                                             type="button"
@@ -33493,14 +33493,14 @@ ${rows
                                             }}
                                             title="عرض السجل الكامل"
                                             aria-label="عرض السجل الكامل"
-                                            className="absolute left-3.5 top-3.5 z-20 group inline-flex h-11 w-11 items-center justify-center rounded-xl border border-indigo-100/95 bg-white/92 text-indigo-700 shadow-[0_5px_15px_rgba(79,70,229,0.06)] ring-1 ring-white/95 transition duration-300 hover:scale-[1.05] hover:bg-indigo-50 hover:text-indigo-900 active:scale-95 cursor-pointer"
+                                            className="absolute left-3.5 top-3.5 z-20 group inline-flex h-11 w-11 items-center justify-center rounded-xl border border-indigo-100/95 bg-white/92 text-indigo-700 miras-shadow-glow ring-1 ring-white/95 transition duration-300 hover:scale-[1.05] hover:bg-indigo-50 hover:text-indigo-900 active:scale-95 cursor-pointer"
                                           >
                                             <ClipboardList className="h-5.5 w-5.5 transition duration-300 group-hover:rotate-6 group-hover:scale-105" />
                                           </button>
 
                                           <div className="relative z-10 space-y-2 pl-12">
                                             <div className="flex flex-wrap items-center gap-1.5">
-                                              <span className="inline-flex items-center gap-1 rounded-full border border-indigo-100 bg-indigo-600/90 px-2.5 py-0.5 text-[8.5px] font-black text-white shadow-[0_5px_14px_rgba(79,70,229,0.12)]">
+                                              <span className="inline-flex items-center gap-1 rounded-full border border-indigo-100 bg-indigo-600/90 px-2.5 py-0.5 text-[8.5px] font-black text-white miras-shadow-glow">
                                                 <Sparkles className="h-2.5 w-2.5" />
                                                 آخر تسليم
                                               </span>
@@ -33510,7 +33510,7 @@ ${rows
                                                 {studentSubmissionKindText(sub)}
                                               </span>
                                             </div>
-                                            <span className="inline-flex w-fit rounded-full bg-slate-50/85 px-2.5 py-0.5 text-[9px] font-black text-slate-500">
+                                            <span className="inline-flex w-fit rounded-full bg-slate-50/85 px-2.5 py-0.5 text-[9px] font-bold text-slate-500">
                                               {formatKwDateTime(
                                                 sub.submittedAt,
                                               )}
@@ -33521,7 +33521,7 @@ ${rows
                                                 "تسليم"}
                                             </p>
                                             {shouldShowStudentCourseBadges && (
-                                              <div className="inline-flex max-w-full items-start gap-1.5 rounded-[0.85rem] border border-white/80 bg-slate-50/55 px-2 py-0.5 text-[8px] font-bold leading-3.5 text-slate-500 shadow-sm">
+                                              <div className="inline-flex max-w-full items-start gap-1.5 rounded-[var(--miras-r-md)] border border-white/80 bg-slate-50/55 px-2 py-0.5 text-[8px] font-bold leading-3.5 text-slate-500 shadow-sm">
                                                 <span
                                                   className={`mt-1 h-1.5 w-1.5 shrink-0 rounded-full shadow-sm ${studentCourseDotTone(courseMeta.courseCode, courseMeta.index)}`}
                                                 />
@@ -33535,7 +33535,7 @@ ${rows
                                             )}
                                             <div className="flex flex-wrap items-center gap-2 pt-1">
                                               {gradeText ? (
-                                                <span className="inline-flex items-center rounded-2xl border border-indigo-100 bg-indigo-50/60 px-3 py-1.5 font-mono text-[11px] font-black text-indigo-700">
+                                                <span className="inline-flex items-center rounded-2xl border border-indigo-100 bg-indigo-50/60 px-3 py-1.5 font-mono text-[11px] font-bold text-indigo-700">
                                                   {gradeText}
                                                 </span>
                                               ) : smartResultText ? (
@@ -33568,7 +33568,7 @@ ${rows
                                     );
                                   })}
                                 {studentSubmissionTimeline.length === 0 && (
-                                  <div className="rounded-[1.35rem] border border-dashed border-slate-200 bg-white py-8 text-center text-xs font-bold text-slate-400">
+                                  <div className="rounded-[var(--miras-r-lg)] border border-dashed border-slate-200 bg-white py-8 text-center text-xs font-bold text-slate-400">
                                     لا يوجد تسليمات مسجلة حتى اللحظة
                                   </div>
                                 )}
@@ -33723,7 +33723,7 @@ ${rows
                           return (
                             <div
                               key={exam.id}
-                              className="group relative overflow-hidden rounded-[1.7rem] border border-indigo-100/70 bg-white/88 p-4 shadow-[0_18px_55px_rgba(79,70,229,0.08)] backdrop-blur transition-all duration-300 hover:-translate-y-0.5 hover:border-indigo-200 hover:shadow-[0_22px_70px_rgba(79,70,229,0.12)]"
+                              className="group relative overflow-hidden rounded-[var(--miras-r-xl)] border border-indigo-100/70 bg-white/88 p-4 miras-shadow-glow backdrop-blur transition-all duration-300 hover:-translate-y-0.5 hover:border-indigo-200 hover:miras-shadow-glow"
                             >
                               <div className="pointer-events-none absolute -left-10 -bottom-10 h-28 w-28 rounded-full bg-indigo-200/25 blur-3xl" />
                               <div className="relative z-10 flex items-start justify-between gap-4">
@@ -33734,15 +33734,15 @@ ${rows
                                     >
                                       {examStateText}
                                     </span>
-                                    <span className="miras-student-time-detail rounded-full bg-slate-50/80 px-2.5 py-1 font-mono text-[9px] font-black text-slate-400 text-right">
+                                    <span className="miras-student-time-detail rounded-full bg-slate-50/80 px-2.5 py-1 font-mono text-[9px] font-bold text-slate-400 text-right">
                                       إغلاق: {examCloseDateText}
                                     </span>
                                   </div>
-                                  <h3 className="line-clamp-2 text-[14px] font-black leading-5 text-slate-950 sm:text-[15px]">
+                                  <h3 className="line-clamp-2 text-[14px] font-bold leading-5 text-slate-950 sm:text-[15px]">
                                     {exam.title}
                                   </h3>
                                   {shouldShowStudentCourseBadges && (
-                                    <div className="inline-flex max-w-full items-start gap-1.5 rounded-[0.85rem] border border-white/80 bg-slate-50/55 px-2 py-0.5 text-[8px] font-bold leading-3.5 text-slate-500 shadow-sm">
+                                    <div className="inline-flex max-w-full items-start gap-1.5 rounded-[var(--miras-r-md)] border border-white/80 bg-slate-50/55 px-2 py-0.5 text-[8px] font-bold leading-3.5 text-slate-500 shadow-sm">
                                       <span
                                         className={`mt-1 h-1.5 w-1.5 shrink-0 rounded-full shadow-sm ${studentCourseDotTone(courseMeta.courseCode, courseMeta.index)}`}
                                       />
@@ -33754,7 +33754,7 @@ ${rows
                                       </span>
                                     </div>
                                   )}
-                                  <div className="flex flex-wrap items-center gap-2 pt-1 text-[9px] font-black">
+                                  <div className="flex flex-wrap items-center gap-2 pt-1 text-[9px] font-bold">
                                     <span className="rounded-2xl border border-slate-100 bg-slate-50 px-2.5 py-1.5 text-slate-500">
                                       الدرجة:{" "}
                                       {formatGradeFraction(exam.points, "")}
@@ -33799,7 +33799,7 @@ ${rows
                                           "",
                                         );
                                     }}
-                                    className={`inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl transition duration-300 shadow-[0_12px_28px_rgba(79,70,229,0.18)] btn-spring-active disabled:cursor-not-allowed disabled:opacity-55 ${canOpen ? "bg-indigo-600 hover:bg-indigo-700 text-white" : "bg-slate-950 hover:bg-indigo-700 text-white"}`}
+                                    className={`inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl transition duration-300 miras-shadow-glow btn-spring-active disabled:cursor-not-allowed disabled:opacity-55 ${canOpen ? "bg-indigo-600 hover:bg-indigo-700 text-white" : "bg-slate-950 hover:bg-indigo-700 text-white"}`}
                                     title={
                                       quizStartGuardActive
                                         ? "جاري فحص ثبات الشاشة"
@@ -33814,7 +33814,7 @@ ${rows
                                     <Play className="h-4 w-4" />
                                   </button>
                                 ) : (
-                                  <span className="inline-flex shrink-0 rounded-2xl border border-emerald-100 bg-emerald-50 px-3 py-2 text-[10px] font-black text-emerald-700 shadow-sm">
+                                  <span className="inline-flex shrink-0 rounded-2xl border border-emerald-100 bg-emerald-50 px-3 py-2 text-[10px] font-bold text-emerald-700 shadow-sm">
                                     {examStateText}
                                   </span>
                                 )}
@@ -33921,7 +33921,7 @@ ${rows
                               return (
                                 <div
                                   key={`practice-project-${project.id}`}
-                                  className="group relative overflow-hidden rounded-[1.7rem] border border-indigo-100/70 bg-white/88 p-4 shadow-[0_18px_55px_rgba(79,70,229,0.08)] backdrop-blur transition-all duration-300 hover:-translate-y-0.5 hover:border-indigo-200 hover:shadow-[0_22px_70px_rgba(79,70,229,0.12)]"
+                                  className="group relative overflow-hidden rounded-[var(--miras-r-xl)] border border-indigo-100/70 bg-white/88 p-4 miras-shadow-glow backdrop-blur transition-all duration-300 hover:-translate-y-0.5 hover:border-indigo-200 hover:miras-shadow-glow"
                                 >
                                   <div className="pointer-events-none absolute -left-10 -bottom-10 h-28 w-28 rounded-full bg-indigo-200/25 blur-3xl" />
                                   <div className="relative z-10 flex items-start justify-between gap-4">
@@ -33932,15 +33932,15 @@ ${rows
                                         >
                                           {projectStateText}
                                         </span>
-                                        <span className="miras-student-time-detail rounded-full bg-slate-50/80 px-2.5 py-1 font-mono text-[9px] font-black text-slate-400">
+                                        <span className="miras-student-time-detail rounded-full bg-slate-50/80 px-2.5 py-1 font-mono text-[9px] font-bold text-slate-400">
                                           {projectDateText}
                                         </span>
                                       </div>
-                                      <h3 className="line-clamp-2 text-[14px] font-black leading-5 text-slate-950 sm:text-[15px]">
+                                      <h3 className="line-clamp-2 text-[14px] font-bold leading-5 text-slate-950 sm:text-[15px]">
                                         {project.title}
                                       </h3>
                                       {shouldShowStudentCourseBadges && (
-                                        <div className="inline-flex max-w-full items-start gap-1.5 rounded-[0.85rem] border border-white/80 bg-slate-50/55 px-2 py-0.5 text-[8px] font-bold leading-3.5 text-slate-500 shadow-sm">
+                                        <div className="inline-flex max-w-full items-start gap-1.5 rounded-[var(--miras-r-md)] border border-white/80 bg-slate-50/55 px-2 py-0.5 text-[8px] font-bold leading-3.5 text-slate-500 shadow-sm">
                                           <span
                                             className={`mt-1 h-1.5 w-1.5 shrink-0 rounded-full shadow-sm ${studentCourseDotTone(courseMeta.courseCode, courseMeta.index)}`}
                                           />
@@ -33952,7 +33952,7 @@ ${rows
                                           </span>
                                         </div>
                                       )}
-                                      <div className="flex flex-wrap items-center gap-2 pt-1 text-[9px] font-black">
+                                      <div className="flex flex-wrap items-center gap-2 pt-1 text-[9px] font-bold">
                                         <span className="rounded-2xl border border-slate-100 bg-slate-50 px-2.5 py-1.5 text-slate-500">
                                           الدرجة:{" "}
                                           {formatGradeFraction(
@@ -33985,7 +33985,7 @@ ${rows
                                         }}
                                         title="فتح"
                                         aria-label="فتح"
-                                        className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-indigo-600 text-white transition duration-300 hover:bg-indigo-700 shadow-[0_12px_28px_rgba(79,70,229,0.18)] btn-spring-active"
+                                        className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-indigo-600 text-white transition duration-300 hover:bg-indigo-700 miras-shadow-glow btn-spring-active"
                                       >
                                         <Play className="h-4 w-4" />
                                       </button>
@@ -34020,7 +34020,7 @@ ${rows
                               return (
                                 <div
                                   key={ex.id}
-                                  className="group relative overflow-hidden rounded-[1.7rem] border border-slate-100 bg-white/88 p-4 shadow-[0_18px_55px_rgba(15,23,42,0.07)] backdrop-blur transition-all duration-300 hover:-translate-y-0.5 hover:shadow-[0_22px_70px_rgba(15,23,42,0.10)]"
+                                  className="group relative overflow-hidden rounded-[var(--miras-r-xl)] border border-slate-100 bg-white/88 p-4 miras-shadow-2 backdrop-blur transition-all duration-300 hover:-translate-y-0.5 hover:miras-shadow-3"
                                 >
                                   <div className="flex-1 space-y-3">
                                     <div className="flex flex-wrap items-center gap-2">
@@ -34137,7 +34137,7 @@ ${rows
                                           setExAnswerText("");
                                           setCurrentAttachments([]);
                                         }}
-                                        className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-slate-950 text-white shadow-[0_12px_28px_rgba(15,23,42,0.16)] transition duration-300 hover:bg-indigo-600 btn-spring-active"
+                                        className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-slate-950 text-white miras-shadow-2 transition duration-300 hover:bg-indigo-600 btn-spring-active"
                                         title="فتح"
                                         aria-label="فتح"
                                       >
@@ -34174,7 +34174,7 @@ ${rows
                       </div>
 
                       {studentCourseProjects.length === 0 ? (
-                        <div className="rounded-[2rem] border border-slate-200 bg-white p-8 text-center shadow-premium-md">
+                        <div className="rounded-[var(--miras-r-xl)] border border-slate-200 bg-white p-8 text-center shadow-premium-md">
                           <h3 className="text-base font-extrabold text-slate-900">
                             لم يتم اعتماد مشروع لهذا المقرر بعد
                           </h3>
@@ -34219,7 +34219,7 @@ ${rows
                               return (
                                 <div
                                   key={project.id}
-                                  className="rounded-[2rem] border border-slate-200 bg-white p-6 shadow-premium-md"
+                                  className="rounded-[var(--miras-r-xl)] border border-slate-200 bg-white p-6 shadow-premium-md"
                                 >
                                   <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                                     <div>
@@ -34263,7 +34263,7 @@ ${rows
                                       </div>
                                     )}
                                   <div className="mt-5 rounded-2xl bg-slate-950 p-5 text-white">
-                                    <h4 className="text-sm font-black">
+                                    <h4 className="text-sm font-bold">
                                       تسليم المشروع والملفات المرفقة
                                     </h4>
                                     <textarea
@@ -34343,7 +34343,7 @@ ${rows
                                     {isLocked ? (
                                       <button
                                         disabled
-                                        className="mt-3 w-full rounded-2xl bg-slate-800 px-4 py-3 text-xs font-black text-slate-400 cursor-not-allowed"
+                                        className="mt-3 w-full rounded-2xl bg-slate-800 px-4 py-3 text-xs font-bold text-slate-400 cursor-not-allowed"
                                       >
                                         تم التسليم والقفل
                                       </button>
@@ -34624,20 +34624,20 @@ ${rows
             </nav>
             {dockQuickMenu === "codes" && (
               <div
-                className="miras-dock-quick-menu fixed bottom-[6.3rem] right-4 z-[80] w-[15.5rem] overflow-hidden rounded-[1.55rem] border border-white/80 bg-white/96 p-2 text-right shadow-[0_24px_70px_rgba(15,23,42,0.16)] backdrop-blur-2xl sm:bottom-auto sm:right-auto sm:top-[10.5rem]"
+                className="miras-dock-quick-menu fixed bottom-[6.3rem] right-4 z-[80] w-[15.5rem] overflow-hidden rounded-[var(--miras-r-lg)] border border-white/80 bg-white/96 p-2 text-right miras-shadow-3 backdrop-blur-2xl sm:bottom-auto sm:right-auto sm:top-[10.5rem]"
                 dir="rtl"
                 onPointerDown={(e) => e.stopPropagation()}
               >
-                <button type="button" onClick={() => openCodesQuickShortcut("generate")} className="flex w-full items-center justify-between rounded-2xl px-3 py-2.5 text-[11px] font-black text-slate-700 hover:bg-emerald-50 hover:text-emerald-700">
+                <button type="button" onClick={() => openCodesQuickShortcut("generate")} className="flex w-full items-center justify-between rounded-2xl px-3 py-2.5 text-[11px] font-bold text-slate-700 hover:bg-emerald-50 hover:text-emerald-700">
                   <span>توليد كود</span><UserPlus className="h-4 w-4" />
                 </button>
-                <button type="button" onClick={() => openCodesQuickShortcut("manual")} className="flex w-full items-center justify-between rounded-2xl px-3 py-2.5 text-[11px] font-black text-slate-700 hover:bg-indigo-50 hover:text-indigo-700">
+                <button type="button" onClick={() => openCodesQuickShortcut("manual")} className="flex w-full items-center justify-between rounded-2xl px-3 py-2.5 text-[11px] font-bold text-slate-700 hover:bg-indigo-50 hover:text-indigo-700">
                   <span>تفعيل طالب</span><CheckCircle className="h-4 w-4" />
                 </button>
-                <button type="button" onClick={() => openCodesQuickShortcut("attempts")} className="flex w-full items-center justify-between rounded-2xl px-3 py-2.5 text-[11px] font-black text-slate-700 hover:bg-amber-50 hover:text-amber-700">
+                <button type="button" onClick={() => openCodesQuickShortcut("attempts")} className="flex w-full items-center justify-between rounded-2xl px-3 py-2.5 text-[11px] font-bold text-slate-700 hover:bg-amber-50 hover:text-amber-700">
                   <span>سجل المحاولات</span><ShieldAlert className="h-4 w-4" />
                 </button>
-                <button type="button" onClick={() => openCodesQuickShortcut("reset")} className="flex w-full items-center justify-between rounded-2xl px-3 py-2.5 text-[11px] font-black text-slate-700 hover:bg-rose-50 hover:text-rose-700">
+                <button type="button" onClick={() => openCodesQuickShortcut("reset")} className="flex w-full items-center justify-between rounded-2xl px-3 py-2.5 text-[11px] font-bold text-slate-700 hover:bg-rose-50 hover:text-rose-700">
                   <span>طلبات الاسترجاع</span><Key className="h-4 w-4" />
                 </button>
               </div>
@@ -34766,7 +34766,7 @@ ${rows
             </header>
 
             <div className="hidden" onPointerDown={(e) => e.stopPropagation()} onClick={(e) => e.stopPropagation()}>
-              <div className="flex items-center gap-2 rounded-[1.05rem] bg-white px-3 py-2 shadow-inner ring-1 ring-slate-100">
+              <div className="flex items-center gap-2 rounded-[var(--miras-r-md)] bg-white px-3 py-2 shadow-inner ring-1 ring-slate-100">
                 <Search className="h-4 w-4 text-indigo-500" />
                 <form
                   onSubmit={(e) => {
@@ -34801,7 +34801,7 @@ ${rows
                 )}
               </div>
               {teacherSmartSearchOpen && teacherSmartSearchTerm && teacherSmartVisibleResults.length > 0 && (
-                <div className="absolute left-0 right-0 top-[calc(100%+0.35rem)] z-[90] max-h-[50vh] overflow-y-auto rounded-[1.15rem] border border-slate-100 bg-white/98 p-2 text-right shadow-[0_20px_52px_rgba(15,23,42,0.13)] backdrop-blur-2xl">
+                <div className="absolute left-0 right-0 top-[calc(100%+0.35rem)] z-[90] max-h-[50vh] overflow-y-auto rounded-[var(--miras-r-md)] border border-slate-100 bg-white/98 p-2 text-right miras-shadow-2 backdrop-blur-2xl">
                   {teacherSmartVisibleResults.slice(0, 8).map((item: any) => (
                     <button key={`m-${item.key}`} type="button" onClick={(e) => { e.preventDefault(); e.stopPropagation(); (e.nativeEvent as any)?.stopImmediatePropagation?.(); try { item.action?.(); } catch {} setTeacherSmartSearchOpen(false); }} className="flex w-full items-center justify-between gap-2 rounded-2xl px-3 py-2 text-right hover:bg-slate-50">
                       <span className="min-w-0 flex-1">
@@ -34819,14 +34819,14 @@ ${rows
               {firestoreQuotaExceededState && (
                 <div
                   role="alert"
-                  className="mb-6 rounded-[2rem] border border-amber-200 bg-amber-50/90 p-5 text-right backdrop-blur-md"
+                  className="mb-6 rounded-[var(--miras-r-xl)] border border-amber-200 bg-amber-50/90 p-5 text-right backdrop-blur-md"
                 >
                   <div className="flex gap-3">
                     <div className="mt-1 flex-shrink-0">
                       <ShieldAlert className="h-5 w-5 text-amber-700" />
                     </div>
                     <div className="flex-1">
-                      <h3 className="text-sm font-black text-amber-900">
+                      <h3 className="text-sm font-bold text-amber-900">
                         حالة التخزين السحابي (تنبيه بالنظام)
                       </h3>
                       <p className="mt-2 text-xs font-bold leading-5 text-amber-800">
@@ -34844,7 +34844,7 @@ ${rows
                           href="https://console.firebase.google.com/project/meras-320eb/firestore/databases/ai-studio-e76a1c05-ad57-410e-a406-538aa451bedd/data?openUpgradeDialog=true"
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="rounded-xl bg-amber-100 px-3 py-1.5 text-xs font-black text-amber-900 hover:bg-amber-200 transition-colors inline-block"
+                          className="rounded-xl bg-amber-100 px-3 py-1.5 text-xs font-bold text-amber-900 hover:bg-amber-200 transition-colors inline-block"
                         >
                           مشاهدة تفاصيل خطة وقواعد Firebase ↗
                         </a>
@@ -34853,12 +34853,12 @@ ${rows
                   </div>
                 </div>
               )}
-              <header className="meras-topbar teacher-topbar teacher-command-header miras-teacher-v5-header sticky top-0 z-20 mb-6 rounded-[2.2rem] border border-slate-200/80 bg-white/90 px-4 py-1 shadow-premium-md backdrop-blur-2xl sm:px-6 sm:py-2">
+              <header className="meras-topbar teacher-topbar teacher-command-header miras-teacher-v5-header sticky top-0 z-20 mb-6 rounded-[var(--miras-r-xl)] border border-slate-200/80 bg-white/90 px-4 py-1 shadow-premium-md backdrop-blur-2xl sm:px-6 sm:py-2">
                 <div className="flex flex-col gap-5">
                   <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
                     <div className="miras-teacher-heading-block flex min-w-0 flex-1 flex-col items-end text-right">
                       <div
-                        className="miras-teacher-account-pill relative mb-3 inline-flex max-w-full cursor-pointer items-center gap-2 self-end rounded-full bg-emerald-50 px-3.5 py-1.5 text-[11px] font-black text-emerald-700 shadow-sm select-none"
+                        className="miras-teacher-account-pill relative mb-3 inline-flex max-w-full cursor-pointer items-center gap-2 self-end rounded-full bg-emerald-50 px-3.5 py-1.5 text-[11px] font-bold text-emerald-700 shadow-sm select-none"
                         role="button"
                         tabIndex={0}
                         aria-label="عرض حالة الاتصال"
@@ -34890,7 +34890,7 @@ ${rows
                         )}
                         {teacherSession?.name || "حساب المعلم"}
                         {connectionPopoverOpen && (
-                          <span className="absolute right-0 bottom-full z-[60] mb-2 whitespace-nowrap rounded-xl border border-emerald-100 bg-white/95 px-3 py-1.5 text-[10px] font-black text-emerald-700 shadow-lg backdrop-blur-md">
+                          <span className="absolute right-0 bottom-full z-[60] mb-2 whitespace-nowrap rounded-xl border border-emerald-100 bg-white/95 px-3 py-1.5 text-[10px] font-bold text-emerald-700 shadow-lg backdrop-blur-md">
                             {isAppOffline
                               ? "غير متصل — سنكمل عند عودة الشبكة"
                               : liveConnectionTrouble
@@ -34915,7 +34915,7 @@ ${rows
                       )}
                     </div>
                     <div className="relative w-full sm:max-w-xl md:hidden" onClick={(e) => e.stopPropagation()}>
-                      <div className="flex items-center gap-2 rounded-[1.45rem] border border-slate-200/80 bg-white/88 px-3 py-2 shadow-inner backdrop-blur-xl animate-fade-in" onPointerDown={(e) => e.stopPropagation()}>
+                      <div className="flex items-center gap-2 rounded-[var(--miras-r-lg)] border border-slate-200/80 bg-white/88 px-3 py-2 shadow-inner backdrop-blur-xl animate-fade-in" onPointerDown={(e) => e.stopPropagation()}>
                         <Search className="h-4 w-4 shrink-0 text-slate-400" />
                         <form
                           onSubmit={(e) => {
@@ -34961,7 +34961,7 @@ ${rows
                         )}
                       </div>
                       {teacherSmartSearchOpen && teacherSmartSearchTerm && teacherSmartVisibleResults.length > 0 && (
-                        <div className="absolute left-0 right-0 top-[calc(100%+0.5rem)] z-50 overflow-hidden rounded-[1.25rem] border border-slate-100 bg-white/97 p-2 text-right shadow-[0_20px_52px_rgba(15,23,42,0.12)] backdrop-blur-2xl">
+                        <div className="absolute left-0 right-0 top-[calc(100%+0.5rem)] z-50 overflow-hidden rounded-[var(--miras-r-lg)] border border-slate-100 bg-white/97 p-2 text-right miras-shadow-2 backdrop-blur-2xl">
                           <div className="max-h-80 space-y-1 overflow-y-auto">
                             {teacherSmartVisibleResults.map((item: any) => (
                               <button
@@ -35093,7 +35093,7 @@ ${rows
                           val,
                         );
                       }}
-                      className="w-full appearance-none rounded-[1.25rem] border border-slate-200/70 hover:border-indigo-200 hover:bg-slate-50 bg-white/90 backdrop-blur-md px-4 py-[0.65rem] pl-9 text-[13px] sm:text-sm font-bold text-slate-800 focus:border-indigo-400 focus:ring-4 focus:ring-indigo-500/10 shadow-sm outline-none transition-all cursor-pointer"
+                      className="w-full appearance-none rounded-[var(--miras-r-lg)] border border-slate-200/70 hover:border-indigo-200 hover:bg-slate-50 bg-white/90 backdrop-blur-md px-4 py-[0.65rem] pl-9 text-[13px] sm:text-sm font-bold text-slate-800 focus:border-indigo-400 focus:ring-4 focus:ring-indigo-500/10 shadow-sm outline-none transition-all cursor-pointer"
                     >
                       {visibleTeacherSections.length === 0 ? (
                         <option value="">لا توجد مقررات</option>
@@ -35161,10 +35161,10 @@ ${rows
                   )}
 
                   {actionablePasswordResetRequests.length > 0 && (
-                    <div className="rounded-[2rem] border border-amber-100 bg-amber-50/80 p-4 text-right shadow-sm">
+                    <div className="rounded-[var(--miras-r-xl)] border border-amber-100 bg-amber-50/80 p-4 text-right shadow-sm">
                       <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
                         <div>
-                          <h3 className="flex items-center gap-2 text-sm font-black text-amber-900">
+                          <h3 className="flex items-center gap-2 text-sm font-bold text-amber-900">
                             <Key className="h-4 w-4" />
                             استرجاع
                           </h3>
@@ -35172,7 +35172,7 @@ ${rows
                             طلبات جديدة فقط
                           </p>
                         </div>
-                        <span className="rounded-full bg-white px-3 py-1 text-[11px] font-black text-amber-700 shadow-sm">
+                        <span className="rounded-full bg-white px-3 py-1 text-[11px] font-bold text-amber-700 shadow-sm">
                           {actionablePasswordResetRequests.length} طلب
                         </span>
                       </div>
@@ -35186,7 +35186,7 @@ ${rows
 
                   {/* لوحة النبض الحي الديناميكية للقاعة - Dynamic Live-Pulse Dashboard */}
                   {showLivePulsePanel && (
-                    <div className="miras-teacher-live-pulse-card rounded-[2rem] border border-slate-100 bg-white p-6 text-right shadow-sm space-y-4">
+                    <div className="miras-teacher-live-pulse-card rounded-[var(--miras-r-xl)] border border-slate-100 bg-white p-6 text-right shadow-sm space-y-4">
                       {/* Header Clickable Section */}
                       <div
                         onClick={() =>
@@ -35228,7 +35228,7 @@ ${rows
                               <span className="block text-[8px] font-bold text-emerald-400">
                                 البث الحي نشط الآن
                               </span>
-                              <span className="text-[10px] font-black text-emerald-700 animate-pulse">
+                              <span className="text-[10px] font-bold text-emerald-700 animate-pulse">
                                 {examDayExams.length === 1
                                   ? examDayExams[0].title
                                   : `${examDayExams.length} اختبارات نشطة`}
@@ -35239,7 +35239,7 @@ ${rows
                               <span className="block text-[8px] font-bold text-slate-400">
                                 حالة القاعة
                               </span>
-                              <span className="text-[10px] font-black text-slate-600">
+                              <span className="text-[10px] font-bold text-slate-600">
                                 💤 آمنة / خاملة
                               </span>
                             </div>
@@ -35248,7 +35248,7 @@ ${rows
                             <span className="block text-[8px] font-bold text-slate-400">
                               حمل الخادم
                             </span>
-                            <span className="text-[10px] font-black text-slate-600">
+                            <span className="text-[10px] font-bold text-slate-600">
                               8.4% (مستقر)
                             </span>
                           </div>
@@ -35256,7 +35256,7 @@ ${rows
                             <span className="block text-[8px] font-bold text-slate-400">
                               استقرار نفق SEB
                             </span>
-                            <span className="text-[10px] font-black text-slate-600">
+                            <span className="text-[10px] font-bold text-slate-600">
                               99.9%
                             </span>
                           </div>
@@ -35268,7 +35268,7 @@ ${rows
                           {/* Dynamic Course Header Information */}
                           {examDayExams.length > 0 && (
                             <div className="flex flex-col gap-2 text-right bg-slate-50 border border-slate-100 p-4 rounded-2xl">
-                              <span className="text-[10px] font-black text-indigo-700 block">
+                              <span className="text-[10px] font-bold text-indigo-700 block">
                                 الاختبار
                               </span>
                               <span className="text-xs font-light tracking-tight text-indigo-700">
@@ -35282,7 +35282,7 @@ ${rows
                           {/* Interactive Exam Selector for double / multiple exams scheduled on same day inside the same course */}
                           {examDayExams.length > 1 && (
                             <div className="p-4 bg-indigo-50/40 border border-indigo-100 rounded-2xl space-y-3">
-                              <span className="text-xs font-black text-slate-800 block">
+                              <span className="text-xs font-bold text-slate-800 block">
                                 ⚠️ اختباران اليوم
                               </span>
                               <div className="flex flex-wrap gap-2">
@@ -35341,7 +35341,7 @@ ${rows
                               </div>
                               {/* مفتاح الحالات: ثابت فوق الشبكة ومحاذى لليمين
                                   حتى يبقى مرجعاً ظاهراً مهما كثر عدد الطلبة. */}
-                              <div className="mb-2 flex flex-wrap justify-start gap-1.5 rounded-xl border border-slate-100 bg-slate-50/70 px-2 py-1.5 text-[9px] font-black text-slate-600">
+                              <div className="mb-2 flex flex-wrap justify-start gap-1.5 rounded-xl border border-slate-100 bg-slate-50/70 px-2 py-1.5 text-[9px] font-bold text-slate-600">
                                 <span className="inline-flex items-center gap-1">
                                   <i className="h-2 w-2 rounded-full !p-0 bg-emerald-500" />{" "}
                                   يحل
@@ -35390,7 +35390,7 @@ ${rows
                                         st.idNumber ||
                                         studentIdStr
                                       }
-                                      className="group relative flex min-h-[38px] items-center rounded-2xl border border-slate-100 bg-white/75 px-2.5 py-1.5 shadow-[0_6px_18px_rgba(15,23,42,0.035)] hover:border-indigo-100 hover:bg-white hover:shadow-sm transition-all duration-200 text-right"
+                                      className="group relative flex min-h-[38px] items-center rounded-2xl border border-slate-100 bg-white/75 px-2.5 py-1.5 miras-shadow-1 hover:border-indigo-100 hover:bg-white hover:shadow-sm transition-all duration-200 text-right"
                                     >
                                       <div className="flex w-full items-center justify-between gap-2">
                                         <div className="flex min-w-0 flex-1 items-center gap-1.5 pr-0">
@@ -35493,7 +35493,7 @@ ${rows
                                                 }}
                                                 className={`inline-flex h-6 w-6 shrink-0 pointer-events-auto items-center justify-center rounded-xl border text-[9px] transition ${
                                                   isExempt
-                                                    ? "border-amber-300 bg-amber-50 text-amber-700 shadow-[0_8px_18px_rgba(245,158,11,0.16)]"
+                                                    ? "border-amber-300 bg-amber-50 text-amber-700 miras-shadow-1"
                                                     : "border-slate-200 bg-white/90 text-slate-600 hover:border-emerald-200 hover:bg-emerald-50 hover:text-emerald-700"
                                                 }`}
                                               >
@@ -35530,10 +35530,10 @@ ${rows
                 <div
                   className={`miras-submissions-panel space-y-5 p-3 sm:p-6 lg:p-8 ${submissionSubTab === "projects" && selectedSubmissionActivityId ? "pb-10 sm:pb-6" : ""}`}
                 >
-                  <div className="rounded-[2rem] border border-white/80 bg-white/84 p-4 shadow-[0_20px_60px_rgba(15,23,42,0.07)] backdrop-blur-xl space-y-3">
+                  <div className="rounded-[var(--miras-r-xl)] border border-white/80 bg-white/84 p-4 miras-shadow-2 backdrop-blur-xl space-y-3">
                     <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                       <div className="min-w-0 text-right">
-                        <p className="text-[10px] font-black text-indigo-500">وضع التصحيح السريع</p>
+                        <p className="text-[10px] font-bold text-indigo-500">وضع التصحيح السريع</p>
                         <h3 className="mt-0.5 text-lg font-black text-slate-950">التسليمات</h3>
                       </div>
                       <div className="flex w-full items-center gap-2 rounded-2xl border border-slate-200 bg-white px-3.5 py-2.5 shadow-sm transition focus-within:border-indigo-300 focus-within:ring-2 focus-within:ring-indigo-100 sm:w-80">
@@ -35609,7 +35609,7 @@ ${rows
                             setSelectedSubmissionIds({});
                             setSubmissionStatusFilter(null);
                           }}
-                          className="group rounded-[1.6rem] border border-slate-100 bg-white p-5 text-right shadow-sm transition-all hover:border-indigo-200 hover:shadow-md"
+                          className="group rounded-[var(--miras-r-lg)] border border-slate-100 bg-white p-5 text-right shadow-sm transition-all hover:border-indigo-200 hover:shadow-md"
                         >
                           <div className="flex items-start justify-between gap-3">
                             <div className="min-w-0 flex-1">
@@ -35685,24 +35685,24 @@ ${rows
                         </div>
                       </div>
                       {submissionSubTab === "exams" && (
-                        <div className="miras-exam-radar rounded-[1.45rem] border border-white/80 bg-white/88 p-3 shadow-[0_14px_45px_rgba(15,23,42,0.055)] backdrop-blur-xl sm:rounded-[2rem] sm:p-4">
+                        <div className="miras-exam-radar rounded-[var(--miras-r-lg)] border border-white/80 bg-white/88 p-3 miras-shadow-2 backdrop-blur-xl sm:rounded-[var(--miras-r-xl)] sm:p-4">
                           <div className="mb-3 space-y-2.5">
                             <div className="flex items-center justify-between gap-2 text-right">
-                              <h3 className="text-[13px] font-black leading-5 text-slate-900 sm:text-sm">
+                              <h3 className="text-[13px] font-bold leading-5 text-slate-900 sm:text-sm">
                                 رادار قاعة الاختبار الحي
                               </h3>
-                              <span className="rounded-full border border-slate-100 bg-slate-50 px-2.5 py-1 text-[9px] font-black text-slate-400">
+                              <span className="rounded-full border border-slate-100 bg-slate-50 px-2.5 py-1 text-[9px] font-bold text-slate-400">
                                 {filteredDrilledSubmissions.length} طالب
                               </span>
                             </div>
-                            <div className="-mx-1 flex gap-1.5 overflow-x-auto px-1 pb-1 text-[9px] font-black [scrollbar-width:none] [&::-webkit-scrollbar]:hidden sm:mx-0 sm:flex-wrap sm:overflow-visible sm:px-0 sm:pb-0">
+                            <div className="-mx-1 flex gap-1.5 overflow-x-auto px-1 pb-1 text-[9px] font-bold [scrollbar-width:none] [&::-webkit-scrollbar]:hidden sm:mx-0 sm:flex-wrap sm:overflow-visible sm:px-0 sm:pb-0">
                               <button
                                 type="button"
                                 onClick={() => {
                                   setSubmissionStatusFilter(null);
                                   setSelectedSubmissionIds({});
                                 }}
-                                className={`miras-radar-filter inline-flex h-8 shrink-0 items-center rounded-full border px-3 transition sm:h-auto sm:px-2.5 sm:py-1 ${!submissionStatusFilter ? "border-indigo-200 bg-gradient-to-br from-indigo-900 to-indigo-600 text-white shadow-[0_10px_24px_rgba(79,70,229,0.20)]" : "border-slate-100 bg-slate-50 text-slate-500 hover:bg-white"}`}
+                                className={`miras-radar-filter inline-flex h-8 shrink-0 items-center rounded-full border px-3 transition sm:h-auto sm:px-2.5 sm:py-1 ${!submissionStatusFilter ? "border-indigo-200 bg-gradient-to-br from-indigo-900 to-indigo-600 text-white miras-shadow-glow" : "border-slate-100 bg-slate-50 text-slate-500 hover:bg-white"}`}
                                 title="عرض كل الحالات"
                                 aria-label="عرض كل الحالات"
                               >
@@ -35742,7 +35742,7 @@ ${rows
                                   onClick={() =>
                                     setSelectedSubmissionDetail(sub)
                                   }
-                                  className={`group flex min-w-0 items-center gap-2 rounded-[1.15rem] border px-3 py-2 text-right transition hover:-translate-y-0.5 sm:rounded-2xl ${radar.card}`}
+                                  className={`group flex min-w-0 items-center gap-2 rounded-[var(--miras-r-md)] border px-3 py-2 text-right transition hover:-translate-y-0.5 sm:rounded-2xl ${radar.card}`}
                                   title={`${sub.studentName || "طالب"} - ${radar.label}`}
                                 >
                                   <span
@@ -35755,11 +35755,11 @@ ${rows
                                     )}
                                   </span>
                                   <span className="min-w-0 flex-1 text-right flex flex-col justify-center">
-                                    <span className="block text-[11px] font-black text-slate-800 sm:text-[10px] truncate">
+                                    <span className="block text-[11px] font-bold text-slate-800 sm:text-[10px] truncate">
                                       {sub.studentName || "طالب"}
                                     </span>
                                     <span
-                                      className={`block text-[9px] font-black ${radar.text} mt-0.5`}
+                                      className={`block text-[9px] font-bold ${radar.text} mt-0.5`}
                                     >
                                       {radar.label}
                                     </span>
@@ -35777,10 +35777,10 @@ ${rows
                           </div>
                         </div>
                       )}
-                      <div className="rounded-[2rem] border border-indigo-100 bg-gradient-to-br from-indigo-50/70 via-white to-emerald-50/40 p-4 shadow-[0_18px_60px_rgba(15,23,42,0.06)]">
+                      <div className="rounded-[var(--miras-r-xl)] border border-indigo-100 bg-gradient-to-br from-indigo-50/70 via-white to-emerald-50/40 p-4 miras-shadow-2">
                         <div className="mx-auto max-w-3xl space-y-3 text-center">
                           <div>
-                            <h3 className="text-sm font-black text-slate-900">
+                            <h3 className="text-sm font-bold text-slate-900">
                               رصد درجات لمجموعة
                             </h3>
                           </div>
@@ -35809,7 +35809,7 @@ ${rows
                                 !selectedVisibleSubmissionIds.length ||
                                 !bulkGradeInput.trim()
                               }
-                              className={`flex min-h-[58px] w-full items-center justify-center gap-2 rounded-2xl px-4 py-3 text-xs font-black shadow-sm transition-all ${selectedVisibleSubmissionIds.length && bulkGradeInput.trim() ? "bg-gradient-to-br from-indigo-700 to-blue-700 text-white hover:from-indigo-800 hover:to-blue-800" : "cursor-not-allowed border border-slate-200 bg-slate-50 text-slate-400"}`}
+                              className={`flex min-h-[58px] w-full items-center justify-center gap-2 rounded-2xl px-4 py-3 text-xs font-bold shadow-sm transition-all ${selectedVisibleSubmissionIds.length && bulkGradeInput.trim() ? "bg-gradient-to-br from-indigo-700 to-blue-700 text-white hover:from-indigo-800 hover:to-blue-800" : "cursor-not-allowed border border-slate-200 bg-slate-50 text-slate-400"}`}
                             >
                               <CheckCircle2 className="h-5 w-5" />
                               {selectedVisibleSubmissionIds.length > 0 && (
@@ -35821,7 +35821,7 @@ ${rows
                           </div>
                         </div>
                       </div>
-                      <div className="rounded-[2rem] border border-white/80 bg-white/85 p-3 shadow-[0_18px_60px_rgba(15,23,42,0.07)] backdrop-blur-xl">
+                      <div className="rounded-[var(--miras-r-xl)] border border-white/80 bg-white/85 p-3 miras-shadow-2 backdrop-blur-xl">
                         <div className="grid grid-cols-1 gap-2 md:hidden">
                           {filteredDrilledSubmissions.map((sub: any) => (
                             <div
@@ -35862,12 +35862,12 @@ ${rows
                                 </div>
                                 <div className="flex items-center gap-1.5">
                                   <span
-                                    className={`rounded-full px-2 py-1 text-[9px] font-black ${isTeacherReturnedSubmission(sub) ? "bg-indigo-50 text-indigo-700" : isExamInProgressSubmission(sub) ? "bg-amber-50 text-amber-700" : sub?.teacherGradeOverride ? "bg-emerald-50 text-emerald-700" : isCheatingAttemptSubmission(sub) ? "bg-red-100 text-red-800" : isWithdrawnSubmission(sub) ? "bg-rose-50 text-rose-700" : teacherVisibleGradeText(sub) || isSubmissionGradeOfficiallyRecorded(sub) || isTimeExpiredRecordedSubmission(sub) ? "bg-emerald-50 text-emerald-700" : "bg-slate-50 text-slate-600"}`}
+                                    className={`rounded-full px-2 py-1 text-[9px] font-bold ${isTeacherReturnedSubmission(sub) ? "bg-indigo-50 text-indigo-700" : isExamInProgressSubmission(sub) ? "bg-amber-50 text-amber-700" : sub?.teacherGradeOverride ? "bg-emerald-50 text-emerald-700" : isCheatingAttemptSubmission(sub) ? "bg-red-100 text-red-800" : isWithdrawnSubmission(sub) ? "bg-rose-50 text-rose-700" : teacherVisibleGradeText(sub) || isSubmissionGradeOfficiallyRecorded(sub) || isTimeExpiredRecordedSubmission(sub) ? "bg-emerald-50 text-emerald-700" : "bg-slate-50 text-slate-600"}`}
                                   >
                                     {teacherSubmissionBadgeText(sub)}
                                   </span>
                                   {shouldDisplaySubmittedLate(sub) && (
-                                    <span className="rounded-full bg-amber-50 px-2 py-1 text-[9px] font-black text-amber-700 border border-amber-100">
+                                    <span className="rounded-full bg-amber-50 px-2 py-1 text-[9px] font-bold text-amber-700 border border-amber-100">
                                       متأخر
                                     </span>
                                   )}
@@ -35999,9 +35999,9 @@ ${rows
                                         dir="ltr"
                                         inputMode="decimal"
                                         placeholder=""
-                                        className="w-[5.75rem] rounded-xl border border-slate-200 bg-white px-2 py-2 text-center font-mono text-xs font-black text-indigo-700"
+                                        className="w-[5.75rem] rounded-xl border border-slate-200 bg-white px-2 py-2 text-center font-mono text-xs font-bold text-indigo-700"
                                       />
-                                      <span className="whitespace-nowrap text-[10px] font-black text-slate-400">
+                                      <span className="whitespace-nowrap text-[10px] font-bold text-slate-400">
                                         {teacherGradeMaxText(sub)}
                                       </span>
                                     </div>
@@ -36013,7 +36013,7 @@ ${rows
                                       {teacherSubmissionStatusText(sub)}
                                     </span>
                                     {shouldDisplaySubmittedLate(sub) && (
-                                      <span className="ms-1 inline-flex rounded-full border border-amber-100 bg-amber-50 px-2 py-1 text-[10px] font-black text-amber-700">
+                                      <span className="ms-1 inline-flex rounded-full border border-amber-100 bg-amber-50 px-2 py-1 text-[10px] font-bold text-amber-700">
                                         متأخر
                                       </span>
                                     )}
@@ -36049,7 +36049,7 @@ ${rows
                                       disabled={String(sub.id).startsWith(
                                         "demo-",
                                       )}
-                                      className={`inline-flex h-10 w-10 items-center justify-center rounded-2xl border text-[10px] font-black ${String(sub.id).startsWith("demo-") ? "bg-slate-100 text-slate-400 border-slate-200 cursor-not-allowed" : "bg-amber-50 text-amber-700 border-amber-200 hover:bg-amber-100"}`}
+                                      className={`inline-flex h-10 w-10 items-center justify-center rounded-2xl border text-[10px] font-bold ${String(sub.id).startsWith("demo-") ? "bg-slate-100 text-slate-400 border-slate-200 cursor-not-allowed" : "bg-amber-50 text-amber-700 border-amber-200 hover:bg-amber-100"}`}
                                     >
                                       <RefreshCw className="h-4 w-4" />
                                     </button>
@@ -36089,7 +36089,7 @@ ${rows
                                   <button
                                     type="button"
                                     onClick={closeSubmissionDetail}
-                                    className="inline-flex h-11 items-center gap-2 px-4 rounded-2xl bg-slate-100 text-slate-700 transition hover:bg-rose-50 hover:text-rose-700 font-black text-xs shrink-0"
+                                    className="inline-flex h-11 items-center gap-2 px-4 rounded-2xl bg-slate-100 text-slate-700 transition hover:bg-rose-50 hover:text-rose-700 font-bold text-xs shrink-0"
                                     title="رجوع وإغلاق"
                                     aria-label="رجوع وإغلاق"
                                   >
@@ -36098,10 +36098,10 @@ ${rows
                                   </button>
 
                                   <div className="min-w-[140px] max-w-[240px] rounded-2xl border border-indigo-100 bg-gradient-to-br from-white to-indigo-50/70 px-4 py-2 text-right text-slate-900 shadow-sm shrink-0">
-                                    <div className="truncate text-xs font-black">
+                                    <div className="truncate text-xs font-bold">
                                       {selectedSubmissionDetail.studentName || "طالب"}
                                     </div>
-                                    <div className="mt-0.5 text-[10px] font-black text-indigo-400">
+                                    <div className="mt-0.5 text-[10px] font-bold text-indigo-400">
                                       {selectedSubmissionDetailIndex + 1}/{detailActivitySubmissions.length || 1}
                                     </div>
                                   </div>
@@ -36117,7 +36117,7 @@ ${rows
                                       onChange={(e) => setSubmissionDetailStudentSearch(e.target.value)}
                                       placeholder=""
                                       inputMode="search"
-                                      className="h-10 w-full rounded-2xl border border-slate-200 bg-slate-50 pr-10 pl-3 text-right text-xs font-black text-slate-800 outline-none transition placeholder:text-slate-400 focus:border-indigo-300 focus:bg-white focus:ring-2 focus:ring-indigo-100"
+                                      className="h-10 w-full rounded-2xl border border-slate-200 bg-slate-50 pr-10 pl-3 text-right text-xs font-bold text-slate-800 outline-none transition placeholder:text-slate-400 focus:border-indigo-300 focus:bg-white focus:ring-2 focus:ring-indigo-100"
                                     />
                                   </div>
 
@@ -36127,7 +36127,7 @@ ${rows
                                       type="button"
                                       onClick={() => openAdjacentSubmissionDetail(1)}
                                       disabled={detailActivitySubmissions.length < 2}
-                                      className="inline-flex h-10 px-4 items-center justify-center gap-1.5 rounded-2xl border border-slate-200 bg-white text-slate-700 shadow-sm transition hover:border-indigo-200 hover:bg-indigo-50 hover:text-indigo-700 disabled:cursor-not-allowed disabled:opacity-35 font-black text-xs"
+                                      className="inline-flex h-10 px-4 items-center justify-center gap-1.5 rounded-2xl border border-slate-200 bg-white text-slate-700 shadow-sm transition hover:border-indigo-200 hover:bg-indigo-50 hover:text-indigo-700 disabled:cursor-not-allowed disabled:opacity-35 font-bold text-xs"
                                       title="السابق"
                                       aria-label="السابق"
                                     >
@@ -36138,7 +36138,7 @@ ${rows
                                       type="button"
                                       onClick={() => openAdjacentSubmissionDetail(-1)}
                                       disabled={detailActivitySubmissions.length < 2}
-                                      className="inline-flex h-10 px-4 items-center justify-center gap-1.5 rounded-2xl border border-slate-200 bg-white text-slate-700 shadow-sm transition hover:border-indigo-200 hover:bg-indigo-50 hover:text-indigo-700 disabled:cursor-not-allowed disabled:opacity-35 font-black text-xs"
+                                      className="inline-flex h-10 px-4 items-center justify-center gap-1.5 rounded-2xl border border-slate-200 bg-white text-slate-700 shadow-sm transition hover:border-indigo-200 hover:bg-indigo-50 hover:text-indigo-700 disabled:cursor-not-allowed disabled:opacity-35 font-bold text-xs"
                                       title="التالي"
                                       aria-label="التالي"
                                     >
@@ -36184,8 +36184,8 @@ ${rows
                             </div>
 
                             <div className="miras-quick-grading-grid min-h-0 flex-1 p-4 gap-4 overflow-hidden lg:grid lg:grid-cols-[17rem_minmax(0,1fr)]">
-                              <aside className="hidden min-h-0 overflow-hidden rounded-[1.45rem] border border-slate-100 bg-slate-50/70 p-2 lg:flex lg:flex-col">
-                                <div className="mb-2 flex items-center justify-between px-2 text-[10px] font-black text-slate-500">
+                              <aside className="hidden min-h-0 overflow-hidden rounded-[var(--miras-r-lg)] border border-slate-100 bg-slate-50/70 p-2 lg:flex lg:flex-col">
+                                <div className="mb-2 flex items-center justify-between px-2 text-[10px] font-bold text-slate-500">
                                   <span>الطلبة</span>
                                   <span className="rounded-full bg-white px-2 py-0.5 text-indigo-700">{detailActivitySubmissions.length}</span>
                                 </div>
@@ -36214,7 +36214,7 @@ ${rows
                                         }`}
                                       >
                                         <span className="min-w-0">
-                                          <span className="block truncate text-[11px] font-black">{row.studentName || "طالب"}</span>
+                                          <span className="block truncate text-[11px] font-bold">{row.studentName || "طالب"}</span>
                                         </span>
                                         <span className={`h-2 w-2 shrink-0 rounded-full ${row.submission ? isActive ? "bg-white" : "bg-emerald-400" : "bg-slate-200"}`} />
                                       </button>
@@ -36241,7 +36241,7 @@ ${rows
                                     </span>
                                   </div>
                                   {false && (
-                                    <div className="rounded-2xl border border-emerald-100 bg-white px-3 py-2 text-[10px] font-black text-emerald-700 shadow-sm">
+                                    <div className="rounded-2xl border border-emerald-100 bg-white px-3 py-2 text-[10px] font-bold text-emerald-700 shadow-sm">
                                       بصمة عدالة: أصلية{" "}
                                       {selectedSubmissionDetail.originalGrade ||
                                         "—"}{" "}
@@ -36256,7 +36256,7 @@ ${rows
                                 </div>
 
                                 {selectedSubmissionDetail.kind === "exam" && (
-                                  <details className="group rounded-[1.25rem] border border-white bg-white/80 shadow-sm">
+                                  <details className="group rounded-[var(--miras-r-lg)] border border-white bg-white/80 shadow-sm">
                                     <summary className="flex cursor-pointer list-none items-center justify-between gap-2 px-3 py-2.5 text-[10.5px] font-medium text-slate-600 marker:hidden">
                                       <span>سجل المحاولة والنزاهة</span>
                                       <span className="font-mono text-[9px] font-normal text-slate-400">
@@ -36294,8 +36294,8 @@ ${rows
                                 )}
 
                                 {false && (
-                                  <div className="rounded-[1.25rem] border border-emerald-100 bg-emerald-50/35 p-3">
-                                    <div className="mb-2 text-[11px] font-black text-emerald-800">
+                                  <div className="rounded-[var(--miras-r-lg)] border border-emerald-100 bg-emerald-50/35 p-3">
+                                    <div className="mb-2 text-[11px] font-bold text-emerald-800">
                                       بصمة عدالة الدرجة
                                     </div>
                                     <div className="space-y-1.5">
@@ -36347,7 +36347,7 @@ ${rows
                                   String(
                                     selectedSubmissionDetail.answerText || "",
                                   ).trim() && (
-                                    <div className="rounded-[1.25rem] border border-indigo-100 bg-white p-3.5 shadow-sm">
+                                    <div className="rounded-[var(--miras-r-lg)] border border-indigo-100 bg-white p-3.5 shadow-sm">
                                       <span className="mb-1.5 block text-[10px] font-extrabold text-indigo-600">
                                         نص حل الطالب
                                       </span>
@@ -36379,9 +36379,9 @@ ${rows
 
                               {/* For standard Exam multi-questions, render question blocks */}
                               {selectedSubmissionDetail.kind === "exam" && (
-                                <div className="miras-answer-sheet rounded-[1.5rem] border border-slate-100 bg-white p-3">
+                                <div className="miras-answer-sheet rounded-[var(--miras-r-lg)] border border-slate-100 bg-white p-3">
                                   <div className="mb-3 flex items-center justify-between gap-2 px-1">
-                                    <span className="text-xs font-black text-slate-700">
+                                    <span className="text-xs font-bold text-slate-700">
                                       تفاصيل أسئلة الاختبار كاملة
                                     </span>
                                     <span className="rounded-full bg-slate-100 px-3 py-1 text-[10px] font-bold text-slate-500">
@@ -36477,9 +36477,9 @@ ${rows
                                     dir="ltr"
                                     inputMode="decimal"
                                     placeholder=""
-                                    className="h-10 w-[5.75rem] shrink-0 rounded-2xl border border-slate-200 bg-white px-2 text-center font-mono text-sm font-black text-indigo-700"
+                                    className="h-10 w-[5.75rem] shrink-0 rounded-2xl border border-slate-200 bg-white px-2 text-center font-mono text-sm font-bold text-indigo-700"
                                   />
-                                  <span className="whitespace-nowrap text-[11px] font-black text-slate-400">
+                                  <span className="whitespace-nowrap text-[11px] font-bold text-slate-400">
                                     {teacherGradeMaxText(
                                       selectedSubmissionDetail,
                                     )}
@@ -36514,7 +36514,7 @@ ${rows
                           onClick={() => setPendingReturnSubmission(null)}
                         >
                           <div
-                            className="miras-return-modal relative w-full max-w-[32rem] overflow-hidden rounded-[2.15rem] border border-white/80 bg-white p-4 text-right shadow-[0_28px_90px_rgba(15,23,42,0.24)] sm:rounded-[2.2rem] sm:p-6"
+                            className="miras-return-modal relative w-full max-w-[32rem] overflow-hidden rounded-[var(--miras-r-xl)] border border-white/80 bg-white p-4 text-right miras-shadow-3 sm:rounded-[var(--miras-r-xl)] sm:p-6"
                             dir="rtl"
                             onClick={(e) => e.stopPropagation()}
                           >
@@ -36570,7 +36570,7 @@ ${rows
                               ].map(([label, value]) => (
                                 <div
                                   key={label}
-                                  className="flex min-h-[3.45rem] flex-col justify-center rounded-[1rem] border border-slate-100 bg-slate-50/80 px-2.5 py-2 shadow-sm sm:min-h-[3.75rem] sm:rounded-[1.15rem]"
+                                  className="flex min-h-[3.45rem] flex-col justify-center rounded-[var(--miras-r-md)] border border-slate-100 bg-slate-50/80 px-2.5 py-2 shadow-sm sm:min-h-[3.75rem] sm:rounded-[var(--miras-r-md)]"
                                 >
                                   <span className="block text-[8px] font-black text-slate-400 sm:text-[8.5px]">
                                     {label}
@@ -36584,15 +36584,15 @@ ${rows
                             {returnDecisionRecommendation(
                               pendingReturnSubmission,
                             ) && (
-                              <div className="relative mt-3 rounded-[1.15rem] border border-indigo-100 bg-indigo-50/65 px-4 py-3 text-[11px] font-bold leading-6 text-indigo-800 sm:rounded-2xl sm:px-4 sm:py-3">
+                              <div className="relative mt-3 rounded-[var(--miras-r-md)] border border-indigo-100 bg-indigo-50/65 px-4 py-3 text-[11px] font-bold leading-6 text-indigo-800 sm:rounded-2xl sm:px-4 sm:py-3">
                                 {returnDecisionRecommendation(
                                   pendingReturnSubmission,
                                 )}
                               </div>
                             )}
                             {returnedActivityNeedsException(pendingReturnSubmission) && (
-                              <div className="relative mt-3 flex items-center justify-center gap-2 rounded-[1.1rem] border border-amber-100 bg-amber-50/55 px-3 py-2 shadow-sm">
-                                <span className="text-[10px] font-black text-amber-800">
+                              <div className="relative mt-3 flex items-center justify-center gap-2 rounded-[var(--miras-r-md)] border border-amber-100 bg-amber-50/55 px-3 py-2 shadow-sm">
+                                <span className="text-[10px] font-bold text-amber-800">
                                   مدة الفرصة
                                 </span>
                                 <input
@@ -36608,15 +36608,15 @@ ${rows
                                   onBlur={() =>
                                     setReturnExceptionHours(String(clampedReturnExceptionHours()))
                                   }
-                                  className="miras-return-hour-input h-9 w-12 rounded-xl border border-amber-100 bg-white text-center text-[12px] font-black text-slate-900 outline-none focus:ring-4 focus:ring-amber-100"
+                                  className="miras-return-hour-input h-9 w-12 rounded-xl border border-amber-100 bg-white text-center text-[12px] font-bold text-slate-900 outline-none focus:ring-4 focus:ring-amber-100"
                                   aria-label="مدة الفرصة بالساعات"
                                   placeholder="24"
                                 />
-                                <span className="text-[10px] font-black text-amber-700">ساعة</span>
+                                <span className="text-[10px] font-bold text-amber-700">ساعة</span>
                               </div>
                             )}
                             {returnedActivityNeedsException(pendingReturnSubmission) && (
-                              <div className="relative mt-2 rounded-[1.05rem] border border-emerald-100 bg-emerald-50/70 px-3 py-2 text-center text-[10.5px] font-black leading-5 text-emerald-800 shadow-sm">
+                              <div className="relative mt-2 rounded-[var(--miras-r-md)] border border-emerald-100 bg-emerald-50/70 px-3 py-2 text-center text-[10.5px] font-black leading-5 text-emerald-800 shadow-sm">
                                 للطالب فرصة حتى: {returnExceptionUntilPreviewText()}
                               </div>
                             )}
@@ -36642,7 +36642,7 @@ ${rows
                                     hours,
                                   });
                                 }}
-                                className="inline-flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-amber-500 to-orange-500 text-white shadow-[0_16px_36px_rgba(249,115,22,0.22)] transition hover:brightness-110"
+                                className="inline-flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-amber-500 to-orange-500 text-white miras-shadow-2 transition hover:brightness-110"
                                 title="تأكيد الإرجاع"
                                 aria-label="تأكيد الإرجاع"
                               >
@@ -36736,7 +36736,7 @@ ${rows
                   <div className="grid grid-cols-12 gap-6">
                     {/* Chapter Outline Map list */}
                     <div className="col-span-12 lg:col-span-4 bg-white rounded-3xl border border-slate-200 p-6 space-y-4">
-                      <h3 className="font-black text-sm text-slate-800">
+                      <h3 className="font-bold text-sm text-slate-800">
                         خريطة الفصول المعرفية الحالية
                       </h3>
                       <div className="space-y-2">
@@ -36942,7 +36942,7 @@ ${rows
               {/* 3. QUESTION BANK + EXAMS PANEL */}
               {teacherTab === "questions" && (
                 <div className="space-y-5 p-3 sm:p-6 lg:p-8">
-                  <div className="rounded-[2.2rem] border border-white/80 bg-white/80 p-5 shadow-[0_22px_70px_rgba(15,23,42,0.07)] backdrop-blur-2xl">
+                  <div className="rounded-[var(--miras-r-xl)] border border-white/80 bg-white/80 p-5 miras-shadow-3 backdrop-blur-2xl">
                     <div className="flex flex-col gap-4 border-b border-slate-100 pb-4 md:flex-row md:items-center md:justify-between">
                       <div>
                         <h2 className="hidden text-lg font-black text-slate-900 md:block">
@@ -36951,7 +36951,7 @@ ${rows
                       </div>
                       <div className="flex flex-wrap gap-2">
                         <div
-                          className="flex flex-wrap rounded-[1.35rem] border border-slate-100 bg-slate-50/90 p-1 text-xs font-black shadow-inner"
+                          className="flex flex-wrap rounded-[var(--miras-r-lg)] border border-slate-100 bg-slate-50/90 p-1 text-xs font-bold shadow-inner"
                           role="tablist"
                           aria-label="أقسام بنك الأسئلة والاختبارات والمشاريع"
                         >
@@ -36997,7 +36997,7 @@ ${rows
                     {questionMode === "bank" && questionImportOpen && (
                       <div className="mt-5 rounded-3xl border border-indigo-100 bg-indigo-50/40 p-4 space-y-3">
                         <div className="flex items-center justify-between gap-3">
-                          <h3 className="text-sm font-black text-slate-900">
+                          <h3 className="text-sm font-bold text-slate-900">
                             استيراد بنك الأسئلة من Excel / Moodle XML
                           </h3>
                           <button
@@ -37165,7 +37165,7 @@ ${rows
                     {questionMode === "projects" && projectBuilderOpen && (
                       <div className="mt-5 rounded-3xl border border-emerald-100 bg-emerald-50/40 p-4 space-y-3">
                         <div className="flex items-center justify-between">
-                          <h3 className="text-sm font-black text-slate-900">
+                          <h3 className="text-sm font-bold text-slate-900">
                             {editingProjectId ? "تعديل مشروع" : "إنشاء مشروع"}
                           </h3>
                           <button
@@ -37179,7 +37179,7 @@ ${rows
                           </button>
                         </div>
                         <div className="grid grid-cols-1 gap-3 md:grid-cols-4">
-                          <label className="text-[10px] font-black text-slate-500">
+                          <label className="text-[10px] font-bold text-slate-500">
                             اسم المشروع
                             <input
                               value={projectDraft.title}
@@ -37193,7 +37193,7 @@ ${rows
                               className="mt-1 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-xs font-bold"
                             />
                           </label>
-                          <label className="text-[10px] font-black text-slate-500">
+                          <label className="text-[10px] font-bold text-slate-500">
                             الدرجة
                             <input
                               value={projectDraft.points}
@@ -37210,7 +37210,7 @@ ${rows
                               className="mt-1 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-xs font-bold"
                             />
                           </label>
-                          <label className="text-[10px] font-black text-slate-500">
+                          <label className="text-[10px] font-bold text-slate-500">
                             موعد التسليم
                             <input
                               type="date"
@@ -37224,7 +37224,7 @@ ${rows
                               className="mt-1 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-xs font-bold"
                             />
                           </label>
-                          <label className="text-[10px] font-black text-slate-500">
+                          <label className="text-[10px] font-bold text-slate-500">
                             إغلاق التسليم
                             <input
                               type="date"
@@ -37273,7 +37273,7 @@ ${rows
                       className={`${questionMode === "projects" ? "mt-5" : "hidden"} rounded-3xl border border-slate-200 bg-white p-4 space-y-3`}
                     >
                       <div className="flex items-center justify-between gap-3">
-                        <h3 className="text-sm font-black text-slate-900">
+                        <h3 className="text-sm font-bold text-slate-900">
                           المشاريع
                         </h3>
                       </div>
@@ -37288,12 +37288,12 @@ ${rows
                             className="rounded-3xl border border-emerald-100 bg-emerald-50/50 p-4 shadow-sm"
                           >
                             <div className="flex items-center justify-between">
-                              <span className="rounded-full bg-white px-3 py-1 text-[10px] font-black text-emerald-700">
+                              <span className="rounded-full bg-white px-3 py-1 text-[10px] font-bold text-emerald-700">
                                 مشروع منشأ
                               </span>
                               <Send className="h-5 w-5 text-emerald-600" />
                             </div>
-                            <h4 className="mt-3 text-sm font-black text-slate-900">
+                            <h4 className="mt-3 text-sm font-bold text-slate-900">
                               {project.title}
                             </h4>
                             <div
@@ -37338,7 +37338,7 @@ ${rows
                       <div className="mt-5 space-y-4">
                         <div className="rounded-3xl border border-indigo-100 bg-indigo-50/50 p-4 flex flex-col md:flex-row md:items-center md:justify-between gap-3">
                           <div>
-                            <p className="text-sm font-black text-slate-900">
+                            <p className="text-sm font-bold text-slate-900">
                               إنشاء اختبار
                             </p>
                           </div>
@@ -37397,14 +37397,14 @@ ${rows
                           <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
                             <div className="rounded-3xl border border-white/80 bg-white/90 p-4 shadow-sm">
                               <div className="flex items-center justify-between">
-                                <span className="text-xs font-black text-slate-900">
+                                <span className="text-xs font-bold text-slate-900">
                                   يوم الاختبار
                                 </span>
-                                <span className="rounded-full bg-indigo-50 px-3 py-1 text-[10px] font-black text-indigo-700">
+                                <span className="rounded-full bg-indigo-50 px-3 py-1 text-[10px] font-bold text-indigo-700">
                                   {examDayExams.length} نشط
                                 </span>
                               </div>
-                              <div className="mt-3 grid grid-cols-3 gap-2 text-center text-[10px] font-black">
+                              <div className="mt-3 grid grid-cols-3 gap-2 text-center text-[10px] font-bold">
                                 <div className="rounded-2xl bg-amber-50 px-2 py-3 text-amber-700">
                                   {
                                     activeCourseExamSubmissions.filter(
@@ -37446,11 +37446,11 @@ ${rows
                                 className="flex w-full items-center justify-between gap-3 text-right"
                                 aria-expanded={stuckStudentsOpen}
                               >
-                                <span className="text-xs font-black text-slate-900">
+                                <span className="text-xs font-bold text-slate-900">
                                   الطلاب العالقون
                                 </span>
                                 <span className="flex items-center gap-2">
-                                  <span className="rounded-full bg-slate-50 px-2.5 py-0.5 text-[9px] font-black text-slate-500">
+                                  <span className="rounded-full bg-slate-50 px-2.5 py-0.5 text-[9px] font-bold text-slate-500">
                                     {stuckStudentGroups.length} طالب /{" "}
                                     {stuckStudentRows.length} سجل
                                   </span>
@@ -37502,7 +37502,7 @@ ${rows
                                     </div>
                                   ))}
                                   {!stuckStudentGroups.length && (
-                                    <div className="rounded-2xl border border-emerald-100 bg-emerald-50 px-3 py-2 text-[11px] font-black text-emerald-700">
+                                    <div className="rounded-2xl border border-emerald-100 bg-emerald-50 px-3 py-2 text-[11px] font-bold text-emerald-700">
                                       لا توجد حالات عالقة.
                                     </div>
                                   )}
@@ -37511,7 +37511,7 @@ ${rows
                             </div>
                             {fairnessRows.length > 0 && (
                               <div className="rounded-3xl border border-slate-100 bg-white/90 p-4 shadow-sm md:col-span-3">
-                                <div className="text-xs font-black text-slate-900">
+                                <div className="text-xs font-bold text-slate-900">
                                   سجل إنصاف
                                 </div>
                                 <div className="mt-3 grid grid-cols-1 gap-2 md:grid-cols-2">
@@ -37544,7 +37544,7 @@ ${rows
                         {examBuilderOpen && (
                           <div className="rounded-3xl border border-indigo-100 bg-white p-4 shadow-sm">
                             <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
-                              <label className="text-[11px] font-black text-slate-600">
+                              <label className="text-[11px] font-bold text-slate-600">
                                 اسم الاختبار
                                 <input
                                   value={examDraft.title}
@@ -37557,7 +37557,7 @@ ${rows
                                   className="mt-1 w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-xs font-bold"
                                 />
                               </label>
-                              <label className="text-[11px] font-black text-slate-600">
+                              <label className="text-[11px] font-bold text-slate-600">
                                 الدرجة الكلية
                                 <input
                                   value={examDraft.points}
@@ -37574,7 +37574,7 @@ ${rows
                                   className="mt-1 w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-xs font-bold"
                                 />
                               </label>
-                              <label className="text-[11px] font-black text-slate-600">
+                              <label className="text-[11px] font-bold text-slate-600">
                                 عدد الأسئلة
                                 <input
                                   value={examDraft.questionsCount}
@@ -37593,7 +37593,7 @@ ${rows
                                   className="mt-1 w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-xs font-bold"
                                 />
                               </label>
-                              <label className="text-[11px] font-black text-slate-600">
+                              <label className="text-[11px] font-bold text-slate-600">
                                 المؤقت بالدقائق
                                 <input
                                   value={examDraft.timerMinutes}
@@ -37608,7 +37608,7 @@ ${rows
                                   className="mt-1 w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-xs font-bold"
                                 />
                               </label>
-                              <label className="text-[11px] font-black text-slate-600">
+                              <label className="text-[11px] font-bold text-slate-600">
                                 تاريخ بداية الإتاحة
                                 <input
                                   type="date"
@@ -37622,7 +37622,7 @@ ${rows
                                   className="mt-1 w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-xs font-bold"
                                 />
                               </label>
-                              <label className="text-[11px] font-black text-slate-600">
+                              <label className="text-[11px] font-bold text-slate-600">
                                 تاريخ نهاية الإتاحة
                                 <input
                                   type="date"
@@ -37636,14 +37636,14 @@ ${rows
                                   className="mt-1 w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-xs font-bold"
                                 />
                               </label>
-                              <label className="md:col-span-4 text-[11px] font-black text-slate-600">
+                              <label className="md:col-span-4 text-[11px] font-bold text-slate-600">
                                 تصنيفات بنك الأسئلة لتوليد الاختبار
                                 <div className="mt-1 flex flex-wrap gap-2 rounded-2xl border border-slate-200 bg-slate-50 px-3 py-3">
                                   {availableChapters.length ? (
                                     availableChapters.map((cat: any) => (
                                       <label
                                         key={cat.id}
-                                        className={`inline-flex items-center gap-2 rounded-full border px-3 py-2 text-[11px] font-black ${((examDraft as any).selectedCategories || []).includes(String(cat.id)) ? "border-indigo-200 bg-indigo-50 text-indigo-700" : "border-slate-200 bg-white text-slate-600"}`}
+                                        className={`inline-flex items-center gap-2 rounded-full border px-3 py-2 text-[11px] font-bold ${((examDraft as any).selectedCategories || []).includes(String(cat.id)) ? "border-indigo-200 bg-indigo-50 text-indigo-700" : "border-slate-200 bg-white text-slate-600"}`}
                                       >
                                         <input
                                           type="checkbox"
@@ -37691,7 +37691,7 @@ ${rows
                                   الأسئلة. يمكن اختيار أكثر من تصنيف.
                                 </span>
                               </label>
-                              <label className="flex items-center gap-2 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-xs font-black text-slate-700">
+                              <label className="flex items-center gap-2 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-xs font-bold text-slate-700">
                                 <input
                                   type="checkbox"
                                   checked={examDraft.sebEnabled}
@@ -37704,17 +37704,17 @@ ${rows
                                 />{" "}
                                 يتطلب Safe Exam Browser
                               </label>
-                              <div className="md:col-span-4 rounded-[1.5rem] border border-emerald-100 bg-white/90 p-3 shadow-sm ring-1 ring-emerald-50">
+                              <div className="md:col-span-4 rounded-[var(--miras-r-lg)] border border-emerald-100 bg-white/90 p-3 shadow-sm ring-1 ring-emerald-50">
                                 <div className="mb-3 flex items-center justify-between gap-3">
                                   <div className="flex items-center gap-2 text-slate-950">
-                                    <span className="text-xs font-black">
+                                    <span className="text-xs font-bold">
                                       الكاميرا
                                     </span>
                                   </div>
                                   <label
                                     title={!!(examDraft as any).localVisionEnabled ? "الكاميرا تعمل" : "الكاميرا متوقفة"}
                                     aria-label={!!(examDraft as any).localVisionEnabled ? "الكاميرا تعمل" : "الكاميرا متوقفة"}
-                                    className={`relative inline-flex h-8 w-16 shrink-0 cursor-pointer items-center overflow-hidden rounded-full border transition-all duration-300 ${!!(examDraft as any).localVisionEnabled ? "border-emerald-500 bg-emerald-500 shadow-[0_10px_24px_rgba(16,185,129,0.26)]" : "border-slate-200 bg-slate-100"}`}
+                                    className={`relative inline-flex h-8 w-16 shrink-0 cursor-pointer items-center overflow-hidden rounded-full border transition-all duration-300 ${!!(examDraft as any).localVisionEnabled ? "border-emerald-500 bg-emerald-500 miras-shadow-1" : "border-slate-200 bg-slate-100"}`}
                                   >
                                     <input
                                       type="checkbox"
@@ -37740,15 +37740,15 @@ ${rows
                                     المراقبة الصارمة دائماً، بلا خيارات إضافية. */}
                               </div>
 
-                              <div className="md:col-span-4 rounded-[1.6rem] border border-slate-200 bg-slate-50/80 p-4">
+                              <div className="md:col-span-4 rounded-[var(--miras-r-lg)] border border-slate-200 bg-slate-50/80 p-4">
                                 <div className="mb-3 flex items-center gap-2 text-slate-900">
                                   <FileText className="h-4 w-4" />
-                                  <span className="text-xs font-black">
+                                  <span className="text-xs font-bold">
                                     مراجعة الطالب للاختبار
                                   </span>
                                 </div>
                                 <div className="grid grid-cols-1 gap-3">
-                                  <label className="flex items-center justify-between gap-3 rounded-2xl border border-white bg-white px-4 py-3 text-xs font-black text-slate-700 shadow-sm">
+                                  <label className="flex items-center justify-between gap-3 rounded-2xl border border-white bg-white px-4 py-3 text-xs font-bold text-slate-700 shadow-sm">
                                     <span>إظهار الدرجة للطالب</span>
                                     <input
                                       type="checkbox"
@@ -37804,12 +37804,12 @@ ${rows
                                   className="rounded-3xl border border-emerald-100 bg-emerald-50/50 p-4 shadow-sm"
                                 >
                                   <div className="flex items-center justify-between">
-                                    <span className="text-[10px] font-black text-emerald-700 bg-white px-3 py-1 rounded-full">
+                                    <span className="text-[10px] font-bold text-emerald-700 bg-white px-3 py-1 rounded-full">
                                       اختبار منشأ
                                     </span>
                                     <CheckCircle className="h-5 w-5 text-emerald-600" />
                                   </div>
-                                  <h3 className="mt-3 text-sm font-black text-slate-900">
+                                  <h3 className="mt-3 text-sm font-bold text-slate-900">
                                     {sanitizeCourseIdentifiersForDisplay(
                                       item.title,
                                     )}
@@ -37905,7 +37905,7 @@ ${rows
                                             type="button"
                                             onClick={goToSubmissions}
                                             title="عرض المحاولات المعادة في شاشة التسليمات"
-                                            className="rounded-full border border-indigo-100 bg-indigo-50 px-3 py-1 text-[10px] font-black text-indigo-700"
+                                            className="rounded-full border border-indigo-100 bg-indigo-50 px-3 py-1 text-[10px] font-bold text-indigo-700"
                                           >
                                             {returnedCount} معاد
                                           </button>
@@ -37915,7 +37915,7 @@ ${rows
                                             type="button"
                                             onClick={goToSubmissions}
                                             title="عرض في شاشة التسليمات"
-                                            className="rounded-full border border-amber-100 bg-amber-50 px-3 py-1 text-[10px] font-black text-amber-700"
+                                            className="rounded-full border border-amber-100 bg-amber-50 px-3 py-1 text-[10px] font-bold text-amber-700"
                                           >
                                             {inProgressCount} طالب يحل الآن
                                           </button>
@@ -37925,7 +37925,7 @@ ${rows
                                             type="button"
                                             onClick={goToSubmissions}
                                             title="عرض محاولة الغش في شاشة التسليمات"
-                                            className="rounded-full border border-red-100 bg-red-50 px-3 py-1 text-[10px] font-black text-red-700"
+                                            className="rounded-full border border-red-100 bg-red-50 px-3 py-1 text-[10px] font-bold text-red-700"
                                           >
                                             {cheatingAttemptCount} محاولة غش
                                           </button>
@@ -37935,7 +37935,7 @@ ${rows
                                             type="button"
                                             onClick={goToSubmissions}
                                             title="عرض في شاشة التسليمات للسماح بالإعادة"
-                                            className="rounded-full border border-rose-100 bg-rose-50 px-3 py-1 text-[10px] font-black text-rose-700"
+                                            className="rounded-full border border-rose-100 bg-rose-50 px-3 py-1 text-[10px] font-bold text-rose-700"
                                           >
                                             {exitedCount} منسحب
                                           </button>
@@ -37945,7 +37945,7 @@ ${rows
                                             type="button"
                                             onClick={goToSubmissions}
                                             title="عرض في شاشة التسليمات"
-                                            className="rounded-full border border-emerald-100 bg-emerald-50 px-3 py-1 text-[10px] font-black text-emerald-700"
+                                            className="rounded-full border border-emerald-100 bg-emerald-50 px-3 py-1 text-[10px] font-bold text-emerald-700"
                                           >
                                             {gradedCount} مصحح
                                           </button>
@@ -38006,7 +38006,7 @@ ${rows
                                         onClick={() =>
                                           releaseExamGradesForAll(item)
                                         }
-                                        className="mt-3 inline-flex items-center gap-2 rounded-2xl border border-emerald-100 bg-white px-4 py-2 text-[11px] font-black text-emerald-700 shadow-sm hover:bg-emerald-50"
+                                        className="mt-3 inline-flex items-center gap-2 rounded-2xl border border-emerald-100 bg-white px-4 py-2 text-[11px] font-bold text-emerald-700 shadow-sm hover:bg-emerald-50"
                                       >
                                         <CheckCircle2 className="h-4 w-4" />
                                         <span>ثبت الدرجات الحالية</span>
@@ -38061,12 +38061,12 @@ ${rows
                                 className="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm"
                               >
                                 <div className="flex items-center justify-between">
-                                  <span className="text-[10px] font-black text-indigo-700 bg-indigo-50 px-3 py-1 rounded-full">
+                                  <span className="text-[10px] font-bold text-indigo-700 bg-indigo-50 px-3 py-1 rounded-full">
                                     {item.type}
                                   </span>
                                   <CalendarDays className="h-5 w-5 text-slate-400" />
                                 </div>
-                                <h3 className="mt-3 text-sm font-black text-slate-900">
+                                <h3 className="mt-3 text-sm font-bold text-slate-900">
                                   {sanitizeCourseIdentifiersForDisplay(
                                     item.title,
                                   )}
@@ -38098,7 +38098,7 @@ ${rows
                             </button>
                           </div>
                           {questionFormOpen && (
-                            <div className="relative rounded-[2rem] border border-slate-200 bg-white p-4 shadow-sm">
+                            <div className="relative rounded-[var(--miras-r-xl)] border border-slate-200 bg-white p-4 shadow-sm">
                               <button
                                 title="إغلاق"
                                 aria-label="إغلاق"
@@ -38110,7 +38110,7 @@ ${rows
                               <div className="grid grid-cols-1 xl:grid-cols-[220px_1fr_320px_120px_64px] gap-4 items-stretch min-w-0">
                                 <div className="rounded-3xl border border-slate-100 bg-slate-50 p-3 flex flex-col justify-center gap-3">
                                   <div>
-                                    <label className="mb-2 block text-[11px] font-black text-slate-600">
+                                    <label className="mb-2 block text-[11px] font-bold text-slate-600">
                                       نوع السؤال
                                     </label>
                                     <select
@@ -38122,7 +38122,7 @@ ${rows
                                           t === "true-false" ? "صح" : "",
                                         );
                                       }}
-                                      className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-xs font-black text-slate-900 outline-none focus:ring-2 focus:ring-indigo-100"
+                                      className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-xs font-bold text-slate-900 outline-none focus:ring-2 focus:ring-indigo-100"
                                     >
                                       {questionTypeOptions.map((t) => (
                                         <option key={t.value} value={t.value}>
@@ -38134,7 +38134,7 @@ ${rows
                                 </div>
 
                                 <div className="rounded-3xl border border-slate-100 bg-slate-50 p-3">
-                                  <label className="mb-2 block text-[11px] font-black text-slate-600">
+                                  <label className="mb-2 block text-[11px] font-bold text-slate-600">
                                     نص السؤال
                                   </label>
                                   <textarea
@@ -38152,14 +38152,14 @@ ${rows
                                 </div>
 
                                 <div
-                                  className={`rounded-[1.6rem] border border-slate-100 bg-white/75 p-3 shadow-sm ${newQuestionType === "short-answer" ? "hidden" : ""}`}
+                                  className={`rounded-[var(--miras-r-lg)] border border-slate-100 bg-white/75 p-3 shadow-sm ${newQuestionType === "short-answer" ? "hidden" : ""}`}
                                 >
-                                  <label className="mb-2 block text-[11px] font-black text-slate-600">
+                                  <label className="mb-2 block text-[11px] font-bold text-slate-600">
                                     الإجابة / الخيارات
                                   </label>
                                   {newQuestionType === "multiple-choice" ? (
-                                    <div className="space-y-3 rounded-[1.6rem] border border-slate-200 bg-white/90 p-3 shadow-sm">
-                                      <label className="flex items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-slate-50 px-3 py-2 text-[11px] font-black text-slate-700">
+                                    <div className="space-y-3 rounded-[var(--miras-r-lg)] border border-slate-200 bg-white/90 p-3 shadow-sm">
+                                      <label className="flex items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-slate-50 px-3 py-2 text-[11px] font-bold text-slate-700">
                                         <span>عدد الخيارات</span>
                                         <select
                                           value={mcOptionDrafts.length}
@@ -38177,7 +38177,7 @@ ${rows
                                               Math.min(prev, nextLen - 1),
                                             );
                                           }}
-                                          className="h-9 rounded-xl border border-slate-200 bg-white px-3 text-center font-mono text-xs font-black text-slate-800 outline-none"
+                                          className="h-9 rounded-xl border border-slate-200 bg-white px-3 text-center font-mono text-xs font-bold text-slate-800 outline-none"
                                         >
                                           {[2, 3, 4, 5].map((n) => (
                                             <option key={n} value={n}>
@@ -38201,7 +38201,7 @@ ${rows
                                                 setMcCorrectIndex(idx)
                                               }
                                             />
-                                            <span className="shrink-0 self-start rounded-full bg-slate-100 px-2.5 py-1 text-[10px] font-black text-slate-500 sm:self-auto">
+                                            <span className="shrink-0 self-start rounded-full bg-slate-100 px-2.5 py-1 text-[10px] font-bold text-slate-500 sm:self-auto">
                                               الخيار {idx + 1}
                                             </span>
                                             <input
@@ -38230,7 +38230,7 @@ ${rows
                                       onChange={(e) =>
                                         setNewQuestionAnswer(e.target.value)
                                       }
-                                      className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-xs font-black outline-none focus:ring-2 focus:ring-indigo-100"
+                                      className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-xs font-bold outline-none focus:ring-2 focus:ring-indigo-100"
                                     >
                                       <option value="صح">صح</option>
                                       <option value="خطأ">خطأ</option>
@@ -38247,8 +38247,8 @@ ${rows
                                   )}
                                 </div>
 
-                                <div className="rounded-[1.25rem] border border-slate-100 bg-white/75 p-3 shadow-sm sm:max-w-[140px]">
-                                  <label className="mb-2 block text-[11px] font-black text-slate-600">
+                                <div className="rounded-[var(--miras-r-lg)] border border-slate-100 bg-white/75 p-3 shadow-sm sm:max-w-[140px]">
+                                  <label className="mb-2 block text-[11px] font-bold text-slate-600">
                                     درجة السؤال
                                   </label>
                                   <input
@@ -38263,7 +38263,7 @@ ${rows
                                       )
                                     }
                                     placeholder="5"
-                                    className="h-10 w-full rounded-2xl border border-slate-200 bg-white px-3 text-center text-sm font-black text-slate-900 outline-none focus:ring-2 focus:ring-indigo-100"
+                                    className="h-10 w-full rounded-2xl border border-slate-200 bg-white px-3 text-center text-sm font-bold text-slate-900 outline-none focus:ring-2 focus:ring-indigo-100"
                                   />
                                 </div>
 
@@ -38290,7 +38290,7 @@ ${rows
                                 closeWorkspaceDrawers();
                                 setBankCategoriesOpen(true);
                               }}
-                              className="flex w-full items-center justify-between rounded-2xl bg-white px-3 py-3 text-right text-xs font-black text-slate-900 border border-slate-200"
+                              className="flex w-full items-center justify-between rounded-2xl bg-white px-3 py-3 text-right text-xs font-bold text-slate-900 border border-slate-200"
                             >
                               <span>
                                 <FolderTree className="inline h-4 w-4 ml-2" />{" "}
@@ -38412,7 +38412,7 @@ ${rows
                                             <FolderTree className="inline h-4 w-4 ml-2" />{" "}
                                             {c.title}
                                             {selectedChapIdForAI === c.id && (
-                                              <span className="mr-2 rounded-full bg-indigo-600 px-2 py-0.5 text-[9px] font-black text-white">
+                                              <span className="mr-2 rounded-full bg-indigo-600 px-2 py-0.5 text-[9px] font-bold text-white">
                                                 محدد
                                               </span>
                                             )}
@@ -38587,7 +38587,7 @@ ${rows
                                                       : q.options,
                                               });
                                             }}
-                                            className="rounded-2xl border border-slate-200 bg-white px-3 py-3 text-xs font-black outline-none focus:ring-2 focus:ring-indigo-100"
+                                            className="rounded-2xl border border-slate-200 bg-white px-3 py-3 text-xs font-bold outline-none focus:ring-2 focus:ring-indigo-100"
                                           >
                                             {questionTypeOptions.map((t) => (
                                               <option
@@ -38611,7 +38611,7 @@ ${rows
                                           {normalizeQuestionTypeValue(
                                             q.type,
                                           ) === "multiple-choice" ? (
-                                            <div className="rounded-2xl border border-indigo-100 bg-indigo-50/60 px-4 py-3 text-xs font-black text-indigo-700">
+                                            <div className="rounded-2xl border border-indigo-100 bg-indigo-50/60 px-4 py-3 text-xs font-bold text-indigo-700">
                                               تُحدد الإجابة الصحيحة من الخيارات
                                               أدناه
                                             </div>
@@ -38664,18 +38664,18 @@ ${rows
                                                     : 1,
                                               });
                                             }}
-                                            className="rounded-2xl border border-amber-100 bg-amber-50/40 px-4 py-3 text-center text-xs font-black outline-none focus:ring-2 focus:ring-amber-100"
+                                            className="rounded-2xl border border-amber-100 bg-amber-50/40 px-4 py-3 text-center text-xs font-bold outline-none focus:ring-2 focus:ring-amber-100"
                                             placeholder=""
                                           />
                                           {normalizeQuestionTypeValue(
                                             q.type,
                                           ) === "multiple-choice" && (
-                                            <div className="md:col-span-4 rounded-[1.75rem] border border-slate-200 bg-slate-50/70 p-4 space-y-3">
+                                            <div className="md:col-span-4 rounded-[var(--miras-r-xl)] border border-slate-200 bg-slate-50/70 p-4 space-y-3">
                                               <div className="flex items-center justify-between gap-3 border-b border-white pb-3">
-                                                <h4 className="text-xs font-black text-slate-800">
+                                                <h4 className="text-xs font-bold text-slate-800">
                                                   الإجابة / الخيارات
                                                 </h4>
-                                                <span className="rounded-full bg-white px-2.5 py-0.5 text-[9px] font-black text-slate-500 shadow-sm">
+                                                <span className="rounded-full bg-white px-2.5 py-0.5 text-[9px] font-bold text-slate-500 shadow-sm">
                                                   اختر الإجابة الصحيحة ثم عدّل
                                                   النص
                                                 </span>
@@ -38711,7 +38711,7 @@ ${rows
                                                             )
                                                           }
                                                         />
-                                                        <span className="shrink-0 rounded-full bg-slate-100 px-2.5 py-0.5 text-[9px] font-black text-slate-500">
+                                                        <span className="shrink-0 rounded-full bg-slate-100 px-2.5 py-0.5 text-[9px] font-bold text-slate-500">
                                                           الخيار {idx + 1}
                                                         </span>
                                                         <input
@@ -38770,7 +38770,7 @@ ${rows
                                           )}
                                         </div>
                                       ) : (
-                                        <p className="text-sm font-black text-slate-900 leading-6">
+                                        <p className="text-sm font-bold text-slate-900 leading-6">
                                           {q.questionText}
                                         </p>
                                       )}
@@ -38829,7 +38829,7 @@ ${rows
               {/* 4. SECTIONS MANAGEMENT */}
               {teacherTab === "sections" && (
                 <div className="space-y-5 p-3 sm:p-6 lg:p-8">
-                  <div className="rounded-[1.8rem] border border-white/80 bg-white/82 p-4 shadow-[0_18px_60px_rgba(15,23,42,0.07)] backdrop-blur-xl space-y-5 sm:p-6">
+                  <div className="rounded-[var(--miras-r-xl)] border border-white/80 bg-white/82 p-4 miras-shadow-2 backdrop-blur-xl space-y-5 sm:p-6">
                     <div className="flex justify-end">
                       <button
                         title="إضافة مقرر"
@@ -38841,7 +38841,7 @@ ${rows
                       </button>
                     </div>
                     {sectionFormOpen && (
-                      <div className="grid grid-cols-1 gap-3 rounded-[1.7rem] border border-slate-100 bg-slate-50/70 p-3 sm:p-4 md:grid-cols-12">
+                      <div className="grid grid-cols-1 gap-3 rounded-[var(--miras-r-xl)] border border-slate-100 bg-slate-50/70 p-3 sm:p-4 md:grid-cols-12">
                         <input
                           value={sectionDraft.code}
                           onChange={(e) =>
@@ -39113,7 +39113,7 @@ ${rows
                             ? "ابدأ بمتابعة الأكواد ذات الإشارات الأعلى، ثم راجع الحالات الفردية عند الحاجة."
                             : "ابدأ بحالات الطلبة التي تحتاج إجراء، واترك سجل التفاصيل للمراجعة فقط.";
                         return (
-                          <div className="rounded-[1.35rem] border border-white/80 bg-gradient-to-br from-slate-950 via-slate-900 to-indigo-950 p-3 text-white shadow-sm sm:rounded-[2rem] sm:p-5">
+                          <div className="rounded-[var(--miras-r-lg)] border border-white/80 bg-gradient-to-br from-slate-950 via-slate-900 to-indigo-950 p-3 text-white shadow-sm sm:rounded-[var(--miras-r-xl)] sm:p-5">
                             <div className="flex flex-col gap-3 sm:gap-4 lg:flex-row lg:items-center lg:justify-between">
                               <div className="max-w-2xl">
                                 <div className="mb-2 inline-flex items-center gap-2 rounded-full bg-white/10 px-2 py-0.5 text-[8.5px] font-black text-indigo-100 sm:mb-3 sm:px-3 sm:text-[10px]">
@@ -39124,7 +39124,7 @@ ${rows
                                   مركز المتابعة
                                 </h2>
                               </div>
-                              <div className="grid min-w-full grid-cols-2 gap-2 text-center text-[9px] font-black sm:min-w-[34rem] sm:text-[10px] sm:grid-cols-4">
+                              <div className="grid min-w-full grid-cols-2 gap-2 text-center text-[9px] font-bold sm:min-w-[34rem] sm:text-[10px] sm:grid-cols-4">
                                 <div className="rounded-xl bg-white/10 p-2 sm:rounded-2xl sm:p-3">
                                   <span className="block text-slate-300">
                                     إجراء مطلوب
@@ -39169,7 +39169,7 @@ ${rows
                               </div>
                             </div>
                             <div
-                              className={`mt-3 rounded-2xl border px-3 py-2 text-[11px] font-black leading-5 sm:mt-4 sm:rounded-3xl sm:px-4 sm:py-3 sm:text-xs sm:leading-6 ${calmState ? "border-emerald-300/20 bg-emerald-400/10 text-emerald-100" : "border-amber-300/20 bg-amber-400/10 text-amber-100"}`}
+                              className={`mt-3 rounded-2xl border px-3 py-2 text-[11px] font-bold leading-5 sm:mt-4 sm:rounded-3xl sm:px-4 sm:py-3 sm:text-xs sm:leading-6 ${calmState ? "border-emerald-300/20 bg-emerald-400/10 text-emerald-100" : "border-amber-300/20 bg-amber-400/10 text-amber-100"}`}
                             >
                               {recommendationText}
                             </div>
@@ -39177,16 +39177,16 @@ ${rows
                         );
                       })()}
                       <div className="grid grid-cols-1 gap-4">
-                        <div className="rounded-[2rem] border border-amber-100 bg-white p-5 shadow-sm">
+                        <div className="rounded-[var(--miras-r-xl)] border border-amber-100 bg-white p-5 shadow-sm">
                           <button
                             type="button"
                             onClick={() => setStuckStudentsOpen((v) => !v)}
                             className="mb-4 flex w-full items-center justify-between gap-3 text-right"
                           >
-                            <h3 className="text-sm font-black text-slate-900">
+                            <h3 className="text-sm font-bold text-slate-900">
                               إنذار التعثر المبكر
                             </h3>
-                            <span className="inline-flex items-center gap-2 rounded-full bg-amber-50 px-3 py-1 text-[10px] font-black text-amber-700">
+                            <span className="inline-flex items-center gap-2 rounded-full bg-amber-50 px-3 py-1 text-[10px] font-bold text-amber-700">
                               {earlyWarningStudents.length} حالة
                               <ChevronRight
                                 className={`h-3.5 w-3.5 transition-transform ${stuckStudentsOpen ? "-rotate-90" : "rotate-90"}`}
@@ -39213,7 +39213,7 @@ ${rows
                                         </p>
                                       </div>
                                       <span
-                                        className={`rounded-full px-3 py-1 text-[10px] font-black ${student.riskScore >= 70 ? "bg-rose-50 text-rose-700" : "bg-amber-50 text-amber-700"}`}
+                                        className={`rounded-full px-3 py-1 text-[10px] font-bold ${student.riskScore >= 70 ? "bg-rose-50 text-rose-700" : "bg-amber-50 text-amber-700"}`}
                                       >
                                         {student.riskScore}
                                       </span>
@@ -39221,7 +39221,7 @@ ${rows
                                   </div>
                                 ))}
                               {!earlyWarningStudents.length && (
-                                <div className="rounded-2xl border border-emerald-100 bg-emerald-50 px-4 py-3 text-xs font-black text-emerald-700">
+                                <div className="rounded-2xl border border-emerald-100 bg-emerald-50 px-4 py-3 text-xs font-bold text-emerald-700">
                                   لا توجد مؤشرات تعثر حرجة حالياً.
                                 </div>
                               )}
@@ -39277,10 +39277,10 @@ ${rows
                       {isAdminTeacher &&
                         superAdminCodeSecurityDesk &&
                         integrityFocus === "overview" && (
-                          <div className="miras-admin-code-security miras-integrity-pane miras-integrity-overview rounded-[2rem] border border-slate-200/80 bg-white p-4 shadow-sm sm:p-5">
+                          <div className="miras-admin-code-security miras-integrity-pane miras-integrity-overview rounded-[var(--miras-r-xl)] border border-slate-200/80 bg-white p-4 shadow-sm sm:p-5">
                             <div className="flex flex-col gap-4 xl:flex-row xl:items-stretch">
                               <div
-                                className={`miras-admin-code-security-status flex min-h-[13rem] flex-col justify-between rounded-[1.65rem] p-4 text-white shadow-sm ${
+                                className={`miras-admin-code-security-status flex min-h-[13rem] flex-col justify-between rounded-[var(--miras-r-xl)] p-4 text-white shadow-sm ${
                                   superAdminCodeSecurityDesk.tone === "danger"
                                     ? "miras-admin-code-security-status-danger"
                                     : superAdminCodeSecurityDesk.tone ===
@@ -39301,12 +39301,12 @@ ${rows
                                       <CheckCircle2 className="h-5 w-5" />
                                     )}
                                   </span>
-                                  <span className="rounded-full bg-white/12 px-3 py-1 text-[10px] font-black text-white/90 ring-1 ring-white/10">
+                                  <span className="rounded-full bg-white/12 px-3 py-1 text-[10px] font-bold text-white/90 ring-1 ring-white/10">
                                     صلاحيات الإدارة
                                   </span>
                                 </div>
                                 <div>
-                                  <span className="block text-[10px] font-black text-white/60">
+                                  <span className="block text-[10px] font-bold text-white/60">
                                     لوحة أمان الكود
                                   </span>
                                   <h3 className="mt-1 text-2xl font-black leading-tight">
@@ -39316,7 +39316,7 @@ ${rows
                                     {superAdminCodeSecurityDesk.statusText}
                                   </p>
                                 </div>
-                                <div className="flex items-center justify-between gap-2 rounded-2xl bg-white/10 px-3 py-2 text-[10px] font-black text-white/75 ring-1 ring-white/10">
+                                <div className="flex items-center justify-between gap-2 rounded-2xl bg-white/10 px-3 py-2 text-[10px] font-bold text-white/75 ring-1 ring-white/10">
                                   <span>حالات مراجعة</span>
                                   <b className="font-mono text-lg text-white">
                                     {superAdminCodeSecurityDesk.reviewCount}
@@ -39330,7 +39330,7 @@ ${rows
                                     <div
                                       key={metric.key}
                                       title={metric.label}
-                                      className={`miras-admin-code-security-metric rounded-[1.35rem] border p-3 text-center shadow-sm ${metric.className}`}
+                                      className={`miras-admin-code-security-metric rounded-[var(--miras-r-lg)] border p-3 text-center shadow-sm ${metric.className}`}
                                     >
                                       <span className="mx-auto grid h-10 w-10 place-items-center rounded-2xl bg-white/65 shadow-inner">
                                         <metric.Icon className="h-4.5 w-4.5" />
@@ -39346,9 +39346,9 @@ ${rows
                                 )}
                               </div>
 
-                              <div className="min-w-0 flex-1 rounded-[1.65rem] border border-slate-100 bg-slate-50/65 p-3">
+                              <div className="min-w-0 flex-1 rounded-[var(--miras-r-xl)] border border-slate-100 bg-slate-50/65 p-3">
                                 <div className="mb-2 flex items-center justify-between gap-3 px-1">
-                                  <span className="text-[10px] font-black text-slate-500">
+                                  <span className="text-[10px] font-bold text-slate-500">
                                     تحتاج مراجعة الإدارة
                                   </span>
                                   <span
@@ -39375,7 +39375,7 @@ ${rows
                                             <item.Icon className="h-3.5 w-3.5" />
                                           </span>
                                           <div className="min-w-0 text-right">
-                                            <b className="block truncate text-[11px] font-black">
+                                            <b className="block truncate text-[11px] font-bold">
                                               {item.title}
                                             </b>
                                             <span className="mt-0.5 block truncate text-[10px] font-bold opacity-75">
@@ -39389,7 +39389,7 @@ ${rows
                                     ),
                                   )}
                                   {!superAdminCodeSecurityDesk.queue.length && (
-                                    <div className="lg:col-span-2 rounded-2xl border border-emerald-100 bg-emerald-50 px-4 py-3 text-center text-xs font-black text-emerald-700">
+                                    <div className="lg:col-span-2 rounded-2xl border border-emerald-100 bg-emerald-50 px-4 py-3 text-center text-xs font-bold text-emerald-700">
                                       كل شيء طبيعي.
                                     </div>
                                   )}
@@ -39399,7 +39399,7 @@ ${rows
                           </div>
                         )}
 
-                      <div className="miras-accordion-shell rounded-[2rem] border border-slate-200 bg-white p-5 shadow-sm">
+                      <div className="miras-accordion-shell rounded-[var(--miras-r-xl)] border border-slate-200 bg-white p-5 shadow-sm">
                         <button
                           type="button"
                           onClick={() => {
@@ -39417,7 +39417,7 @@ ${rows
                           }
                         >
                           <div>
-                            <h3 className="text-sm font-black text-slate-900">
+                            <h3 className="text-sm font-bold text-slate-900">
                               {
                                 {
                                   overview: "لوحة أمان الأكواد",
@@ -39428,7 +39428,7 @@ ${rows
                               }
                             </h3>
                           </div>
-                          <div className="flex flex-wrap items-center justify-end gap-2 text-[10px] font-black">
+                          <div className="flex flex-wrap items-center justify-end gap-2 text-[10px] font-bold">
                             <span className="rounded-full bg-rose-50 px-3 py-1 text-rose-700">
                               {codeIntegrity.summary?.totalAttempts || 0} محاولة
                             </span>
@@ -39557,7 +39557,7 @@ ${rows
                                 }, []);
                                 return (
                                   <div className="miras-integrity-pane miras-integrity-overview lg:col-span-6 grid grid-cols-1 gap-3 xl:grid-cols-12">
-                                    <div className="xl:col-span-7 overflow-hidden rounded-[1.8rem] border border-white/80 bg-gradient-to-br from-slate-950 via-indigo-950 to-slate-900 p-4 text-white shadow-premium-sm">
+                                    <div className="xl:col-span-7 overflow-hidden rounded-[var(--miras-r-xl)] border border-white/80 bg-gradient-to-br from-slate-950 via-indigo-950 to-slate-900 p-4 text-white shadow-premium-sm">
                                       <div className="flex items-center justify-between gap-3">
                                         <span className="inline-flex h-11 w-11 items-center justify-center rounded-2xl bg-white/10 shadow-inner">
                                           <Compass className="h-5 w-5" />
@@ -39579,11 +39579,11 @@ ${rows
                                             className="flex flex-col items-center gap-2 rounded-3xl bg-white/8 p-2 text-center ring-1 ring-white/10"
                                           >
                                             <span
-                                              className={`grid h-12 w-12 place-items-center rounded-full border text-sm font-black shadow-lg ${toneClass(ring.tone)}`}
+                                              className={`grid h-12 w-12 place-items-center rounded-full border text-sm font-bold shadow-lg ${toneClass(ring.tone)}`}
                                             >
                                               {Number(ring.value || 0)}
                                             </span>
-                                            <span className="text-[9px] font-black text-slate-300">
+                                            <span className="text-[9px] font-bold text-slate-300">
                                               {ring.label}
                                             </span>
                                           </div>
@@ -39596,7 +39596,7 @@ ${rows
                                             />
                                           ))}
                                       </div>
-                                      <div className="mt-4 grid grid-cols-5 gap-1.5 text-center text-[9px] font-black text-slate-300">
+                                      <div className="mt-4 grid grid-cols-5 gap-1.5 text-center text-[9px] font-bold text-slate-300">
                                         <span
                                           title="أكواد نشطة"
                                           className="rounded-full bg-white/8 px-2 py-1"
@@ -39643,7 +39643,7 @@ ${rows
                                     </div>
                                     <div className="xl:col-span-5 grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-1">
                                       <div
-                                        className={`rounded-[1.6rem] border p-4 shadow-premium-sm ${heal.canHeal ? "border-indigo-100 bg-indigo-50/80" : "border-emerald-100 bg-emerald-50/80"}`}
+                                        className={`rounded-[var(--miras-r-lg)] border p-4 shadow-premium-sm ${heal.canHeal ? "border-indigo-100 bg-indigo-50/80" : "border-emerald-100 bg-emerald-50/80"}`}
                                       >
                                         <div className="flex items-center justify-between gap-3">
                                           <span
@@ -39682,22 +39682,22 @@ ${rows
                                               <span
                                                 key={item.key}
                                                 title={item.label}
-                                                className={`rounded-full border px-2.5 py-1 text-[10px] font-black ${softTone(item.tone)}`}
+                                                className={`rounded-full border px-2.5 py-1 text-[10px] font-bold ${softTone(item.tone)}`}
                                               >
                                                 {item.count}
                                               </span>
                                             ))}
                                           {!heal.canHeal && (
-                                            <span className="rounded-full bg-white/70 px-3 py-1 text-[10px] font-black text-emerald-700">
+                                            <span className="rounded-full bg-white/70 px-3 py-1 text-[10px] font-bold text-emerald-700">
                                               نظيف
                                             </span>
                                           )}
                                         </div>
                                       </div>
-                                      <div className="rounded-[1.6rem] border border-slate-100 bg-white/85 p-4 shadow-premium-sm">
+                                      <div className="rounded-[var(--miras-r-lg)] border border-slate-100 bg-white/85 p-4 shadow-premium-sm">
                                         <div className="mb-3 flex items-center justify-between">
                                           <Fingerprint className="h-5 w-5 text-slate-700" />
-                                          <span className="rounded-full bg-slate-50 px-2.5 py-1 text-[10px] font-black text-slate-500">
+                                          <span className="rounded-full bg-slate-50 px-2.5 py-1 text-[10px] font-bold text-slate-500">
                                             {dots.length}
                                           </span>
                                         </div>
@@ -39710,14 +39710,14 @@ ${rows
                                             />
                                           ))}
                                           {!dots.length && (
-                                            <span className="text-[10px] font-black text-slate-400">
+                                            <span className="text-[10px] font-bold text-slate-400">
                                               لا نقاط ساخنة
                                             </span>
                                           )}
                                         </div>
                                       </div>
                                     </div>
-                                    <div className="xl:col-span-12 rounded-[1.6rem] border border-slate-100 bg-white/85 p-4 shadow-premium-sm">
+                                    <div className="xl:col-span-12 rounded-[var(--miras-r-lg)] border border-slate-100 bg-white/85 p-4 shadow-premium-sm">
                                       <div className="miras-event-rail flex gap-2 overflow-x-auto px-1 pb-1">
                                         {compactReplay
                                           .slice(0, 8)
@@ -39730,7 +39730,7 @@ ${rows
                                               <span
                                                 className={`mx-auto mb-2 block h-2.5 w-2.5 rounded-full ${ev.tone === "rose" ? "bg-rose-500" : ev.tone === "emerald" ? "bg-emerald-500" : ev.tone === "violet" ? "bg-violet-500" : "bg-indigo-500"}`}
                                               />
-                                              <span className="block whitespace-normal break-words text-[9px] font-black leading-5">
+                                              <span className="block whitespace-normal break-words text-[9px] font-bold leading-5">
                                                 {ev.compactLabel}
                                                 {ev.count > 1
                                                   ? ` ×${ev.count}`
@@ -39739,7 +39739,7 @@ ${rows
                                             </div>
                                           ))}
                                         {!compactReplay.length && (
-                                          <div className="w-full rounded-2xl bg-slate-50 p-4 text-center text-[10px] font-black text-slate-400">
+                                          <div className="w-full rounded-2xl bg-slate-50 p-4 text-center text-[10px] font-bold text-slate-400">
                                             هادئ
                                           </div>
                                         )}
@@ -39806,7 +39806,7 @@ ${rows
                                 ];
                                 const tot = dh.totals || {};
                                 return (
-                                  <div className="miras-integrity-pane miras-integrity-health lg:col-span-6 overflow-hidden rounded-[1.8rem] border border-slate-200/70 bg-gradient-to-br from-white via-slate-50/40 to-indigo-50/30 p-5 shadow-premium-sm">
+                                  <div className="miras-integrity-pane miras-integrity-health lg:col-span-6 overflow-hidden rounded-[var(--miras-r-xl)] border border-slate-200/70 bg-gradient-to-br from-white via-slate-50/40 to-indigo-50/30 p-5 shadow-premium-sm">
                                     <div className="flex items-center justify-between gap-4">
                                       <div className="flex items-center gap-3">
                                         <span
@@ -39819,7 +39819,7 @@ ${rows
                                           )}
                                         </span>
                                         <div>
-                                          <span className="block text-[10px] font-black tracking-wide text-slate-400">
+                                          <span className="block text-[10px] font-bold tracking-wide text-slate-400">
                                             صحة البيانات
                                           </span>
                                           <span
@@ -39867,7 +39867,7 @@ ${rows
                                         </div>
                                       ))}
                                     </div>
-                                    <div className="mt-3 flex flex-wrap items-center justify-center gap-2 text-[10px] font-black text-slate-500">
+                                    <div className="mt-3 flex flex-wrap items-center justify-center gap-2 text-[10px] font-bold text-slate-500">
                                       <span
                                         title="إجمالي الطلاب"
                                         className="inline-flex items-center gap-1 rounded-full bg-slate-50 px-2.5 py-1"
@@ -39945,12 +39945,12 @@ ${rows
                                   ? radar.hot
                                   : [];
                                 return (
-                                  <div className="miras-integrity-pane miras-integrity-health lg:col-span-6 overflow-hidden rounded-[1.8rem] border border-slate-200/70 bg-white/85 p-4 shadow-premium-sm backdrop-blur">
+                                  <div className="miras-integrity-pane miras-integrity-health lg:col-span-6 overflow-hidden rounded-[var(--miras-r-xl)] border border-slate-200/70 bg-white/85 p-4 shadow-premium-sm backdrop-blur">
                                     <div className="mb-4 flex items-center justify-between gap-3">
                                       <span className="inline-flex h-10 w-10 items-center justify-center rounded-2xl bg-slate-950 text-white shadow-sm">
                                         <Compass className="h-5 w-5" />
                                       </span>
-                                      <span className="rounded-full bg-slate-50 px-3 py-1 text-[10px] font-black text-slate-500">
+                                      <span className="rounded-full bg-slate-50 px-3 py-1 text-[10px] font-bold text-slate-500">
                                         {Number(radar.total || 0)}
                                       </span>
                                     </div>
@@ -39978,7 +39978,7 @@ ${rows
                                             <span className="text-xl font-black leading-none">
                                               {item.n}
                                             </span>
-                                            <span className="text-[9px] font-black leading-tight opacity-75">
+                                            <span className="text-[9px] font-bold leading-tight opacity-75">
                                               {item.label}
                                             </span>
                                           </div>
@@ -40051,13 +40051,13 @@ ${rows
                                   }),
                                 );
                                 return (
-                                  <div className="miras-integrity-pane miras-integrity-network lg:col-span-6 overflow-hidden rounded-[1.8rem] border border-indigo-100/80 bg-white/80 p-4 shadow-premium-sm backdrop-blur">
+                                  <div className="miras-integrity-pane miras-integrity-network lg:col-span-6 overflow-hidden rounded-[var(--miras-r-xl)] border border-indigo-100/80 bg-white/80 p-4 shadow-premium-sm backdrop-blur">
                                     <div className="mb-3 flex items-center justify-between gap-3">
                                       <span className="inline-flex h-10 w-10 items-center justify-center rounded-2xl bg-indigo-50 text-indigo-600">
                                         <Fingerprint className="h-5 w-5" />
                                       </span>
                                       <span
-                                        className={`rounded-full px-3 py-1 text-[10px] font-black ${rings.length ? "bg-rose-50 text-rose-700" : "bg-emerald-50 text-emerald-700"}`}
+                                        className={`rounded-full px-3 py-1 text-[10px] font-bold ${rings.length ? "bg-rose-50 text-rose-700" : "bg-emerald-50 text-emerald-700"}`}
                                       >
                                         {rings.length}
                                       </span>
@@ -40095,17 +40095,17 @@ ${rows
                                                 >
                                                   <div className="flex items-center justify-between gap-2">
                                                     <span
-                                                      className={`rounded-full px-2.5 py-1 text-[10px] font-black ${score >= 80 ? "bg-rose-50 text-rose-700" : "bg-amber-50 text-amber-700"}`}
+                                                      className={`rounded-full px-2.5 py-1 text-[10px] font-bold ${score >= 80 ? "bg-rose-50 text-rose-700" : "bg-amber-50 text-amber-700"}`}
                                                     >
                                                       {score
                                                         ? `${score}%`
                                                         : "تحتاج متابعة"}
                                                     </span>
-                                                    <b className="text-[12px] font-black text-slate-900">
+                                                    <b className="text-[12px] font-bold text-slate-900">
                                                       مجموعة تشابه #{idx + 1}
                                                     </b>
                                                   </div>
-                                                  <div className="mt-2 flex flex-wrap justify-end gap-1.5 text-[10px] font-black text-slate-500">
+                                                  <div className="mt-2 flex flex-wrap justify-end gap-1.5 text-[10px] font-bold text-slate-500">
                                                     <span className="rounded-full bg-slate-50 px-2.5 py-1">
                                                       {ringStudents} طالب
                                                     </span>
@@ -40129,8 +40129,8 @@ ${rows
                                               );
                                             })}
                                         </div>
-                                        <div className="miras-sharing-relations-list rounded-[1.4rem] border border-indigo-50 bg-gradient-to-br from-slate-50 to-indigo-50/60 p-3">
-                                          <div className="mb-2 flex items-center justify-between gap-2 text-[10px] font-black text-slate-500">
+                                        <div className="miras-sharing-relations-list rounded-[var(--miras-r-lg)] border border-indigo-50 bg-gradient-to-br from-slate-50 to-indigo-50/60 p-3">
+                                          <div className="mb-2 flex items-center justify-between gap-2 text-[10px] font-bold text-slate-500">
                                             <span className="rounded-full bg-white/80 px-2.5 py-1">
                                               تفاصيل المجموعة المختارة
                                             </span>
@@ -40153,7 +40153,7 @@ ${rows
                                                 return (
                                                   <div
                                                     key={`sharing-relation-${i}`}
-                                                    className="grid grid-cols-[1fr_auto_1fr] items-center gap-2 rounded-2xl border border-white/80 bg-white/85 px-3 py-2 text-[10px] font-black text-slate-700 shadow-sm"
+                                                    className="grid grid-cols-[1fr_auto_1fr] items-center gap-2 rounded-2xl border border-white/80 bg-white/85 px-3 py-2 text-[10px] font-bold text-slate-700 shadow-sm"
                                                   >
                                                     <span
                                                       className="min-w-0 whitespace-normal break-words text-right leading-5"
@@ -40206,13 +40206,13 @@ ${rows
                                                 );
                                               })}
                                             {edges.length === 0 && (
-                                              <div className="rounded-2xl border border-dashed border-slate-200 bg-white/70 p-4 text-center text-[11px] font-black text-slate-400">
+                                              <div className="rounded-2xl border border-dashed border-slate-200 bg-white/70 p-4 text-center text-[11px] font-bold text-slate-400">
                                                 لا توجد علاقات تفصيلية لهذه
                                                 المجموعة.
                                               </div>
                                             )}
                                             {edges.length > 12 && (
-                                              <div className="rounded-2xl bg-white/70 px-3 py-2 text-center text-[10px] font-black text-slate-500">
+                                              <div className="rounded-2xl bg-white/70 px-3 py-2 text-center text-[10px] font-bold text-slate-500">
                                                 تم عرض أهم 12 علاقة فقط لتبقى
                                                 الشاشة واضحة.
                                               </div>
@@ -40221,10 +40221,10 @@ ${rows
                                         </div>
                                       </div>
                                     ) : (
-                                      <div className="grid h-40 place-items-center rounded-[1.4rem] bg-gradient-to-br from-emerald-50 to-white text-center text-emerald-600">
+                                      <div className="grid h-40 place-items-center rounded-[var(--miras-r-lg)] bg-gradient-to-br from-emerald-50 to-white text-center text-emerald-600">
                                         <div>
                                           <CheckCircle2 className="mx-auto h-8 w-8" />
-                                          <p className="mt-2 text-[11px] font-black">
+                                          <p className="mt-2 text-[11px] font-bold">
                                             لا توجد مجموعات تشابه نشطة
                                           </p>
                                         </div>
@@ -40234,15 +40234,15 @@ ${rows
                                 );
                               })()}
                             {!isAdminTeacher && (
-                              <div className="miras-integrity-pane miras-integrity-reports lg:col-span-6 rounded-[1.6rem] border border-indigo-100 bg-gradient-to-br from-indigo-50 via-white to-emerald-50 p-4 shadow-sm">
+                              <div className="miras-integrity-pane miras-integrity-reports lg:col-span-6 rounded-[var(--miras-r-lg)] border border-indigo-100 bg-gradient-to-br from-indigo-50 via-white to-emerald-50 p-4 shadow-sm">
                                 <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
                                   <div>
-                                    <h4 className="text-sm font-black text-slate-900">
+                                    <h4 className="text-sm font-bold text-slate-900">
                                       واجهة المعلم المختصرة
                                     </h4>
                                   </div>
                                   <span
-                                    className={`rounded-full px-3 py-1 text-[10px] font-black ${codeFollowUpActionCount > 0 ? "bg-amber-100 text-amber-700" : "bg-emerald-100 text-emerald-700"}`}
+                                    className={`rounded-full px-3 py-1 text-[10px] font-bold ${codeFollowUpActionCount > 0 ? "bg-amber-100 text-amber-700" : "bg-emerald-100 text-emerald-700"}`}
                                   >
                                     {codeFollowUpActionCount > 0
                                       ? `${codeFollowUpActionCount} حالة متابعة`
@@ -40278,7 +40278,7 @@ ${rows
                                     ))}
                                   {!(codeIntegrity.teacherReports || [])
                                     .length && (
-                                    <div className="md:col-span-2 rounded-2xl border border-emerald-100 bg-emerald-50 px-4 py-3 text-xs font-black text-emerald-700">
+                                    <div className="md:col-span-2 rounded-2xl border border-emerald-100 bg-emerald-50 px-4 py-3 text-xs font-bold text-emerald-700">
                                       لا توجد حالات أكواد تحتاج تدخلك الآن.
                                     </div>
                                   )}
@@ -40288,7 +40288,7 @@ ${rows
                             {isAdminTeacher && (
                               <>
                                 <div className="miras-integrity-pane miras-integrity-health miras-risk-tile rounded-2xl border border-emerald-100 bg-emerald-50 p-3 text-center">
-                                  <span className="text-[10px] font-black text-emerald-700">
+                                  <span className="text-[10px] font-bold text-emerald-700">
                                     طبيعي
                                   </span>
                                   <p className="mt-1 text-2xl font-black text-emerald-700">
@@ -40296,7 +40296,7 @@ ${rows
                                   </p>
                                 </div>
                                 <div className="miras-integrity-pane miras-integrity-health miras-risk-tile rounded-2xl border border-amber-100 bg-amber-50 p-3 text-center">
-                                  <span className="text-[10px] font-black text-amber-700">
+                                  <span className="text-[10px] font-bold text-amber-700">
                                     مراقبة
                                   </span>
                                   <p className="mt-1 text-2xl font-black text-amber-700">
@@ -40304,7 +40304,7 @@ ${rows
                                   </p>
                                 </div>
                                 <div className="miras-integrity-pane miras-integrity-health miras-risk-tile rounded-2xl border border-orange-100 bg-orange-50 p-3 text-center">
-                                  <span className="text-[10px] font-black text-orange-700">
+                                  <span className="text-[10px] font-bold text-orange-700">
                                     مشتبه
                                   </span>
                                   <p className="mt-1 text-2xl font-black text-orange-700">
@@ -40312,7 +40312,7 @@ ${rows
                                   </p>
                                 </div>
                                 <div className="miras-integrity-pane miras-integrity-health miras-risk-tile rounded-2xl border border-rose-100 bg-rose-50 p-3 text-center">
-                                  <span className="text-[10px] font-black text-rose-700">
+                                  <span className="text-[10px] font-bold text-rose-700">
                                     خطر
                                   </span>
                                   <p className="mt-1 text-2xl font-black text-rose-700">
@@ -40320,7 +40320,7 @@ ${rows
                                   </p>
                                 </div>
                                 <div className="miras-integrity-pane miras-integrity-health miras-risk-tile rounded-2xl border border-slate-200 bg-slate-950 p-3 text-center text-white">
-                                  <span className="text-[10px] font-black text-slate-300">
+                                  <span className="text-[10px] font-bold text-slate-300">
                                     مجمّد مؤقتًا
                                   </span>
                                   <p className="mt-1 text-2xl font-black text-white">
@@ -40328,7 +40328,7 @@ ${rows
                                   </p>
                                 </div>
                                 <div className="miras-integrity-pane miras-integrity-health miras-risk-tile rounded-2xl border border-indigo-100 bg-indigo-50 p-3 text-center">
-                                  <span className="text-[10px] font-black text-indigo-700">
+                                  <span className="text-[10px] font-bold text-indigo-700">
                                     مصائد / تداول
                                   </span>
                                   <p className="mt-1 text-2xl font-black text-indigo-700">
@@ -40339,14 +40339,14 @@ ${rows
                                 {(isAdminTeacher ||
                                   (codeIntegrity.tradingAlerts || []).length >
                                     0) && (
-                                  <div className="miras-integrity-pane miras-integrity-reports miras-code-monitor lg:col-span-6 xl:col-span-6 rounded-[1.6rem] border border-slate-200 bg-gradient-to-l from-slate-950 to-indigo-950 p-4 text-white shadow-sm">
+                                  <div className="miras-integrity-pane miras-integrity-reports miras-code-monitor lg:col-span-6 xl:col-span-6 rounded-[var(--miras-r-lg)] border border-slate-200 bg-gradient-to-l from-slate-950 to-indigo-950 p-4 text-white shadow-sm">
                                     <div className="miras-code-monitor-toggle flex w-full items-center justify-between gap-3 text-right">
                                       <div>
-                                        <h4 className="text-xs font-black">
+                                        <h4 className="text-xs font-bold">
                                           مراجعة الحالات والتنبيهات
                                         </h4>
                                       </div>
-                                      <div className="flex flex-wrap items-center gap-2 text-[10px] font-black">
+                                      <div className="flex flex-wrap items-center gap-2 text-[10px] font-bold">
                                         <span
                                           title="تقارير"
                                           aria-label="تقارير"
@@ -40460,11 +40460,11 @@ ${rows
                                                 <div className="miras-code-report rounded-2xl border border-white/10 bg-white/10 p-3">
                                                   <div className="mb-3 flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
                                                     <div>
-                                                      <p className="text-[10px] font-black text-indigo-100">
+                                                      <p className="text-[10px] font-bold text-indigo-100">
                                                         تقرير مختصر للمدرس
                                                       </p>
                                                     </div>
-                                                    <div className="flex flex-wrap gap-2 text-[10px] font-black">
+                                                    <div className="flex flex-wrap gap-2 text-[10px] font-bold">
                                                       <span className="rounded-full bg-emerald-400/15 px-3 py-1 text-emerald-100">
                                                         تقارير:{" "}
                                                         {
@@ -40541,15 +40541,15 @@ ${rows
                                             {codeReportsView === "heatmap" &&
                                               isAdminTeacher && (
                                                 <div className="mt-3 grid grid-cols-1 gap-3">
-                                                  <div className="miras-code-report rounded-[1.65rem] border border-slate-200/80 bg-gradient-to-b from-white to-slate-50/95 p-4 shadow-[0_18px_40px_rgba(15,23,42,0.06)]">
+                                                  <div className="miras-code-report rounded-[var(--miras-r-xl)] border border-slate-200/80 bg-gradient-to-b from-white to-slate-50/95 p-4 miras-shadow-2">
                                                     <div className="mb-4 flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
                                                       <div className="space-y-1">
-                                                        <p className="text-[10px] font-black text-slate-500">
+                                                        <p className="text-[10px] font-bold text-slate-500">
                                                           خريطة حرارة الأكواد
                                                           والدفعات
                                                         </p>
                                                       </div>
-                                                      <div className="flex flex-wrap gap-2 text-[10px] font-black">
+                                                      <div className="flex flex-wrap gap-2 text-[10px] font-bold">
                                                         <span className="rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-emerald-700">
                                                           آمنة:{" "}
                                                           {codeIntegrity.heatmap
@@ -40569,7 +40569,7 @@ ${rows
                                                       </div>
                                                     </div>
                                                     <div className="grid grid-cols-2 gap-3 lg:grid-cols-3 xl:grid-cols-5">
-                                                      <div className="rounded-[1.25rem] border border-amber-100 bg-gradient-to-b from-amber-50 to-white p-4 text-center shadow-[0_10px_24px_rgba(245,158,11,0.10)]">
+                                                      <div className="rounded-[var(--miras-r-lg)] border border-amber-100 bg-gradient-to-b from-amber-50 to-white p-4 text-center miras-shadow-1">
                                                         <b className="block text-[2rem] leading-none font-black text-amber-700">
                                                           {
                                                             academicIntegritySummary.batchWatch
@@ -40579,7 +40579,7 @@ ${rows
                                                           دفعات مراقبة
                                                         </span>
                                                       </div>
-                                                      <div className="rounded-[1.25rem] border border-rose-100 bg-gradient-to-b from-rose-50 to-white p-4 text-center shadow-[0_10px_24px_rgba(244,63,94,0.09)]">
+                                                      <div className="rounded-[var(--miras-r-lg)] border border-rose-100 bg-gradient-to-b from-rose-50 to-white p-4 text-center miras-shadow-1">
                                                         <b className="block text-[2rem] leading-none font-black text-rose-700">
                                                           {
                                                             academicIntegritySummary.batchDanger
@@ -40589,7 +40589,7 @@ ${rows
                                                           دفعات عالية
                                                         </span>
                                                       </div>
-                                                      <div className="rounded-[1.25rem] border border-slate-200 bg-gradient-to-b from-slate-50 to-white p-4 text-center shadow-[0_10px_24px_rgba(15,23,42,0.06)]">
+                                                      <div className="rounded-[var(--miras-r-lg)] border border-slate-200 bg-gradient-to-b from-slate-50 to-white p-4 text-center miras-shadow-1">
                                                         <b className="block text-[2rem] leading-none font-black text-slate-800">
                                                           {
                                                             academicIntegritySummary.cases
@@ -40599,7 +40599,7 @@ ${rows
                                                           ملفات مراجعة
                                                         </span>
                                                       </div>
-                                                      <div className="rounded-[1.25rem] border border-violet-100 bg-gradient-to-b from-violet-50 to-white p-4 text-center shadow-[0_10px_24px_rgba(139,92,246,0.09)]">
+                                                      <div className="rounded-[var(--miras-r-lg)] border border-violet-100 bg-gradient-to-b from-violet-50 to-white p-4 text-center miras-shadow-1">
                                                         <b className="block text-[2rem] leading-none font-black text-violet-700">
                                                           {
                                                             academicIntegritySummary.collective
@@ -40609,7 +40609,7 @@ ${rows
                                                           نقل جماعي
                                                         </span>
                                                       </div>
-                                                      <div className="rounded-[1.25rem] border border-emerald-100 bg-gradient-to-b from-emerald-50 to-white p-4 text-center shadow-[0_10px_24px_rgba(16,185,129,0.09)]">
+                                                      <div className="rounded-[var(--miras-r-lg)] border border-emerald-100 bg-gradient-to-b from-emerald-50 to-white p-4 text-center miras-shadow-1">
                                                         <b className="block text-[2rem] leading-none font-black text-emerald-700">
                                                           {
                                                             academicIntegritySummary.secondStep
@@ -40627,7 +40627,7 @@ ${rows
                                             {codeReportsView === "alerts" && (
                                               <div className="mt-3 grid grid-cols-1 gap-3 lg:grid-cols-2">
                                                 <div className="rounded-2xl border border-white/10 bg-white/10 p-3">
-                                                  <p className="mb-2 text-[10px] font-black text-indigo-100">
+                                                  <p className="mb-2 text-[10px] font-bold text-indigo-100">
                                                     أختام الثقة والإجراءات
                                                   </p>
                                                   <div className="space-y-2">
@@ -40698,7 +40698,7 @@ ${rows
 
                                                 {isAdminTeacher && (
                                                   <div className="rounded-2xl border border-white/10 bg-white/10 p-3">
-                                                    <p className="mb-2 text-[10px] font-black text-indigo-100">
+                                                    <p className="mb-2 text-[10px] font-bold text-indigo-100">
                                                       ذاكرة موسمية للأكواد
                                                     </p>
                                                     <div className="space-y-2">
@@ -40752,7 +40752,7 @@ ${rows
 
                                                 {isAdminTeacher && (
                                                   <div className="rounded-2xl border border-white/10 bg-white/10 p-3">
-                                                    <p className="mb-2 text-[10px] font-black text-indigo-100">
+                                                    <p className="mb-2 text-[10px] font-bold text-indigo-100">
                                                       مصدر الخلل المحتمل
                                                     </p>
                                                     <div className="space-y-2">
@@ -40807,7 +40807,7 @@ ${rows
 
                                                 {isAdminTeacher && (
                                                   <div className="rounded-2xl border border-white/10 bg-white/10 p-3">
-                                                    <p className="mb-2 text-[10px] font-black text-indigo-100">
+                                                    <p className="mb-2 text-[10px] font-bold text-indigo-100">
                                                       أكواد خارج السياق
                                                     </p>
                                                     <div className="space-y-2">
@@ -40863,7 +40863,7 @@ ${rows
                                               isAdminTeacher && (
                                                 <div className="mt-3 grid grid-cols-1 gap-3">
                                                   <div className="rounded-2xl border border-white/10 bg-white/10 p-3">
-                                                    <p className="mb-2 text-[10px] font-black text-indigo-100">
+                                                    <p className="mb-2 text-[10px] font-bold text-indigo-100">
                                                       ملفات المراجعة والنقل
                                                       الجماعي
                                                     </p>
@@ -40962,10 +40962,10 @@ ${rows
                                 )}
                               </>
                             )}
-                            <div className="miras-integrity-pane miras-integrity-network lg:col-span-6 rounded-[1.6rem] border border-indigo-100 bg-gradient-to-br from-indigo-50/80 via-white to-emerald-50/70 p-4 shadow-sm">
+                            <div className="miras-integrity-pane miras-integrity-network lg:col-span-6 rounded-[var(--miras-r-lg)] border border-indigo-100 bg-gradient-to-br from-indigo-50/80 via-white to-emerald-50/70 p-4 shadow-sm">
                               <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
                                 <div className="text-right">
-                                  <h4 className="text-xs font-black text-slate-900">
+                                  <h4 className="text-xs font-bold text-slate-900">
                                     فحص صدق شراء الأكواد
                                   </h4>
                                   <p className="mt-1 text-[10px] font-bold leading-5 text-slate-500">
@@ -41010,7 +41010,7 @@ ${rows
                                 >
                                   <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
                                     <div>
-                                      <p className="text-xs font-black">
+                                      <p className="text-xs font-bold">
                                         {codeTruthVerdict.title}
                                       </p>
                                       <p className="mt-1 text-[11px] font-bold leading-5">
@@ -41018,7 +41018,7 @@ ${rows
                                       </p>
                                     </div>
                                     {codeTruthPrimary && (
-                                      <span className="rounded-full bg-white/80 px-3 py-1 text-[10px] font-black shadow-sm">
+                                      <span className="rounded-full bg-white/80 px-3 py-1 text-[10px] font-bold shadow-sm">
                                         {codeTruthPrimary.code} •{" "}
                                         {codeTruthPrimary.studentName ||
                                           codeTruthPrimary.assignedStudentName ||
@@ -41120,7 +41120,7 @@ ${rows
                                       </span>
                                       <span className="flex flex-wrap items-center justify-end gap-2 font-mono text-slate-400">
                                         <span
-                                          className={`rounded-full px-2.5 py-1 text-[10px] font-black ${Number(attempt.confidenceScore || 0) >= 75 ? "bg-rose-100 text-rose-700" : Number(attempt.confidenceScore || 0) >= 50 ? "bg-amber-100 text-amber-700" : "bg-emerald-100 text-emerald-700"}`}
+                                          className={`rounded-full px-2.5 py-1 text-[10px] font-bold ${Number(attempt.confidenceScore || 0) >= 75 ? "bg-rose-100 text-rose-700" : Number(attempt.confidenceScore || 0) >= 50 ? "bg-amber-100 text-amber-700" : "bg-emerald-100 text-emerald-700"}`}
                                         >
                                           {attempt.codeReputationLabel ||
                                             attempt.integrityLabel ||
@@ -41134,7 +41134,7 @@ ${rows
                                     </div>
                                   ))}
                                 {!(codeIntegrity.attempts || []).length && (
-                                  <div className="rounded-2xl border border-emerald-100 bg-emerald-50 p-3 text-xs font-black text-emerald-700">
+                                  <div className="rounded-2xl border border-emerald-100 bg-emerald-50 p-3 text-xs font-bold text-emerald-700">
                                     لا توجد محاولات مشبوهة مسجلة.
                                   </div>
                                 )}
@@ -41150,10 +41150,10 @@ ${rows
                   {teacherSession &&
                     (analyticsSubTab === "admin" ||
                       analyticsSubTab === "dataTools") && (
-                      <div className="rounded-[2rem] border border-indigo-100 bg-gradient-to-br from-indigo-50/30 to-white/90 p-6 backdrop-blur shadow-sm space-y-4">
+                      <div className="rounded-[var(--miras-r-xl)] border border-indigo-100 bg-gradient-to-br from-indigo-50/30 to-white/90 p-6 backdrop-blur shadow-sm space-y-4">
                         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-100 pb-4">
                           <div>
-                            <h3 className="text-sm font-black text-slate-900 flex items-center gap-2">
+                            <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">
                               <RefreshCw
                                 className={`h-4 w-4 text-indigo-600 ${dbResetLoading ? "animate-spin" : ""}`}
                               />
@@ -41178,19 +41178,19 @@ ${rows
                             className={`mx-auto grid w-full max-w-4xl grid-cols-1 gap-4 ${isAdminTeacher ? "md:grid-cols-2" : "md:grid-cols-1"}`}
                           >
                             {/* Option 1 CARD */}
-                            <div className="relative overflow-hidden rounded-[1.75rem] border border-slate-200 bg-white p-4 text-center shadow-sm">
+                            <div className="relative overflow-hidden rounded-[var(--miras-r-xl)] border border-slate-200 bg-white p-4 text-center shadow-sm">
                               <div className="mx-auto flex max-w-md flex-col items-center gap-3">
                                 {isAdminTeacher && (
                                   <div className="flex flex-wrap items-center justify-center gap-2 text-center">
-                                    <span className="inline-flex min-w-24 justify-center rounded-full bg-indigo-50 px-3 py-1 text-[10px] font-black text-indigo-700">
+                                    <span className="inline-flex min-w-24 justify-center rounded-full bg-indigo-50 px-3 py-1 text-[10px] font-bold text-indigo-700">
                                       الخيار الأول
                                     </span>
-                                    <span className="inline-flex min-w-24 justify-center rounded-full bg-emerald-50 px-3 py-1 text-[10px] font-black text-emerald-700">
+                                    <span className="inline-flex min-w-24 justify-center rounded-full bg-emerald-50 px-3 py-1 text-[10px] font-bold text-emerald-700">
                                       موصى به
                                     </span>
                                   </div>
                                 )}
-                                <h4 className="text-center text-xs font-black leading-6 text-slate-800">
+                                <h4 className="text-center text-xs font-bold leading-6 text-slate-800">
                                   تطهير بيانات الفصل فقط دون لمس أكواد الدخول
                                 </h4>
                               </div>
@@ -41212,7 +41212,7 @@ ${rows
                                   </button>
                                 ) : (
                                   <div className="space-y-2 bg-amber-50 rounded-xl p-3 border border-amber-100">
-                                    <p className="text-[10px] font-black text-amber-900 leading-4">
+                                    <p className="text-[10px] font-bold text-amber-900 leading-4">
                                       ⚠️ هل أنت متأكد؟ سيتم حذف بيانات الطلاب
                                       والعمليات المرتبطة بمقرراتك فقط، دون لمس
                                       أكواد الدخول نهائياً.
@@ -41223,7 +41223,7 @@ ${rows
                                           handleDatabaseReset("custom")
                                         }
                                         disabled={dbResetLoading}
-                                        className="flex-1 rounded-lg bg-amber-600 hover:bg-amber-700 text-white py-1 px-2 text-[10px] font-black"
+                                        className="flex-1 rounded-lg bg-amber-600 hover:bg-amber-700 text-white py-1 px-2 text-[10px] font-bold"
                                       >
                                         {dbResetLoading
                                           ? "جاري التطهير..."
@@ -41234,7 +41234,7 @@ ${rows
                                           setShowCustomResetConfirm(false)
                                         }
                                         disabled={dbResetLoading}
-                                        className="rounded-lg bg-white border border-slate-200 text-slate-700 py-1 px-2 text-[10px] font-black"
+                                        className="rounded-lg bg-white border border-slate-200 text-slate-700 py-1 px-2 text-[10px] font-bold"
                                       >
                                         إلغاء
                                       </button>
@@ -41246,17 +41246,17 @@ ${rows
 
                             {/* Option 2 CARD */}
                             {isAdminTeacher && (
-                              <div className="relative overflow-hidden rounded-[1.75rem] border border-red-100 bg-red-50/10 p-4 text-center shadow-sm">
+                              <div className="relative overflow-hidden rounded-[var(--miras-r-xl)] border border-red-100 bg-red-50/10 p-4 text-center shadow-sm">
                                 <div className="mx-auto flex max-w-md flex-col items-center gap-3">
                                   <div className="flex flex-wrap items-center justify-center gap-2 text-center">
-                                    <span className="inline-flex min-w-24 justify-center rounded-full bg-red-50 px-3 py-1 text-[10px] font-black text-red-700">
+                                    <span className="inline-flex min-w-24 justify-center rounded-full bg-red-50 px-3 py-1 text-[10px] font-bold text-red-700">
                                       الخيار الثاني
                                     </span>
-                                    <span className="inline-flex min-w-24 justify-center rounded-full bg-slate-100 px-3 py-1 text-[10px] font-black text-slate-600">
+                                    <span className="inline-flex min-w-24 justify-center rounded-full bg-slate-100 px-3 py-1 text-[10px] font-bold text-slate-600">
                                       تصفير كامل
                                     </span>
                                   </div>
-                                  <h4 className="text-center text-xs font-black leading-6 text-red-900">
+                                  <h4 className="text-center text-xs font-bold leading-6 text-red-900">
                                     التصفير الكامل والشامل (شامل المناهج
                                     والأسئلة)
                                   </h4>
@@ -41279,7 +41279,7 @@ ${rows
                                     </button>
                                   ) : (
                                     <div className="space-y-2 bg-red-50 rounded-xl p-3 border border-red-100">
-                                      <p className="text-[10px] font-black text-red-900 leading-4">
+                                      <p className="text-[10px] font-bold text-red-900 leading-4">
                                         🚨 تأكيد نهائي: سيتم تصفير المناهج
                                         والأسئلة والكشوفات والطلاب بالكامل ولا
                                         يمكن التراجع!
@@ -41290,7 +41290,7 @@ ${rows
                                             handleDatabaseReset("full")
                                           }
                                           disabled={dbResetLoading}
-                                          className="flex-1 rounded-lg bg-red-700 hover:bg-red-800 text-white py-1 px-2 text-[10px] font-black"
+                                          className="flex-1 rounded-lg bg-red-700 hover:bg-red-800 text-white py-1 px-2 text-[10px] font-bold"
                                         >
                                           {dbResetLoading
                                             ? "جاري المسح الكامل..."
@@ -41301,7 +41301,7 @@ ${rows
                                             setShowFullResetConfirm(false)
                                           }
                                           disabled={dbResetLoading}
-                                          className="rounded-lg bg-white border border-slate-200 text-slate-700 py-1 px-2 text-[10px] font-black"
+                                          className="rounded-lg bg-white border border-slate-200 text-slate-700 py-1 px-2 text-[10px] font-bold"
                                         >
                                           إلغاء
                                         </button>
@@ -41318,7 +41318,7 @@ ${rows
 
                   {(analyticsSubTab === "accounts" ||
                     analyticsSubTab === "audit") && (
-                    <div className="rounded-[1.8rem] border border-white/80 bg-white/82 p-4 shadow-[0_18px_60px_rgba(15,23,42,0.07)] backdrop-blur-xl space-y-5 sm:p-6">
+                    <div className="rounded-[var(--miras-r-xl)] border border-white/80 bg-white/82 p-4 miras-shadow-2 backdrop-blur-xl space-y-5 sm:p-6">
                       {analyticsSubTab === "audit" && (
                         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-100 pb-4">
                           <div>
@@ -41391,7 +41391,7 @@ ${rows
                               مغلقة وهادئة.
                             </p>
                           </div>
-                          <div className="flex flex-wrap items-center gap-2 text-[10px] font-black">
+                          <div className="flex flex-wrap items-center gap-2 text-[10px] font-bold">
                             <span className="rounded-full bg-amber-50 px-3 py-1 text-amber-700">
                               {passwordResetRequests.length} طلب
                             </span>
@@ -41406,7 +41406,7 @@ ${rows
 
                       {analyticsSubTab === "accounts" &&
                         passwordResetRequests.length > 0 && (
-                          <div className="rounded-[2rem] border border-amber-100 bg-amber-50/70 p-4 shadow-sm">
+                          <div className="rounded-[var(--miras-r-xl)] border border-amber-100 bg-amber-50/70 p-4 shadow-sm">
                             <button
                               type="button"
                               onClick={() => {
@@ -41417,7 +41417,7 @@ ${rows
                               className="flex w-full flex-col gap-3 text-right md:flex-row md:items-center md:justify-between"
                             >
                               <div>
-                                <h3 className="flex items-center gap-2 text-sm font-black text-amber-900">
+                                <h3 className="flex items-center gap-2 text-sm font-bold text-amber-900">
                                   <Key className="h-4 w-4" />
                                   استرجاع
                                 </h3>
@@ -41425,7 +41425,7 @@ ${rows
                                   {passwordResetRequests.length} طلب • مغلقة بهدوء
                                 </p>
                               </div>
-                              <span className="inline-flex items-center gap-2 rounded-full bg-white px-3 py-1 text-[11px] font-black text-amber-700 shadow-sm">
+                              <span className="inline-flex items-center gap-2 rounded-full bg-white px-3 py-1 text-[11px] font-bold text-amber-700 shadow-sm">
                                 {passwordResetRequests.length} طلب
                                 <ChevronRight
                                   className={`h-3.5 w-3.5 transition ${passwordResetRequestsOpen ? "rotate-90" : ""}`}
@@ -41443,7 +41443,7 @@ ${rows
                         )}
 
                       {analyticsSubTab === "accounts" && isAdminTeacher && (
-                        <div className="rounded-[2rem] border border-emerald-100 bg-emerald-50/60 p-4 shadow-sm">
+                        <div className="rounded-[var(--miras-r-xl)] border border-emerald-100 bg-emerald-50/60 p-4 shadow-sm">
                           <button
                             type="button"
                             onClick={() => {
@@ -41455,7 +41455,7 @@ ${rows
                             aria-expanded={!!passkeyDevicesOpen}
                           >
                             <div>
-                              <h3 className="flex items-center gap-2 text-sm font-black text-emerald-900">
+                              <h3 className="flex items-center gap-2 text-sm font-bold text-emerald-900">
                                 <Fingerprint className="h-4 w-4" />
                                 الأجهزة الموثوقة بالبصمة
                               </h3>
@@ -41463,7 +41463,7 @@ ${rows
                                 افتحها لعرض الأجهزة أو حذف الثقة من جهاز.
                               </p>
                             </div>
-                            <span className="inline-flex items-center gap-2 rounded-full bg-white px-3 py-1 text-[11px] font-black text-emerald-700 shadow-sm">
+                            <span className="inline-flex items-center gap-2 rounded-full bg-white px-3 py-1 text-[11px] font-bold text-emerald-700 shadow-sm">
                               {passkeyTrustedDevices.length} جهاز
                               <ChevronRight
                                 className={`h-3.5 w-3.5 transition ${passkeyDevicesOpen ? "rotate-90" : ""}`}
@@ -41479,7 +41479,7 @@ ${rows
                                 >
                                   <div className="flex items-start justify-between gap-3">
                                     <div className="min-w-0">
-                                      <p className="truncate text-xs font-black text-slate-900">
+                                      <p className="truncate text-xs font-bold text-slate-900">
                                         {device.userName ||
                                           (String(device.userId || "").includes(
                                             "@",
@@ -41523,7 +41523,7 @@ ${rows
                                 </div>
                               ))}
                               {!passkeyTrustedDevices.length && (
-                                <div className="rounded-2xl border border-white bg-white/75 px-4 py-3 text-xs font-black text-emerald-700 md:col-span-2">
+                                <div className="rounded-2xl border border-white bg-white/75 px-4 py-3 text-xs font-bold text-emerald-700 md:col-span-2">
                                   لا توجد أجهزة بصمة موثوقة حتى الآن.
                                 </div>
                               )}
@@ -41536,7 +41536,7 @@ ${rows
                         <button
                           type="button"
                           onClick={() => undefined}
-                          className="flex w-full items-center justify-between rounded-[1.6rem] border border-slate-100 bg-slate-50/80 px-4 py-3 text-right text-xs font-black text-slate-700 hover:bg-white"
+                          className="flex w-full items-center justify-between rounded-[var(--miras-r-lg)] border border-slate-100 bg-slate-50/80 px-4 py-3 text-right text-xs font-bold text-slate-700 hover:bg-white"
                         >
                           <span>سجل التفاصيل عند الحاجة</span>
                           <span className="inline-flex items-center gap-2 rounded-full bg-white px-3 py-1 text-[10px] text-slate-500 shadow-sm">
@@ -41547,24 +41547,24 @@ ${rows
 
                       {analyticsSubTab === "audit" &&
                         (isAdminTeacher || true) && (
-                          <div className="rounded-[2rem] border border-slate-100 bg-slate-50/70 p-3 shadow-sm">
+                          <div className="rounded-[var(--miras-r-xl)] border border-slate-100 bg-slate-50/70 p-3 shadow-sm">
                             <button
                               type="button"
                               onClick={() => toggleAuditGroup("audit-log-root")}
-                              className="flex w-full items-center justify-between gap-3 rounded-[1.5rem] bg-white px-4 py-3 text-right shadow-sm"
+                              className="flex w-full items-center justify-between gap-3 rounded-[var(--miras-r-lg)] bg-white px-4 py-3 text-right shadow-sm"
                               aria-expanded={
                                 !!openAuditGroups["audit-log-root"]
                               }
                             >
                               <div>
-                                <h3 className="text-sm font-black text-slate-900">
+                                <h3 className="text-sm font-bold text-slate-900">
                                   سجلات المقررات
                                 </h3>
                                 <p className="mt-1 text-[11px] font-bold text-slate-500">
                                   {scopedSystemLogs.length} حدث محفوظ داخل السجل
                                 </p>
                               </div>
-                              <span className="inline-flex items-center gap-2 rounded-full bg-slate-50 px-3 py-1 text-[11px] font-black text-slate-600">
+                              <span className="inline-flex items-center gap-2 rounded-full bg-slate-50 px-3 py-1 text-[11px] font-bold text-slate-600">
                                 عرض
                                 <ChevronRight
                                   className={`h-3.5 w-3.5 transition ${openAuditGroups["audit-log-root"] ? "rotate-90" : ""}`}
@@ -41849,11 +41849,11 @@ ${rows
                                             className="flex w-full items-center justify-between gap-3 text-right"
                                           >
                                             <div className="flex items-center gap-3">
-                                              <div className="w-10 h-10 rounded-2xl bg-indigo-600 text-white flex items-center justify-center text-xs font-black">
+                                              <div className="w-10 h-10 rounded-2xl bg-indigo-600 text-white flex items-center justify-center text-xs font-bold">
                                                 <BookOpen className="h-4 w-4" />
                                               </div>
                                               <div>
-                                                <h3 className="text-sm font-black text-slate-800">
+                                                <h3 className="text-sm font-bold text-slate-800">
                                                   {courseTitle}
                                                 </h3>
                                                 <p className="text-[10px] text-slate-400">
@@ -41901,13 +41901,13 @@ ${rows
                                                         className="flex w-full items-center justify-between gap-3 mb-3 text-right"
                                                       >
                                                         <div className="flex items-center gap-3">
-                                                          <div className="w-10 h-10 rounded-2xl bg-slate-900 text-white flex items-center justify-center text-xs font-black">
+                                                          <div className="w-10 h-10 rounded-2xl bg-slate-900 text-white flex items-center justify-center text-xs font-bold">
                                                             {String(
                                                               studentName,
                                                             ).slice(0, 1)}
                                                           </div>
                                                           <div>
-                                                            <h3 className="text-sm font-black text-slate-800">
+                                                            <h3 className="text-sm font-bold text-slate-800">
                                                               {studentName}
                                                             </h3>
                                                             <p className="text-[10px] text-slate-400">
@@ -42324,7 +42324,7 @@ ${rows
                         return (
                           <div className="miras-edge-stable-card rounded-3xl border border-slate-200/80 bg-white p-4 shadow-premium-sm space-y-4 sm:p-5">
                             <div className="flex items-center justify-between">
-                              <h3 className="text-sm font-black text-slate-900">
+                              <h3 className="text-sm font-bold text-slate-900">
                                 صحة الأكواد
                               </h3>
                               <span className="text-[10px] font-bold text-slate-400">
@@ -42361,7 +42361,7 @@ ${rows
                                     />
                                   </div>
                                   {i > 0 && (
-                                    <span className="mt-1 block text-[10px] font-black opacity-70">
+                                    <span className="mt-1 block text-[10px] font-bold opacity-70">
                                       {s.pct}%
                                     </span>
                                   )}
@@ -42372,7 +42372,7 @@ ${rows
                               <div className="space-y-2 rounded-2xl border border-rose-100 bg-rose-50/60 p-3">
                                 <div className="flex items-center gap-2">
                                   <span className="inline-flex h-2 w-2 rounded-full bg-rose-500" />
-                                  <span className="text-[11px] font-black text-rose-700">
+                                  <span className="text-[11px] font-bold text-rose-700">
                                     دفعات مشبوهة من شبكة واحدة (
                                     {clusters.length})
                                   </span>
@@ -42412,7 +42412,7 @@ ${rows
                           <span className="text-2xl font-black text-indigo-600 font-mono">
                             {visibleJoinCodes.length} رمز
                           </span>
-                          <span className="mt-3 block text-center rounded-full bg-indigo-50 px-3 py-1 text-[10px] font-black text-indigo-700">
+                          <span className="mt-3 block text-center rounded-full bg-indigo-50 px-3 py-1 text-[10px] font-bold text-indigo-700">
                             مجموع الكودات
                           </span>
                         </div>
@@ -42428,7 +42428,7 @@ ${rows
                             }{" "}
                             رمز
                           </span>
-                          <span className="mt-3 block text-center rounded-full bg-emerald-50 px-3 py-1 text-[10px] font-black text-emerald-700">
+                          <span className="mt-3 block text-center rounded-full bg-emerald-50 px-3 py-1 text-[10px] font-bold text-emerald-700">
                             جاهزة للتوزيع
                           </span>
                         </div>
@@ -42444,7 +42444,7 @@ ${rows
                             }{" "}
                             مستخدم
                           </span>
-                          <span className="mt-3 block text-center rounded-full bg-white/10 px-3 py-1 text-[10px] font-black text-indigo-100">
+                          <span className="mt-3 block text-center rounded-full bg-white/10 px-3 py-1 text-[10px] font-bold text-indigo-100">
                             مقفل على طالب وجهاز
                           </span>
                         </div>
@@ -42460,20 +42460,20 @@ ${rows
                             }{" "}
                             ملغى
                           </span>
-                          <span className="mt-3 block text-center rounded-full bg-red-50 px-3 py-1 text-[10px] font-black text-red-600">
+                          <span className="mt-3 block text-center rounded-full bg-red-50 px-3 py-1 text-[10px] font-bold text-red-600">
                             لا تقبل التفعيل
                           </span>
                         </div>
                       </div>
 
-                      <div className="miras-edge-stable-card rounded-[2rem] border border-white/80 bg-white/90 p-4 shadow-sm">
+                      <div className="miras-edge-stable-card rounded-[var(--miras-r-xl)] border border-white/80 bg-white/90 p-4 shadow-sm">
                         <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
                           <div>
-                            <h3 className="text-sm font-black text-slate-900">
+                            <h3 className="text-sm font-bold text-slate-900">
                               لم يفعلوا بعد
                             </h3>
                           </div>
-                          <div className="mx-auto grid w-full max-w-xl grid-cols-2 gap-2 text-center text-[10px] font-black md:grid-cols-4">
+                          <div className="mx-auto grid w-full max-w-xl grid-cols-2 gap-2 text-center text-[10px] font-bold md:grid-cols-4">
                             <div className="rounded-xl bg-amber-50 px-2 py-1.5 text-amber-700">
                               {assignedNotActivatedCodes.length} كود
                             </div>
@@ -42493,7 +42493,7 @@ ${rows
                             <button
                               type="button"
                               onClick={() => toggleCodesAccordion("activation")}
-                              className="flex w-full items-center justify-between rounded-3xl border border-slate-100 bg-slate-50/80 px-4 py-3 text-right text-xs font-black text-slate-700 hover:bg-white"
+                              className="flex w-full items-center justify-between rounded-3xl border border-slate-100 bg-slate-50/80 px-4 py-3 text-right text-xs font-bold text-slate-700 hover:bg-white"
                               aria-expanded={!!codesAccordion.activation}
                             >
                               <span>عرض قائمة الطلبة غير المكتملين</span>
@@ -42514,7 +42514,7 @@ ${rows
                                   >
                                     <div className="flex items-start justify-between gap-3">
                                       <div className="min-w-0">
-                                        <div className="truncate text-sm font-black">
+                                        <div className="truncate text-sm font-bold">
                                           {group.name}
                                         </div>
                                         <div className="mt-1 font-mono text-[10px] opacity-70">
@@ -42569,18 +42569,18 @@ ${rows
                     <div className="grid grid-cols-1 xl:grid-cols-12 gap-6">
                       {/* Produce Codes Form Block */}
                       {codesSubTab === "generate" && (
-                        <div className="xl:col-span-12 lg:col-span-12 rounded-[2rem] border border-slate-200 bg-white p-5 shadow-sm h-fit space-y-5">
+                        <div className="xl:col-span-12 lg:col-span-12 rounded-[var(--miras-r-xl)] border border-slate-200 bg-white p-5 shadow-sm h-fit space-y-5">
                           <div className="rounded-3xl border border-slate-100 bg-slate-50/70 p-4 text-right">
                             <div className="mb-3 flex items-center justify-between gap-3">
                               <div>
-                                <p className="text-xs font-black text-slate-900">
+                                <p className="text-xs font-bold text-slate-900">
                                   مقرر إصدار الرمز
                                 </p>
                                 <p className="mt-1 text-[10px] font-bold leading-5 text-slate-500">
                                   الرمز يرتبط بهذا المقرر مباشرة.
                                 </p>
                               </div>
-                              <span className="rounded-full bg-white px-3 py-1 text-[10px] font-black text-slate-500 shadow-sm">
+                              <span className="rounded-full bg-white px-3 py-1 text-[10px] font-bold text-slate-500 shadow-sm">
                                 {joinCodeIssueCourseOptions.length || 0} مقرر
                               </span>
                             </div>
@@ -42608,7 +42608,7 @@ ${rows
                                 ))}
                               </select>
                             ) : (
-                              <div className="rounded-2xl border border-amber-100 bg-amber-50 px-4 py-3 text-[11px] font-black text-amber-700">
+                              <div className="rounded-2xl border border-amber-100 bg-amber-50 px-4 py-3 text-[11px] font-bold text-amber-700">
                                 لا يوجد مقرر متاح لإصدار الرموز.
                               </div>
                             )}
@@ -42617,7 +42617,7 @@ ${rows
                             <div className="rounded-3xl border border-slate-100 bg-white p-4 space-y-3 text-right">
                               <div className="flex items-center justify-between gap-3">
                                 <div>
-                                  <p className="text-xs font-black text-slate-800">
+                                  <p className="text-xs font-bold text-slate-800">
                                     رموز عامة
                                   </p>
                                 </div>
@@ -42652,10 +42652,10 @@ ${rows
                               {codesBatchFormOpen && (
                                 <div className="space-y-4 animate-fade-in">
                                   <div className="flex items-center justify-between gap-3">
-                                    <label className="text-xs font-black text-slate-800">
+                                    <label className="text-xs font-bold text-slate-800">
                                       عدد الرموز
                                     </label>
-                                    <span className="rounded-full bg-indigo-50 px-3 py-1 text-[10px] font-black text-indigo-700">
+                                    <span className="rounded-full bg-indigo-50 px-3 py-1 text-[10px] font-bold text-indigo-700">
                                       حتى 2000
                                     </span>
                                   </div>
@@ -42680,13 +42680,13 @@ ${rows
                                       <button
                                         key={v}
                                         onClick={() => setNewCodesCount(v)}
-                                        className={`rounded-2xl border px-2 py-2 text-[11px] font-black ${newCodesCount === v ? "bg-indigo-600 text-white border-indigo-600 shadow-sm" : "bg-slate-50 text-slate-600 border-slate-200 hover:bg-white"}`}
+                                        className={`rounded-2xl border px-2 py-2 text-[11px] font-bold ${newCodesCount === v ? "bg-indigo-600 text-white border-indigo-600 shadow-sm" : "bg-slate-50 text-slate-600 border-slate-200 hover:bg-white"}`}
                                       >
                                         {v}
                                       </button>
                                     ))}
                                   </div>
-                                  <label className="block text-xs font-black text-slate-800">
+                                  <label className="block text-xs font-bold text-slate-800">
                                     الفصل الدراسي المعتمد
                                   </label>
                                   <input
@@ -42708,7 +42708,7 @@ ${rows
                                   {lastGeneratedJoinCodes.length > 0 && (
                                     <div className="rounded-3xl border border-indigo-100 bg-indigo-50/60 p-3 text-right shadow-sm">
                                       <div className="flex items-center justify-between gap-3">
-                                        <span className="text-[11px] font-black text-indigo-900">
+                                        <span className="text-[11px] font-bold text-indigo-900">
                                           آخر رموز عامة مولدة
                                         </span>
                                         <span className="rounded-full bg-white px-2 py-0.5 text-[8.5px] font-black text-indigo-700 shadow-sm">
@@ -42724,7 +42724,7 @@ ${rows
                                           .map((item: any, idx: number) => (
                                             <div
                                               key={`${item.code || idx}-${idx}`}
-                                              className="flex items-center justify-between gap-2 rounded-2xl bg-white/80 px-3 py-2 text-[10px] font-black text-slate-700 shadow-sm"
+                                              className="flex items-center justify-between gap-2 rounded-2xl bg-white/80 px-3 py-2 text-[10px] font-bold text-slate-700 shadow-sm"
                                             >
                                               <span
                                                 dir="ltr"
@@ -42747,7 +42747,7 @@ ${rows
                                             </div>
                                           ))}
                                         {lastGeneratedJoinCodes.length > 12 && (
-                                          <div className="rounded-2xl bg-white/70 px-3 py-2 text-center text-[10px] font-black text-slate-500">
+                                          <div className="rounded-2xl bg-white/70 px-3 py-2 text-center text-[10px] font-bold text-slate-500">
                                             +{" "}
                                             {lastGeneratedJoinCodes.length - 12}{" "}
                                             رموز أخرى محفوظة في القائمة
@@ -42765,12 +42765,12 @@ ${rows
                                                 "conic-gradient(#10b981 0% 100%, #cbd5e1 100% 100%)",
                                             }}
                                           />
-                                          <div className="absolute flex h-7 w-7 items-center justify-center rounded-full bg-white font-mono text-[10px] font-black leading-none tracking-[-0.08em] text-emerald-700 whitespace-nowrap tabular-nums">
+                                          <div className="absolute flex h-7 w-7 items-center justify-center rounded-full bg-white font-mono text-[10px] font-bold leading-none tracking-[-0.08em] text-emerald-700 whitespace-nowrap tabular-nums">
                                             100%
                                           </div>
                                         </div>
                                         <div className="min-w-0">
-                                          <h4 className="text-[10px] font-black leading-snug text-slate-800">
+                                          <h4 className="text-[10px] font-bold leading-snug text-slate-800">
                                             كاشف التكرار الذكي — Repetition
                                             Shield
                                           </h4>
@@ -42798,7 +42798,7 @@ ${rows
                           <div className="rounded-3xl border border-emerald-100 bg-emerald-50/50 p-4 space-y-3">
                             <div className="flex items-start justify-between gap-3">
                               <div>
-                                <p className="text-xs font-black text-emerald-800">
+                                <p className="text-xs font-bold text-emerald-800">
                                   رمز مجاني لطالب محدد
                                 </p>
                               </div>
@@ -42881,7 +42881,7 @@ ${rows
                       {codesSubTab === "archive" && (
                         <div
                           id="join-codes-cards-anchor"
-                          className="xl:col-span-12 lg:col-span-12 bg-white rounded-[2rem] border border-slate-200 p-4 sm:p-6 space-y-5 shadow-sm overflow-hidden"
+                          className="xl:col-span-12 lg:col-span-12 bg-white rounded-[var(--miras-r-xl)] border border-slate-200 p-4 sm:p-6 space-y-5 shadow-sm overflow-hidden"
                         >
                           <div className="flex w-full flex-col xl:flex-row justify-between items-start xl:items-center gap-4 border-b border-slate-100 pb-4 text-right">
                             <div className="flex items-center gap-2 rounded-2xl px-2 py-1 text-right">
@@ -42890,7 +42890,7 @@ ${rows
                               </h3>
                             </div>
 
-                            <div className="flex flex-wrap items-center gap-2 text-[11px] font-black">
+                            <div className="flex flex-wrap items-center gap-2 text-[11px] font-bold">
                               <button
                                 onClick={(e) => {
                                   e.stopPropagation();
@@ -42964,7 +42964,7 @@ ${rows
                                           setCodesFilterStatus(st);
                                           setCodesPage(1);
                                         }}
-                                        className={`px-3 py-2 text-[10px] font-black rounded-xl transition-all ${codesFilterStatus === st ? "bg-indigo-600 text-white shadow-sm" : "text-slate-500 hover:bg-slate-50"}`}
+                                        className={`px-3 py-2 text-[10px] font-bold rounded-xl transition-all ${codesFilterStatus === st ? "bg-indigo-600 text-white shadow-sm" : "text-slate-500 hover:bg-slate-50"}`}
                                       >
                                         {st === "all"
                                           ? "◎"
@@ -43029,7 +43029,7 @@ ${rows
                                         <div className="flex flex-wrap items-center gap-2 pr-0">
                                           <span
                                             dir="ltr"
-                                            className="font-mono text-sm font-black text-slate-950 break-all text-left"
+                                            className="font-mono text-sm font-bold text-slate-950 break-all text-left"
                                             style={{ unicodeBidi: "plaintext" }}
                                           >
                                             {formatJoinCode(c.code)}
@@ -43045,7 +43045,7 @@ ${rows
                                             </span>
                                           )}
                                         </div>
-                                        <div className="mt-2 flex flex-wrap items-center gap-1.5 text-[10px] font-black">
+                                        <div className="mt-2 flex flex-wrap items-center gap-1.5 text-[10px] font-bold">
                                           <span className="rounded-full bg-indigo-50 text-indigo-700 px-2.5 py-1">
                                             {c.semester}
                                           </span>
@@ -43063,7 +43063,7 @@ ${rows
                                     </div>
                                     <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-2 text-[11px] font-bold leading-6">
                                       <div className="rounded-2xl bg-slate-50 border border-slate-100 p-3">
-                                        <span className="block text-[10px] font-black text-slate-400">
+                                        <span className="block text-[10px] font-bold text-slate-400">
                                           المقرر / المعلم
                                         </span>
                                         <span className="text-slate-700">
@@ -43078,7 +43078,7 @@ ${rows
                                         </span>
                                       </div>
                                       <div className="rounded-2xl bg-slate-50 border border-slate-100 p-3">
-                                        <span className="block text-[10px] font-black text-slate-400">
+                                        <span className="block text-[10px] font-bold text-slate-400">
                                           الطالب
                                         </span>
                                         {c.status === "active" && (
@@ -43104,7 +43104,7 @@ ${rows
                                         )}
                                       </div>
                                       <div className="md:col-span-2 rounded-2xl bg-white border border-slate-100 p-3 text-slate-500">
-                                        <span className="block text-[10px] font-black text-slate-400">
+                                        <span className="block text-[10px] font-bold text-slate-400">
                                           السجل الزمني
                                         </span>
                                         <span>
@@ -43123,7 +43123,7 @@ ${rows
                                     </div>
                                     <div className="mt-4 flex items-center justify-between gap-3 border-t border-slate-200/80 pt-3">
                                       <span
-                                        className={`inline-flex shrink-0 rounded-full px-3 py-1 text-[10px] font-black ${c.status === "active" ? "bg-emerald-50 text-emerald-700 ring-1 ring-emerald-100" : c.status === "used" ? "bg-slate-50 text-slate-600 ring-1 ring-slate-200" : "bg-red-50 text-red-600 ring-1 ring-red-100"}`}
+                                        className={`inline-flex shrink-0 rounded-full px-3 py-1 text-[10px] font-bold ${c.status === "active" ? "bg-emerald-50 text-emerald-700 ring-1 ring-emerald-100" : c.status === "used" ? "bg-slate-50 text-slate-600 ring-1 ring-slate-200" : "bg-red-50 text-red-600 ring-1 ring-red-100"}`}
                                       >
                                         {c.status === "active"
                                           ? "فعال"
@@ -43205,7 +43205,7 @@ ${rows
 
                       {codesSubTab === "attempts" && (
                         <div
-                          className="xl:col-span-12 lg:col-span-12 rounded-[2rem] border border-slate-200 bg-white p-4 shadow-sm sm:p-6 space-y-5"
+                          className="xl:col-span-12 lg:col-span-12 rounded-[var(--miras-r-xl)] border border-slate-200 bg-white p-4 shadow-sm sm:p-6 space-y-5"
                           dir="rtl"
                         >
                           <div className="flex flex-col gap-3 border-b border-slate-100 pb-4 text-right lg:flex-row lg:items-center lg:justify-between">
@@ -43262,7 +43262,7 @@ ${rows
                                 key={item.label}
                                 className="rounded-3xl border border-slate-100 bg-slate-50/70 p-4 text-right"
                               >
-                                <span className="block text-[10px] font-black text-slate-400">
+                                <span className="block text-[10px] font-bold text-slate-400">
                                   {item.label}
                                 </span>
                                 <span className="mt-1 block text-2xl font-black text-slate-950">
@@ -43275,7 +43275,7 @@ ${rows
                           <div className="rounded-3xl border border-slate-100 bg-slate-50/70 p-4">
                             <div className="grid grid-cols-1 gap-3 lg:grid-cols-12 lg:items-end">
                               <label className="lg:col-span-3 text-right">
-                                <span className="mb-1 block text-[10px] font-black text-slate-500">
+                                <span className="mb-1 block text-[10px] font-bold text-slate-500">
                                   من تاريخ
                                 </span>
                                 <input
@@ -43284,11 +43284,11 @@ ${rows
                                   onChange={(e) =>
                                     setActivationAttemptFromDate(e.target.value)
                                   }
-                                  className="w-full rounded-2xl border border-slate-200 bg-white px-3 py-3 text-sm font-black text-slate-800 outline-none focus:ring-2 focus:ring-indigo-100"
+                                  className="w-full rounded-2xl border border-slate-200 bg-white px-3 py-3 text-sm font-bold text-slate-800 outline-none focus:ring-2 focus:ring-indigo-100"
                                 />
                               </label>
                               <label className="lg:col-span-3 text-right">
-                                <span className="mb-1 block text-[10px] font-black text-slate-500">
+                                <span className="mb-1 block text-[10px] font-bold text-slate-500">
                                   إلى تاريخ
                                 </span>
                                 <input
@@ -43297,11 +43297,11 @@ ${rows
                                   onChange={(e) =>
                                     setActivationAttemptToDate(e.target.value)
                                   }
-                                  className="w-full rounded-2xl border border-slate-200 bg-white px-3 py-3 text-sm font-black text-slate-800 outline-none focus:ring-2 focus:ring-indigo-100"
+                                  className="w-full rounded-2xl border border-slate-200 bg-white px-3 py-3 text-sm font-bold text-slate-800 outline-none focus:ring-2 focus:ring-indigo-100"
                                 />
                               </label>
                               <label className="lg:col-span-6 text-right">
-                                <span className="mb-1 block text-[10px] font-black text-slate-500">
+                                <span className="mb-1 block text-[10px] font-bold text-slate-500">
                                   بحث
                                 </span>
                                 <div className="relative">
@@ -43343,7 +43343,7 @@ ${rows
                                 return (
                                   <div
                                     key={group.key}
-                                    className={`overflow-hidden rounded-[1.75rem] border text-right shadow-sm transition hover:shadow-md ${tone}`}
+                                    className={`overflow-hidden rounded-[var(--miras-r-xl)] border text-right shadow-sm transition hover:shadow-md ${tone}`}
                                   >
                                     <button
                                       type="button"
@@ -43360,15 +43360,15 @@ ${rows
                                     >
                                       <div className="min-w-0 flex-1">
                                         <div className="flex flex-wrap items-center gap-2">
-                                          <span className="rounded-full bg-slate-950 px-3 py-1 text-[10px] font-black text-white">
+                                          <span className="rounded-full bg-slate-950 px-3 py-1 text-[10px] font-bold text-white">
                                             ملف طالب
                                           </span>
                                           <span
-                                            className={`rounded-full px-3 py-1 text-[10px] font-black ring-1 ${group.totalAttempts >= 10 ? "bg-rose-50 text-rose-700 ring-rose-100" : group.totalAttempts >= 5 ? "bg-amber-50 text-amber-700 ring-amber-100" : "bg-slate-50 text-slate-500 ring-slate-100"}`}
+                                            className={`rounded-full px-3 py-1 text-[10px] font-bold ring-1 ${group.totalAttempts >= 10 ? "bg-rose-50 text-rose-700 ring-rose-100" : group.totalAttempts >= 5 ? "bg-amber-50 text-amber-700 ring-amber-100" : "bg-slate-50 text-slate-500 ring-slate-100"}`}
                                           >
                                             {group.totalAttempts} محاولة مرفوضة
                                           </span>
-                                          <span className="rounded-full bg-slate-50 px-3 py-1 text-[10px] font-black text-slate-500 ring-1 ring-slate-100">
+                                          <span className="rounded-full bg-slate-50 px-3 py-1 text-[10px] font-bold text-slate-500 ring-1 ring-slate-100">
                                             آخر محاولة:{" "}
                                             {latest.timestamp
                                               ? formatKwDateTime(
@@ -43386,7 +43386,7 @@ ${rows
                                             {group.studentId || "—"}
                                           </span>
                                         </h4>
-                                        <div className="mt-2 flex flex-wrap items-center gap-2 text-[10px] font-black text-slate-500">
+                                        <div className="mt-2 flex flex-wrap items-center gap-2 text-[10px] font-bold text-slate-500">
                                           <span>
                                             {group.coursesList.length} مقرر
                                           </span>
@@ -43413,11 +43413,11 @@ ${rows
                                       </div>
                                       <div className="flex items-center justify-between gap-3 lg:justify-end">
                                         <div className="hidden min-w-[170px] rounded-2xl border border-slate-100 bg-white px-4 py-3 text-right shadow-sm sm:block">
-                                          <span className="block text-[9px] font-black text-slate-400">
+                                          <span className="block text-[9px] font-bold text-slate-400">
                                             أكثر كود تكرر رفضه
                                           </span>
                                           <span
-                                            className="mt-1 block truncate font-mono text-xs font-black text-slate-950"
+                                            className="mt-1 block truncate font-mono text-xs font-bold text-slate-950"
                                             dir="ltr"
                                             style={{ unicodeBidi: "plaintext" }}
                                           >
@@ -43438,7 +43438,7 @@ ${rows
                                         <div className="grid grid-cols-1 gap-3 lg:grid-cols-12">
                                           <div className="rounded-3xl border border-slate-100 bg-slate-50/80 p-4 lg:col-span-7">
                                             <div className="mb-3 flex items-center justify-between gap-3">
-                                              <span className="text-[10px] font-black text-slate-500">
+                                              <span className="text-[10px] font-bold text-slate-500">
                                                 الأكواد التي جربها الطالب وتم
                                                 رفضها
                                               </span>
@@ -43449,7 +43449,7 @@ ${rows
                                                 .map((item: any) => (
                                                   <span
                                                     key={item.code}
-                                                    className="inline-flex items-center gap-2 rounded-2xl border border-slate-200 bg-white px-3 py-2 font-mono text-[11px] font-black text-slate-900 shadow-sm"
+                                                    className="inline-flex items-center gap-2 rounded-2xl border border-slate-200 bg-white px-3 py-2 font-mono text-[11px] font-bold text-slate-900 shadow-sm"
                                                     dir="ltr"
                                                     style={{
                                                       unicodeBidi: "plaintext",
@@ -43467,7 +43467,7 @@ ${rows
                                                   </span>
                                                 ))}
                                               {group.codeStats.length > 12 && (
-                                                <span className="rounded-2xl border border-dashed border-slate-200 bg-white px-3 py-2 text-[10px] font-black text-slate-400">
+                                                <span className="rounded-2xl border border-dashed border-slate-200 bg-white px-3 py-2 text-[10px] font-bold text-slate-400">
                                                   +{group.codeStats.length - 12}{" "}
                                                   كود آخر
                                                 </span>
@@ -43476,7 +43476,7 @@ ${rows
                                           </div>
                                           <div className="grid grid-cols-2 gap-2 lg:col-span-5">
                                             <div className="rounded-3xl bg-slate-50 p-4">
-                                              <span className="block text-[9px] font-black text-slate-400">
+                                              <span className="block text-[9px] font-bold text-slate-400">
                                                 عدد المحاولات
                                               </span>
                                               <span className="text-2xl font-black text-slate-950">
@@ -43484,7 +43484,7 @@ ${rows
                                               </span>
                                             </div>
                                             <div className="rounded-3xl bg-slate-50 p-4">
-                                              <span className="block text-[9px] font-black text-slate-400">
+                                              <span className="block text-[9px] font-bold text-slate-400">
                                                 الأجهزة
                                               </span>
                                               <span className="text-2xl font-black text-slate-950">
@@ -43492,10 +43492,10 @@ ${rows
                                               </span>
                                             </div>
                                             <div className="rounded-3xl bg-slate-50 p-4">
-                                              <span className="block text-[9px] font-black text-slate-400">
+                                              <span className="block text-[9px] font-bold text-slate-400">
                                                 المقررات
                                               </span>
-                                              <span className="text-xs font-black text-slate-800">
+                                              <span className="text-xs font-bold text-slate-800">
                                                 {group.coursesList
                                                   .slice(0, 2)
                                                   .join("، ") ||
@@ -43503,10 +43503,10 @@ ${rows
                                               </span>
                                             </div>
                                             <div className="rounded-3xl bg-slate-50 p-4">
-                                              <span className="block text-[9px] font-black text-slate-400">
+                                              <span className="block text-[9px] font-bold text-slate-400">
                                                 IP مختصر
                                               </span>
-                                              <span className="font-mono text-xs font-black text-slate-800">
+                                              <span className="font-mono text-xs font-bold text-slate-800">
                                                 {maskActivationIp(latest.ip)}
                                               </span>
                                             </div>
@@ -43515,10 +43515,10 @@ ${rows
 
                                         <div className="mt-4 rounded-3xl border border-slate-100 bg-white p-3">
                                           <div className="mb-3 flex items-center justify-between gap-3 px-1">
-                                            <span className="text-[10px] font-black text-slate-500">
+                                            <span className="text-[10px] font-bold text-slate-500">
                                               تفاصيل المحاولات المرفوضة
                                             </span>
-                                            <span className="rounded-full bg-slate-50 px-3 py-1 text-[9px] font-black text-slate-400 ring-1 ring-slate-100">
+                                            <span className="rounded-full bg-slate-50 px-3 py-1 text-[9px] font-bold text-slate-400 ring-1 ring-slate-100">
                                               {Math.min(group.rows.length, 60)}{" "}
                                               سجل
                                             </span>
@@ -43563,23 +43563,23 @@ ${rows
                                                       className="rounded-3xl border border-slate-100 bg-slate-50/70 p-4 text-right shadow-sm"
                                                     >
                                                       <div className="flex flex-wrap items-center justify-between gap-2">
-                                                        <span className="rounded-full bg-white px-3 py-1 text-[10px] font-black text-slate-500 ring-1 ring-slate-100">
+                                                        <span className="rounded-full bg-white px-3 py-1 text-[10px] font-bold text-slate-500 ring-1 ring-slate-100">
                                                           {attempt.timestamp
                                                             ? formatKwDateTime(
                                                                 attempt.timestamp,
                                                               )
                                                             : "وقت غير محدد"}
                                                         </span>
-                                                        <span className="rounded-full bg-amber-50 px-3 py-1 text-[10px] font-black text-amber-700 ring-1 ring-amber-100">
+                                                        <span className="rounded-full bg-amber-50 px-3 py-1 text-[10px] font-bold text-amber-700 ring-1 ring-amber-100">
                                                           محاولة مرفوضة
                                                         </span>
                                                       </div>
                                                       <div className="mt-3 rounded-2xl border border-white bg-white px-3 py-3 shadow-sm">
-                                                        <span className="mb-1 block text-[9px] font-black text-slate-400">
+                                                        <span className="mb-1 block text-[9px] font-bold text-slate-400">
                                                           الكود المرفوض
                                                         </span>
                                                         <span
-                                                          className="block break-all text-left font-mono text-[12px] font-black leading-6 tracking-[0.02em] text-slate-950"
+                                                          className="block break-all text-left font-mono text-[12px] font-bold leading-6 tracking-[0.02em] text-slate-950"
                                                           dir="ltr"
                                                           style={{
                                                             unicodeBidi:
@@ -43591,28 +43591,28 @@ ${rows
                                                       </div>
                                                       <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2">
                                                         <div className="rounded-2xl bg-white/80 p-3">
-                                                          <span className="block text-[9px] font-black text-slate-400">
+                                                          <span className="block text-[9px] font-bold text-slate-400">
                                                             المقرر
                                                           </span>
-                                                          <span className="mt-1 block whitespace-normal break-words text-xs font-black text-slate-800">
+                                                          <span className="mt-1 block whitespace-normal break-words text-xs font-bold text-slate-800">
                                                             {courseLabel}
                                                           </span>
                                                         </div>
                                                         <div className="rounded-2xl bg-white/80 p-3">
-                                                          <span className="block text-[9px] font-black text-slate-400">
+                                                          <span className="block text-[9px] font-bold text-slate-400">
                                                             الجهاز والمتصفح
                                                           </span>
-                                                          <span className="mt-1 block whitespace-normal break-words text-xs font-black text-slate-800">
+                                                          <span className="mt-1 block whitespace-normal break-words text-xs font-bold text-slate-800">
                                                             {device.device} /{" "}
                                                             {device.browser}
                                                           </span>
                                                         </div>
                                                       </div>
                                                       <div className="mt-2 rounded-2xl bg-white/80 p-3">
-                                                        <span className="block text-[9px] font-black text-slate-400">
+                                                        <span className="block text-[9px] font-bold text-slate-400">
                                                           سبب الرفض
                                                         </span>
-                                                        <span className="mt-1 block whitespace-normal break-words text-xs font-black leading-6 text-amber-800">
+                                                        <span className="mt-1 block whitespace-normal break-words text-xs font-bold leading-6 text-amber-800">
                                                           {rejectReason}
                                                         </span>
                                                       </div>
@@ -43622,7 +43622,7 @@ ${rows
                                               )}
                                           </div>
                                           {group.rows.length > 60 && (
-                                            <div className="mt-3 rounded-2xl border border-slate-100 bg-slate-50 px-4 py-3 text-center text-[10px] font-black text-slate-400">
+                                            <div className="mt-3 rounded-2xl border border-slate-100 bg-slate-50 px-4 py-3 text-center text-[10px] font-bold text-slate-400">
                                               تم عرض أول 60 محاولة لهذا الطالب.
                                               استخدم التصدير للحصول على كامل
                                               التفاصيل.
@@ -43647,7 +43647,7 @@ ${rows
                                     ),
                                   )
                                 }
-                                className="w-full rounded-3xl border border-slate-200 bg-white px-4 py-3 text-center text-xs font-black text-indigo-700 shadow-sm transition hover:bg-indigo-50"
+                                className="w-full rounded-3xl border border-slate-200 bg-white px-4 py-3 text-center text-xs font-bold text-indigo-700 shadow-sm transition hover:bg-indigo-50"
                               >
                                 عرض 24 ملف إضافي من سجل محاولات التفعيل
                               </button>
@@ -43680,7 +43680,7 @@ ${rows
                                 القائمة مغلقة افتراضياً لتبقى الصفحة مختصرة.
                               </p>
                             </div>
-                            <span className="inline-flex items-center justify-center gap-2 rounded-2xl bg-indigo-50 px-4 py-2 text-[11px] font-black text-indigo-700">
+                            <span className="inline-flex items-center justify-center gap-2 rounded-2xl bg-indigo-50 px-4 py-2 text-[11px] font-bold text-indigo-700">
                               {scopedTeacherStudents.length} طالب
                               <ChevronRight
                                 className={`h-3.5 w-3.5 transition-transform ${codesAccordion.manualActivation ? "-rotate-90" : "rotate-90"}`}
@@ -43784,27 +43784,27 @@ ${rows
                                       >
                                         <div className="grid grid-cols-1 gap-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-start">
                                           <div className="min-w-0 text-right">
-                                            <p className="break-words text-sm font-black leading-6 text-slate-900">
+                                            <p className="break-words text-sm font-bold leading-6 text-slate-900">
                                               {student.name || "طالب"}
                                             </p>
                                             <p
-                                              className="mt-1 font-mono text-[11px] font-black leading-5 text-indigo-700"
+                                              className="mt-1 font-mono text-[11px] font-bold leading-5 text-indigo-700"
                                               dir="ltr"
                                             >
                                               {student.id}
                                             </p>
                                           </div>
-                                          <div className="min-w-0 rounded-2xl border border-slate-200 bg-white px-3 py-2 text-right shadow-[inset_0_1px_0_rgba(255,255,255,0.75)] sm:max-w-[16rem]">
+                                          <div className="min-w-0 rounded-2xl border border-slate-200 bg-white px-3 py-2 text-right miras-shadow-1 sm:max-w-[16rem]">
                                             {showSectionCode && (
                                               <p
-                                                className="font-mono text-[10px] font-black leading-4 text-indigo-700"
+                                                className="font-mono text-[10px] font-bold leading-4 text-indigo-700"
                                                 dir="ltr"
                                               >
                                                 {sectionDisplay}
                                               </p>
                                             )}
                                             <p
-                                              className={`${showSectionCode ? "mt-1" : ""} line-clamp-2 break-words text-[10px] font-black leading-5 text-slate-600`}
+                                              className={`${showSectionCode ? "mt-1" : ""} line-clamp-2 break-words text-[10px] font-bold leading-5 text-slate-600`}
                                               title={displayCourseText}
                                             >
                                               {displayCourseText}
@@ -44023,7 +44023,7 @@ ${rows
                                 {renderNotificationGate("teacher")}
                                 {notificationState.message && (
                                   <div className="rounded-2xl border border-emerald-200/60 bg-gradient-to-br from-emerald-50 to-teal-50/50 text-emerald-900 p-3.5 mb-2 shadow-sm">
-                                    <span className="text-[13px] font-black block leading-relaxed">
+                                    <span className="text-[13px] font-bold block leading-relaxed">
                                       {sanitizeCourseIdentifiersForDisplay(
                                         notificationState.message,
                                       )}
@@ -44166,7 +44166,7 @@ ${rows
                                   onClick={() => setSelectedTeacherImportantNotification(null)}
                                 >
                                   <div
-                                    className="w-full max-w-[32rem] rounded-[2rem] border border-white/80 bg-white/98 p-4 text-right shadow-[0_28px_90px_rgba(15,23,42,0.25)] sm:p-5"
+                                    className="w-full max-w-[32rem] rounded-[var(--miras-r-xl)] border border-white/80 bg-white/98 p-4 text-right miras-shadow-3 sm:p-5"
                                     onClick={(e) => e.stopPropagation()}
                                   >
                                     <div className="mb-3 flex items-start justify-between gap-3">
@@ -44179,7 +44179,7 @@ ${rows
                                         <X className="h-5 w-5" />
                                       </button>
                                       <div className="min-w-0 flex-1">
-                                        <span className="mb-2 inline-flex rounded-full border border-emerald-100 bg-emerald-50 px-2.5 py-1 text-[10px] font-black text-emerald-700">
+                                        <span className="mb-2 inline-flex rounded-full border border-emerald-100 bg-emerald-50 px-2.5 py-1 text-[10px] font-bold text-emerald-700">
                                           تم تحديده كمقروء
                                         </span>
                                         <h3 className="break-words text-[1.15rem] font-black leading-8 text-slate-950 sm:text-[1.3rem]">
@@ -44187,11 +44187,11 @@ ${rows
                                         </h3>
                                       </div>
                                     </div>
-                                    <p className="max-h-[45vh] overflow-y-auto whitespace-pre-wrap rounded-[1.25rem] border border-slate-100 bg-slate-50/80 p-3 text-[13px] font-bold leading-7 text-slate-700">
+                                    <p className="max-h-[45vh] overflow-y-auto whitespace-pre-wrap rounded-[var(--miras-r-lg)] border border-slate-100 bg-slate-50/80 p-3 text-[13px] font-bold leading-7 text-slate-700">
                                       {sanitizeCourseIdentifiersForDisplay(selectedTeacherImportantNotification.body)}
                                     </p>
                                     <div className="mt-3 flex items-center justify-between gap-2">
-                                      <time className="rounded-xl bg-white px-2.5 py-1 font-mono text-[10px] font-black text-slate-400 ring-1 ring-slate-100" dir="ltr">
+                                      <time className="rounded-xl bg-white px-2.5 py-1 font-mono text-[10px] font-bold text-slate-400 ring-1 ring-slate-100" dir="ltr">
                                         {formatKwDateTime(selectedTeacherImportantNotification.when)}
                                       </time>
                                       <button
@@ -44202,7 +44202,7 @@ ${rows
                                           setTeacherImportantNotificationsOpen(false);
                                           await note?.action?.();
                                         }}
-                                        className="inline-flex items-center justify-center rounded-2xl bg-slate-950 px-4 py-2.5 text-[12px] font-black text-white shadow-sm hover:bg-indigo-700"
+                                        className="inline-flex items-center justify-center rounded-2xl bg-slate-950 px-4 py-2.5 text-[12px] font-bold text-white shadow-sm hover:bg-indigo-700"
                                       >
                                         فتح الإجراء المرتبط
                                       </button>
@@ -44222,7 +44222,7 @@ ${rows
           className="fixed inset-0 z-[90] flex items-center justify-center bg-slate-950/44 p-3 backdrop-blur-md sm:p-5"
           dir="rtl"
         >
-          <div className="max-h-[88vh] w-full max-w-xl overflow-hidden rounded-[2.1rem] border border-white/80 bg-white/96 p-3.5 text-right shadow-[0_28px_86px_rgba(15,23,42,0.22)] backdrop-blur-xl sm:p-4">
+          <div className="max-h-[88vh] w-full max-w-xl overflow-hidden rounded-[var(--miras-r-xl)] border border-white/80 bg-white/96 p-3.5 text-right miras-shadow-3 backdrop-blur-xl sm:p-4">
             <div className="mb-3 flex items-center justify-between gap-3 px-1 sm:mb-4">
               <h3 className="text-[1.15rem] font-black text-slate-950 sm:text-[1.35rem]">
                 السجل الزمني
@@ -44230,7 +44230,7 @@ ${rows
               <button
                 type="button"
                 onClick={() => setStudentTimelineOpen(false)}
-                className="inline-flex h-10 w-10 items-center justify-center rounded-[1.2rem] border border-slate-100 bg-slate-50/90 text-slate-500 shadow-sm transition hover:bg-white hover:text-slate-900 hover:shadow-md"
+                className="inline-flex h-10 w-10 items-center justify-center rounded-[var(--miras-r-lg)] border border-slate-100 bg-slate-50/90 text-slate-500 shadow-sm transition hover:bg-white hover:text-slate-900 hover:shadow-md"
                 aria-label="إغلاق"
                 title="إغلاق"
               >
@@ -44265,13 +44265,13 @@ ${rows
                     className="miras-timeline-item relative pr-8"
                   >
                     <span
-                      className={`miras-timeline-side-dot absolute right-0 top-[1.125rem] h-4 w-4 rounded-full border-[4px] border-white shadow-[0_0_0_5px_rgba(16,185,129,0.10),0_8px_18px_rgba(15,23,42,0.14)] ${isActionNeeded ? "bg-amber-400" : gradeText ? "bg-emerald-400" : "bg-indigo-400"}`}
+                      className={`miras-timeline-side-dot absolute right-0 top-[1.125rem] h-4 w-4 rounded-full border-[4px] border-white miras-shadow-1 ${isActionNeeded ? "bg-amber-400" : gradeText ? "bg-emerald-400" : "bg-indigo-400"}`}
                     />
                     {idx < studentSubmissionTimeline.length - 1 && (
                       <span className="absolute right-[7px] top-9 h-[calc(100%+0.35rem)] w-px bg-gradient-to-b from-slate-200/75 to-transparent" />
                     )}
                     <div
-                      className={`relative overflow-hidden rounded-[1.35rem] border px-3 py-3 transition hover:-translate-y-0.5 sm:px-3.5 ${isLatestSubmission ? "border-indigo-100/75 bg-gradient-to-br from-white via-indigo-50/18 to-white shadow-[0_12px_34px_rgba(79,70,229,0.075)]" : "border-slate-100/90 bg-white/92 shadow-[0_7px_20px_rgba(15,23,42,0.03)] hover:shadow-[0_12px_28px_rgba(15,23,42,0.045)]"}`}
+                      className={`relative overflow-hidden rounded-[var(--miras-r-lg)] border px-3 py-3 transition hover:-translate-y-0.5 sm:px-3.5 ${isLatestSubmission ? "border-indigo-100/75 bg-gradient-to-br from-white via-indigo-50/18 to-white miras-shadow-glow" : "border-slate-100/90 bg-white/92 miras-shadow-1 hover:miras-shadow-2"}`}
                     >
                       {isLatestSubmission && (
                         <div className="pointer-events-none absolute -left-10 -top-10 h-28 w-28 rounded-full bg-indigo-200/25 blur-3xl" />
@@ -44279,7 +44279,7 @@ ${rows
                       <div className="relative z-10 space-y-2.5">
                         <div className="flex flex-wrap items-center gap-1.5">
                           {isLatestSubmission && (
-                            <span className="inline-flex items-center gap-1 rounded-full border border-indigo-100 bg-indigo-600/95 px-2 py-0.5 text-[8.5px] font-black text-white shadow-[0_7px_18px_rgba(79,70,229,0.16)]">
+                            <span className="inline-flex items-center gap-1 rounded-full border border-indigo-100 bg-indigo-600/95 px-2 py-0.5 text-[8.5px] font-black text-white miras-shadow-glow">
                               <Sparkles className="h-2.5 w-2.5" />
                               آخر تسليم
                             </span>
@@ -44290,10 +44290,10 @@ ${rows
                             {studentSubmissionKindText(sub)}
                           </span>
                         </div>
-                        <span className="inline-flex w-fit rounded-full bg-slate-50/85 px-2.5 py-0.5 text-[9px] font-black text-slate-500">
+                        <span className="inline-flex w-fit rounded-full bg-slate-50/85 px-2.5 py-0.5 text-[9px] font-bold text-slate-500">
                           {formatKwDateTime(sub.submittedAt)}
                         </span>
-                        <p className="line-clamp-2 text-[14px] font-black leading-5 text-slate-950 sm:text-[15px]">
+                        <p className="line-clamp-2 text-[14px] font-bold leading-5 text-slate-950 sm:text-[15px]">
                           {sub.activityTitle || sub.exerciseTitle || "تسليم"}
                         </p>
                         {shouldShowStudentCourseBadges && (
@@ -44311,7 +44311,7 @@ ${rows
                         )}
                         <div className="flex flex-wrap items-center gap-2 pt-1">
                           {gradeText ? (
-                            <span className="inline-flex items-center rounded-2xl border border-indigo-100 bg-indigo-50/60 px-3 py-1.5 font-mono text-[11px] font-black text-indigo-700">
+                            <span className="inline-flex items-center rounded-2xl border border-indigo-100 bg-indigo-50/60 px-3 py-1.5 font-mono text-[11px] font-bold text-indigo-700">
                               {gradeText}
                             </span>
                           ) : smartResultText ? (
@@ -44344,7 +44344,7 @@ ${rows
                 );
               })}
               {studentSubmissionTimeline.length === 0 && (
-                <div className="rounded-[1.35rem] border border-dashed border-slate-200 bg-white py-8 text-center text-xs font-bold text-slate-400">
+                <div className="rounded-[var(--miras-r-lg)] border border-dashed border-slate-200 bg-white py-8 text-center text-xs font-bold text-slate-400">
                   لا يوجد تسليمات مسجلة حتى اللحظة
                 </div>
               )}
@@ -44460,14 +44460,14 @@ ${rows
       {showPwaBanner && !isAppStandalone && (
         <div
           dir="rtl"
-          className="fixed bottom-6 left-6 right-6 md:left-auto md:max-w-md z-50 bg-white/95 rounded-[2rem] border border-indigo-100 shadow-[0_24px_80px_rgba(30,27,75,0.15)] p-6 backdrop-blur-xl animate-fade-in text-right space-y-4"
+          className="fixed bottom-6 left-6 right-6 md:left-auto md:max-w-md z-50 bg-white/95 rounded-[var(--miras-r-xl)] border border-indigo-100 miras-shadow-3 p-6 backdrop-blur-xl animate-fade-in text-right space-y-4"
         >
           <div className="flex items-start gap-3.5">
             <span className="w-12 h-12 rounded-2xl bg-indigo-600 flex items-center justify-center text-white text-2xl shadow-md shrink-0">
               ⭐
             </span>
             <div className="space-y-1 min-w-0">
-              <h4 className="text-sm font-black text-slate-950">
+              <h4 className="text-sm font-bold text-slate-950">
                 إضافة مِراس للشاشة الرئيسية
               </h4>
               <p className="text-[11.5px] font-bold leading-5 text-slate-500">
@@ -44484,13 +44484,13 @@ ${rows
                 );
                 setShowPwaBanner(false);
               }}
-              className="px-4 py-2 text-xs font-black text-slate-500 hover:text-slate-800 transition-colors cursor-pointer"
+              className="px-4 py-2 text-xs font-bold text-slate-500 hover:text-slate-800 transition-colors cursor-pointer"
             >
               لاحقاً
             </button>
             <button
               onClick={triggerPwaInstallation}
-              className="px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-black shadow-sm shadow-indigo-100 transition-all hover:-translate-y-0.5 cursor-pointer"
+              className="px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold shadow-sm shadow-indigo-100 transition-all hover:-translate-y-0.5 cursor-pointer"
             >
               تثبيت الآن 🚀
             </button>
@@ -44506,7 +44506,7 @@ ${rows
           onClick={() => setShowPwaGuideModal(false)}
         >
           <div
-            className="w-full max-w-md bg-white rounded-[2.2rem] border border-slate-200 shadow-premium-lg p-6 text-right relative space-y-6 animate-scale-up"
+            className="w-full max-w-md bg-white rounded-[var(--miras-r-xl)] border border-slate-200 shadow-premium-lg p-6 text-right relative space-y-6 animate-scale-up"
             onClick={(e) => e.stopPropagation()}
           >
             <button
@@ -44533,7 +44533,7 @@ ${rows
                   <span className="w-6 h-6 flex items-center justify-center bg-rose-100 rounded-lg text-rose-700 font-bold text-xs">
                     أ
                   </span>
-                  <h4 className="text-xs font-black text-slate-900">
+                  <h4 className="text-xs font-bold text-slate-900">
                     أجهزة آبل (Safari على iOS/iPadOS):
                   </h4>
                 </div>
@@ -44569,7 +44569,7 @@ ${rows
                   <span className="w-6 h-6 flex items-center justify-center bg-indigo-100 rounded-lg text-indigo-700 font-bold text-xs">
                     ب
                   </span>
-                  <h4 className="text-xs font-black text-slate-900">
+                  <h4 className="text-xs font-bold text-slate-900">
                     أجهزة أندرويد والحاسوب (Chrome / Edge):
                   </h4>
                 </div>
@@ -44588,7 +44588,7 @@ ${rows
             <button
               type="button"
               onClick={() => setShowPwaGuideModal(false)}
-              className="w-full py-3 bg-slate-900 hover:bg-indigo-600 text-white rounded-2xl text-xs font-black transition-all cursor-pointer shadow-sm"
+              className="w-full py-3 bg-slate-900 hover:bg-indigo-600 text-white rounded-2xl text-xs font-bold transition-all cursor-pointer shadow-sm"
             >
               حسناً، فهمت الطريقة 👍
             </button>
@@ -44604,7 +44604,7 @@ ${rows
             if (e.target === e.currentTarget) setMirasRadarOpen(false);
           }}
         >
-          <div className="flex max-h-[94dvh] w-full max-w-3xl flex-col overflow-hidden rounded-[30px] border border-white/10 bg-white shadow-[0_40px_120px_rgba(2,6,23,0.55)]">
+          <div className="flex max-h-[94dvh] w-full max-w-3xl flex-col overflow-hidden rounded-[30px] border border-white/10 bg-white miras-shadow-4">
             {/* رأس الرادار */}
             <div className="relative shrink-0 overflow-hidden bg-gradient-to-l from-slate-950 via-indigo-950 to-slate-900 px-5 py-5 text-white">
               <div className="pointer-events-none absolute -left-10 -top-10 h-40 w-40 rounded-full bg-indigo-500/20 blur-3xl"></div>
@@ -44616,7 +44616,7 @@ ${rows
                     <ShieldAlert className="relative h-6 w-6 text-emerald-300" />
                   </span>
                   <div className="leading-tight">
-                    <p className="text-[10px] font-black tracking-widest text-indigo-300">
+                    <p className="text-[10px] font-bold tracking-widest text-indigo-300">
                       MIRAS RADAR
                     </p>
                     <h3 className="text-[17px] font-black">رادار مِراس</h3>
@@ -44706,7 +44706,7 @@ ${rows
               {mirasRadarTab === "notifications" ? (
                 mirasNotificationAuditData.items.length === 0 ? (
                   <div className="grid place-items-center py-14 text-center">
-                    <p className="text-[14px] font-black text-slate-800">
+                    <p className="text-[14px] font-bold text-slate-800">
                       لا توجد أحداث إرسال مسجلة بعد
                     </p>
                     <p className="mt-1 text-[10.5px] font-medium text-slate-400">
@@ -44814,12 +44814,12 @@ ${rows
                         <div className="flex items-start justify-between gap-2">
                           <p
                             dir="auto"
-                            className="min-w-0 flex-1 break-words text-[12px] font-black leading-6 text-slate-900"
+                            className="min-w-0 flex-1 break-words text-[12px] font-bold leading-6 text-slate-900"
                           >
                             {r.message}
                           </p>
                           {Number(r.count || 1) > 1 && (
-                            <span className="shrink-0 rounded-lg bg-rose-500 px-2 py-0.5 text-[10px] font-black text-white shadow-sm">
+                            <span className="shrink-0 rounded-lg bg-rose-500 px-2 py-0.5 text-[10px] font-bold text-white shadow-sm">
                               ×{r.count}
                             </span>
                           )}
@@ -44846,7 +44846,7 @@ ${rows
                         </div>
                         {r.stack && (
                           <details className="mt-2">
-                            <summary className="cursor-pointer text-[10px] font-black text-indigo-500 hover:text-indigo-700">
+                            <summary className="cursor-pointer text-[10px] font-bold text-indigo-500 hover:text-indigo-700">
                               تفاصيل تقنية (Stack)
                             </summary>
                             <pre
@@ -44922,14 +44922,14 @@ ${rows
             if (e.target === e.currentTarget) setStudentDeadlineCardOpen(false);
           }}
         >
-          <div className="w-full max-w-md overflow-hidden rounded-[28px] border border-slate-100 bg-white shadow-[0_30px_90px_rgba(15,23,42,0.28)]">
+          <div className="w-full max-w-md overflow-hidden rounded-[28px] border border-slate-100 bg-white miras-shadow-3">
             <div className="flex items-center justify-between gap-3 border-b border-slate-100 px-5 py-4">
               <div className="flex items-center gap-2.5">
                 <span className="grid h-11 w-11 place-items-center rounded-2xl bg-indigo-50 text-indigo-600">
                   <Bell className="h-5 w-5" />
                 </span>
                 <div className="text-right leading-tight">
-                  <p className="text-[10px] font-black tracking-wide text-indigo-500">
+                  <p className="text-[10px] font-bold tracking-wide text-indigo-500">
                     مِراس
                   </p>
                   <h3 className="text-[15px] font-black text-slate-900">
@@ -44948,7 +44948,7 @@ ${rows
             </div>
             <div className="space-y-3 px-5 py-4">
               <div className="rounded-2xl bg-slate-50/80 px-4 py-3.5 text-right">
-                <p className="text-[14px] font-black text-slate-900">
+                <p className="text-[14px] font-bold text-slate-900">
                   لديك تنبيه مهم قبل انتهاء الوقت.
                 </p>
                 <p className="mt-1 text-[12px] font-semibold leading-relaxed text-slate-500">
@@ -44984,7 +44984,7 @@ ${rows
                             : `تبقّى ${item.daysLeft} أيام`}
                       </span>
                     </span>
-                    <span className="shrink-0 rounded-lg bg-indigo-50 px-2.5 py-1 text-[10px] font-black text-indigo-600">
+                    <span className="shrink-0 rounded-lg bg-indigo-50 px-2.5 py-1 text-[10px] font-bold text-indigo-600">
                       {item.kind || "نشاط"}
                     </span>
                   </button>
