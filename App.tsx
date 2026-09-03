@@ -35541,7 +35541,7 @@ ${rows
                         <input
                           value={submissionSearch}
                           onChange={(e) => setSubmissionSearch(e.target.value)}
-                          placeholder="ابحث عن طالب، مقرر، ملف، درجة…"
+                          placeholder="ابحث عن طالب أو ملف…"
                           dir="rtl"
                           spellCheck={false}
                           className="w-full min-w-0 bg-transparent text-[13px] font-normal text-slate-700 outline-none placeholder:font-normal placeholder:text-slate-400"
@@ -35797,7 +35797,8 @@ ${rows
                               inputMode="decimal"
                               type="text"
                               dir="ltr"
-                              placeholder=""
+                              placeholder="الدرجة من ١٠٠"
+                              aria-label="الدرجة التي ستُرصد للطلبة المحدَّدين"
                               className="w-full rounded-2xl border border-indigo-100 bg-white px-4 py-3 text-center font-mono text-sm font-semibold text-indigo-700 shadow-sm outline-none focus:border-indigo-300"
                             />
                           </div>
@@ -35805,6 +35806,7 @@ ${rows
                             <button
                               type="button"
                               onClick={applyBulkGradeToSelectedSubmissions}
+                              title="رصد الدرجة لجميع الطلبة المحدَّدين"
                               disabled={
                                 !selectedVisibleSubmissionIds.length ||
                                 !bulkGradeInput.trim()
@@ -35812,6 +35814,7 @@ ${rows
                               className={`flex min-h-[58px] w-full items-center justify-center gap-2 rounded-2xl px-4 py-3 text-xs font-bold shadow-sm transition-all ${selectedVisibleSubmissionIds.length && bulkGradeInput.trim() ? "bg-gradient-to-br from-indigo-700 to-blue-700 text-white hover:from-indigo-800 hover:to-blue-800" : "cursor-not-allowed border border-slate-200 bg-slate-50 text-slate-400"}`}
                             >
                               <CheckCircle2 className="h-5 w-5" />
+                              <span>رصد الدرجة للمحدَّدين</span>
                               {selectedVisibleSubmissionIds.length > 0 && (
                                 <span className="rounded-full bg-white/20 px-2 py-0.5 font-mono text-[10px]">
                                   {selectedVisibleSubmissionIds.length}
