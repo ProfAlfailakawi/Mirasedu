@@ -29635,8 +29635,12 @@ ${rows
         }
           /* ===== MIRAS DOCK V23 — الشريط السفلي الهادئ =====
              يلغي لغة "قوس قزح بلا تسميات" السابقة ويستبدلها بلوح زجاجي واحد:
-             أيقونة + تسمية، لون علامة واحد للحالة النشطة، وزر بحث مرفوع. */
-          .teacher-orbit-dock.miras-dock-shell-v2.miras-dock-shell-v2 {
+             أيقونة + تسمية، لون علامة واحد للحالة النشطة، وزر بحث مرفوع.
+             ملاحظة على المحدِّدات: طبقات الشريط القديمة (V5/V19/V21/V22 هنا
+             و index.css) تصل إلى تخصيص (0,8,2) مع !important، لذلك تستخدم
+             القواعد أدناه الحيلة :not(#_) — وهي لا تطابق أي عنصر لكنها ترفع
+             التخصيص إلى مستوى المعرّف فتفوز على تلك الطبقات دون تعديلها. */
+          .teacher-orbit-dock.miras-dock-shell-v2:not(#_) {
             padding: 6px 8px !important;
             border-radius: 24px !important;
             border: 1px solid rgba(226, 232, 240, 0.92) !important;
@@ -29649,8 +29653,11 @@ ${rows
             overflow: visible !important;
           }
 
-          .miras-teacher-nav-track.teacher-orbit-dock-track.miras-dock-v2.miras-dock-v2 {
+          .miras-teacher-nav-track.miras-dock-v2:not(#_) {
             display: grid !important;
+            flex: 1 1 auto !important;
+            width: 100% !important;
+            min-width: 0 !important;
             grid-auto-flow: column !important;
             grid-auto-columns: minmax(0, 1fr) !important;
             align-items: stretch !important;
@@ -29663,15 +29670,19 @@ ${rows
             overflow: visible !important;
           }
 
-          .teacher-orbit-dock-track.miras-dock-v2 button.miras-dock-item.miras-dock-item {
+          .miras-dock-v2 button.miras-dock-item:not(#_) {
             position: relative !important;
             display: flex !important;
             flex-direction: column !important;
             align-items: center !important;
             justify-content: center !important;
             gap: 3px !important;
-            width: auto !important;
+            /* الأزرار داخل الشبكة لا تتمدد تلقائياً (سلوك عناصر النموذج مع
+               justify-items: normal)، فنمدّدها صراحةً لتملأ عمودها. */
+            justify-self: stretch !important;
+            width: 100% !important;
             min-width: 0 !important;
+            max-width: none !important;
             height: auto !important;
             min-height: 46px !important;
             padding: 6px 1px 5px !important;
@@ -29685,21 +29696,21 @@ ${rows
             transition: background-color .18s ease, color .18s ease !important;
           }
 
-          .teacher-orbit-dock-track.miras-dock-v2 button.miras-dock-item.miras-dock-item:hover {
+          .miras-dock-v2 button.miras-dock-item:not(#_):hover {
             background: rgba(241, 245, 249, 0.9) !important;
             color: #0f172a !important;
           }
 
-          .teacher-orbit-dock-track.miras-dock-v2 button.miras-dock-item.miras-dock-item:active {
+          .miras-dock-v2 button.miras-dock-item:not(#_):active {
             transform: scale(.96) !important;
           }
 
-          .teacher-orbit-dock-track.miras-dock-v2 button.miras-dock-item.miras-dock-item.is-active {
+          .miras-dock-v2 button.miras-dock-item.is-active:not(#_) {
             background: rgba(79, 70, 229, 0.1) !important;
             color: #4f46e5 !important;
           }
 
-          .teacher-orbit-dock-track.miras-dock-v2 button.miras-dock-item .miras-dock-icon {
+          .miras-dock-v2 button.miras-dock-item .miras-dock-icon:not(#_) {
             width: 20px !important;
             height: 20px !important;
             min-width: 20px !important;
@@ -29707,7 +29718,8 @@ ${rows
             flex: 0 0 auto !important;
           }
 
-          .teacher-orbit-dock-track.miras-dock-v2 button.miras-dock-item .miras-dock-label {
+          .miras-dock-v2 button.miras-dock-item .miras-dock-label:not(#_) {
+            display: block !important;
             max-width: 100% !important;
             overflow: hidden !important;
             font-size: 9px !important;
@@ -29719,13 +29731,13 @@ ${rows
           }
 
           /* زر البحث المرفوع في منتصف الشريط — الإجراء الرئيسي */
-          .teacher-orbit-dock-track.miras-dock-v2 button.miras-dock-item.miras-dock-fab {
+          .miras-dock-v2 button.miras-dock-item.miras-dock-fab:not(#_) {
             justify-content: flex-end !important;
             background: transparent !important;
             color: #4f46e5 !important;
           }
 
-          .teacher-orbit-dock-track.miras-dock-v2 .miras-dock-fab .miras-dock-fab-orb {
+          .miras-dock-v2 .miras-dock-fab .miras-dock-fab-orb:not(#_) {
             display: flex !important;
             align-items: center !important;
             justify-content: center !important;
@@ -29740,28 +29752,31 @@ ${rows
               inset 0 1px 0 rgba(255, 255, 255, 0.3) !important;
           }
 
-          .teacher-orbit-dock-track.miras-dock-v2 .miras-dock-fab .miras-dock-icon {
+          .miras-dock-v2 .miras-dock-fab .miras-dock-icon:not(#_) {
             color: #fff !important;
           }
 
-          .teacher-orbit-dock-track.miras-dock-v2 .miras-dock-fab .miras-dock-label {
+          .miras-dock-v2 .miras-dock-fab .miras-dock-label:not(#_) {
             color: #4f46e5 !important;
           }
 
           @media (max-width: 920px), (pointer: coarse) and (hover: none) {
-            /* لوح ممتد بهامش 10px بدل شريط ملتصق بحافة الشاشة */
-            .miras-teacher-v5-shell .teacher-nav-mobile.teacher-orbit-dock.miras-dock-shell-v2.miras-dock-shell-v2 {
+            /* لوح ممتد بهامش 10px بدل شريط مركزي ضيّق تُقصّ تسمياته */
+            .teacher-nav-mobile.teacher-orbit-dock.miras-dock-shell-v2:not(#_) {
               left: 10px !important;
               right: 10px !important;
               width: auto !important;
+              min-width: 0 !important;
               max-width: none !important;
               transform: var(--miras-teacher-dock-motion, translateY(0) scale(1)) !important;
+              transform-origin: 50% 100% !important;
             }
 
             /* الانكماش التلقائي كان يخفت الشريط ويطمسه (opacity .64 + blur)
-               فيبدو معطلاً؛ صار انزياحًا خفيفًا فقط. */
-            .miras-teacher-v5-shell .teacher-nav-mobile.teacher-orbit-dock.teacher-orbit-dock-shrunk.miras-dock-shell-v2.miras-dock-shell-v2 {
-              --miras-teacher-dock-motion: translateY(2px) scale(.985);
+               ويقلّصه إلى 84% فيبدو معطلاً؛ صار انزياحًا خفيفًا فقط. */
+            .teacher-nav-mobile.teacher-orbit-dock.teacher-orbit-dock-shrunk.miras-dock-shell-v2:not(#_) {
+              --miras-teacher-dock-motion: translateY(2px) scale(.985) !important;
+              width: auto !important;
               opacity: .97 !important;
               filter: none !important;
               box-shadow:
@@ -29769,18 +29784,36 @@ ${rows
                 inset 0 1px 0 rgba(255, 255, 255, 0.9) !important;
             }
 
-            .miras-teacher-v5-shell .teacher-nav-mobile.teacher-orbit-dock.miras-dock-shell-v2.miras-dock-shell-v2:hover,
-            .miras-teacher-v5-shell .teacher-nav-mobile.teacher-orbit-dock.miras-dock-shell-v2.miras-dock-shell-v2:focus-within,
-            .miras-teacher-v5-shell .teacher-nav-mobile.teacher-orbit-dock.miras-dock-shell-v2.miras-dock-shell-v2[data-miras-dock-state="open"] {
-              --miras-teacher-dock-motion: translateY(0) scale(1);
+            .teacher-nav-mobile.teacher-orbit-dock.miras-dock-shell-v2:not(#_):hover,
+            .teacher-nav-mobile.teacher-orbit-dock.miras-dock-shell-v2:not(#_):focus-within,
+            .teacher-nav-mobile.teacher-orbit-dock.miras-dock-shell-v2:not(#_)[data-miras-dock-state="open"] {
+              --miras-teacher-dock-motion: translateY(0) scale(1) !important;
               opacity: 1 !important;
               filter: none !important;
             }
           }
 
-          @media (max-width: 360px) {
-            .teacher-orbit-dock-track.miras-dock-v2 button.miras-dock-item .miras-dock-label {
-              font-size: 8.5px !important;
+          /* الشاشات الضيقة (≤400px): سبع خانات معنونة لا تتسع بمقاسات الافتراضي،
+             فتُقصّ "التسليمات" ويقترب الكلام من جاره حتى 4.6px على 320px.
+             نضيّق هوامش اللوح ونجعل حجم التسمية سائلاً بحيث تتسع دائماً. */
+          @media (max-width: 400px) {
+            .teacher-nav-mobile.teacher-orbit-dock.miras-dock-shell-v2:not(#_) {
+              left: 6px !important;
+              right: 6px !important;
+              padding: 5px 4px !important;
+            }
+
+            .miras-teacher-nav-track.miras-dock-v2:not(#_) {
+              gap: 0 !important;
+            }
+
+            .miras-dock-v2 button.miras-dock-item:not(#_) {
+              padding-left: 0 !important;
+              padding-right: 0 !important;
+            }
+
+            .miras-dock-v2 button.miras-dock-item .miras-dock-label:not(#_) {
+              font-size: clamp(7px, 2.25vw, 9px) !important;
             }
           }
       `}</style>
