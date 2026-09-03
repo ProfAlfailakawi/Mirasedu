@@ -2015,13 +2015,8 @@ const downloadSebConfigFile = (url: string, fileName?: string) => {
   anchor.remove();
 };
 
-// ═══════════════════════════════════════════════════════════════════════════
-// علامة مِراس — ميم واحدة، لون واحد، بلا إطارات.
-// السابقة كانت ثلاثة مربّعات متداخلة (لغة كاميرا Instagram) + نقطة خضراء تُقرأ
-// كشارة إشعار، وكانت تذوب إلى بقعة زرقاء عند ٣٢ بكسل. هذه مرسومة كحلقة (رأس
-// الميم) وذيل يكنس يساراً — اتجاه الكتابة العربية — وينتهي بقصّة مائلة تحاكي
-// سنّ القلم. الجوف واسع عمداً كي ينجو الحرف في الفافيكون.
-// ═══════════════════════════════════════════════════════════════════════════
+// علامة مِراس: ميم مبنيّة من حلقة (الرأس) وذيل ينزل ويكنس يساراً، وطرفه
+// مقصوص بزاوية. الجوف واسع كي يبقى الحرف مقروءاً في المقاسات الصغيرة.
 const MIRAS_RING_D =
   "M386 178A86 86 0 1 0 214 178A86 86 0 1 0 386 178ZM342 178A42 42 0 1 1 258 178A42 42 0 1 1 342 178Z";
 const MIRAS_TAIL_D = "M250 219 C 268 308, 244 374, 150 404";
@@ -2044,7 +2039,7 @@ function MirasMark({ className = "", title }: { className?: string; title?: stri
   );
 }
 
-// نسخة تُرسم بنفسها: قناع يكشف العلامة بترتيب كتابة الميم (الحلقة ثم الذيل).
+// نسخة متحرّكة: قناع يكشف العلامة بترتيب الكتابة — الحلقة ثم الذيل.
 function MirasMarkDrawn({ className = "" }: { className?: string }) {
   const uid = "mirasDraw";
   return (
@@ -2069,6 +2064,14 @@ function MirasMarkDrawn({ className = "" }: { className?: string }) {
   );
 }
 
+// معرّفات ملكية احتياطية.
+// تُستعمل فقط عندما تخلو بيانات الشعبة من ownerEmail، وهي مرتبطة بالتصريح
+// (من يرى أي شعبة) فلا تُغيَّر قيمتها دون تغيير مقابل في الخادم. جُمعت هنا في
+// موضع واحد لتسهيل نقلها إلى الخادم لاحقاً بدل تكرارها داخل الملف.
+const MIRAS_ORG_MAIL_DOMAIN = "@paaet.edu.kw";
+const MIRAS_PEER_OWNER_EMAIL = `ada.alenezi${MIRAS_ORG_MAIL_DOMAIN}`;
+const MIRAS_PRIMARY_OWNER_EMAIL = `ah.alfailakawi${MIRAS_ORG_MAIL_DOMAIN}`;
+
 const ONBOARDING_VERSION = "v3";
 const onboardingStorageKey = (role: "teacher" | "student", id: any) =>
   `miras_onboarding_${role}_${ONBOARDING_VERSION}:${String(id || "guest")
@@ -2077,8 +2080,7 @@ const onboardingStorageKey = (role: "teacher" | "student", id: any) =>
 const isOnboardingDone = (key: string) => {
   if (!key || typeof window === "undefined") return true;
   try {
-    // منفذ إعادة الجولة: ‎?miras_tour=1‎ يعيد فتحها لمن أنهاها أو تخطّاها،
-    // فلم تعد الجولة تُفقد للأبد بضغطة واحدة كما كان.
+    // ‎?miras_tour=1‎ يعيد فتح الجولة بعد إنهائها أو تخطّيها.
     if (new URLSearchParams(window.location.search).get("miras_tour") === "1") {
       return false;
     }
@@ -2090,16 +2092,10 @@ const isOnboardingDone = (key: string) => {
   }
 };
 
-// ═══════════════════════════════════════════════════════════════════════════
-// الجولة التعريفية — v3
-// السابقة: ٥ خطوات، كل واحدة بغرادينت مختلف تماماً (بنفسجي ← أخضر ← سماوي ←
-// بنفسجي ← برتقالي)، فيمرّ المستخدم على عجلة الألوان كاملة في ٤٠ ثانية ولا
-// يعلق في ذهنه لون اسمه مِراس. والمركز البصري كان أيقونة واجهة مكبّرة ٤ أضعاف.
-// الجديدة: ٣ خطوات، أرضية هوية واحدة ثابتة، وفي القلب «مصغّرة» من واجهة مِراس
-// الحقيقية — الكود، الكشف، المتابعة — لأن الجولة التي تُبهر تُري المنتج يعمل.
-// ═══════════════════════════════════════════════════════════════════════════
+// الجولة التعريفية: ثلاث خطوات على أرضية هوية واحدة، وفي قلب كل خطوة مصغّرة
+// تحاكي واجهة مِراس (الكشف، الأكواد، المتابعة).
 
-// إطار يحاكي بطاقات مِراس الحقيقية، فتبدو المصغّرة قطعة من المنتج لا رسماً.
+// إطار المصغّرة، بنفس لغة بطاقات مِراس.
 function TourCard({ children }: { children: any }) {
   return (
     <div className="w-full max-w-[19rem] rounded-[var(--miras-r-lg)] border border-white/15 bg-white/10 p-3.5 shadow-[0_24px_60px_rgba(5,8,25,0.35)] backdrop-blur-xl">
@@ -2163,9 +2159,9 @@ const tourVisuals = {
         <span className="rounded-full bg-white/12 px-2 py-0.5 text-[9px] font-bold text-white/70">٢٨</span>
       </div>
       <div className="space-y-1.5">
-        <TourRow label="أحمد الفيلكاوي" meta="٢٠٢١" tone="done" delay={0.05} />
-        <TourRow label="سارة العنزي" meta="٢٠٢٢" tone="done" delay={0.13} />
-        <TourRow label="محمد الرشيد" meta="٢٠٢٣" tone="idle" delay={0.21} />
+        <TourRow label="طالب تجريبي" meta="٢٠٢١" tone="done" delay={0.05} />
+        <TourRow label="طالبة تجريبية" meta="٢٠٢٢" tone="done" delay={0.13} />
+        <TourRow label="طالب تجريبي ٢" meta="٢٠٢٣" tone="idle" delay={0.21} />
       </div>
     </TourCard>
   ),
@@ -3092,10 +3088,7 @@ export default function App() {
     | "teacher_workspace"
     | "payment"
   >(() => {
-    // صفحة الهبوط غير قابلة للوصول أصلاً: لا شيء في التطبيق يضبط العرض على
-    // "landing"، ولا المُهيّئ يعيدها — ولهذا كانت أقسامها مطفأة بـ‎hidden‎.
-    // أُبقيت كما هي في التدفّق الافتراضي (لا تغيير في السلوك)، وأُضيف منفذ
-    // معاينة صريح ‎?miras_home=1‎ ليقرّر المالك أيربطها أم يحذفها.
+    // التدفّق الافتراضي لا يمرّ بصفحة الهبوط. ‎?miras_home=1‎ منفذ معاينة لها.
     try {
       if (
         typeof window !== "undefined" &&
@@ -7064,9 +7057,7 @@ export default function App() {
   const [uploadText, setUploadText] = useState("");
   const [uploadFileName, setUploadFileName] = useState("");
   const [isProjectGenerating, setIsProjectGenerating] = useState(false);
-  // ── السِمة ──
-  // التطبيق لم يكن فيه ولا استخدام واحد لـ‎dark:‎ رغم أن الـmanifest والـsplash
-  // داكنان. الافتراضي الآن يتبع تفضيل النظام، مع تجاوز يدوي يُحفظ.
+  // السِمة: تتبع تفضيل النظام افتراضياً، مع تجاوز يدوي يُحفظ محلياً.
   const [theme, setTheme] = useState<"light" | "dark">(() => {
     if (typeof document === "undefined") return "light";
     return document.documentElement.getAttribute("data-theme") === "dark"
@@ -7102,8 +7093,7 @@ export default function App() {
     });
   };
 
-  // شاشة الإقلاع تُعرض لأول دخول فقط. من يعود إلى جلسة قائمة لا يستحق ضريبة
-  // ثانيتين في كل فتح، فتُتخطّى تماماً.
+  // شاشة الإقلاع لأول تحميل في الجلسة فقط.
   const [showSplash, setShowSplash] = useState(() => {
     if (typeof window === "undefined") return false;
     try {
@@ -9721,7 +9711,7 @@ export default function App() {
     } catch {}
     const splashTimer = setTimeout(() => {
       setShowSplash(false);
-    }, 2250);
+    }, 3900);
 
     return () => {
       window.removeEventListener("storage", handleStorage);
@@ -11394,13 +11384,8 @@ export default function App() {
     );
     const enrollmentName = cleanName(fromEnrollment?.teacherName);
     if (enrollmentName) return enrollmentName;
-    if (normalized.includes("ada.alenezi")) return "د. عبدالعزيز دخيل العنزي";
-    if (
-      normalized.includes("ah.alfailakawi") ||
-      normalized.includes("ahmad.alfailakawi") ||
-      normalized.includes("dr.ahmad.alfailakawi")
-    )
-      return "د. أحمد حسين الفيلكاوي";
+    // الاسم يُقرأ من بيانات الشعبة أو التسجيل أعلاه. لا تُضمَّن أسماء أو
+    // بُرد حقيقية في حزمة العميل لأنها تُشحن إلى كل زائر.
     return "اسم الدكتور غير محمّل";
   };
   const replaceStandaloneDisplayToken = (
@@ -11973,7 +11958,7 @@ export default function App() {
     String(value || "")
       .trim()
       .toLowerCase()
-      .endsWith("@paaet.edu.kw");
+      .endsWith(MIRAS_ORG_MAIL_DOMAIN);
   const getMirasDeviceId = () => {
     return resolveMirasDeviceId();
   };
@@ -12527,13 +12512,7 @@ export default function App() {
     const teacherEmail = String(n?.teacherEmail || data.teacherEmail || "")
       .trim()
       .toLowerCase();
-    const isAdminCurrent =
-      String(teacherSession.email || "")
-        .toLowerCase()
-        .includes("ah.alfailakawi") ||
-      String(teacherSession.email || "")
-        .toLowerCase()
-        .includes("ahmad.alfailakawi");
+    const isAdminCurrent = teacherSession?.role === "admin";
     const type = String(n?.type || data.type || "").toLowerCase();
     const routineTeacherAction = [
       "course_opened",
@@ -12865,13 +12844,7 @@ export default function App() {
   };
   const currentNotificationIdentity = () => {
     if (teacherSession) {
-      const isAdmin =
-        String(teacherSession.email || "")
-          .toLowerCase()
-          .includes("ah.alfailakawi") ||
-        String(teacherSession.email || "")
-          .toLowerCase()
-          .includes("ahmad.alfailakawi");
+      const isAdmin = teacherSession?.role === "admin";
       return {
         userId: teacherSession.email || teacherSession.id,
         role: isAdmin ? "admin" : "teacher",
@@ -15835,7 +15808,7 @@ ${rows
       return;
     }
     const normalizedEmail = normalizeArabicDigits(
-      signupForm.email || `${signupForm.idNumber || "student"}@paaet.edu.kw`,
+      signupForm.email || `${signupForm.idNumber || "student"}${MIRAS_ORG_MAIL_DOMAIN}`,
     )
       .trim()
       .toLowerCase();
@@ -19548,54 +19521,48 @@ ${rows
     selectedSubmissionActivityId,
   ]);
 
-  const TeacherMetricCard = ({ label, value, tone, icon: Icon }: any) => {
-    const iconTone = String(tone || "").includes("indigo")
-      ? "bg-indigo-50 text-indigo-700 shadow-indigo-200/40 ring-indigo-100"
-      : String(tone || "").includes("sky")
-        ? "bg-sky-50 text-sky-700 shadow-sky-200/40 ring-sky-100"
-        : String(tone || "").includes("emerald")
-          ? "bg-emerald-50 text-emerald-700 shadow-emerald-200/40 ring-emerald-100"
-          : String(tone || "").includes("violet")
-            ? "bg-violet-50 text-violet-700 shadow-violet-200/40 ring-violet-100"
-            : String(tone || "").includes("amber")
-              ? "bg-amber-50 text-amber-700 shadow-amber-200/40 ring-amber-100"
-              : String(tone || "").includes("rose")
-                ? "bg-rose-50 text-rose-700 shadow-rose-200/40 ring-rose-100"
-                : "bg-slate-50 text-slate-700 shadow-slate-200/40 ring-slate-100";
+  // بطاقة مؤشّر: سطح ولهجة واحدة لكل العدّادات. اللون محجوز لحالة التنبيه
+  // وحدها، ويظهر فقط عندما تكون القيمة أكبر من صفر.
+  const TeacherMetricCard = ({ label, value, icon: Icon, alert = false }: any) => {
+    const numeric = Number(
+      normalizeArabicIndicDigits(String(value ?? "")).replace(/[^\d.]/g, ""),
+    );
+    const live = alert && Number.isFinite(numeric) && numeric > 0;
 
     return (
-      <div className="miras-metric-card relative isolate overflow-hidden rounded-[1.7rem] border border-white/80 bg-white/75 p-4 shadow-[0_18px_50px_rgba(15,23,42,0.06)] backdrop-blur-xl">
-        <div
-          className={`miras-metric-blob pointer-events-none absolute -left-8 -top-8 h-24 w-24 rounded-full blur-2xl ${tone}`}
-        />
+      <div className="miras-metric-card relative isolate overflow-hidden rounded-[1.7rem] border border-slate-200/70 bg-white p-4">
         <div className="relative z-10 flex flex-row-reverse items-center justify-between gap-3">
-          <div className="text-right">
-            <span className="block text-[11px] font-extrabold leading-5 text-slate-500">
+          <div className="min-w-0 text-right">
+            <span className="block truncate text-[11px] font-bold leading-5 text-slate-500">
               {label}
             </span>
-            <span className="mt-1 block text-2xl font-black tracking-tight text-slate-950">
+            <span className="mt-0.5 block text-[1.65rem] font-black leading-tight tracking-tight text-slate-950">
               {value}
             </span>
           </div>
           <div
-            className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl shadow-lg ring-1 ${iconTone}`}
+            className={`grid h-11 w-11 shrink-0 place-items-center rounded-[var(--miras-r-md)] ring-1 ${
+              live
+                ? "bg-amber-50 text-amber-700 ring-amber-200"
+                : "bg-indigo-50 text-indigo-700 ring-indigo-100"
+            }`}
           >
             <Icon className="h-5 w-5" />
           </div>
         </div>
+        {live && (
+          <span
+            className="absolute inset-x-0 bottom-0 h-[3px] bg-amber-400"
+            aria-hidden="true"
+          />
+        )}
       </div>
     );
   };
 
-  const isMirasAdminEmail = (email: any) => {
-    const e = String(email || "").toLowerCase();
-    return (
-      e.includes("ah.alfailakawi") ||
-      e.includes("ahmad.alfailakawi") ||
-      e.includes("dr.ahmad.alfailakawi") ||
-      teacherSession?.role === "admin"
-    );
-  };
+  // صلاحية المشرف تُقرأ من دور الجلسة، والخادم هو من يفرضها فعلياً (٤٠٣).
+  // لا تُقارن بُرد إلكترونية مضمّنة هنا: الحزمة عامة ويقرأها أي زائر.
+  const isMirasAdminEmail = (_email?: any) => teacherSession?.role === "admin";
   const isSameTeacherIdentity = (a: any, b: any) => {
     const aa = String(a || "").toLowerCase();
     const bb = String(b || "").toLowerCase();
@@ -19658,8 +19625,8 @@ ${rows
     )?.ownerEmail;
     if (displayMatch) return displayMatch;
     const c = raw.toUpperCase();
-    if (c === "TECH-A1" || c === "TECH-B2") return "ada.alenezi@paaet.edu.kw";
-    return "Ah.Alfailakawi@paaet.edu.kw";
+    if (c === "TECH-A1" || c === "TECH-B2") return MIRAS_PEER_OWNER_EMAIL;
+    return MIRAS_PRIMARY_OWNER_EMAIL;
   };
   const visibleTeacherSections = teacherSections.filter((sec: any) => {
     if (!teacherSession) return false;
@@ -19793,7 +19760,7 @@ ${rows
   const teacherAccountOptions = Array.from(
     new Set(
       [
-        "ada.alenezi@paaet.edu.kw",
+        MIRAS_PEER_OWNER_EMAIL,
         currentTeacherEmail,
         ...teacherSections.map((sec: any) =>
           courseOwnerEmail(sec.code).toLowerCase(),
@@ -19803,13 +19770,7 @@ ${rows
   ).filter((email) => String(email).includes("@") && !isMirasAdminEmail(email));
   const teacherAccountLabel = (email: string) => {
     const e = String(email || "").toLowerCase();
-    if (e.includes("ada.alenezi")) return "د. عبدالعزيز دخيل العنزي";
-    if (
-      e.includes("ah.alfailakawi") ||
-      e.includes("ahmad.alfailakawi") ||
-      e.includes("dr.ahmad.alfailakawi")
-    )
-      return "د. أحمد حسين الفيلكاوي";
+    // كما أعلاه: بلا أسماء مضمّنة في حزمة العميل.
     return "اسم الدكتور غير محمّل";
   };
   const scopedOwnerEmail = isAdminTeacher
@@ -30073,7 +30034,7 @@ ${rows
         </div>
       </div>
       {showSplash && (
-        <div className="miras-splash fixed inset-0 z-[100] flex flex-col items-center justify-center animate-out fade-out duration-500 delay-[1750ms] fill-mode-forwards">
+        <div className="miras-splash fixed inset-0 z-[100] flex flex-col items-center justify-center animate-out fade-out duration-500 delay-[3300ms] fill-mode-forwards">
           <div className="relative flex flex-col items-center">
             <MirasMarkDrawn className="miras-splash-mark h-24 w-24 sm:h-28 sm:w-28" />
             <div className="miras-splash-reveal mt-7 flex flex-col items-center">
@@ -31012,9 +30973,7 @@ ${rows
       <div className="flex-1 flex flex-col">
         {/* 1. PUBLIC LANDING VIEW */}
         {currentView === "landing" && (
-          // صفحة الهبوط كانت مهدومة: الرأس ‎hidden‎، والعمود الأيمن كله ‎hidden‎،
-          // وزر دخول الأستاذ ‎hidden‎ — فلم يبقَ للزائر سوى لوقو وزر أسود واحد.
-          // أُعيد تشغيل التصميم وأُعيدت صياغته على رموز النظام الجديدة.
+          // صفحة الهبوط: رأس + عمود عرض، مبنية على رموز النظام.
           <div
             dir="rtl"
             className="relative isolate flex-1 overflow-hidden text-slate-950"
@@ -35157,37 +35116,32 @@ ${rows
                     <TeacherMetricCard
                       label="عدد المقررات"
                       value={`${visibleTeacherSections.length || 0}`}
-                      tone="bg-indigo-300/40"
                       icon={BookOpen}
                     />
                     <TeacherMetricCard
                       label="عدد الطلبة"
                       value={`${scopedOverallReports.totalRegistered || 0}`}
-                      tone="bg-sky-300/40"
                       icon={Users}
                     />
                     <TeacherMetricCard
                       label="نسبة التقدم"
                       value={`${scopedOverallReports.percentCompleted || 0}%`}
-                      tone="bg-emerald-300/40"
                       icon={Award}
                     />
                     <TeacherMetricCard
                       label="الاختبارات"
                       value={`${teacherCreatedExams.filter((e: any) => e.courseCode === activeCourseCode).length || 0}`}
-                      tone="bg-violet-300/40"
                       icon={FileText}
                     />
                     <TeacherMetricCard
                       label="المشاريع"
                       value={`${teacherProjects.filter((p: any) => p.courseCode === activeCourseCode).length || 0}`}
-                      tone="bg-amber-300/40"
                       icon={Send}
                     />
                     <TeacherMetricCard
                       label="تنبيهات مهمة"
                       value={`${scopedOverallReports.deviceViolationCount || 0}`}
-                      tone="bg-rose-300/40"
+                      alert
                       icon={ShieldAlert}
                     />
                   </div>
@@ -39116,8 +39070,8 @@ ${rows
                       >
                         <option value="all">كل الحسابات</option>
                         <option value="self">بياناتي وطلبتي</option>
-                        <option value="ada.alenezi@paaet.edu.kw">
-                          د. عبدالعزيز دخيل العنزي
+                        <option value={MIRAS_PEER_OWNER_EMAIL}>
+                          {teacherAccountLabel(MIRAS_PEER_OWNER_EMAIL)}
                         </option>
                         {teacherAccountOptions
                           .filter(
@@ -39127,7 +39081,7 @@ ${rows
                                   teacherSession?.email || "",
                                 ).toLowerCase() &&
                               String(email).toLowerCase() !==
-                                "ada.alenezi@paaet.edu.kw",
+                                MIRAS_PEER_OWNER_EMAIL,
                           )
                           .map((email) => (
                             <option key={String(email)} value={String(email)}>
@@ -42310,8 +42264,8 @@ ${rows
                       >
                         <option value="all">كل الحسابات</option>
                         <option value="self">بياناتي وطلبتي</option>
-                        <option value="ada.alenezi@paaet.edu.kw">
-                          د. عبدالعزيز دخيل العنزي
+                        <option value={MIRAS_PEER_OWNER_EMAIL}>
+                          {teacherAccountLabel(MIRAS_PEER_OWNER_EMAIL)}
                         </option>
                         {teacherAccountOptions
                           .filter(
@@ -42321,7 +42275,7 @@ ${rows
                                   teacherSession?.email || "",
                                 ).toLowerCase() &&
                               String(email).toLowerCase() !==
-                                "ada.alenezi@paaet.edu.kw",
+                                MIRAS_PEER_OWNER_EMAIL,
                           )
                           .map((email) => (
                             <option key={String(email)} value={String(email)}>

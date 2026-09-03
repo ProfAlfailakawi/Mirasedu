@@ -65,7 +65,7 @@ const aiInstance = process.env.GEMINI_API_KEY
   : null;
 
 const app = express();
-const PORT = Number(process.env.PORT || 3000);
+const PORT = 3000;
 
 const PASSKEY_RP_NAME = "مِراس";
 type PasskeyRole = "student" | "teacher";
