@@ -64,7 +64,23 @@
     <script type="module" src="/src/main.tsx"></script>
   </head>
   <body>
+    <!-- رابط التخطّي: يظهر عند التنقّل بلوحة المفاتيح فقط، وينقل التركيز إلى
+         المحتوى الرئيسي دون المرور على شريط التنقّل كاملاً. -->
+    <a id="miras-skip" href="#" class="miras-skip">تخطَّ إلى المحتوى</a>
     <div id="root"></div>
+    <script>
+      (function () {
+        var link = document.getElementById("miras-skip");
+        if (!link) return;
+        link.addEventListener("click", function (e) {
+          e.preventDefault();
+          var target = document.querySelector("main") || document.getElementById("root");
+          if (!target) return;
+          target.setAttribute("tabindex", "-1");
+          target.focus({ preventScroll: false });
+        });
+      })();
+    </script>
 
     <!-- شبكة إنقاذ SEB: عنصر HTML/CSS/JS عادي بدون React. يظهر فقط داخل جلسة
          Safe Exam Browser إذا لم تظهر الواجهة خلال ٨ ثوانٍ أو حدث خطأ يمنع
