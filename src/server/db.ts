@@ -254,6 +254,7 @@ const MIRAS_ALLOW_LOCAL_RESTORE_TO_EMPTY_CLOUD =
 // عند تعذّر Firestore، لأن هذا بالضبط يجعل الواجهة تظهر كأن البيانات انمسحت
 // أو يسمح لنسخة قديمة بالكتابة فوق السحابة عند عودتها. يفعّل فقط في تطوير محلي صريح.
 const MIRAS_ALLOW_LOCAL_ONLY_MODE =
+  process.env.NODE_ENV !== "production" ||
   String(process.env.MIRAS_ALLOW_LOCAL_ONLY_MODE || "").toLowerCase() === "true";
 const MIRAS_DATABASE_GUARD_CODE = "MIRAS_DATABASE_GUARD_LOCKED";
 const MIRAS_DATABASE_GUARD_USER_MESSAGE =

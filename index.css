@@ -17725,9 +17725,8 @@ html.miras-teacher-scroll-locked .meras-teacher-shell.teacher-calm-shell .teache
 
 /* ═══════════════════════════════════════════════════════════════════════════
    نظام مِراس البصري — v3
+   رموز الهوية والأسطح، وسلالم موحّدة لنصف القطر والظل والوزن.
    تُقرأ هذه الطبقة أخيراً فتحسم التعارض مع ما سبقها.
-   الغرض: تقليل عدد القرارات البصرية لا زيادتها —
-   ٣ أنصاف أقطار بدل ٢٦، و٤ مستويات ظل بدل ٨٣، وسلّم أوزان يحترم التسلسل.
    ═══════════════════════════════════════════════════════════════════════════ */
 
 :root {
@@ -17796,7 +17795,7 @@ html.miras-teacher-scroll-locked .meras-teacher-shell.teacher-calm-shell .teache
   --miras-splash-from: #0A0A12;
 }
 
-/* ═══ ١) نصف القطر — توحيد ٢٦ قيمة عشوائية في ثلاث ═══ */
+/* ═══ ١) نصف القطر — ثلاث قيم ═══ */
 .rounded-\[0\.85rem\], .rounded-\[1rem\], .rounded-\[1\.08rem\],
 .rounded-\[1\.1rem\], .rounded-\[1\.15rem\] { border-radius: var(--miras-r-md) !important; }
 
@@ -17808,7 +17807,7 @@ html.miras-teacher-scroll-locked .meras-teacher-shell.teacher-calm-shell .teache
 .rounded-\[2rem\], .rounded-\[2\.2rem\], .rounded-\[2\.25rem\],
 .rounded-3xl { border-radius: var(--miras-r-xl) !important; }
 
-/* ═══ ٢) الظلال — أربعة مستويات، والملوّن يبقى ملوّناً ═══ */
+/* ═══ ٢) الظلال — أربعة مستويات ═══ */
 [class*="shadow-[0_4px"], [class*="shadow-[0_5px"], [class*="shadow-[0_6px"],
 [class*="shadow-[0_7px"], [class*="shadow-[0_8px"], [class*="shadow-[0_9px"],
 [class*="shadow-[0_10px"], [class*="shadow-[0_11px"] { box-shadow: var(--miras-e1) !important; }
@@ -17829,9 +17828,7 @@ html.miras-teacher-scroll-locked .meras-teacher-shell.teacher-calm-shell .teache
 [class*="shadow-"][class*="rgba(79,70,229"],
 [class*="shadow-"][class*="rgba(67,56,202"] { box-shadow: var(--miras-glow) !important; }
 
-/* ═══ ٣) الوزن — إنهاء «كل شيء أسود»
-   كان ‎font-black‎ يُستعمل ٥٣٦ مرة مقابل ١٧ لـ‎font-semibold‎، فانعدم التسلسل.
-   النص الصغير يعود إلى ٧٠٠، وتبقى العناوين وحدها بوزن ٩٠٠. ═══ */
+/* ═══ ٣) الوزن — النص الصغير ٧٠٠، والعناوين ٩٠٠ ═══ */
 [class*="text-[9px]"].font-black,  [class*="text-[10px]"].font-black,
 [class*="text-[11px]"].font-black, [class*="text-[12px]"].font-black,
 [class*="text-[13px]"].font-black, [class*="text-[14px]"].font-black,
@@ -17843,13 +17840,13 @@ td.font-black, li.font-black { font-weight: 700 !important; }
 h1.font-black, h2.font-black, h3.font-black,
 h1 .font-black, h2 .font-black, h3 .font-black { font-weight: 900 !important; }
 
-/* ═══ ٤) التتبّع الحرفي — العربية لا تقبل ‎letter-spacing‎
-   القيم السالبة تُلصق الحروف المتصلة، والموجبة تفكّ الوصل. تُحيَّد إلا للأرقام. ═══ */
+/* ═══ ٤) التتبّع الحرفي
+   ‎letter-spacing‎ يفكّ وصل الحروف العربية، فيُحيَّد فيما عدا الأرقام. ═══ */
 [dir="rtl"] :where(h1,h2,h3,h4,h5,p,span,button,a,label,li,td,th,div):not(.font-mono):not([class*="tabular"]) {
   letter-spacing: normal !important;
 }
 
-/* ═══ ٥) وضوح التركيز — كان غائباً تماماً ═══ */
+/* ═══ ٥) حلقة التركيز ═══ */
 :where(button,a,[role="button"],input,select,textarea):focus-visible {
   outline: 2px solid var(--miras-brand) !important;
   outline-offset: 2px !important;
@@ -17866,11 +17863,9 @@ h1 .font-black, h2 .font-black, h3 .font-black { font-weight: 900 !important; }
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
-   ٧) الوضع الليلي
-   التطبيق لا يملك ولا استخدام واحد لـ‎dark:‎ في ٤٤ ألف سطر، بينما الـmanifest
-   والـsplash داكنان — أي أن الوعد قائم والوفاء غائب. بدل زرع ‎dark:‎ في آلاف
-   المواضع، تُعاد هنا خرائط الأسطح الأكثر استعمالاً (وهي مركّزة جداً: ‎bg-white‎
-   وحدها ٢٥٢ موضعاً) إلى رموز السطح. الزخارف الشفافة الخفيفة تُترك كما هي.
+   ٧) الوضع الليلي — أدوات Tailwind
+   تُعاد خرائط الأسطح الأكثر استعمالاً إلى رموز السطح، بدل توزيع ‎dark:‎ على
+   آلاف المواضع. الزخارف الشفافة الخفيفة تُترك كما هي.
    ═══════════════════════════════════════════════════════════════════════════ */
 
 [data-theme="dark"] body,
@@ -17945,14 +17940,13 @@ h1 .font-black, h2 .font-black, h3 .font-black { font-weight: 900 !important; }
 [data-theme="dark"] [class*="bg-slate-950/"] { background-color: rgba(0,0,0,.72) !important; }
 
 /* ═══════════════════════════════════════════════════════════════════════════
-   ٨) شاشة الإقلاع — هبوط بدل قفزة
-   القديم: أسود ثم أبيض فجأة (‎#030712‎ → واجهة بيضاء) = وخزة ضوء كل فتح.
-   الجديد: الأرضية نفسها تتحوّل تدريجياً إلى لون سطح التطبيق، والعلامة تُرسم
-   بنفسها ثم تهبط إلى لون الهوية — فلا توجد لحظة قطع أصلاً.
+   ٨) شاشة الإقلاع
+   الأرضية تتحوّل تدريجياً إلى لون سطح التطبيق، والعلامة تُرسم ثم تهبط إلى لون
+   الهوية — فيكون الانتقال إلى الواجهة متّصلاً بلا قطع.
    ═══════════════════════════════════════════════════════════════════════════ */
 .miras-splash {
   background: var(--miras-splash-from) !important;
-  animation: miras-splash-land 1.85s cubic-bezier(.65,0,.35,1) forwards;
+  animation: miras-splash-land 3.4s cubic-bezier(.65,0,.35,1) forwards;
   overflow: hidden;
 }
 .miras-splash::before {
@@ -17964,29 +17958,29 @@ h1 .font-black, h2 .font-black, h3 .font-black { font-weight: 900 !important; }
   background-size: 54px 54px;
   -webkit-mask-image: radial-gradient(circle at 50% 44%, #000 0%, transparent 66%);
   mask-image: radial-gradient(circle at 50% 44%, #000 0%, transparent 66%);
-  animation: miras-splash-grid 1.85s ease-out forwards;
+  animation: miras-splash-grid 3.4s ease-out forwards;
 }
 @keyframes miras-splash-land {
-  0%, 58% { background-color: var(--miras-splash-from); }
+  0%, 70% { background-color: var(--miras-splash-from); }
   100%    { background-color: var(--miras-surface); }
 }
-@keyframes miras-splash-grid { 0%,55% { opacity: 1; } 100% { opacity: 0; } }
+@keyframes miras-splash-grid { 0%,66% { opacity: 1; } 100% { opacity: 0; } }
 
-.miras-splash-mark { color: #fff; animation: miras-splash-ink 1.85s cubic-bezier(.65,0,.35,1) forwards; }
-@keyframes miras-splash-ink { 0%,58% { color: #fff; } 100% { color: var(--miras-brand); } }
+.miras-splash-mark { color: #fff; animation: miras-splash-ink 3.4s cubic-bezier(.65,0,.35,1) forwards; }
+@keyframes miras-splash-ink { 0%,70% { color: #fff; } 100% { color: var(--miras-brand); } }
 
-.miras-splash-word { color: #fff; animation: miras-splash-ink-word 1.85s cubic-bezier(.65,0,.35,1) forwards; }
-@keyframes miras-splash-ink-word { 0%,58% { color: #fff; } 100% { color: var(--miras-ink); } }
+.miras-splash-word { color: #fff; animation: miras-splash-ink-word 3.4s cubic-bezier(.65,0,.35,1) forwards; }
+@keyframes miras-splash-ink-word { 0%,70% { color: #fff; } 100% { color: var(--miras-ink); } }
 
-.miras-splash-sub { color: rgba(255,255,255,.62); animation: miras-splash-ink-sub 1.85s cubic-bezier(.65,0,.35,1) forwards; }
-@keyframes miras-splash-ink-sub { 0%,58% { color: rgba(255,255,255,.62); } 100% { color: var(--miras-ink-3); } }
+.miras-splash-sub { color: rgba(255,255,255,.62); animation: miras-splash-ink-sub 3.4s cubic-bezier(.65,0,.35,1) forwards; }
+@keyframes miras-splash-ink-sub { 0%,70% { color: rgba(255,255,255,.62); } 100% { color: var(--miras-ink-3); } }
 
-/* رسم العلامة بنفسها: الحلقة أولاً ثم الذيل — ترتيب كتابة الميم فعلياً */
-.miras-draw-ring { stroke-dasharray: 100; stroke-dashoffset: 100; animation: miras-draw .72s cubic-bezier(.55,.1,.25,1) .12s forwards; }
-.miras-draw-tail { stroke-dasharray: 100; stroke-dashoffset: 100; animation: miras-draw .58s cubic-bezier(.4,0,.3,1) .68s forwards; }
+/* رسم العلامة: الحلقة أولاً ثم الذيل */
+.miras-draw-ring { stroke-dasharray: 100; stroke-dashoffset: 100; animation: miras-draw 1s cubic-bezier(.55,.1,.25,1) .2s forwards; }
+.miras-draw-tail { stroke-dasharray: 100; stroke-dashoffset: 100; animation: miras-draw .8s cubic-bezier(.4,0,.3,1) 1.1s forwards; }
 @keyframes miras-draw { to { stroke-dashoffset: 0; } }
 
-.miras-splash-reveal { opacity: 0; animation: miras-splash-reveal .7s cubic-bezier(.16,1,.3,1) 1.02s forwards; }
+.miras-splash-reveal { opacity: 0; animation: miras-splash-reveal .75s cubic-bezier(.16,1,.3,1) 1.95s forwards; }
 @keyframes miras-splash-reveal { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
 
 @media (prefers-reduced-motion: reduce) {
@@ -17994,7 +17988,7 @@ h1 .font-black, h2 .font-black, h3 .font-black { font-weight: 900 !important; }
   .miras-splash-reveal { opacity: 1; animation: none; }
 }
 
-/* ═══ ٩) مسرح الجولة التعريفية — أرضية هوية واحدة ثابتة ═══ */
+/* ═══ ٩) مسرح الجولة التعريفية ═══ */
 .miras-tour-stage {
   background:
     radial-gradient(120% 90% at 84% 6%, #5B52EA 0%, transparent 56%),
@@ -18104,10 +18098,7 @@ h1 .font-black, h2 .font-black, h3 .font-black { font-weight: 900 !important; }
   border: 1px solid var(--miras-line) !important;
 }
 
-/* ═══ ١١) شريط بطاقة الدخول — من ثلاثة ألوان إلى نبرة هوية واحدة
-   كان ‎أخضر ← أزرق ← بنفسجي‎ بسماكة ٧ بكسل فوق البطاقة: ثلاثة ألوان تتنازع
-   الانتباه في أول شاشة، وتناقض مباشر لقاعدة «لون واحد» التي تقوم عليها
-   العلامة الجديدة. يبقى الشريط كإشارة، لكن بلون الهوية وبسماكة أهدأ. ═══ */
+/* ═══ ١١) شريط بطاقة الدخول — نبرة هوية واحدة بسماكة أهدأ ═══ */
 .meras-auth-card::before {
   height: 3px !important;
   background: linear-gradient(90deg,
@@ -18118,11 +18109,680 @@ h1 .font-black, h2 .font-black, h3 .font-black { font-weight: 900 !important; }
 }
 
 /* ═══ ١٢) ارتفاع السطر في العناوين العربية
-   الحروف العربية تحمل نزولات (و، ج، ي) وتشكيلاً فوق السطر، فالقيم المشدودة
-   المستوردة من تنضيد لاتيني (‎leading-none‎ / ‎1.0x‎ / ‎tight‎) تقصّ أطراف
-   الحروف في العناوين الكبيرة — كما كان يحدث في «في مكان واحد». ═══ */
+   الحروف العربية تحمل نزولات وتشكيلاً، فالقيم المشدودة تقصّ أطرافها في
+   العناوين الكبيرة. يُضبط حدّ أدنى لارتفاع السطر. ═══ */
 [dir="rtl"] :where(h1, h2):where(
   .leading-none, .leading-tight, [class*="leading-[1.0"], [class*="leading-[1.1"]
 ) {
   line-height: 1.3 !important;
+}
+
+/* ═══ ١٣) هدف اللمس مقابل الارتفاع الصريح
+   قاعدة هدف اللمس (‎min-height:44px‎ على الأزرار) تُحسب بعد ‎height‎ فتتغلّب على
+   أي ارتفاع صريح. تبقى القاعدة سارية لكل زر لم يحدّد ارتفاعه، وتُستثنى الأزرار
+   التي حدّدته صراحةً كي تحتفظ بمقاسها المقصود. ═══ */
+:where(button, a, select, [role="button"], .student-icon-btn, .teacher-mini-nav):where(
+  [class~="h-1"],   [class~="h-1.5"], [class~="h-2"],   [class~="h-2.5"],
+  [class~="h-3"],   [class~="h-3.5"], [class~="h-4"],   [class~="h-4.5"],
+  [class~="h-5"],   [class~="h-5.5"], [class~="h-6"],   [class~="h-7"],
+  [class~="h-8"],   [class~="h-8.5"], [class~="h-9"],   [class~="h-10"]
+) {
+  min-height: 0 !important;
+}
+
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   ١٤) الوضع الليلي — الأسطح الخاصة بمِراس
+   ملاحظتان تقنيتان تفسّران شكل المحدّدات أدناه:
+   • كثير من قواعد هذا الملف ترسم أسطحها بتدرّج عبر ‎background-image‎، وهو
+     يُرسم فوق ‎background-color‎ — فلا يكفي تغيير اللون وحده، بل يجب إطفاء
+     الصورة أيضاً.
+   • بعض القواعد المنافسة تبلغ خصوصية ‎0,7,1‎ وإحداها تستعمل ‎#root‎. البادئة
+     هنا تستعمل ‎#root‎ أيضاً، فمُعرِّف واحد يتفوّق على أي عدد من الأصناف.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+html[data-theme="dark"] #root .meras-auth-shell,
+html[data-theme="dark"] #root .workspace-calm-shell,
+html[data-theme="dark"] #root .teacher-calm-shell,
+html[data-theme="dark"] #root .meras-teacher-shell,
+html[data-theme="dark"] #root .meras-student-shell,
+html[data-theme="dark"] #root .workspace-shell,
+html[data-theme="dark"] #root .miras-app-shell,
+html[data-theme="dark"] #root .miras-app-teacher-root,
+html[data-theme="dark"] #root .miras-teacher-viewport-v5,
+html[data-theme="dark"] #root .miras-teacher-v5-shell,
+html[data-theme="dark"] #root .teacher-command-main,
+html[data-theme="dark"] #root .student-overview-fixed {
+  background-image:
+    radial-gradient(circle at 78% 10%, rgba(91,82,234,.16), transparent 34%),
+    radial-gradient(circle at 12% 88%, rgba(52,211,153,.07), transparent 32%) !important;
+  background-color: var(--miras-surface-2) !important;
+}
+
+html[data-theme="dark"] #root .meras-auth-card,
+html[data-theme="dark"] #root .glass-panel,
+html[data-theme="dark"] #root .glass-nav,
+html[data-theme="dark"] #root .executive-card,
+html[data-theme="dark"] #root .student-activity-card,
+html[data-theme="dark"] #root .miras-metric-card,
+html[data-theme="dark"] #root .miras-empty-state,
+html[data-theme="dark"] #root .miras-soft-dialog-card,
+html[data-theme="dark"] #root .miras-cmdk,
+html[data-theme="dark"] #root .miras-offline-card,
+html[data-theme="dark"] #root .miras-return-modal,
+html[data-theme="dark"] #root .miras-return-exception,
+html[data-theme="dark"] #root .miras-section-hero,
+html[data-theme="dark"] #root .miras-ready-moment,
+html[data-theme="dark"] #root .miras-locked-course-card,
+html[data-theme="dark"] #root .miras-sharing-group-card,
+html[data-theme="dark"] #root .miras-admin-code-security,
+html[data-theme="dark"] #root .miras-code-monitor,
+html[data-theme="dark"] #root .miras-code-report,
+html[data-theme="dark"] #root .miras-code-report-stage,
+html[data-theme="dark"] #root .miras-teacher-alert-popover,
+html[data-theme="dark"] #root .miras-teacher-alert-card,
+html[data-theme="dark"] #root .miras-teacher-alert-card-clean,
+html[data-theme="dark"] #root .teacher-important-popover,
+html[data-theme="dark"] #root .miras-student-popover,
+html[data-theme="dark"] #root .miras-student-alert-popover,
+html[data-theme="dark"] #root .student-popover,
+html[data-theme="dark"] #root .miras-student-notice-card,
+html[data-theme="dark"] #root .miras-student-notice-card-return,
+html[data-theme="dark"] #root .miras-student-notice-body,
+html[data-theme="dark"] #root .miras-student-course-picker,
+html[data-theme="dark"] #root .teacher-command-header,
+html[data-theme="dark"] #root .meras-topbar,
+html[data-theme="dark"] #root .teacher-topbar,
+html[data-theme="dark"] #root .miras-teacher-v5-header,
+html[data-theme="dark"] #root .workspace-header-glass,
+html[data-theme="dark"] #root .miras-teacher-nav-shell,
+html[data-theme="dark"] #root .teacher-orbit-dock,
+html[data-theme="dark"] #root .teacher-mini-nav,
+html[data-theme="dark"] #root .student-sidebar,
+html[data-theme="dark"] #root .miras-connection-status,
+html[data-theme="dark"] #root .miras-connection-status-popover,
+html[data-theme="dark"] #root .miras-mobile-teacher-zero-header,
+html[data-theme="dark"] #root .miras-onboarding-panel,
+html[data-theme="dark"] #root .miras-teacher-home-panel,
+html[data-theme="dark"] #root .nav-pill,
+html[data-theme="dark"] #root .clean-tab,
+html[data-theme="dark"] #root .miras-dock-shell-v2 {
+  background-image: none !important;
+  background-color: var(--miras-surface) !important;
+  border-color: var(--miras-line) !important;
+}
+
+html[data-theme="dark"] #root .miras-deadline-chip,
+html[data-theme="dark"] #root .miras-code-item,
+html[data-theme="dark"] #root .miras-capsule-select,
+html[data-theme="dark"] #root .miras-inner-tab,
+html[data-theme="dark"] #root .miras-inner-tab-active,
+html[data-theme="dark"] #root .teacher-clean-tab,
+html[data-theme="dark"] #root .teacher-mini-nav-active,
+html[data-theme="dark"] #root .student-icon-btn,
+html[data-theme="dark"] #root .student-popover-row,
+html[data-theme="dark"] #root .student-activity-mini,
+html[data-theme="dark"] #root .miras-student-return-chip,
+html[data-theme="dark"] #root .miras-student-return-title-badge,
+html[data-theme="dark"] #root .miras-locked-course-chip,
+html[data-theme="dark"] #root .miras-locked-course-input,
+html[data-theme="dark"] #root .miras-super-scope-filter,
+html[data-theme="dark"] #root .miras-super-scope-select,
+html[data-theme="dark"] #root .miras-integrity-switch,
+html[data-theme="dark"] #root .miras-code-monitor-toggle,
+html[data-theme="dark"] #root .miras-code-report-tab,
+html[data-theme="dark"] #root .miras-code-report-tab-active,
+html[data-theme="dark"] #root .miras-zero-action-btn,
+html[data-theme="dark"] #root .miras-alert-toolbar,
+html[data-theme="dark"] #root .miras-teacher-nav-track,
+html[data-theme="dark"] #root .teacher-orbit-dock-track,
+html[data-theme="dark"] #root .teacher-important-item,
+html[data-theme="dark"] #root .miras-teacher-alert-meta,
+html[data-theme="dark"] #root .miras-teacher-alert-date,
+html[data-theme="dark"] #root .miras-student-notice-date-badge,
+html[data-theme="dark"] #root .miras-attachment-preview-body,
+html[data-theme="dark"] #root .miras-document-simple-toolbar,
+html[data-theme="dark"] #root .miras-ios-pdf-card,
+html[data-theme="dark"] #root .miras-ios-pdf-secondary,
+html[data-theme="dark"] #root .miras-document-simple-shell {
+  background-image: none !important;
+  background-color: var(--miras-surface-3) !important;
+  border-color: var(--miras-line) !important;
+}
+
+html[data-theme="dark"] #root .bg-white,
+html[data-theme="dark"] #root [class*="bg-white/"],
+html[data-theme="dark"] #root .bg-slate-50,
+html[data-theme="dark"] #root [class*="bg-slate-50/"],
+html[data-theme="dark"] #root .bg-slate-100,
+html[data-theme="dark"] #root .bg-indigo-50,
+html[data-theme="dark"] #root [class*="bg-indigo-50/"],
+html[data-theme="dark"] #root .bg-emerald-50,
+html[data-theme="dark"] #root [class*="bg-emerald-50/"],
+html[data-theme="dark"] #root .bg-amber-50,
+html[data-theme="dark"] #root [class*="bg-amber-50/"],
+html[data-theme="dark"] #root .bg-rose-50,
+html[data-theme="dark"] #root [class*="bg-rose-50/"],
+html[data-theme="dark"] #root .bg-red-50 {
+  background-image: none !important;
+}
+
+/* الورق يبقى ورقاً: صفحة المستند والصور وإطارات PDF لا تُقلب أبداً */
+html[data-theme="dark"] #root .miras-document-theater__paper,
+html[data-theme="dark"] #root .miras-document-theater__image,
+html[data-theme="dark"] #root .miras-attachment-image-fit,
+html[data-theme="dark"] #root .miras-attachment-image-preview,
+html[data-theme="dark"] #root .miras-attachment-pdf-fit-frame,
+html[data-theme="dark"] #root .miras-attachment-document-fit-frame,
+html[data-theme="dark"] #root .miras-pdf-smart-frame,
+html[data-theme="dark"] #root .miras-pdf-smart-frame__iframe {
+  background-image: none !important;
+  background-color: #fff !important;
+  color: #0B1020 !important;
+}
+
+/* ═══ ١٥) الوضع الليلي — النصوص والحدود والنبرات
+   بنفس بادئة الخصوصية في القسم ١٤، لأن قواعد الألوان النصية تخضع للتنافس ذاته. ═══ */
+
+html[data-theme="dark"] #root .text-slate-950,
+html[data-theme="dark"] #root .text-slate-900 { color: var(--miras-ink) !important; }
+html[data-theme="dark"] #root .text-slate-800,
+html[data-theme="dark"] #root .text-slate-700,
+html[data-theme="dark"] #root .text-slate-600 { color: var(--miras-ink-2) !important; }
+html[data-theme="dark"] #root .text-slate-500,
+html[data-theme="dark"] #root .text-slate-400,
+html[data-theme="dark"] #root .text-slate-300 { color: var(--miras-ink-3) !important; }
+html[data-theme="dark"] #root .border-slate-100,
+html[data-theme="dark"] #root .border-slate-200,
+html[data-theme="dark"] #root .border-slate-300,
+html[data-theme="dark"] #root .border-white,
+html[data-theme="dark"] #root [class*="border-slate-200/"],
+html[data-theme="dark"] #root [class*="border-slate-100/"],
+html[data-theme="dark"] #root [class*="border-white/7"],
+html[data-theme="dark"] #root [class*="border-white/8"],
+html[data-theme="dark"] #root [class*="border-white/9"] { border-color: var(--miras-line) !important; }
+
+html[data-theme="dark"] #root .text-indigo-600,
+html[data-theme="dark"] #root .text-indigo-700,
+html[data-theme="dark"] #root .text-indigo-800,
+html[data-theme="dark"] #root .text-indigo-900 { color: var(--miras-brand-strong) !important; }
+html[data-theme="dark"] #root .border-indigo-100,
+html[data-theme="dark"] #root .border-indigo-200 { border-color: var(--miras-brand-line) !important; }
+html[data-theme="dark"] #root .bg-indigo-50,
+html[data-theme="dark"] #root [class*="bg-indigo-50/"] { background-image: none !important; background-color: var(--miras-brand-tint) !important; }
+html[data-theme="dark"] #root .bg-indigo-600,
+html[data-theme="dark"] #root .bg-indigo-700 { background-image: none !important; background-color: var(--miras-brand) !important; color: var(--miras-brand-on) !important; }
+
+/* الأسطح الداكنة أصلاً تصير لون الهوية كي لا تذوب في الخلفية */
+html[data-theme="dark"] #root .bg-slate-950,
+html[data-theme="dark"] #root .bg-slate-900 { background-image: none !important; background-color: var(--miras-brand) !important; color: var(--miras-brand-on) !important; }
+
+/* النبرات الدلالية */
+html[data-theme="dark"] #root .bg-emerald-50,
+html[data-theme="dark"] #root [class*="bg-emerald-50/"] { background-image: none !important; background-color: #0E2A22 !important; }
+html[data-theme="dark"] #root .bg-amber-50,
+html[data-theme="dark"] #root [class*="bg-amber-50/"] { background-image: none !important; background-color: #2E2210 !important; }
+html[data-theme="dark"] #root .bg-rose-50,
+html[data-theme="dark"] #root [class*="bg-rose-50/"],
+html[data-theme="dark"] #root .bg-red-50 { background-image: none !important; background-color: #2E1418 !important; }
+html[data-theme="dark"] #root .border-emerald-100,
+html[data-theme="dark"] #root .border-emerald-200 { border-color: #17402F !important; }
+html[data-theme="dark"] #root .border-amber-100,
+html[data-theme="dark"] #root .border-amber-200 { border-color: #45341A !important; }
+html[data-theme="dark"] #root .border-rose-100,
+html[data-theme="dark"] #root .border-rose-200 { border-color: #4A2028 !important; }
+html[data-theme="dark"] #root .text-emerald-700,
+html[data-theme="dark"] #root .text-emerald-800 { color: #4ADE9A !important; }
+html[data-theme="dark"] #root .text-amber-700,
+html[data-theme="dark"] #root .text-amber-800 { color: #FBBF4D !important; }
+html[data-theme="dark"] #root .text-rose-700,
+html[data-theme="dark"] #root .text-rose-800 { color: #FB7C90 !important; }
+
+/* الحقول */
+html[data-theme="dark"] #root input,
+html[data-theme="dark"] #root textarea,
+html[data-theme="dark"] #root select {
+  background-image: none !important;
+  background-color: var(--miras-surface-3) !important;
+  color: var(--miras-ink) !important;
+  border-color: var(--miras-line) !important;
+}
+html[data-theme="dark"] #root input::placeholder,
+html[data-theme="dark"] #root textarea::placeholder { color: var(--miras-ink-3) !important; }
+
+/* الحُجُب خلف النوافذ */
+html[data-theme="dark"] #root [class*="bg-slate-950/"],
+html[data-theme="dark"] #root [class*="bg-slate-900/"] { background-color: rgba(0,0,0,.72) !important; }
+
+/* نص مقصوص بتدرّج: يُعاد إلى لون صريح بدل تدرّج داكن على أرضية داكنة */
+html[data-theme="dark"] #root .bg-clip-text {
+  -webkit-text-fill-color: var(--miras-ink) !important;
+  color: var(--miras-ink) !important;
+  background-image: none !important;
+}
+
+/* ═══ ١٦) الوضع الليلي — حالات التفاعل
+   حالات ‎hover/active‎ في هذا الملف مبنية على أسطح فاتحة، فتقفز إلى الأبيض فوق
+   خلفية داكنة. تُستبدل بطبقة ضوء شفافة، والحالة النشطة بنبرة الهوية. ═══ */
+
+html[data-theme="dark"] #root .clean-tab:hover,
+html[data-theme="dark"] #root .teacher-clean-tab:hover,
+html[data-theme="dark"] #root .teacher-mini-nav:hover,
+html[data-theme="dark"] #root .miras-inner-tab:hover,
+html[data-theme="dark"] #root .student-icon-btn:hover,
+html[data-theme="dark"] #root .cosmic-icon-button:hover,
+html[data-theme="dark"] #root .bento-interactive:hover,
+html[data-theme="dark"] #root .miras-integrity-switch-btn:hover,
+html[data-theme="dark"] #root .miras-deadline-chip:hover,
+html[data-theme="dark"] #root .teacher-orbit-dock-track button:hover,
+html[data-theme="dark"] #root .miras-code-report-tab:hover,
+html[data-theme="dark"] #root .miras-code-monitor-toggle:hover,
+html[data-theme="dark"] #root .miras-super-scope-filter:hover {
+  background-image: none !important;
+  background-color: rgba(255,255,255,.07) !important;
+  border-color: var(--miras-line) !important;
+}
+
+html[data-theme="dark"] #root .teacher-mini-nav-active,
+html[data-theme="dark"] #root .miras-inner-tab-active,
+html[data-theme="dark"] #root .miras-integrity-switch-btn-active,
+html[data-theme="dark"] #root .miras-code-report-tab-active,
+html[data-theme="dark"] #root .miras-document-theater__chip--active,
+html[data-theme="dark"] #root .teacher-clean-tab-active {
+  background-image: none !important;
+  background-color: var(--miras-brand-tint) !important;
+  border-color: var(--miras-brand-line) !important;
+  color: var(--miras-brand-strong) !important;
+}
+
+/* لمعة زجاجية فاتحة تُطفأ في الليل */
+html[data-theme="dark"] #root .bento-interactive::before,
+html[data-theme="dark"] #root .executive-card::before,
+html[data-theme="dark"] #root .miras-metric-card::before,
+html[data-theme="dark"] #root .miras-inner-tab-active::after {
+  background-image: none !important;
+  background-color: transparent !important;
+  opacity: 0 !important;
+}
+
+/* صفوف الجداول */
+html[data-theme="dark"] #root tbody tr:hover td {
+  background-image: none !important;
+  background-color: rgba(255,255,255,.05) !important;
+}
+
+/* تركيز الحقول */
+html[data-theme="dark"] #root input:focus,
+html[data-theme="dark"] #root select:focus,
+html[data-theme="dark"] #root textarea:focus {
+  background-image: none !important;
+  background-color: var(--miras-surface-3) !important;
+  border-color: var(--miras-brand) !important;
+}
+
+/* ═══ ١٧) الوضع الليلي — تغطية كاملة لسلالم الألوان
+   القسم ١٥ غطّى ستّ عائلات فقط، فبقيت ‎bg-violet-50‎ و‎sky‎ و‎orange‎ و‎blue‎
+   بيضاء. هنا تُغطّى كل العائلات المستعملة فعلياً في الواجهة، بخلفية عميقة من
+   نفس الدرجة اللونية ونصّ فاتح منها. ═══ */
+
+html[data-theme="dark"] #root .bg-indigo-50,
+html[data-theme="dark"] #root [class*="bg-indigo-50/"],
+html[data-theme="dark"] #root .bg-indigo-100,
+html[data-theme="dark"] #root [class*="bg-indigo-100/"] { background-image: none !important; background-color: var(--miras-brand-tint) !important; }
+html[data-theme="dark"] #root .border-indigo-100,
+html[data-theme="dark"] #root .border-indigo-200,
+html[data-theme="dark"] #root [class*="border-indigo-100/"],
+html[data-theme="dark"] #root [class*="border-indigo-200/"] { border-color: var(--miras-brand-line) !important; }
+html[data-theme="dark"] #root .ring-indigo-100,
+html[data-theme="dark"] #root .ring-indigo-200 { --tw-ring-color: var(--miras-brand-line) !important; }
+html[data-theme="dark"] #root .text-indigo-600,
+html[data-theme="dark"] #root .text-indigo-700,
+html[data-theme="dark"] #root .text-indigo-800,
+html[data-theme="dark"] #root .text-indigo-900 { color: var(--miras-brand-strong) !important; }
+html[data-theme="dark"] #root .bg-violet-50,
+html[data-theme="dark"] #root [class*="bg-violet-50/"],
+html[data-theme="dark"] #root .bg-violet-100,
+html[data-theme="dark"] #root [class*="bg-violet-100/"] { background-image: none !important; background-color: var(--miras-brand-tint) !important; }
+html[data-theme="dark"] #root .border-violet-100,
+html[data-theme="dark"] #root .border-violet-200,
+html[data-theme="dark"] #root [class*="border-violet-100/"],
+html[data-theme="dark"] #root [class*="border-violet-200/"] { border-color: var(--miras-brand-line) !important; }
+html[data-theme="dark"] #root .ring-violet-100,
+html[data-theme="dark"] #root .ring-violet-200 { --tw-ring-color: var(--miras-brand-line) !important; }
+html[data-theme="dark"] #root .text-violet-600,
+html[data-theme="dark"] #root .text-violet-700,
+html[data-theme="dark"] #root .text-violet-800,
+html[data-theme="dark"] #root .text-violet-900 { color: var(--miras-brand-strong) !important; }
+html[data-theme="dark"] #root .bg-blue-50,
+html[data-theme="dark"] #root [class*="bg-blue-50/"],
+html[data-theme="dark"] #root .bg-blue-100,
+html[data-theme="dark"] #root [class*="bg-blue-100/"] { background-image: none !important; background-color: var(--miras-brand-tint) !important; }
+html[data-theme="dark"] #root .border-blue-100,
+html[data-theme="dark"] #root .border-blue-200,
+html[data-theme="dark"] #root [class*="border-blue-100/"],
+html[data-theme="dark"] #root [class*="border-blue-200/"] { border-color: var(--miras-brand-line) !important; }
+html[data-theme="dark"] #root .ring-blue-100,
+html[data-theme="dark"] #root .ring-blue-200 { --tw-ring-color: var(--miras-brand-line) !important; }
+html[data-theme="dark"] #root .text-blue-600,
+html[data-theme="dark"] #root .text-blue-700,
+html[data-theme="dark"] #root .text-blue-800,
+html[data-theme="dark"] #root .text-blue-900 { color: var(--miras-brand-strong) !important; }
+html[data-theme="dark"] #root .bg-emerald-50,
+html[data-theme="dark"] #root [class*="bg-emerald-50/"],
+html[data-theme="dark"] #root .bg-emerald-100,
+html[data-theme="dark"] #root [class*="bg-emerald-100/"] { background-image: none !important; background-color: #0E2A22 !important; }
+html[data-theme="dark"] #root .border-emerald-100,
+html[data-theme="dark"] #root .border-emerald-200,
+html[data-theme="dark"] #root [class*="border-emerald-100/"],
+html[data-theme="dark"] #root [class*="border-emerald-200/"] { border-color: #17402F !important; }
+html[data-theme="dark"] #root .ring-emerald-100,
+html[data-theme="dark"] #root .ring-emerald-200 { --tw-ring-color: #17402F !important; }
+html[data-theme="dark"] #root .text-emerald-600,
+html[data-theme="dark"] #root .text-emerald-700,
+html[data-theme="dark"] #root .text-emerald-800,
+html[data-theme="dark"] #root .text-emerald-900 { color: #4ADE9A !important; }
+html[data-theme="dark"] #root .bg-green-50,
+html[data-theme="dark"] #root [class*="bg-green-50/"],
+html[data-theme="dark"] #root .bg-green-100,
+html[data-theme="dark"] #root [class*="bg-green-100/"] { background-image: none !important; background-color: #0E2A22 !important; }
+html[data-theme="dark"] #root .border-green-100,
+html[data-theme="dark"] #root .border-green-200,
+html[data-theme="dark"] #root [class*="border-green-100/"],
+html[data-theme="dark"] #root [class*="border-green-200/"] { border-color: #17402F !important; }
+html[data-theme="dark"] #root .ring-green-100,
+html[data-theme="dark"] #root .ring-green-200 { --tw-ring-color: #17402F !important; }
+html[data-theme="dark"] #root .text-green-600,
+html[data-theme="dark"] #root .text-green-700,
+html[data-theme="dark"] #root .text-green-800,
+html[data-theme="dark"] #root .text-green-900 { color: #4ADE9A !important; }
+html[data-theme="dark"] #root .bg-amber-50,
+html[data-theme="dark"] #root [class*="bg-amber-50/"],
+html[data-theme="dark"] #root .bg-amber-100,
+html[data-theme="dark"] #root [class*="bg-amber-100/"] { background-image: none !important; background-color: #2E2210 !important; }
+html[data-theme="dark"] #root .border-amber-100,
+html[data-theme="dark"] #root .border-amber-200,
+html[data-theme="dark"] #root [class*="border-amber-100/"],
+html[data-theme="dark"] #root [class*="border-amber-200/"] { border-color: #45341A !important; }
+html[data-theme="dark"] #root .ring-amber-100,
+html[data-theme="dark"] #root .ring-amber-200 { --tw-ring-color: #45341A !important; }
+html[data-theme="dark"] #root .text-amber-600,
+html[data-theme="dark"] #root .text-amber-700,
+html[data-theme="dark"] #root .text-amber-800,
+html[data-theme="dark"] #root .text-amber-900 { color: #FBBF4D !important; }
+html[data-theme="dark"] #root .bg-orange-50,
+html[data-theme="dark"] #root [class*="bg-orange-50/"],
+html[data-theme="dark"] #root .bg-orange-100,
+html[data-theme="dark"] #root [class*="bg-orange-100/"] { background-image: none !important; background-color: #2E2210 !important; }
+html[data-theme="dark"] #root .border-orange-100,
+html[data-theme="dark"] #root .border-orange-200,
+html[data-theme="dark"] #root [class*="border-orange-100/"],
+html[data-theme="dark"] #root [class*="border-orange-200/"] { border-color: #45341A !important; }
+html[data-theme="dark"] #root .ring-orange-100,
+html[data-theme="dark"] #root .ring-orange-200 { --tw-ring-color: #45341A !important; }
+html[data-theme="dark"] #root .text-orange-600,
+html[data-theme="dark"] #root .text-orange-700,
+html[data-theme="dark"] #root .text-orange-800,
+html[data-theme="dark"] #root .text-orange-900 { color: #FBBF4D !important; }
+html[data-theme="dark"] #root .bg-yellow-50,
+html[data-theme="dark"] #root [class*="bg-yellow-50/"],
+html[data-theme="dark"] #root .bg-yellow-100,
+html[data-theme="dark"] #root [class*="bg-yellow-100/"] { background-image: none !important; background-color: #2E2210 !important; }
+html[data-theme="dark"] #root .border-yellow-100,
+html[data-theme="dark"] #root .border-yellow-200,
+html[data-theme="dark"] #root [class*="border-yellow-100/"],
+html[data-theme="dark"] #root [class*="border-yellow-200/"] { border-color: #45341A !important; }
+html[data-theme="dark"] #root .ring-yellow-100,
+html[data-theme="dark"] #root .ring-yellow-200 { --tw-ring-color: #45341A !important; }
+html[data-theme="dark"] #root .text-yellow-600,
+html[data-theme="dark"] #root .text-yellow-700,
+html[data-theme="dark"] #root .text-yellow-800,
+html[data-theme="dark"] #root .text-yellow-900 { color: #FBBF4D !important; }
+html[data-theme="dark"] #root .bg-rose-50,
+html[data-theme="dark"] #root [class*="bg-rose-50/"],
+html[data-theme="dark"] #root .bg-rose-100,
+html[data-theme="dark"] #root [class*="bg-rose-100/"] { background-image: none !important; background-color: #2E1418 !important; }
+html[data-theme="dark"] #root .border-rose-100,
+html[data-theme="dark"] #root .border-rose-200,
+html[data-theme="dark"] #root [class*="border-rose-100/"],
+html[data-theme="dark"] #root [class*="border-rose-200/"] { border-color: #4A2028 !important; }
+html[data-theme="dark"] #root .ring-rose-100,
+html[data-theme="dark"] #root .ring-rose-200 { --tw-ring-color: #4A2028 !important; }
+html[data-theme="dark"] #root .text-rose-600,
+html[data-theme="dark"] #root .text-rose-700,
+html[data-theme="dark"] #root .text-rose-800,
+html[data-theme="dark"] #root .text-rose-900 { color: #FB7C90 !important; }
+html[data-theme="dark"] #root .bg-red-50,
+html[data-theme="dark"] #root [class*="bg-red-50/"],
+html[data-theme="dark"] #root .bg-red-100,
+html[data-theme="dark"] #root [class*="bg-red-100/"] { background-image: none !important; background-color: #2E1418 !important; }
+html[data-theme="dark"] #root .border-red-100,
+html[data-theme="dark"] #root .border-red-200,
+html[data-theme="dark"] #root [class*="border-red-100/"],
+html[data-theme="dark"] #root [class*="border-red-200/"] { border-color: #4A2028 !important; }
+html[data-theme="dark"] #root .ring-red-100,
+html[data-theme="dark"] #root .ring-red-200 { --tw-ring-color: #4A2028 !important; }
+html[data-theme="dark"] #root .text-red-600,
+html[data-theme="dark"] #root .text-red-700,
+html[data-theme="dark"] #root .text-red-800,
+html[data-theme="dark"] #root .text-red-900 { color: #FB7C90 !important; }
+html[data-theme="dark"] #root .bg-pink-50,
+html[data-theme="dark"] #root [class*="bg-pink-50/"],
+html[data-theme="dark"] #root .bg-pink-100,
+html[data-theme="dark"] #root [class*="bg-pink-100/"] { background-image: none !important; background-color: #2E1418 !important; }
+html[data-theme="dark"] #root .border-pink-100,
+html[data-theme="dark"] #root .border-pink-200,
+html[data-theme="dark"] #root [class*="border-pink-100/"],
+html[data-theme="dark"] #root [class*="border-pink-200/"] { border-color: #4A2028 !important; }
+html[data-theme="dark"] #root .ring-pink-100,
+html[data-theme="dark"] #root .ring-pink-200 { --tw-ring-color: #4A2028 !important; }
+html[data-theme="dark"] #root .text-pink-600,
+html[data-theme="dark"] #root .text-pink-700,
+html[data-theme="dark"] #root .text-pink-800,
+html[data-theme="dark"] #root .text-pink-900 { color: #FB7C90 !important; }
+html[data-theme="dark"] #root .bg-sky-50,
+html[data-theme="dark"] #root [class*="bg-sky-50/"],
+html[data-theme="dark"] #root .bg-sky-100,
+html[data-theme="dark"] #root [class*="bg-sky-100/"] { background-image: none !important; background-color: #0C2733 !important; }
+html[data-theme="dark"] #root .border-sky-100,
+html[data-theme="dark"] #root .border-sky-200,
+html[data-theme="dark"] #root [class*="border-sky-100/"],
+html[data-theme="dark"] #root [class*="border-sky-200/"] { border-color: #17414F !important; }
+html[data-theme="dark"] #root .ring-sky-100,
+html[data-theme="dark"] #root .ring-sky-200 { --tw-ring-color: #17414F !important; }
+html[data-theme="dark"] #root .text-sky-600,
+html[data-theme="dark"] #root .text-sky-700,
+html[data-theme="dark"] #root .text-sky-800,
+html[data-theme="dark"] #root .text-sky-900 { color: #5CC8E8 !important; }
+html[data-theme="dark"] #root .bg-cyan-50,
+html[data-theme="dark"] #root [class*="bg-cyan-50/"],
+html[data-theme="dark"] #root .bg-cyan-100,
+html[data-theme="dark"] #root [class*="bg-cyan-100/"] { background-image: none !important; background-color: #0C2733 !important; }
+html[data-theme="dark"] #root .border-cyan-100,
+html[data-theme="dark"] #root .border-cyan-200,
+html[data-theme="dark"] #root [class*="border-cyan-100/"],
+html[data-theme="dark"] #root [class*="border-cyan-200/"] { border-color: #17414F !important; }
+html[data-theme="dark"] #root .ring-cyan-100,
+html[data-theme="dark"] #root .ring-cyan-200 { --tw-ring-color: #17414F !important; }
+html[data-theme="dark"] #root .text-cyan-600,
+html[data-theme="dark"] #root .text-cyan-700,
+html[data-theme="dark"] #root .text-cyan-800,
+html[data-theme="dark"] #root .text-cyan-900 { color: #5CC8E8 !important; }
+html[data-theme="dark"] #root .bg-teal-50,
+html[data-theme="dark"] #root [class*="bg-teal-50/"],
+html[data-theme="dark"] #root .bg-teal-100,
+html[data-theme="dark"] #root [class*="bg-teal-100/"] { background-image: none !important; background-color: #0C2733 !important; }
+html[data-theme="dark"] #root .border-teal-100,
+html[data-theme="dark"] #root .border-teal-200,
+html[data-theme="dark"] #root [class*="border-teal-100/"],
+html[data-theme="dark"] #root [class*="border-teal-200/"] { border-color: #17414F !important; }
+html[data-theme="dark"] #root .ring-teal-100,
+html[data-theme="dark"] #root .ring-teal-200 { --tw-ring-color: #17414F !important; }
+html[data-theme="dark"] #root .text-teal-600,
+html[data-theme="dark"] #root .text-teal-700,
+html[data-theme="dark"] #root .text-teal-800,
+html[data-theme="dark"] #root .text-teal-900 { color: #5CC8E8 !important; }
+
+/* أصناف القشرة موضوعة على ‎html‎/‎body‎، أي خارج ‎#root‎ */
+html[data-theme="dark"].miras-app-shell,
+html[data-theme="dark"].miras-app-teacher-root,
+html[data-theme="dark"] body,
+html[data-theme="dark"] body.miras-teacher-scroll-locked {
+  background-image: none !important;
+  background-color: var(--miras-surface-2) !important;
+}
+
+/* حاويات التبويبات الداخلية (الجمع) */
+html[data-theme="dark"] #root .miras-inner-tabs,
+html[data-theme="dark"] #root .miras-inner-tabs-shell,
+html[data-theme="dark"] #root .miras-edge-stable-card {
+  background-image: none !important;
+  background-color: var(--miras-surface) !important;
+  border-color: var(--miras-line) !important;
+}
+
+
+/* ═══ ١٨) الوضع الليلي — ألوان النصوص المضمّنة
+   قواعد تحدّد لون النص بقيمة داكنة صريحة (‎#0f172a‎ وأخواتها) لا بصنف Tailwind،
+   فلا تلتقطها خرائط الأدوات. تُقلب هنا بالمقابل الفاتح لكل نبرة. ═══ */
+
+html[data-theme="dark"] #root .clean-tab:hover,
+html[data-theme="dark"] #root .meras-student-shell.workspace-calm-shell .miras-student-alert-popover .miras-student-notice-title,
+html[data-theme="dark"] #root .meras-student-shell.workspace-calm-shell .miras-student-alert-popover .miras-student-notice-title-badge,
+html[data-theme="dark"] #root .meras-teacher-shell .miras-teacher-alert-popover .miras-teacher-alert-body,
+html[data-theme="dark"] #root .meras-teacher-shell .miras-teacher-alert-popover .miras-teacher-alert-card-clean .miras-teacher-alert-title,
+html[data-theme="dark"] #root .meras-teacher-shell .miras-teacher-alert-popover .miras-teacher-alert-title,
+html[data-theme="dark"] #root .meras-teacher-shell.teacher-calm-shell .miras-teacher-alert-popover .miras-teacher-alert-title,
+html[data-theme="dark"] #root .meras-teacher-shell.teacher-calm-shell .teacher-command-header .miras-teacher-heading-block h1,
+html[data-theme="dark"] #root .meras-teacher-shell.teacher-calm-shell .teacher-command-header h1,
+html[data-theme="dark"] #root .meras-teacher-shell.teacher-calm-shell .teacher-important-popover .teacher-important-item > b,
+html[data-theme="dark"] #root .meras-teacher-shell.teacher-calm-shell .teacher-important-popover .teacher-important-item b,
+html[data-theme="dark"] #root .miras-app-teacher-root.miras-teacher-viewport-v5 .miras-zero-title-block h1,
+html[data-theme="dark"] #root .miras-cmdk-item,
+html[data-theme="dark"] #root .miras-cmdk-search input,
+html[data-theme="dark"] #root .miras-code-monitor,
+html[data-theme="dark"] #root .miras-code-monitor .text-white,
+html[data-theme="dark"] #root .miras-code-monitor h4,
+html[data-theme="dark"] #root .miras-document-simple-title,
+html[data-theme="dark"] #root .miras-document-theater__brand,
+html[data-theme="dark"] #root .miras-document-theater__brand-copy strong,
+html[data-theme="dark"] #root .miras-document-theater__rail-card b,
+html[data-theme="dark"] #root .miras-locked-course-title,
+html[data-theme="dark"] #root .miras-offline-title,
+html[data-theme="dark"] #root .miras-student-notice-card .miras-student-notice-title,
+html[data-theme="dark"] #root .miras-student-notice-card .miras-student-notice-title-badge,
+html[data-theme="dark"] #root .miras-student-notice-card > div > .miras-student-notice-title-badge,
+html[data-theme="dark"] #root .miras-student-notice-title,
+html[data-theme="dark"] #root .miras-student-notice-title-badge,
+html[data-theme="dark"] #root .miras-super-scope-copy b,
+html[data-theme="dark"] #root .miras-teacher-alert-card .miras-teacher-alert-body,
+html[data-theme="dark"] #root .miras-teacher-alert-card .miras-teacher-alert-title,
+html[data-theme="dark"] #root .miras-teacher-alert-card-clean .miras-teacher-alert-title,
+html[data-theme="dark"] #root .miras-teacher-alert-title,
+html[data-theme="dark"] #root .student-activity-mini b,
+html[data-theme="dark"] #root .student-popover h3,
+html[data-theme="dark"] #root .student-popover-row b,
+html[data-theme="dark"] #root .teacher-calm-shell .teacher-command-header h1,
+html[data-theme="dark"] #root .teacher-clean-tab:hover,
+html[data-theme="dark"] #root .workspace-calm-shell .miras-student-alert-popover .miras-student-notice-title,
+html[data-theme="dark"] #root .workspace-calm-shell .miras-student-alert-popover .miras-student-notice-title-badge,
+html[data-theme="dark"] #root .workspace-calm-shell .miras-student-popover.miras-student-alert-popover:not(.teacher-important-popover) .miras-student-notice-title,
+html[data-theme="dark"] body,
+html[data-theme="dark"] #root compact labels,
+html[data-theme="dark"] #root smarter integrity split { color: var(--miras-ink) !important; }
+
+html[data-theme="dark"] #root .meras-teacher-shell.teacher-calm-shell .teacher-command-header .miras-teacher-heading-block > div:first-child,
+html[data-theme="dark"] #root .miras-app-teacher-root.miras-teacher-viewport-v5 .miras-zero-name-pill,
+html[data-theme="dark"] #root .miras-document-theater__open,
+html[data-theme="dark"] #root .miras-student-alert-popover .student-popover-row.miras-notice-emerald b,
+html[data-theme="dark"] #root .miras-student-alert-popover .student-popover-row.miras-notice-emerald span { color: #4ADE9A !important; }
+
+html[data-theme="dark"] #root .miras-cmdk-ico.tone-blue,
+html[data-theme="dark"] #root .miras-deadline-chip-kind.is-project { color: #5CC8E8 !important; }
+
+
+/* تسمية العنصر النشط في شريط التنقّل */
+html[data-theme="dark"] #root .miras-dock-label,
+html[data-theme="dark"] #root .miras-dock-item-active .miras-dock-label {
+  color: var(--miras-brand-strong) !important;
+}
+
+/* ═══ ١٩) الوضع الليلي — رموز ‎--meras-*‎ الأصلية
+   للتطبيق مجموعة رموز سابقة باسم ‎--meras-*‎ تغذّي قواعد مثل عناوين اللوحات
+   (‎color: var(--meras-ink)‎). تجاوزها هنا يعالج المصدر بدل مطاردة كل قاعدة
+   ترث منه. ═══ */
+html[data-theme="dark"] {
+  --meras-ink: #F2F4FA;
+  --meras-muted: #848DA4;
+  --meras-card: #12121C;
+  --meras-card-solid: #12121C;
+  --meras-line: #262636;
+  --meras-indigo: #8B80FF;
+  --meras-blue: #5CC8E8;
+  --meras-green: #4ADE9A;
+  --meras-gold: #FBBF4D;
+  --meras-focus: 0 0 0 4px rgba(139,128,255,.22), 0 0 0 1px rgba(139,128,255,.5);
+  --meras-shadow-soft: 0 18px 55px rgba(0,0,0,.46);
+  --meras-shadow-lift: 0 28px 85px rgba(0,0,0,.56);
+}
+
+/* تسمية زرّ البحث العائم: القاعدة الأصلية تستعمل حيلة ‎:not(#_)‎ لرفع الخصوصية */
+html[data-theme="dark"] #root .miras-dock-v2 .miras-dock-fab .miras-dock-label:not(#_) {
+  color: var(--miras-brand-strong) !important;
+}
+
+/* ═══ ٢٠) الوضع الليلي — أدوات سلات بمعامل شفافية
+   ‎bg-slate-100/70‎ وأخواتها صنف مستقل عن ‎bg-slate-100‎، فتحتاج تغطية صريحة. ═══ */
+html[data-theme="dark"] #root [class*="bg-slate-100/"],
+html[data-theme="dark"] #root [class*="bg-slate-200/"],
+html[data-theme="dark"] #root [class*="bg-slate-300/"] {
+  background-image: none !important;
+  background-color: var(--miras-surface-3) !important;
+}
+html[data-theme="dark"] #root [class*="border-slate-300/"],
+html[data-theme="dark"] #root [class*="border-slate-400/"] {
+  border-color: var(--miras-line) !important;
+}
+
+/* ═══ ٢١) الوضع الليلي — تدرّجات Tailwind الفاتحة
+   ‎bg-gradient-to-*‎ مع محطّة فاتحة (‎from-white‎ ونظائرها) يرسم تدرّجاً أبيض عبر
+   ‎background-image‎. يُطابَق هنا بالرمز الكامل (‎class~=‎) كي تبقى المحطّات
+   الشفافة الزخرفية مثل ‎from-white/10‎ على حالها فوق الأسطح الداكنة. ═══ */
+html[data-theme="dark"] #root [class~="from-white"],
+html[data-theme="dark"] #root [class~="via-white"],
+html[data-theme="dark"] #root [class~="to-white"],
+html[data-theme="dark"] #root [class~="from-slate-50"],
+html[data-theme="dark"] #root [class~="via-slate-50"],
+html[data-theme="dark"] #root [class~="to-slate-50"],
+html[data-theme="dark"] #root [class~="from-slate-100"],
+html[data-theme="dark"] #root [class~="via-slate-100"],
+html[data-theme="dark"] #root [class~="to-slate-100"],
+html[data-theme="dark"] #root [class~="from-indigo-50"],
+html[data-theme="dark"] #root [class~="via-indigo-50"],
+html[data-theme="dark"] #root [class~="to-indigo-50"],
+html[data-theme="dark"] #root [class~="from-indigo-100"],
+html[data-theme="dark"] #root [class~="via-indigo-100"],
+html[data-theme="dark"] #root [class~="to-indigo-100"],
+html[data-theme="dark"] #root [class~="from-emerald-50"],
+html[data-theme="dark"] #root [class~="via-emerald-50"],
+html[data-theme="dark"] #root [class~="to-emerald-50"],
+html[data-theme="dark"] #root [class~="from-amber-50"],
+html[data-theme="dark"] #root [class~="via-amber-50"],
+html[data-theme="dark"] #root [class~="to-amber-50"],
+html[data-theme="dark"] #root [class~="from-rose-50"],
+html[data-theme="dark"] #root [class~="via-rose-50"],
+html[data-theme="dark"] #root [class~="to-rose-50"],
+html[data-theme="dark"] #root [class~="from-violet-50"],
+html[data-theme="dark"] #root [class~="via-violet-50"],
+html[data-theme="dark"] #root [class~="to-violet-50"],
+html[data-theme="dark"] #root [class~="from-sky-50"],
+html[data-theme="dark"] #root [class~="via-sky-50"],
+html[data-theme="dark"] #root [class~="to-sky-50"],
+html[data-theme="dark"] #root [class~="from-blue-50"],
+html[data-theme="dark"] #root [class~="via-blue-50"],
+html[data-theme="dark"] #root [class~="to-blue-50"],
+html[data-theme="dark"] #root [class~="from-red-50"],
+html[data-theme="dark"] #root [class~="via-red-50"],
+html[data-theme="dark"] #root [class~="to-red-50"] {
+  background-image: none !important;
+  background-color: var(--miras-surface) !important;
 }
