@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Tajawal:wght@300;400;500;700;800;900&family=IBM+Plex+Sans+Arabic:wght@300;400;500;600;700&family=Noto+Sans+Arabic:wght@300;400;500;600;700;800;900&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;800;900&family=JetBrains+Mono:wght@400;500;700&display=swap');
 @import "tailwindcss";
 
 @theme {
@@ -17721,4 +17721,408 @@ select:-webkit-autofill {
 html .meras-teacher-shell.teacher-calm-shell .teacher-command-header .miras-teacher-heading-block > div.miras-teacher-account-pill:first-child,
 html.miras-teacher-scroll-locked .meras-teacher-shell.teacher-calm-shell .teacher-command-header .miras-teacher-heading-block > div.miras-teacher-account-pill:first-child {
   margin-bottom: 0.85rem !important;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   نظام مِراس البصري — v3
+   تُقرأ هذه الطبقة أخيراً فتحسم التعارض مع ما سبقها.
+   الغرض: تقليل عدد القرارات البصرية لا زيادتها —
+   ٣ أنصاف أقطار بدل ٢٦، و٤ مستويات ظل بدل ٨٣، وسلّم أوزان يحترم التسلسل.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+:root {
+  color-scheme: light;
+
+  /* ── الهوية ── */
+  --miras-brand:        #4338CA;
+  --miras-brand-hover:  #3B31B4;
+  --miras-brand-strong: #312E81;
+  --miras-brand-ink:    #312E81;
+  --miras-brand-tint:   #EEF0FE;
+  --miras-brand-line:   #DCDCFB;
+  --miras-brand-on:     #FFFFFF;
+
+  /* ── الأسطح والنصوص ── */
+  --miras-surface:      #FFFFFF;
+  --miras-surface-2:    #F5F7FB;
+  --miras-surface-3:    #EDF1F8;
+  --miras-line:         #E6EAF2;
+  --miras-line-soft:    #EFF2F7;
+  --miras-ink:          #0B1020;
+  --miras-ink-2:        #46506A;
+  --miras-ink-3:        #6B7690;
+
+  /* ── نصف القطر: ثلاث قيم فقط ── */
+  --miras-r-md: 14px;
+  --miras-r-lg: 20px;
+  --miras-r-xl: 26px;
+
+  /* ── الارتفاع: أربعة مستويات فقط ── */
+  --miras-e1: 0 1px 2px rgba(11,16,32,.04), 0 2px 8px rgba(11,16,32,.04);
+  --miras-e2: 0 2px 4px rgba(11,16,32,.04), 0 8px 20px rgba(11,16,32,.06);
+  --miras-e3: 0 4px 10px rgba(11,16,32,.05), 0 18px 44px rgba(11,16,32,.09);
+  --miras-e4: 0 8px 20px rgba(11,16,32,.07), 0 34px 84px rgba(11,16,32,.14);
+  --miras-glow: 0 10px 26px rgba(67,56,202,.26);
+
+  --miras-splash-from: #1A1560;
+}
+
+/* ── الوضع الليلي ── */
+[data-theme="dark"] {
+  color-scheme: dark;
+  --miras-brand:        #8B80FF;
+  --miras-brand-hover:  #9C93FF;
+  --miras-brand-strong: #B4ACFF;
+  --miras-brand-ink:    #C9C4FF;
+  --miras-brand-tint:   #221E4D;
+  --miras-brand-line:   #322C6B;
+  --miras-brand-on:     #0B0A1F;
+
+  --miras-surface:      #12121C;
+  --miras-surface-2:    #0A0A12;
+  --miras-surface-3:    #1B1B29;
+  --miras-line:         #262636;
+  --miras-line-soft:    #1F1F2E;
+  --miras-ink:          #F2F4FA;
+  --miras-ink-2:        #AFB6C9;
+  --miras-ink-3:        #848DA4;
+
+  --miras-e1: 0 1px 2px rgba(0,0,0,.44), 0 2px 8px rgba(0,0,0,.34);
+  --miras-e2: 0 2px 4px rgba(0,0,0,.44), 0 8px 20px rgba(0,0,0,.40);
+  --miras-e3: 0 4px 10px rgba(0,0,0,.46), 0 18px 44px rgba(0,0,0,.46);
+  --miras-e4: 0 8px 20px rgba(0,0,0,.50), 0 34px 84px rgba(0,0,0,.56);
+  --miras-glow: 0 10px 26px rgba(139,128,255,.28);
+
+  --miras-splash-from: #0A0A12;
+}
+
+/* ═══ ١) نصف القطر — توحيد ٢٦ قيمة عشوائية في ثلاث ═══ */
+.rounded-\[0\.85rem\], .rounded-\[1rem\], .rounded-\[1\.08rem\],
+.rounded-\[1\.1rem\], .rounded-\[1\.15rem\] { border-radius: var(--miras-r-md) !important; }
+
+.rounded-\[1\.2rem\], .rounded-\[1\.25rem\], .rounded-\[1\.35rem\], .rounded-\[1\.4rem\],
+.rounded-\[1\.45rem\], .rounded-\[1\.5rem\], .rounded-\[1\.55rem\],
+.rounded-\[1\.6rem\] { border-radius: var(--miras-r-lg) !important; }
+
+.rounded-\[1\.65rem\], .rounded-\[1\.7rem\], .rounded-\[1\.75rem\], .rounded-\[1\.8rem\],
+.rounded-\[2rem\], .rounded-\[2\.2rem\], .rounded-\[2\.25rem\],
+.rounded-3xl { border-radius: var(--miras-r-xl) !important; }
+
+/* ═══ ٢) الظلال — أربعة مستويات، والملوّن يبقى ملوّناً ═══ */
+[class*="shadow-[0_4px"], [class*="shadow-[0_5px"], [class*="shadow-[0_6px"],
+[class*="shadow-[0_7px"], [class*="shadow-[0_8px"], [class*="shadow-[0_9px"],
+[class*="shadow-[0_10px"], [class*="shadow-[0_11px"] { box-shadow: var(--miras-e1) !important; }
+
+[class*="shadow-[0_12px"], [class*="shadow-[0_13px"], [class*="shadow-[0_14px"],
+[class*="shadow-[0_15px"], [class*="shadow-[0_16px"], [class*="shadow-[0_17px"],
+[class*="shadow-[0_18px"], [class*="shadow-[0_19px"],
+[class*="shadow-[0_20px"] { box-shadow: var(--miras-e2) !important; }
+
+[class*="shadow-[0_21px"], [class*="shadow-[0_22px"], [class*="shadow-[0_24px"],
+[class*="shadow-[0_26px"], [class*="shadow-[0_28px"], [class*="shadow-[0_29px"],
+[class*="shadow-[0_30px"], [class*="shadow-[0_31px"] { box-shadow: var(--miras-e3) !important; }
+
+[class*="shadow-[0_32px"], [class*="shadow-[0_34px"], [class*="shadow-[0_36px"],
+[class*="shadow-[0_38px"], [class*="shadow-[0_40px"] { box-shadow: var(--miras-e4) !important; }
+
+/* الظلال ذات النبرة البنفسجية مقصودة (أزرار الفعل) — تُعاد كتوهّج موحّد */
+[class*="shadow-"][class*="rgba(79,70,229"],
+[class*="shadow-"][class*="rgba(67,56,202"] { box-shadow: var(--miras-glow) !important; }
+
+/* ═══ ٣) الوزن — إنهاء «كل شيء أسود»
+   كان ‎font-black‎ يُستعمل ٥٣٦ مرة مقابل ١٧ لـ‎font-semibold‎، فانعدم التسلسل.
+   النص الصغير يعود إلى ٧٠٠، وتبقى العناوين وحدها بوزن ٩٠٠. ═══ */
+[class*="text-[9px]"].font-black,  [class*="text-[10px]"].font-black,
+[class*="text-[11px]"].font-black, [class*="text-[12px]"].font-black,
+[class*="text-[13px]"].font-black, [class*="text-[14px]"].font-black,
+.text-xs.font-black, .text-sm.font-black { font-weight: 700 !important; }
+
+p.font-black, span.font-black, label.font-black,
+td.font-black, li.font-black { font-weight: 700 !important; }
+
+h1.font-black, h2.font-black, h3.font-black,
+h1 .font-black, h2 .font-black, h3 .font-black { font-weight: 900 !important; }
+
+/* ═══ ٤) التتبّع الحرفي — العربية لا تقبل ‎letter-spacing‎
+   القيم السالبة تُلصق الحروف المتصلة، والموجبة تفكّ الوصل. تُحيَّد إلا للأرقام. ═══ */
+[dir="rtl"] :where(h1,h2,h3,h4,h5,p,span,button,a,label,li,td,th,div):not(.font-mono):not([class*="tabular"]) {
+  letter-spacing: normal !important;
+}
+
+/* ═══ ٥) وضوح التركيز — كان غائباً تماماً ═══ */
+:where(button,a,[role="button"],input,select,textarea):focus-visible {
+  outline: 2px solid var(--miras-brand) !important;
+  outline-offset: 2px !important;
+  border-radius: var(--miras-r-md);
+}
+
+/* ═══ ٦) احترام تقليل الحركة ═══ */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: .01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: .01ms !important;
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   ٧) الوضع الليلي
+   التطبيق لا يملك ولا استخدام واحد لـ‎dark:‎ في ٤٤ ألف سطر، بينما الـmanifest
+   والـsplash داكنان — أي أن الوعد قائم والوفاء غائب. بدل زرع ‎dark:‎ في آلاف
+   المواضع، تُعاد هنا خرائط الأسطح الأكثر استعمالاً (وهي مركّزة جداً: ‎bg-white‎
+   وحدها ٢٥٢ موضعاً) إلى رموز السطح. الزخارف الشفافة الخفيفة تُترك كما هي.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+[data-theme="dark"] body,
+[data-theme="dark"] .bg-\[\#f4f5f8\],
+[data-theme="dark"] .bg-\[\#f5f7fb\],
+[data-theme="dark"] .bg-\[\#f7f9fd\] { background-color: var(--miras-surface-2) !important; }
+
+/* ── الأسطح ── */
+[data-theme="dark"] .bg-white,
+[data-theme="dark"] [class*="bg-white/7"],
+[data-theme="dark"] [class*="bg-white/8"],
+[data-theme="dark"] [class*="bg-white/9"] { background-color: var(--miras-surface) !important; }
+
+[data-theme="dark"] .bg-slate-50,
+[data-theme="dark"] [class*="bg-slate-50/"] { background-color: var(--miras-surface-3) !important; }
+
+[data-theme="dark"] .bg-slate-100,
+[data-theme="dark"] .bg-slate-200 { background-color: var(--miras-line-soft) !important; }
+
+/* الأسطح الداكنة أصلاً (أزرار ورؤوس) تصبح لون الهوية كي لا تذوب في الخلفية */
+[data-theme="dark"] .bg-slate-950,
+[data-theme="dark"] .bg-slate-900 { background-color: var(--miras-brand) !important; color: var(--miras-brand-on) !important; }
+
+/* ── الحدود ── */
+[data-theme="dark"] .border-slate-100,
+[data-theme="dark"] .border-slate-200,
+[data-theme="dark"] [class*="border-slate-200/"],
+[data-theme="dark"] [class*="border-slate-100/"],
+[data-theme="dark"] .border-slate-300,
+[data-theme="dark"] .border-white,
+[data-theme="dark"] [class*="border-white/7"],
+[data-theme="dark"] [class*="border-white/8"],
+[data-theme="dark"] [class*="border-white/9"] { border-color: var(--miras-line) !important; }
+
+/* ── النصوص ── */
+[data-theme="dark"] .text-slate-950,
+[data-theme="dark"] .text-slate-900 { color: var(--miras-ink) !important; }
+[data-theme="dark"] .text-slate-800,
+[data-theme="dark"] .text-slate-700,
+[data-theme="dark"] .text-slate-600 { color: var(--miras-ink-2) !important; }
+[data-theme="dark"] .text-slate-500,
+[data-theme="dark"] .text-slate-400,
+[data-theme="dark"] .text-slate-300 { color: var(--miras-ink-3) !important; }
+
+/* ── نبرة الهوية ── */
+[data-theme="dark"] .bg-indigo-50,
+[data-theme="dark"] [class*="bg-indigo-50/"] { background-color: var(--miras-brand-tint) !important; }
+[data-theme="dark"] .border-indigo-100,
+[data-theme="dark"] .border-indigo-200 { border-color: var(--miras-brand-line) !important; }
+[data-theme="dark"] .text-indigo-700,
+[data-theme="dark"] .text-indigo-800,
+[data-theme="dark"] .text-indigo-600 { color: var(--miras-brand-strong) !important; }
+[data-theme="dark"] .bg-indigo-600,
+[data-theme="dark"] .bg-indigo-700 { background-color: var(--miras-brand) !important; color: var(--miras-brand-on) !important; }
+
+/* ── النبرات الدلالية: خلفيات فاتحة جداً تُخفَّض، والنصوص تُرفع ── */
+[data-theme="dark"] .bg-emerald-50, [data-theme="dark"] [class*="bg-emerald-50/"] { background-color: #0E2A22 !important; }
+[data-theme="dark"] .bg-amber-50,   [data-theme="dark"] [class*="bg-amber-50/"]   { background-color: #2E2210 !important; }
+[data-theme="dark"] .bg-rose-50,    [data-theme="dark"] [class*="bg-rose-50/"]    { background-color: #2E1418 !important; }
+[data-theme="dark"] .border-emerald-100 { border-color: #17402F !important; }
+[data-theme="dark"] .border-amber-100   { border-color: #45341A !important; }
+[data-theme="dark"] .border-rose-100    { border-color: #4A2028 !important; }
+[data-theme="dark"] .text-emerald-700, [data-theme="dark"] .text-emerald-800 { color: #4ADE9A !important; }
+[data-theme="dark"] .text-amber-700,   [data-theme="dark"] .text-amber-800   { color: #FBBF4D !important; }
+[data-theme="dark"] .text-rose-700,    [data-theme="dark"] .text-rose-800    { color: #FB7C90 !important; }
+
+/* الحقول */
+[data-theme="dark"] :where(input,textarea,select) { background-color: var(--miras-surface-3) !important; color: var(--miras-ink) !important; border-color: var(--miras-line) !important; }
+[data-theme="dark"] :where(input,textarea)::placeholder { color: var(--miras-ink-3) !important; }
+
+/* الحُجُب خلف النوافذ */
+[data-theme="dark"] [class*="bg-slate-950/"] { background-color: rgba(0,0,0,.72) !important; }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   ٨) شاشة الإقلاع — هبوط بدل قفزة
+   القديم: أسود ثم أبيض فجأة (‎#030712‎ → واجهة بيضاء) = وخزة ضوء كل فتح.
+   الجديد: الأرضية نفسها تتحوّل تدريجياً إلى لون سطح التطبيق، والعلامة تُرسم
+   بنفسها ثم تهبط إلى لون الهوية — فلا توجد لحظة قطع أصلاً.
+   ═══════════════════════════════════════════════════════════════════════════ */
+.miras-splash {
+  background: var(--miras-splash-from) !important;
+  animation: miras-splash-land 1.85s cubic-bezier(.65,0,.35,1) forwards;
+  overflow: hidden;
+}
+.miras-splash::before {
+  content: "";
+  position: absolute; inset: -25%;
+  background-image:
+    linear-gradient(rgba(255,255,255,.05) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255,255,255,.05) 1px, transparent 1px);
+  background-size: 54px 54px;
+  -webkit-mask-image: radial-gradient(circle at 50% 44%, #000 0%, transparent 66%);
+  mask-image: radial-gradient(circle at 50% 44%, #000 0%, transparent 66%);
+  animation: miras-splash-grid 1.85s ease-out forwards;
+}
+@keyframes miras-splash-land {
+  0%, 58% { background-color: var(--miras-splash-from); }
+  100%    { background-color: var(--miras-surface); }
+}
+@keyframes miras-splash-grid { 0%,55% { opacity: 1; } 100% { opacity: 0; } }
+
+.miras-splash-mark { color: #fff; animation: miras-splash-ink 1.85s cubic-bezier(.65,0,.35,1) forwards; }
+@keyframes miras-splash-ink { 0%,58% { color: #fff; } 100% { color: var(--miras-brand); } }
+
+.miras-splash-word { color: #fff; animation: miras-splash-ink-word 1.85s cubic-bezier(.65,0,.35,1) forwards; }
+@keyframes miras-splash-ink-word { 0%,58% { color: #fff; } 100% { color: var(--miras-ink); } }
+
+.miras-splash-sub { color: rgba(255,255,255,.62); animation: miras-splash-ink-sub 1.85s cubic-bezier(.65,0,.35,1) forwards; }
+@keyframes miras-splash-ink-sub { 0%,58% { color: rgba(255,255,255,.62); } 100% { color: var(--miras-ink-3); } }
+
+/* رسم العلامة بنفسها: الحلقة أولاً ثم الذيل — ترتيب كتابة الميم فعلياً */
+.miras-draw-ring { stroke-dasharray: 100; stroke-dashoffset: 100; animation: miras-draw .72s cubic-bezier(.55,.1,.25,1) .12s forwards; }
+.miras-draw-tail { stroke-dasharray: 100; stroke-dashoffset: 100; animation: miras-draw .58s cubic-bezier(.4,0,.3,1) .68s forwards; }
+@keyframes miras-draw { to { stroke-dashoffset: 0; } }
+
+.miras-splash-reveal { opacity: 0; animation: miras-splash-reveal .7s cubic-bezier(.16,1,.3,1) 1.02s forwards; }
+@keyframes miras-splash-reveal { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
+
+@media (prefers-reduced-motion: reduce) {
+  .miras-draw-ring, .miras-draw-tail { stroke-dashoffset: 0; animation: none; }
+  .miras-splash-reveal { opacity: 1; animation: none; }
+}
+
+/* ═══ ٩) مسرح الجولة التعريفية — أرضية هوية واحدة ثابتة ═══ */
+.miras-tour-stage {
+  background:
+    radial-gradient(120% 90% at 84% 6%, #5B52EA 0%, transparent 56%),
+    radial-gradient(100% 80% at 6% 104%, #241F73 0%, transparent 60%),
+    linear-gradient(155deg, #2A2482 0%, #1B1758 52%, #12103C 100%);
+}
+.miras-tour-grid {
+  background-image:
+    linear-gradient(rgba(255,255,255,.06) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255,255,255,.06) 1px, transparent 1px);
+  background-size: 34px 34px;
+  -webkit-mask-image: radial-gradient(circle at 60% 40%, #000 0%, transparent 74%);
+  mask-image: radial-gradient(circle at 60% 40%, #000 0%, transparent 74%);
+}
+.miras-tour-cta { background: var(--miras-brand); box-shadow: var(--miras-glow); }
+.miras-tour-cta:hover { background: var(--miras-brand-hover); }
+.miras-tour-cta:active { transform: translateY(1px); }
+
+[data-theme="dark"] .miras-onboarding-panel { background: var(--miras-surface) !important; }
+[data-theme="dark"] .miras-onboarding-panel .bg-white { background: var(--miras-surface) !important; }
+
+/* ═══ ١٠) الوضع الليلي — الطبقة الخاصة بمِراس
+   الأصناف أعلاه غطّت أدوات Tailwind، لكن الهيكل الحقيقي مبنيّ على أصناف
+   خاصة (‎.glass-panel‎، ‎.meras-auth-card‎، ‎.executive-card‎ …) تحمل خلفياتها
+   بنفسها — فبقيت بيضاء بينما انقلب النص فاتحاً، أي نص شبه غير مقروء.
+   تُغطّى هنا بمجموعات مقروءة، مع استثناء مقصود لما يجب أن يبقى أبيض:
+   ورق المستندات، معاينات الصور، وإطارات PDF — الورقة ورقة في كل الأحوال. ═══ */
+
+/* الأرضيات */
+[data-theme="dark"] :where(
+  .meras-auth-shell, .workspace-calm-shell, .teacher-calm-shell,
+  .meras-teacher-shell, .meras-student-shell, .workspace-shell,
+  .miras-app-shell, .miras-app-teacher-root, .miras-teacher-viewport-v5,
+  .miras-teacher-v5-shell, .teacher-command-main, .student-overview-fixed,
+  [class*="miras-live-light-"]
+) {
+  background:
+    radial-gradient(circle at 78% 10%, rgba(91, 82, 234, .16), transparent 34%),
+    radial-gradient(circle at 12% 88%, rgba(52, 211, 153, .07), transparent 32%),
+    var(--miras-surface-2) !important;
+}
+
+/* البطاقات واللوحات والنوافذ */
+[data-theme="dark"] :where(
+  .meras-auth-card, .glass-panel, .glass-nav, .executive-card,
+  .student-activity-card, .miras-metric-card, .miras-empty-state,
+  .miras-soft-dialog-card, .miras-cmdk, .miras-offline-card, .miras-return-modal,
+  .miras-return-exception, .miras-section-hero, .miras-ready-moment,
+  .miras-locked-course-card, .miras-sharing-group-card, .miras-admin-code-security,
+  .miras-code-monitor, .miras-code-report, .miras-code-report-stage,
+  .miras-teacher-alert-popover, .miras-teacher-alert-card, .miras-teacher-alert-card-clean,
+  .teacher-important-popover, .miras-student-popover, .miras-student-alert-popover,
+  .student-popover, .miras-student-notice-card, .miras-student-notice-card-return,
+  .miras-student-notice-body, .miras-student-course-picker,
+  .teacher-command-header, .meras-topbar, .teacher-topbar, .workspace-header-glass,
+  .miras-teacher-nav-shell, .teacher-orbit-dock, .teacher-mini-nav, .student-sidebar,
+  .miras-connection-status, .miras-connection-status-popover,
+  .miras-mobile-teacher-zero-header, .miras-onboarding-panel
+) {
+  background: var(--miras-surface) !important;
+  border-color: var(--miras-line) !important;
+  color: var(--miras-ink) !important;
+}
+
+/* الشرائح وعناصر التحكّم */
+[data-theme="dark"] :where(
+  .miras-deadline-chip, .miras-code-item, .miras-capsule-select,
+  .miras-inner-tab, .miras-inner-tab-active, .teacher-clean-tab,
+  .teacher-mini-nav-active, .student-icon-btn, .student-popover-row,
+  .miras-student-return-chip, .miras-student-return-title-badge,
+  .miras-locked-course-chip, .miras-locked-course-input,
+  .miras-super-scope-filter, .miras-super-scope-select, .miras-integrity-switch,
+  .miras-code-monitor-toggle, .miras-code-report-tab, .miras-code-report-tab-active,
+  .miras-zero-action-btn, .miras-alert-toolbar, .miras-teacher-nav-track,
+  .teacher-orbit-dock-track, .teacher-important-item, .miras-teacher-alert-meta,
+  .miras-teacher-alert-date, .miras-student-notice-date-badge,
+  .miras-attachment-preview-body, .miras-document-simple-toolbar,
+  .miras-document-theater__bar, .miras-document-theater__zoom,
+  .miras-document-theater__rail-card, .miras-document-theater__hint,
+  .miras-ios-pdf-card, .miras-ios-pdf-secondary, .miras-document-simple-shell,
+  .miras-document-theater, .miras-document-theater__surface, .miras-document-theater__frame
+) {
+  background: var(--miras-surface-3) !important;
+  border-color: var(--miras-line) !important;
+  color: var(--miras-ink) !important;
+}
+
+/* الورق يبقى ورقاً: صفحة المستند والصور وإطارات PDF لا تُقلب أبداً */
+[data-theme="dark"] :where(
+  .miras-document-theater__paper, .miras-document-theater__image,
+  .miras-attachment-image-fit, .miras-attachment-image-preview,
+  .miras-attachment-pdf-fit-frame, .miras-attachment-document-fit-frame,
+  .miras-pdf-smart-frame__iframe, .miras-pdf-smart-frame
+) {
+  background: #fff !important;
+  color: #0B1020 !important;
+}
+[data-theme="dark"] :where(.miras-document-theater__paper, .miras-pdf-smart-frame) :where(*) {
+  color: inherit;
+}
+
+/* البطاقة الزجاجية تفقد بريقها الأبيض في الليل */
+[data-theme="dark"] .glass-panel,
+[data-theme="dark"] .meras-auth-card {
+  backdrop-filter: blur(20px) saturate(120%) !important;
+  -webkit-backdrop-filter: blur(20px) saturate(120%) !important;
+  border: 1px solid var(--miras-line) !important;
+}
+
+/* ═══ ١١) شريط بطاقة الدخول — من ثلاثة ألوان إلى نبرة هوية واحدة
+   كان ‎أخضر ← أزرق ← بنفسجي‎ بسماكة ٧ بكسل فوق البطاقة: ثلاثة ألوان تتنازع
+   الانتباه في أول شاشة، وتناقض مباشر لقاعدة «لون واحد» التي تقوم عليها
+   العلامة الجديدة. يبقى الشريط كإشارة، لكن بلون الهوية وبسماكة أهدأ. ═══ */
+.meras-auth-card::before {
+  height: 3px !important;
+  background: linear-gradient(90deg,
+    transparent 0%,
+    var(--miras-brand) 22%,
+    var(--miras-brand) 78%,
+    transparent 100%) !important;
+}
+
+/* ═══ ١٢) ارتفاع السطر في العناوين العربية
+   الحروف العربية تحمل نزولات (و، ج، ي) وتشكيلاً فوق السطر، فالقيم المشدودة
+   المستوردة من تنضيد لاتيني (‎leading-none‎ / ‎1.0x‎ / ‎tight‎) تقصّ أطراف
+   الحروف في العناوين الكبيرة — كما كان يحدث في «في مكان واحد». ═══ */
+[dir="rtl"] :where(h1, h2):where(
+  .leading-none, .leading-tight, [class*="leading-[1.0"], [class*="leading-[1.1"]
+) {
+  line-height: 1.3 !important;
 }

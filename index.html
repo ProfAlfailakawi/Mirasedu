@@ -3,8 +3,9 @@
   <head>
     <link rel="preconnect" href="https://miras-api-538577909672.us-central1.run.app" crossorigin />
     <link rel="dns-prefetch" href="https://miras-api-538577909672.us-central1.run.app" />
-    <meta name="theme-color" content="#4f46e5" />
-    <meta name="color-scheme" content="light" />
+    <meta name="theme-color" media="(prefers-color-scheme: light)" content="#FFFFFF" />
+    <meta name="theme-color" media="(prefers-color-scheme: dark)" content="#0A0A12" />
+    <meta name="color-scheme" content="light dark" />
     <meta name="mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-title" content="مِراس" />
@@ -12,12 +13,54 @@
     <meta name="application-name" content="مِراس" />
     <meta name="format-detection" content="telephone=no" />
     <link rel="manifest" href="/manifest.webmanifest" />
-    <link rel="apple-touch-icon" href="/apple-touch-icon-v7.png" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon-v8.png" />
     <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png" />
     <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16.png" />
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0, user-scalable=no, viewport-fit=cover" />
-    <title>مِراس</title>
+    <title>مِراس — منصّة الاختبارات والتعلّم الذكي</title>
+    <meta
+      name="description"
+      content="مِراس يربط المقرر بالطلبة بمفاتيح الدخول: اختبارات، مشاريع، ومتابعة لحظية من شاشة واحدة."
+    />
+    <link rel="canonical" href="https://mirasedu.web.app/" />
+
+    <!-- بطاقة المشاركة: لم يكن في الملف أي وسم ‎og:‎ من قبل، فكان كل رابط
+         يُشارك على واتساب أو تويتر يظهر عارياً بلا صورة ولا وصف. -->
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="مِراس" />
+    <meta property="og:locale" content="ar_AR" />
+    <meta property="og:url" content="https://mirasedu.web.app/" />
+    <meta property="og:title" content="مِراس — منصّة الاختبارات والتعلّم الذكي" />
+    <meta
+      property="og:description"
+      content="المقرّر كلّه في مكان واحد: اختبارات، مشاريع، ومتابعة لحظية."
+    />
+    <meta property="og:image" content="https://mirasedu.web.app/og-cover-v9.jpg" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:image:alt" content="مِراس — منصّة الاختبارات والتعلّم الذكي" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="مِراس — منصّة الاختبارات والتعلّم الذكي" />
+    <meta
+      name="twitter:description"
+      content="المقرّر كلّه في مكان واحد: اختبارات، مشاريع، ومتابعة لحظية."
+    />
+    <meta name="twitter:image" content="https://mirasedu.web.app/og-cover-v9.jpg" />
+
+    <!-- تثبيت السِمة قبل أول رسم: بلا هذا السطر يومض الأبيض ثم يقع الليل. -->
+    <script>
+      (function () {
+        try {
+          var saved = localStorage.getItem("miras_theme");
+          var dark =
+            saved === "dark" ||
+            (saved !== "light" &&
+              window.matchMedia("(prefers-color-scheme: dark)").matches);
+          document.documentElement.setAttribute("data-theme", dark ? "dark" : "light");
+        } catch (e) {}
+      })();
+    </script>
     <script type="module" src="/src/main.tsx"></script>
   </head>
   <body>

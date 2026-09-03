@@ -1,15 +1,15 @@
 /* Miras PWA + FCM service worker */
-const MIRAS_CACHE_VERSION = 'miras-shell-v67-autofill-pwmsg-20260711';
+const MIRAS_CACHE_VERSION = 'miras-shell-v81-brand-v3-20260903';
 const MIRAS_STUDENT_LIVE_CHANNEL = 'miras-student-live-v1';
 const MIRAS_STATIC_ASSETS = [
   '/',
   '/manifest.webmanifest',
   '/favicon-32.png',
   '/favicon-16.png',
-  '/ios-icon-192-v7.png',
-  '/ios-icon-512-v7.png',
-  '/apple-touch-icon-v7.png',
-  '/maskable-icon-v7.png'
+  '/ios-icon-192-v8.png',
+  '/ios-icon-512-v8.png',
+  '/apple-touch-icon-v8.png',
+  '/maskable-icon-v8.png'
 ];
 try {
   importScripts('https://www.gstatic.com/firebasejs/10.12.5/firebase-app-compat.js');
@@ -303,8 +303,8 @@ async function showMirasNotification(payload) {
   } catch (e) {}
   return self.registration.showNotification(title, {
     body,
-    icon: '/ios-icon-192-v7.png',
-    badge: '/ios-icon-192-v7.png',
+    icon: '/ios-icon-192-v8.png',
+    badge: '/ios-icon-192-v8.png',
     dir: 'rtl',
     lang: 'ar',
     data,

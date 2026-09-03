@@ -251,6 +251,8 @@ import {
   Save,
   UserPlus,
   Smartphone,
+  Sun,
+  Moon,
   Copy,
   Link2,
   RotateCw,
@@ -2013,7 +2015,61 @@ const downloadSebConfigFile = (url: string, fileName?: string) => {
   anchor.remove();
 };
 
-const ONBOARDING_VERSION = "v2";
+// ═══════════════════════════════════════════════════════════════════════════
+// علامة مِراس — ميم واحدة، لون واحد، بلا إطارات.
+// السابقة كانت ثلاثة مربّعات متداخلة (لغة كاميرا Instagram) + نقطة خضراء تُقرأ
+// كشارة إشعار، وكانت تذوب إلى بقعة زرقاء عند ٣٢ بكسل. هذه مرسومة كحلقة (رأس
+// الميم) وذيل يكنس يساراً — اتجاه الكتابة العربية — وينتهي بقصّة مائلة تحاكي
+// سنّ القلم. الجوف واسع عمداً كي ينجو الحرف في الفافيكون.
+// ═══════════════════════════════════════════════════════════════════════════
+const MIRAS_RING_D =
+  "M386 178A86 86 0 1 0 214 178A86 86 0 1 0 386 178ZM342 178A42 42 0 1 1 258 178A42 42 0 1 1 342 178Z";
+const MIRAS_TAIL_D = "M250 219 C 268 308, 244 374, 150 404";
+
+function MirasMark({ className = "", title }: { className?: string; title?: string }) {
+  return (
+    <svg
+      viewBox="91 86 331 331"
+      className={className}
+      role={title ? "img" : "presentation"}
+      aria-label={title}
+      aria-hidden={title ? undefined : true}
+      fill="none"
+    >
+      <g fill="currentColor" stroke="currentColor">
+        <path fillRule="evenodd" d={MIRAS_RING_D} />
+        <path d={MIRAS_TAIL_D} strokeWidth={44} strokeLinecap="butt" fill="none" />
+      </g>
+    </svg>
+  );
+}
+
+// نسخة تُرسم بنفسها: قناع يكشف العلامة بترتيب كتابة الميم (الحلقة ثم الذيل).
+function MirasMarkDrawn({ className = "" }: { className?: string }) {
+  const uid = "mirasDraw";
+  return (
+    <svg viewBox="91 86 331 331" className={className} aria-hidden="true" fill="none">
+      <defs>
+        <mask id={uid}>
+          <circle
+            cx="300" cy="178" r="64" fill="none" stroke="#fff" strokeWidth="62"
+            pathLength={100} className="miras-draw-ring"
+          />
+          <path
+            d={MIRAS_TAIL_D} fill="none" stroke="#fff" strokeWidth="62"
+            pathLength={100} className="miras-draw-tail"
+          />
+        </mask>
+      </defs>
+      <g mask={`url(#${uid})`} fill="currentColor" stroke="currentColor">
+        <path fillRule="evenodd" d={MIRAS_RING_D} />
+        <path d={MIRAS_TAIL_D} strokeWidth={44} strokeLinecap="butt" fill="none" />
+      </g>
+    </svg>
+  );
+}
+
+const ONBOARDING_VERSION = "v3";
 const onboardingStorageKey = (role: "teacher" | "student", id: any) =>
   `miras_onboarding_${role}_${ONBOARDING_VERSION}:${String(id || "guest")
     .trim()
@@ -2021,85 +2077,230 @@ const onboardingStorageKey = (role: "teacher" | "student", id: any) =>
 const isOnboardingDone = (key: string) => {
   if (!key || typeof window === "undefined") return true;
   try {
+    // منفذ إعادة الجولة: ‎?miras_tour=1‎ يعيد فتحها لمن أنهاها أو تخطّاها،
+    // فلم تعد الجولة تُفقد للأبد بضغطة واحدة كما كان.
+    if (new URLSearchParams(window.location.search).get("miras_tour") === "1") {
+      return false;
+    }
+  } catch {}
+  try {
     return localStorage.getItem(key) === "done";
   } catch {
     return false;
   }
 };
 
+// ═══════════════════════════════════════════════════════════════════════════
+// الجولة التعريفية — v3
+// السابقة: ٥ خطوات، كل واحدة بغرادينت مختلف تماماً (بنفسجي ← أخضر ← سماوي ←
+// بنفسجي ← برتقالي)، فيمرّ المستخدم على عجلة الألوان كاملة في ٤٠ ثانية ولا
+// يعلق في ذهنه لون اسمه مِراس. والمركز البصري كان أيقونة واجهة مكبّرة ٤ أضعاف.
+// الجديدة: ٣ خطوات، أرضية هوية واحدة ثابتة، وفي القلب «مصغّرة» من واجهة مِراس
+// الحقيقية — الكود، الكشف، المتابعة — لأن الجولة التي تُبهر تُري المنتج يعمل.
+// ═══════════════════════════════════════════════════════════════════════════
+
+// إطار يحاكي بطاقات مِراس الحقيقية، فتبدو المصغّرة قطعة من المنتج لا رسماً.
+function TourCard({ children }: { children: any }) {
+  return (
+    <div className="w-full max-w-[19rem] rounded-[var(--miras-r-lg)] border border-white/15 bg-white/10 p-3.5 shadow-[0_24px_60px_rgba(5,8,25,0.35)] backdrop-blur-xl">
+      {children}
+    </div>
+  );
+}
+function TourRow({
+  label,
+  meta,
+  tone = "idle",
+  delay = 0,
+}: {
+  label: string;
+  meta: string;
+  tone?: "idle" | "live" | "done";
+  delay?: number;
+}) {
+  const dot =
+    tone === "done" ? "bg-emerald-400" : tone === "live" ? "bg-amber-300" : "bg-white/30";
+  return (
+    <motion.div
+      initial={{ opacity: 0, x: 14 }}
+      animate={{ opacity: 1, x: 0 }}
+      transition={{ delay, duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
+      className="flex items-center gap-2.5 rounded-[var(--miras-r-md)] bg-white/8 px-2.5 py-2"
+    >
+      <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${dot} ${tone === "live" ? "animate-pulse" : ""}`} />
+      <span className="min-w-0 flex-1 truncate text-[11px] font-bold text-white/90">{label}</span>
+      <span className="shrink-0 text-[9px] font-bold text-white/50">{meta}</span>
+    </motion.div>
+  );
+}
+function TourChip({ code, state, delay = 0 }: { code: string; state: "on" | "off"; delay?: number }) {
+  return (
+    <motion.div
+      initial={{ opacity: 0, scale: 0.9 }}
+      animate={{ opacity: 1, scale: 1 }}
+      transition={{ delay, type: "spring", stiffness: 260, damping: 20 }}
+      className={`flex items-center justify-between gap-2 rounded-[var(--miras-r-md)] border px-2.5 py-2 ${
+        state === "on"
+          ? "border-emerald-300/40 bg-emerald-300/15"
+          : "border-white/15 bg-white/8"
+      }`}
+    >
+      <span className="font-mono text-[11px] font-bold tracking-wider text-white/90">{code}</span>
+      {state === "on" ? (
+        <Check className="h-3.5 w-3.5 shrink-0 text-emerald-300" />
+      ) : (
+        <span className="text-[9px] font-bold text-white/45">جاهز</span>
+      )}
+    </motion.div>
+  );
+}
+
+const tourVisuals = {
+  roster: (
+    <TourCard>
+      <div className="mb-2.5 flex items-center justify-between px-0.5">
+        <span className="text-[10px] font-bold text-white/60">كشف الطلبة</span>
+        <span className="rounded-full bg-white/12 px-2 py-0.5 text-[9px] font-bold text-white/70">٢٨</span>
+      </div>
+      <div className="space-y-1.5">
+        <TourRow label="أحمد الفيلكاوي" meta="٢٠٢١" tone="done" delay={0.05} />
+        <TourRow label="سارة العنزي" meta="٢٠٢٢" tone="done" delay={0.13} />
+        <TourRow label="محمد الرشيد" meta="٢٠٢٣" tone="idle" delay={0.21} />
+      </div>
+    </TourCard>
+  ),
+  codes: (
+    <TourCard>
+      <div className="mb-2.5 flex items-center justify-between px-0.5">
+        <span className="text-[10px] font-bold text-white/60">مفاتيح الدخول</span>
+        <span className="inline-flex items-center gap-1 text-[9px] font-bold text-emerald-300">
+          <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" /> ٣ مُفعّلة
+        </span>
+      </div>
+      <div className="grid grid-cols-2 gap-1.5">
+        <TourChip code="MR-7K2A" state="on" delay={0.05} />
+        <TourChip code="MR-9QX4" state="on" delay={0.12} />
+        <TourChip code="MR-3B8N" state="on" delay={0.19} />
+        <TourChip code="MR-5TD1" state="off" delay={0.26} />
+      </div>
+    </TourCard>
+  ),
+  live: (
+    <TourCard>
+      <div className="mb-2.5 flex items-center justify-between px-0.5">
+        <span className="text-[10px] font-bold text-white/60">حركة الاختبار</span>
+        <span className="inline-flex items-center gap-1 text-[9px] font-bold text-amber-300">
+          <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-amber-300" /> مباشر
+        </span>
+      </div>
+      <div className="space-y-1.5">
+        <TourRow label="سلّم الاختبار" meta="١٢:٤٠" tone="done" delay={0.05} />
+        <TourRow label="يحلّ الآن" meta="٠٨:١٢" tone="live" delay={0.13} />
+        <TourRow label="لم يبدأ بعد" meta="—" tone="idle" delay={0.21} />
+      </div>
+      <div className="mt-2.5 h-1 overflow-hidden rounded-full bg-white/12">
+        <motion.div
+          initial={{ width: "0%" }}
+          animate={{ width: "68%" }}
+          transition={{ delay: 0.3, duration: 0.9, ease: [0.16, 1, 0.3, 1] }}
+          className="h-full rounded-full bg-emerald-400"
+        />
+      </div>
+    </TourCard>
+  ),
+  activated: (
+    <TourCard>
+      <div className="rounded-[var(--miras-r-md)] border border-emerald-300/35 bg-emerald-300/12 p-3.5 text-center">
+        <motion.div
+          initial={{ scale: 0.5, opacity: 0 }}
+          animate={{ scale: 1, opacity: 1 }}
+          transition={{ type: "spring", stiffness: 220, damping: 15 }}
+          className="mx-auto grid h-10 w-10 place-items-center rounded-full bg-emerald-400/25"
+        >
+          <Check className="h-5 w-5 text-emerald-300" />
+        </motion.div>
+        <p className="mt-2.5 font-mono text-[13px] font-bold tracking-[0.15em] text-white">MR-7K2A</p>
+        <p className="mt-1 text-[9px] font-bold text-emerald-200/80">تم التفعيل على هذا الجهاز</p>
+      </div>
+      <div className="mt-2 flex items-center justify-center gap-1.5 text-[9px] font-bold text-white/50">
+        <Lock className="h-3 w-3" /> مرتبط باسمك ومقررك
+      </div>
+    </TourCard>
+  ),
+  tasks: (
+    <TourCard>
+      <div className="mb-2.5 flex items-center justify-between px-0.5">
+        <span className="text-[10px] font-bold text-white/60">مهامّي</span>
+        <span className="rounded-full bg-white/12 px-2 py-0.5 text-[9px] font-bold text-white/70">٣</span>
+      </div>
+      <div className="space-y-1.5">
+        <TourRow label="اختبار الوحدة الثانية" meta="غداً" tone="live" delay={0.05} />
+        <TourRow label="مشروع التطبيق العملي" meta="٥ أيام" tone="idle" delay={0.13} />
+        <TourRow label="تمرين المراجعة" meta="سُلّم" tone="done" delay={0.21} />
+      </div>
+    </TourCard>
+  ),
+  progress: (
+    <TourCard>
+      <div className="mb-3 flex items-center justify-between px-0.5">
+        <span className="text-[10px] font-bold text-white/60">تقدّمي</span>
+        <span className="text-[9px] font-bold text-emerald-300">٧ من ١٠</span>
+      </div>
+      <div className="h-1.5 overflow-hidden rounded-full bg-white/12">
+        <motion.div
+          initial={{ width: "0%" }}
+          animate={{ width: "70%" }}
+          transition={{ delay: 0.15, duration: 1, ease: [0.16, 1, 0.3, 1] }}
+          className="h-full rounded-full bg-gradient-to-l from-emerald-400 to-emerald-300"
+        />
+      </div>
+      <div className="mt-3 space-y-1.5">
+        <TourRow label="اختبار الوحدة الأولى" meta="٩٢٪" tone="done" delay={0.25} />
+        <TourRow label="تمرين المراجعة" meta="مكتمل" tone="done" delay={0.33} />
+      </div>
+    </TourCard>
+  ),
+};
+
 const teacherOnboardingSteps = [
-  {
-    kicker: "مركز قيادة المعلم",
-    title: "مرحباً بك في مِراس",
-    body: "هذه ليست لوحة عادية؛ هذه مساحة هادئة لإدارة المقرر، الطلبة، الاختبارات، ومفاتيح الدخول من نقطة واحدة.",
-    icon: Sparkles,
-    tone: "from-indigo-600 to-blue-600",
-  },
   {
     kicker: "المقرر أولاً",
     title: "ابنِ بوابة مقررك",
-    body: "ابدأ بالمقرر، ثم يصبح كل شيء حوله منظماً: كشف الطلبة، الاختبارات، المشاريع، وحركة كل طالب.",
-    icon: Compass,
-    tone: "from-emerald-600 to-teal-500",
+    body: "ابدأ بالمقرر، ثم يصبح كل شيء حوله منظّماً: كشف الطلبة، الاختبارات، المشاريع، وحركة كل طالب في مكان واحد.",
+    visual: tourVisuals.roster,
   },
   {
-    kicker: "كشف الطلبة",
-    title: "ارفع الأسماء بثقة",
-    body: "ملف Excel يحول القائمة إلى سجل مرتب، جاهز للربط بالكود والمتابعة دون تشويش.",
-    icon: FileSpreadsheet,
-    tone: "from-sky-600 to-cyan-500",
+    kicker: "قلب مِراس",
+    title: "مفاتيح الدخول",
+    body: "كل كود يُربط بطالب وجهاز وحالة استخدام، فتبقى النسخ الشخصية واضحة ومحكومة دون مطاردة أحد.",
+    visual: tourVisuals.codes,
   },
   {
-    kicker: "المنتج الحقيقي",
-    title: "مفاتيح الدخول هي قلب مِراس",
-    body: "كل كود يمكن ربطه بطالب وجهاز وحالة استخدام، لتبقى النسخ الشخصية واضحة ومحكومة.",
-    icon: Key,
-    tone: "from-violet-600 to-indigo-600",
-  },
-  {
-    kicker: "متابعة ذكية",
-    title: "راقب التفعيل والتسليمات",
-    body: "من شاشة واحدة تعرف من فعّل، من بدأ، ومن يحتاج تدخلك، مع تنبيهات نظيفة لا تسرق تركيزك.",
-    icon: ShieldAlert,
-    tone: "from-amber-500 to-orange-500",
+    kicker: "متابعة هادئة",
+    title: "اعرف من فعّل ومن سلّم",
+    body: "من شاشة واحدة ترى من بدأ، من يحلّ الآن، ومن يحتاج تدخّلك — بتنبيهات لا تسرق تركيزك.",
+    visual: tourVisuals.live,
   },
 ];
 
 const studentOnboardingSteps = [
   {
     kicker: "نسختك الشخصية",
-    title: "مرحباً بك في مسارك",
-    body: "الكود الذي فعّلته فتح لك مساحة خاصة داخل مِراس، مرتبطة باسمك ومقررك وتجربتك.",
-    icon: Sparkles,
-    tone: "from-indigo-600 to-blue-600",
-  },
-  {
-    kicker: "الكود",
-    title: "وصولك صار موثقاً",
-    body: "مفتاح الدخول لا يفتح صفحة فقط؛ يربط المقرر بحسابك حتى تظهر لك الاختبارات والمشاريع المناسبة.",
-    icon: Key,
-    tone: "from-emerald-600 to-teal-500",
-  },
-  {
-    kicker: "الأمان",
-    title: "جهازك جزء من الحماية",
-    body: "مِراس يحافظ على عدالة الدخول، ويربط الاستخدام بجهازك وفق قواعد المقرر.",
-    icon: Lock,
-    tone: "from-slate-800 to-indigo-700",
+    title: "كودك فتح مساحتك",
+    body: "المفتاح الذي فعّلته لا يفتح صفحة فحسب؛ يربط المقرر باسمك وجهازك حتى تظهر لك مهامّك أنت وحدك.",
+    visual: tourVisuals.activated,
   },
   {
     kicker: "المهام",
-    title: "اختباراتك ومشاريعك في مكان واحد",
-    body: "عند نشر أي اختبار أو مشروع، ستجده في واجهتك بهدوء ووضوح دون البحث بين صفحات كثيرة.",
-    icon: ClipboardList,
-    tone: "from-violet-600 to-fuchsia-600",
+    title: "اختباراتك ومشاريعك هنا",
+    body: "عند نشر أي اختبار أو مشروع تجده في واجهتك مباشرة، بمواعيده وحالته، دون بحث بين صفحات كثيرة.",
+    visual: tourVisuals.tasks,
   },
   {
-    kicker: "التقدم",
-    title: "تابع رحلتك بثقة",
-    body: "السجل الزمني والتنبيهات يعرضان ما أنجزته وما ينتظرك، حتى تبقى خطوتك التالية واضحة.",
-    icon: Award,
-    tone: "from-amber-500 to-orange-500",
+    kicker: "التقدّم",
+    title: "خطوتك التالية واضحة",
+    body: "السجل الزمني يعرض ما أنجزته وما ينتظرك، فتعرف موقعك من المقرر في نظرة واحدة.",
+    visual: tourVisuals.progress,
   },
 ];
 
@@ -2116,173 +2317,153 @@ function RoleOnboardingOverlay({
 }) {
   const [index, setIndex] = useState(0);
   const active = steps[index] || steps[0];
-  const Icon = active.icon;
   const isLast = index >= steps.length - 1;
   const label =
     role === "teacher" || (role as any) === "admin" ? "المعلم" : "الطالب";
+
+  // الهروب يُنهي الجولة — لا مصيدة بلا مخرج بالمفتاح.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onDismiss();
+      if (e.key === "ArrowLeft") setIndex((v) => Math.min(steps.length - 1, v + 1));
+      if (e.key === "ArrowRight") setIndex((v) => Math.max(0, v - 1));
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [onDismiss, steps.length]);
 
   return (
     <div
       className="miras-onboarding-overlay fixed inset-0 z-[120] flex items-center justify-center p-3 sm:p-6"
       dir="rtl"
+      role="dialog"
+      aria-modal="true"
+      aria-label={`جولة ${label}`}
     >
-      <div className="miras-onboarding-backdrop absolute inset-0 bg-slate-950/60 backdrop-blur-md" />
-      <div className="miras-onboarding-panel relative flex w-full max-w-5xl max-h-[calc(100dvh-1.5rem)] flex-col rounded-[2.2rem] bg-white text-right shadow-[0_34px_120px_rgba(2,6,23,0.36)] overflow-hidden border border-white/70 sm:max-h-[calc(100dvh-3rem)]">
-        <div className="relative z-10 flex h-full flex-col lg:grid lg:grid-cols-[0.95fr_1.05fr] gap-0">
-          {/* Left/Graphic section */}
-          <div
-            className={`miras-onboarding-stage relative shrink-0 min-h-[35vh] lg:min-h-full overflow-hidden bg-gradient-to-br ${active.tone} p-8 text-white sm:p-10 flex flex-col justify-between transition-colors duration-1000 ease-in-out`}
-          >
-            {/* Soft grid decoration */}
-            <div className="absolute inset-0 opacity-15 [background-image:linear-gradient(rgba(255,255,255,.22)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,.18)_1px,transparent_1px)] [background-size:32px_32px]" />
-            {/* Dynamic floating light blobs */}
-            <div className="absolute -right-16 -bottom-16 h-80 w-80 rounded-full bg-white/10 blur-[60px]" />
-            <div className="absolute -left-10 -top-10 h-64 w-64 rounded-full bg-black/15 blur-[50px]" />
+      <div className="miras-onboarding-backdrop absolute inset-0 bg-slate-950/70 backdrop-blur-md" />
 
-            <div className="relative z-10 flex h-full flex-col justify-between">
-              {/* Badge Tag */}
-              <div className="flex items-center justify-between gap-3">
-                <span className="inline-flex items-center gap-1.5 rounded-full border border-white/20 bg-white/10 px-3.5 py-1.5 text-xs font-black text-white/90 backdrop-blur shadow-sm">
-                  <span className="h-2 w-2 rounded-full bg-emerald-400 animate-pulse" />
-                  جولة {label}
-                </span>
-              </div>
+      <div className="miras-onboarding-panel relative flex w-full max-w-4xl max-h-[calc(100dvh-1.5rem)] flex-col overflow-hidden rounded-[var(--miras-r-xl)] border border-white/60 bg-white text-right shadow-[0_34px_120px_rgba(2,6,23,0.36)] sm:max-h-[calc(100dvh-3rem)]">
+        <div className="flex h-full flex-col lg:grid lg:grid-cols-[1fr_1fr]">
+          {/* المسرح — أرضية هوية واحدة لا تتغيّر بين الخطوات */}
+          <div className="miras-tour-stage relative flex shrink-0 flex-col justify-between overflow-hidden p-6 text-white sm:p-8 lg:min-h-full">
+            <div className="miras-tour-grid absolute inset-0" aria-hidden="true" />
 
-              {/* Outstanding Centered Illustration/Shield Container */}
-              <div className="my-auto py-8 flex flex-col items-center justify-center">
-                <div className="relative group">
-                  {/* Pulsating glowing shadow backdrop */}
-                  <div className="absolute -inset-4 rounded-[2.3rem] bg-white/10 blur-[12px] opacity-75 border border-white/20 scale-105" />
-                  {/* Premium glass-morphic tile */}
-                  <div className="relative z-10 grid h-36 w-36 place-items-center rounded-[2.2rem] border border-white/30 bg-white/15 shadow-[0_32px_80px_rgba(15,23,42,0.3)] backdrop-blur-xl">
-                    <AnimatePresence mode="wait">
-                      <motion.div
-                        key={index}
-                        initial={{ scale: 0.6, rotate: -35, opacity: 0 }}
-                        animate={{ scale: 1, rotate: 0, opacity: 1 }}
-                        exit={{ scale: 0.6, rotate: 35, opacity: 0 }}
-                        transition={{
-                          type: "spring",
-                          stiffness: 180,
-                          damping: 13,
-                        }}
-                        className="text-white drop-shadow-[0_4px_12px_rgba(0,0,0,0.15)]"
-                      >
-                        <Icon className="h-16 w-16" />
-                      </motion.div>
-                    </AnimatePresence>
-                  </div>
-                </div>
-              </div>
+            <div className="relative z-10 flex items-center justify-between gap-3">
+              <span className="inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-3 py-1.5 text-[11px] font-bold text-white/90 backdrop-blur">
+                <MirasMark className="h-3.5 w-3.5" />
+                جولة {label}
+              </span>
+              <button
+                type="button"
+                onClick={onDismiss}
+                className="grid h-8 w-8 place-items-center rounded-full text-white/60 transition hover:bg-white/12 hover:text-white"
+                title="إغلاق الجولة"
+                aria-label="إغلاق الجولة"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
 
-              {/* Progress Counters & Dots */}
-              <div className="flex items-center justify-between gap-3 mt-4">
-                <span className="text-xs font-black text-white/80 tracking-widest">
-                  {index + 1} / {steps.length}
-                </span>
-                <div className="flex gap-2">
-                  {steps.map((_, dotIndex) => (
-                    <motion.button
-                      key={dotIndex}
-                      onClick={() => setIndex(dotIndex)}
-                      className="h-2 rounded-full relative cursor-pointer"
-                      animate={{
-                        width: dotIndex === index ? 32 : 8,
-                        backgroundColor:
-                          dotIndex === index
-                            ? "rgba(255, 255, 255, 1)"
-                            : "rgba(255, 255, 255, 0.35)",
-                      }}
-                      transition={{
-                        type: "spring",
-                        stiffness: 220,
-                        damping: 20,
-                      }}
-                      title={`خطوة ${dotIndex + 1}`}
-                      aria-label={`خطوة ${dotIndex + 1}`}
-                    />
-                  ))}
-                </div>
+            {/* المصغّرة: قطعة من واجهة مِراس نفسها */}
+            <div className="relative z-10 my-7 flex justify-center">
+              <AnimatePresence mode="wait">
+                <motion.div
+                  key={index}
+                  initial={{ opacity: 0, y: 16, scale: 0.97 }}
+                  animate={{ opacity: 1, y: 0, scale: 1 }}
+                  exit={{ opacity: 0, y: -12, scale: 0.98 }}
+                  transition={{ duration: 0.36, ease: [0.16, 1, 0.3, 1] }}
+                  className="w-full"
+                >
+                  {active.visual}
+                </motion.div>
+              </AnimatePresence>
+            </div>
+
+            <div className="relative z-10 flex items-center justify-between gap-3">
+              <span className="font-mono text-[11px] font-bold text-white/55">
+                {index + 1} / {steps.length}
+              </span>
+              <div className="flex gap-2">
+                {steps.map((_: any, dot: number) => (
+                  <motion.button
+                    key={dot}
+                    onClick={() => setIndex(dot)}
+                    className="h-1.5 cursor-pointer rounded-full"
+                    animate={{
+                      width: dot === index ? 26 : 8,
+                      backgroundColor:
+                        dot === index ? "rgba(255,255,255,1)" : "rgba(255,255,255,0.32)",
+                    }}
+                    transition={{ type: "spring", stiffness: 220, damping: 20 }}
+                    title={`خطوة ${dot + 1}`}
+                    aria-label={`خطوة ${dot + 1}`}
+                  />
+                ))}
               </div>
             </div>
           </div>
 
-          {/* Right/Text descriptive section */}
-          <div className="relative flex flex-1 flex-col justify-between p-7 sm:p-10 bg-white text-slate-950">
-            <div className="flex-1 flex flex-col justify-center">
-              {/* Header Title Accent */}
-              <div className="mb-4 inline-flex max-w-fit items-center gap-2 rounded-full border border-indigo-100 bg-indigo-50/70 px-3.5 py-2 text-[11px] font-black text-indigo-800 shadow-sm">
-                <span className="h-2.5 w-2.5 rounded-full bg-emerald-500 shadow animate-pulse" />
+          {/* النص */}
+          <div className="relative flex flex-1 flex-col justify-between bg-white p-6 text-slate-950 sm:p-9">
+            <div className="flex flex-1 flex-col justify-center">
+              <div className="mb-4 inline-flex max-w-fit items-center gap-2 rounded-full border border-slate-200 bg-slate-50 px-3 py-1.5 text-[11px] font-bold text-slate-600">
                 {name || "مِراس"}
               </div>
 
-              {/* Text Area with Cross-fade Slideshow transitions */}
               <AnimatePresence mode="wait">
                 <motion.div
                   key={index}
-                  initial={{ opacity: 0, x: 25 }}
+                  initial={{ opacity: 0, x: 22 }}
                   animate={{ opacity: 1, x: 0 }}
-                  exit={{ opacity: 0, x: -25 }}
+                  exit={{ opacity: 0, x: -22 }}
                   transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
                 >
-                  <span className="text-xs font-black uppercase tracking-wider text-slate-400">
+                  <span className="text-[11px] font-bold text-indigo-700">
                     {active.kicker}
                   </span>
-                  <h2 className="mt-2 text-3xl font-black leading-[1.3] text-slate-900 sm:text-4xl tracking-tight bg-gradient-to-r from-slate-950 via-slate-900 to-slate-800 bg-clip-text">
+                  <h2 className="mt-2 text-[1.75rem] font-black leading-[1.32] text-slate-950 sm:text-[2.1rem]">
                     {active.title}
                   </h2>
-                  <p className="mt-5 max-w-lg text-[14px] font-semibold leading-[2] text-slate-600">
+                  <p className="mt-4 max-w-md text-[13.5px] font-medium leading-[2] text-slate-600">
                     {active.body}
                   </p>
                 </motion.div>
               </AnimatePresence>
             </div>
 
-            {/* Stepper Buttons Footer */}
-            <div className="mt-10 grid gap-3 grid-cols-2 items-center border-t border-slate-100 pt-7">
-              <motion.button
-                whileHover={{ scale: 1.02 }}
-                whileTap={{ scale: 0.98 }}
+            <div className="mt-8 flex items-center justify-between gap-3 border-t border-slate-100 pt-6">
+              <button
                 type="button"
                 onClick={onDismiss}
-                className="rounded-2xl border border-slate-200 bg-white px-5 py-3.5 text-xs font-black text-slate-500 shadow-sm hover:bg-slate-50 hover:text-slate-900 active:bg-slate-100 transition-colors cursor-pointer text-center"
+                className="rounded-[var(--miras-r-md)] px-3 py-2.5 text-xs font-bold text-slate-400 transition hover:text-slate-700"
               >
-                تخطي الجولة
-              </motion.button>
+                تخطّي
+              </button>
 
-              <div className="flex items-center justify-end gap-2.5">
-                <motion.button
-                  whileHover={index > 0 ? { scale: 1.05 } : {}}
-                  whileTap={index > 0 ? { scale: 0.95 } : {}}
+              <div className="flex items-center gap-2.5">
+                <button
                   type="button"
                   onClick={() => setIndex((v) => Math.max(0, v - 1))}
                   disabled={index === 0}
-                  className="inline-flex h-12 w-12 items-center justify-center rounded-2xl border border-slate-200 bg-white text-slate-700 shadow-sm disabled:cursor-not-allowed disabled:opacity-30 hover:bg-slate-100 cursor-pointer disabled:hover:bg-white transition-colors"
+                  className="inline-flex h-11 w-11 items-center justify-center rounded-[var(--miras-r-md)] border border-slate-200 bg-white text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-25"
                   title="السابق"
                   aria-label="السابق"
                 >
-                  <ChevronRight className="h-5 w-5" />
-                </motion.button>
+                  <ChevronRight className="h-4.5 w-4.5" />
+                </button>
 
-                <motion.button
-                  whileHover={{ scale: 1.05 }}
-                  whileTap={{ scale: 0.95 }}
+                <button
                   type="button"
                   onClick={() =>
-                    isLast
-                      ? onDismiss()
-                      : setIndex((v) => Math.min(steps.length - 1, v + 1))
+                    isLast ? onDismiss() : setIndex((v) => Math.min(steps.length - 1, v + 1))
                   }
-                  className="inline-flex h-12 w-12 items-center justify-center rounded-2xl bg-slate-950 text-white shadow-[0_12px_28px_rgba(15,23,42,0.22)] hover:bg-indigo-700 active:bg-indigo-850 cursor-pointer text-center transition-colors"
+                  className="miras-tour-cta inline-flex h-11 items-center gap-2 rounded-[var(--miras-r-md)] px-5 text-sm font-bold text-white transition"
                   title={isLast ? "ابدأ" : "التالي"}
-                  aria-label={isLast ? "ابدأ" : "التالي"}
                 >
-                  {isLast ? (
-                    <Check className="h-5 w-5" />
-                  ) : (
-                    <ChevronLeft className="h-5 w-5" />
-                  )}
-                </motion.button>
+                  {isLast ? "ابدأ الآن" : "التالي"}
+                  {isLast ? <Check className="h-4 w-4" /> : <ChevronLeft className="h-4 w-4" />}
+                </button>
               </div>
             </div>
           </div>
@@ -2911,6 +3092,18 @@ export default function App() {
     | "teacher_workspace"
     | "payment"
   >(() => {
+    // صفحة الهبوط غير قابلة للوصول أصلاً: لا شيء في التطبيق يضبط العرض على
+    // "landing"، ولا المُهيّئ يعيدها — ولهذا كانت أقسامها مطفأة بـ‎hidden‎.
+    // أُبقيت كما هي في التدفّق الافتراضي (لا تغيير في السلوك)، وأُضيف منفذ
+    // معاينة صريح ‎?miras_home=1‎ ليقرّر المالك أيربطها أم يحذفها.
+    try {
+      if (
+        typeof window !== "undefined" &&
+        new URLSearchParams(window.location.search).get("miras_home") === "1"
+      ) {
+        return "landing";
+      }
+    } catch {}
     try {
       if (storedSessionNeedsPasskeyUnlock()) return "signup";
       const stored = localStorage.getItem("miras_student_session");
@@ -6871,7 +7064,54 @@ export default function App() {
   const [uploadText, setUploadText] = useState("");
   const [uploadFileName, setUploadFileName] = useState("");
   const [isProjectGenerating, setIsProjectGenerating] = useState(false);
-  const [showSplash, setShowSplash] = useState(true);
+  // ── السِمة ──
+  // التطبيق لم يكن فيه ولا استخدام واحد لـ‎dark:‎ رغم أن الـmanifest والـsplash
+  // داكنان. الافتراضي الآن يتبع تفضيل النظام، مع تجاوز يدوي يُحفظ.
+  const [theme, setTheme] = useState<"light" | "dark">(() => {
+    if (typeof document === "undefined") return "light";
+    return document.documentElement.getAttribute("data-theme") === "dark"
+      ? "dark"
+      : "light";
+  });
+
+  useEffect(() => {
+    document.documentElement.setAttribute("data-theme", theme);
+  }, [theme]);
+
+  useEffect(() => {
+    if (typeof window === "undefined" || !window.matchMedia) return;
+    const mq = window.matchMedia("(prefers-color-scheme: dark)");
+    const onChange = (e: MediaQueryListEvent) => {
+      // تغيّر النظام يُتبع فقط ما لم يختر المستخدم سِمة بنفسه.
+      try {
+        if (localStorage.getItem("miras_theme")) return;
+      } catch {}
+      setTheme(e.matches ? "dark" : "light");
+    };
+    mq.addEventListener("change", onChange);
+    return () => mq.removeEventListener("change", onChange);
+  }, []);
+
+  const toggleTheme = () => {
+    setTheme((prev) => {
+      const next = prev === "dark" ? "light" : "dark";
+      try {
+        localStorage.setItem("miras_theme", next);
+      } catch {}
+      return next;
+    });
+  };
+
+  // شاشة الإقلاع تُعرض لأول دخول فقط. من يعود إلى جلسة قائمة لا يستحق ضريبة
+  // ثانيتين في كل فتح، فتُتخطّى تماماً.
+  const [showSplash, setShowSplash] = useState(() => {
+    if (typeof window === "undefined") return false;
+    try {
+      return !window.sessionStorage.getItem("miras_splash_seen");
+    } catch {
+      return true;
+    }
+  });
 
   // مؤشّر انقطاع الإنترنت — رسالة ناعمة ومختصرة تظهر فقط عند فقد الاتصال
   // وتختفي تلقائياً فور عودته. عرضية بحتة ولا تتدخّل في منطق الاختبارات.
@@ -9476,9 +9716,12 @@ export default function App() {
     window.addEventListener("focus", handleStorage);
     window.addEventListener("academicLabBridgeUpdated", handleStorage);
 
+    try {
+      window.sessionStorage.setItem("miras_splash_seen", "1");
+    } catch {}
     const splashTimer = setTimeout(() => {
       setShowSplash(false);
-    }, 2800);
+    }, 2250);
 
     return () => {
       window.removeEventListener("storage", handleStorage);
@@ -27671,7 +27914,7 @@ ${rows
                     >
                       <div className="grid grid-cols-1 gap-3.5">
                         <div>
-                          <label className="text-[10px] font-black text-indigo-550 block mb-1">
+                          <label className="text-[10px] font-black text-indigo-500 block mb-1">
                             الرقم الجامعي
                           </label>
                           <div className="font-mono text-base font-black text-indigo-700">
@@ -27714,7 +27957,7 @@ ${rows
                           </div>
                         </div>
 
-                        <div className="flex items-center justify-between border-t border-slate-150 pt-3 mt-1">
+                        <div className="flex items-center justify-between border-t border-slate-100 pt-3 mt-1">
                           <div>
                             {!isEditing && (
                               <span
@@ -28805,7 +29048,7 @@ ${rows
 
                 <div className="mt-5 rounded-[1.6rem] border border-slate-100 bg-slate-50/80 p-4 text-right">
                   <div className="flex items-center gap-3">
-                    <span className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-white text-indigo-650 shadow-sm">
+                    <span className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-white text-indigo-600 shadow-sm">
                       <Laptop className="h-5 w-5" />
                     </span>
                     <div className="min-w-0 flex-1">
@@ -29830,20 +30073,17 @@ ${rows
         </div>
       </div>
       {showSplash && (
-        <div className="miras-splash fixed inset-0 z-[100] flex flex-col items-center justify-center text-white animate-out fade-out duration-1000 delay-2000 fill-mode-forwards">
-          <div className="miras-splash-orb" />
-          <div className="relative flex flex-col items-center animate-in zoom-in-95 fade-in duration-700">
-            <div className="miras-brand-mark mb-6">
-              <img
-                src={logoImg}
-                alt="Meras Logo"
-                className="h-16 w-16 object-contain"
-              />
+        <div className="miras-splash fixed inset-0 z-[100] flex flex-col items-center justify-center animate-out fade-out duration-500 delay-[1750ms] fill-mode-forwards">
+          <div className="relative flex flex-col items-center">
+            <MirasMarkDrawn className="miras-splash-mark h-24 w-24 sm:h-28 sm:w-28" />
+            <div className="miras-splash-reveal mt-7 flex flex-col items-center">
+              <h1 className="miras-splash-word text-[2.7rem] font-black leading-none sm:text-5xl">
+                مِراس
+              </h1>
+              <p className="miras-splash-sub mt-3 text-[13px] font-bold">
+                منصّة الاختبارات والتعلّم الذكي
+              </p>
             </div>
-            <h1 className="text-5xl font-black tracking-tight mb-2">مِراس</h1>
-            <p className="text-indigo-100 tracking-wide text-sm font-black">
-              تجربة تعلم ذكية وآمنة
-            </p>
           </div>
         </div>
       )}
@@ -30039,8 +30279,8 @@ ${rows
                         isActive
                           ? "border-indigo-300 bg-indigo-600 text-white shadow-sm font-black"
                           : row.submission
-                            ? "border-slate-200 bg-white text-slate-700 hover:border-indigo-150 hover:bg-indigo-50 hover:text-indigo-700 font-bold"
-                            : "cursor-not-allowed border-slate-150 bg-slate-100/60 text-slate-300"
+                            ? "border-slate-200 bg-white text-slate-700 hover:border-indigo-100 hover:bg-indigo-50 hover:text-indigo-700 font-bold"
+                            : "cursor-not-allowed border-slate-100 bg-slate-100/60 text-slate-300"
                       }`}
                       title={row.submission ? "فتح" : "لا يوجد تسليم"}
                     >
@@ -30105,7 +30345,7 @@ ${rows
                       </span>
                     </div>
                     {false && (
-                      <div className="rounded-xl border border-emerald-150 bg-emerald-50/50 px-2.5 py-1 text-[10px] font-black text-emerald-700">
+                      <div className="rounded-xl border border-emerald-100 bg-emerald-50/50 px-2.5 py-1 text-[10px] font-black text-emerald-700">
                         بصمة عدالة: أصلية {selectedSubmissionDetail.originalGrade || "—"} / بعد مراجعة {selectedSubmissionDetail.reviewedGrade || teacherGradeInputValue(selectedSubmissionDetail) || "—"}
                       </div>
                     )}
@@ -30195,7 +30435,7 @@ ${rows
                               key={idx}
                               type="button"
                               onClick={() => setPreviewAttachment(att)}
-                              className="flex items-center justify-between gap-3 rounded-xl border border-slate-150 bg-white p-3 text-right transition hover:border-indigo-200 hover:bg-indigo-50/30 shadow-sm"
+                              className="flex items-center justify-between gap-3 rounded-xl border border-slate-100 bg-white p-3 text-right transition hover:border-indigo-200 hover:bg-indigo-50/30 shadow-sm"
                             >
                               <div className="min-w-0 flex-1">
                                 <div className="truncate text-[11px] font-black text-slate-800">
@@ -30342,7 +30582,7 @@ ${rows
               {/* Directly input grade and return submission when document preview is open above document */}
               {selectedSubmissionDetail && (
                 <div className="flex items-center gap-1.5 border-r border-slate-100 pr-2 mr-2">
-                  <div className="flex items-center gap-1 bg-slate-50 border border-slate-150 rounded-xl px-2 py-1">
+                  <div className="flex items-center gap-1 bg-slate-50 border border-slate-100 rounded-xl px-2 py-1">
                     <input
                       value={teacherGradeInputValue(selectedSubmissionDetail)}
                       onChange={(e) => {
@@ -30369,7 +30609,7 @@ ${rows
                       placeholder=""
                       className="h-8 w-16 rounded-lg bg-white border border-slate-200 text-center font-mono text-xs font-black text-indigo-700 focus:outline-none focus:border-indigo-400"
                     />
-                    <span className="text-[10px] font-black text-slate-450 leading-none">
+                    <span className="text-[10px] font-black text-slate-400 leading-none">
                       {teacherGradeMaxText(selectedSubmissionDetail)}
                     </span>
                   </div>
@@ -30772,138 +31012,133 @@ ${rows
       <div className="flex-1 flex flex-col">
         {/* 1. PUBLIC LANDING VIEW */}
         {currentView === "landing" && (
+          // صفحة الهبوط كانت مهدومة: الرأس ‎hidden‎، والعمود الأيمن كله ‎hidden‎،
+          // وزر دخول الأستاذ ‎hidden‎ — فلم يبقَ للزائر سوى لوقو وزر أسود واحد.
+          // أُعيد تشغيل التصميم وأُعيدت صياغته على رموز النظام الجديدة.
           <div
             dir="rtl"
-            className="relative isolate flex-1 overflow-hidden bg-[#f5f7fb] text-slate-950"
+            className="relative isolate flex-1 overflow-hidden text-slate-950"
+            style={{ background: "var(--miras-surface-2)" }}
           >
-            <div className="absolute inset-0 -z-10 bg-[radial-gradient(circle_at_18%_12%,rgba(79,70,229,0.16),transparent_32%),radial-gradient(circle_at_84%_18%,rgba(16,185,129,0.12),transparent_28%),linear-gradient(180deg,#ffffff_0%,#f7f9fd_54%,#eef3ff_100%)]" />
-            <div className="absolute -top-32 left-10 -z-10 h-72 w-72 rounded-full bg-indigo-200/40 blur-3xl" />
-            <div className="absolute bottom-10 right-0 -z-10 h-80 w-80 rounded-full bg-emerald-200/30 blur-3xl" />
+            <div className="pointer-events-none absolute inset-0 -z-10 bg-[radial-gradient(circle_at_82%_-6%,rgba(67,56,202,0.16),transparent_42%),radial-gradient(circle_at_4%_96%,rgba(67,56,202,0.09),transparent_38%)]" />
 
-            <header className="hidden">
-              <div className="flex items-center gap-3 rounded-full border border-white/70 bg-white/70 px-4 py-2 shadow-sm backdrop-blur-xl">
-                <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-gradient-to-br from-slate-950 to-indigo-700 text-white shadow-lg shadow-indigo-900/15">
-                  <GraduationCap className="h-5 w-5" />
-                </div>
-                <div>
-                  <p className="text-sm font-black tracking-tight text-slate-950 flex items-center gap-2">
-                    <img src={logoImg} alt="Meras Logo" className="w-5 h-5" />
-                    مِراس
-                  </p>
-                </div>
+            <header className="relative mx-auto flex w-full max-w-6xl items-center justify-between gap-4 px-5 pt-6 md:px-8 md:pt-8">
+              <div className="flex items-center gap-2.5">
+                <span
+                  className="grid h-10 w-10 place-items-center rounded-[var(--miras-r-md)] text-white"
+                  style={{ background: "var(--miras-brand)" }}
+                >
+                  <MirasMark className="h-5 w-5" />
+                </span>
+                <span className="text-lg font-black tracking-tight text-slate-950">مِراس</span>
               </div>
 
               <button
                 onClick={handleTeacherAccess}
-                className="hidden rounded-full border border-slate-200/70 bg-white/75 px-5 py-2.5 text-xs font-bold text-slate-700 shadow-sm backdrop-blur-xl hover:border-indigo-200 hover:text-indigo-700 md:inline-flex"
+                className="rounded-full border border-slate-200 bg-white px-4 py-2 text-xs font-bold text-slate-600 transition hover:border-indigo-200 hover:text-indigo-700"
               >
                 دخول الأستاذ
               </button>
             </header>
 
-            <main className="mx-auto grid w-full max-w-7xl items-center gap-10 px-5 pb-16 pt-8 md:grid-cols-[1.05fr_0.95fr] md:px-8 md:pb-24 md:pt-12">
-              <section className="max-w-3xl">
-                <h1 className="max-w-4xl text-5xl font-black leading-[1.08] tracking-[-0.045em] text-slate-950 md:text-7xl flex items-center gap-4">
-                  <img
-                    src={logoImg}
-                    alt="Meras Logo"
-                    className="w-12 h-12 md:w-20 md:h-20"
-                  />
-                  مِراس
-                  <span className="mt-3 block bg-gradient-to-l from-indigo-700 via-sky-600 to-emerald-500 bg-clip-text text-3xl text-transparent md:text-5xl">
-                    مِراس للتعلم الذكي
-                  </span>
+            <main className="mx-auto grid w-full max-w-6xl items-center gap-12 px-5 pb-20 pt-12 md:grid-cols-[1.02fr_0.98fr] md:gap-14 md:px-8 md:pb-28 md:pt-16">
+              <section>
+                <span className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-1.5 text-[11px] font-bold text-slate-600">
+                  <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
+                  اختبارات · مشاريع · متابعة لحظية
+                </span>
+
+                <h1 className="mt-6 text-[2.9rem] font-black leading-[1.34] text-slate-950 md:text-[4.2rem]">
+                  المقرّر كلّه
+                  <br />
+                  <span style={{ color: "var(--miras-brand)" }}>في مكان واحد</span>
                 </h1>
 
-                <div className="mt-9 flex flex-col gap-3 sm:flex-row">
+                <p className="mt-6 max-w-md text-[15px] font-medium leading-[2] text-slate-600">
+                  مِراس يربط المقرر بالطلبة بمفاتيح الدخول، فتعرف من فعّل ومن
+                  سلّم ومن يحتاج تدخّلك — من شاشة واحدة هادئة.
+                </p>
+
+                <div className="mt-9 flex flex-col gap-3 sm:flex-row sm:items-center">
                   <button
                     onClick={() => {
                       setErrorMsg("");
                       setCurrentView("signup");
                     }}
                     id="btn-nav-login"
-                    className="inline-flex items-center justify-center rounded-2xl bg-slate-950 px-8 py-4 text-base font-extrabold text-white shadow-2xl shadow-slate-950/20 hover:bg-indigo-700"
+                    className="miras-tour-cta inline-flex items-center justify-center gap-2 rounded-[var(--miras-r-md)] px-8 py-4 text-[15px] font-bold text-white"
                   >
                     دخول مِراس
+                    <ChevronLeft className="h-4 w-4" />
                   </button>
+                  <span className="text-center text-[11px] font-medium text-slate-400 sm:text-right">
+                    بكود التفعيل الذي زوّدك به أستاذك
+                  </span>
                 </div>
               </section>
 
-              <section className="relative hidden">
-                <div className="rounded-[2.2rem] border border-white/80 bg-white/65 p-4 shadow-2xl shadow-slate-900/10 backdrop-blur-2xl md:p-5">
-                  <div className="rounded-[1.8rem] border border-slate-100 bg-white p-5 shadow-sm md:p-6">
-                    <div className="flex items-start justify-between gap-4">
-                      <div>
-                        <p className="text-xs font-extrabold uppercase tracking-[0.25em] text-indigo-700">
-                          مِراس
-                        </p>
-                        <h2 className="mt-2 text-2xl font-black tracking-tight text-slate-950 font-sans">
-                          مسار الطالب اليومي
-                        </h2>
+              <section className="relative">
+                <div className="rounded-[var(--miras-r-xl)] border border-slate-200/70 bg-white p-4 shadow-[0_34px_84px_rgba(11,16,32,0.10)] md:p-5">
+                  <div className="flex items-start justify-between gap-4 px-1 pb-4">
+                    <div>
+                      <p className="text-[11px] font-bold text-indigo-700">مِراس</p>
+                      <h2 className="mt-1 text-xl font-black tracking-tight text-slate-950">
+                        مسار الطالب اليومي
+                      </h2>
+                    </div>
+                    <span className="grid h-10 w-10 place-items-center rounded-[var(--miras-r-md)] bg-indigo-50 text-indigo-700">
+                      <Layers className="h-5 w-5" />
+                    </span>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-3">
+                    <div
+                      className="col-span-2 rounded-[var(--miras-r-lg)] p-5 text-white"
+                      style={{
+                        background:
+                          "linear-gradient(150deg,#2A2482 0%,#1B1758 58%,#12103C 100%)",
+                      }}
+                    >
+                      <div className="flex items-center justify-between">
+                        <p className="text-[11px] font-bold text-indigo-200">اختبار تدريبي</p>
+                        <CheckCircle className="h-4 w-4 text-emerald-400" />
                       </div>
-                      <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-indigo-50 text-indigo-700/80">
-                        <Layers className="h-6 w-6" />
-                      </div>
+                      <p className="mt-3 text-2xl font-black">واضح ومنظّم</p>
+                      <p className="mt-2 text-[11px] font-medium leading-[1.9] text-indigo-100/80">
+                        واجهة مركّزة تساعد الطالب على الفهم، وتساعد الأستاذ على
+                        المتابعة الفورية.
+                      </p>
                     </div>
 
-                    <div className="mt-6 grid grid-cols-2 gap-4">
-                      <div className="col-span-2 rounded-[1.8rem] bg-gradient-to-br from-indigo-950 to-indigo-805 p-6 text-white shadow-xl">
-                        <div className="flex items-center justify-between">
-                          <p className="text-xs font-bold text-indigo-200">
-                            اختبار تدريبي
-                          </p>
-                          <CheckCircle className="h-5 w-5 text-emerald-400" />
-                        </div>
-                        <p className="mt-4 text-2xl font-black font-sans">
-                          واضح ومنظّم
-                        </p>
-                        <p className="mt-2 text-xs leading-6 text-indigo-100">
-                          واجهة مركّزة تساعد الطالب على الفهم وتساعد الأستاذ على
-                          المتابعة الفورية.
-                        </p>
-                      </div>
+                    <div className="rounded-[var(--miras-r-lg)] border border-slate-200/70 bg-slate-50 p-4">
+                      <BookOpen className="h-5 w-5 text-indigo-700" />
+                      <p className="mt-3 text-base font-black text-slate-950">تمارين</p>
+                      <p className="mt-1 text-[11px] font-medium text-slate-500">
+                        بطاقات خفيفة وواضحة
+                      </p>
+                    </div>
 
-                      <div className="rounded-[1.4rem] border border-slate-200/60 bg-slate-50 p-5 bento-interactive">
-                        <BookOpen className="h-6 w-6 text-indigo-600" />
-                        <p className="mt-4 text-lg font-bold text-slate-950 font-sans">
-                          تمارين
-                        </p>
-                        <p className="mt-1 text-[11px] font-semibold text-slate-500">
-                          بطاقات خفيفة وواضحة
-                        </p>
-                      </div>
+                    <div className="rounded-[var(--miras-r-lg)] border border-emerald-100 bg-emerald-50/70 p-4">
+                      <Compass className="h-5 w-5 text-emerald-700" />
+                      <p className="mt-3 text-base font-black text-slate-950">مشروع</p>
+                      <p className="mt-1 text-[11px] font-medium text-emerald-700">
+                        مسار شخصي للطالب
+                      </p>
+                    </div>
 
-                      <div className="rounded-[1.4rem] border border-emerald-100 bg-emerald-50/70 p-5 bento-interactive">
-                        <Compass className="h-6 w-6 text-emerald-700" />
-                        <p className="mt-4 text-lg font-bold text-slate-950 font-sans">
-                          مشروع
-                        </p>
-                        <p className="mt-1 text-[11px] font-semibold text-slate-50/70 text-emerald-600">
-                          مسار شخصي للطالب
-                        </p>
-                      </div>
-
-                      <div className="col-span-2 rounded-[1.4rem] border border-slate-250 bg-white p-5">
-                        <p className="text-xs font-bold text-slate-800">
-                          سياسة الاستخدام الأكاديمي
-                        </p>
-                        <p className="mt-2 text-[11px] leading-6 text-slate-500">
-                          يهدف مِراس إلى تقديم تجربة تدريبية شخصية مساندة
-                          للمقرر، من خلال توليد اختبارات وتمارين ومشاريع تطبيقية
-                          تختلف حسب مسار الطالب وتقدمه، مع تحقق أكاديمي خفيف دون
-                          رفع وثائق هوية رسمية.
-                        </p>
-                      </div>
+                    <div className="col-span-2 rounded-[var(--miras-r-lg)] border border-slate-200/70 bg-white p-4">
+                      <p className="text-[11px] font-bold text-slate-800">
+                        سياسة الاستخدام الأكاديمي
+                      </p>
+                      <p className="mt-2 text-[11px] font-medium leading-[1.95] text-slate-500">
+                        يهدف مِراس إلى تقديم تجربة تدريبية شخصية مساندة للمقرر،
+                        من خلال توليد اختبارات وتمارين ومشاريع تطبيقية تختلف حسب
+                        مسار الطالب وتقدّمه، مع تحقّق أكاديمي خفيف دون رفع وثائق
+                        هوية رسمية.
+                      </p>
                     </div>
                   </div>
                 </div>
-
-                <button
-                  onClick={handleTeacherAccess}
-                  className="mt-5 inline-flex w-full items-center justify-center rounded-2xl border border-white/80 bg-white/75 px-5 py-3 text-xs font-extrabold text-indigo-700 shadow-sm backdrop-blur-xl hover:bg-white md:hidden"
-                >
-                  الدخول للوحة الأستاذ (رابط سريع للمشرف)
-                </button>
               </section>
             </main>
           </div>
@@ -30955,21 +31190,37 @@ ${rows
             <div className="absolute bottom-0 left-1/4 w-96 h-96 hero-glow-2 -z-15" />
 
             <div className="meras-auth-card w-full max-w-xl h-auto max-h-[calc(100dvh-2rem)] overflow-y-auto flex flex-col justify-center glass-panel rounded-[2rem] shadow-premium-lg p-8 sm:p-10 border border-white/60 relative z-10 transition-all duration-300">
-              {!isAppStandalone && (
+              <div className="absolute top-6 left-6 z-20 flex items-center gap-2">
                 <button
                   type="button"
-                  onClick={triggerPwaInstallation}
-                  className="absolute top-6 left-6 inline-flex h-11 w-11 items-center justify-center rounded-2xl bg-gradient-to-br from-indigo-50 to-indigo-100 border border-indigo-200/50 text-indigo-700 shadow-md transition-all duration-300 hover:scale-105 active:scale-95 pwa-glowing-btn cursor-pointer z-20"
-                  title="تثبيت منصة مِراس على جهازك"
-                  aria-label="تثبيت مِراس"
+                  onClick={toggleTheme}
+                  className="inline-flex h-11 w-11 items-center justify-center rounded-[var(--miras-r-md)] border border-slate-200 bg-white text-slate-600 transition hover:text-indigo-700 active:scale-95"
+                  title={theme === "dark" ? "الوضع النهاري" : "الوضع الليلي"}
+                  aria-label={theme === "dark" ? "الوضع النهاري" : "الوضع الليلي"}
                 >
-                  <Smartphone className="h-5 w-5 text-indigo-650" />
+                  {theme === "dark" ? (
+                    <Sun className="h-5 w-5" />
+                  ) : (
+                    <Moon className="h-5 w-5" />
+                  )}
                 </button>
-              )}
+
+                {!isAppStandalone && (
+                  <button
+                    type="button"
+                    onClick={triggerPwaInstallation}
+                    className="inline-flex h-11 w-11 items-center justify-center rounded-[var(--miras-r-md)] border border-indigo-200/50 bg-indigo-50 text-indigo-700 transition hover:scale-105 active:scale-95 pwa-glowing-btn cursor-pointer"
+                    title="تثبيت منصة مِراس على جهازك"
+                    aria-label="تثبيت مِراس"
+                  >
+                    <Smartphone className="h-5 w-5 text-indigo-600" />
+                  </button>
+                )}
+              </div>
 
               <div className="text-center mb-6">
-                <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-indigo-50 border border-indigo-100 text-[11px] font-bold text-indigo-700 mb-2">
-                  <GraduationCap className="w-3.5 h-3.5" />
+                <span className="mb-3 inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-1.5 text-[11px] font-bold text-slate-600">
+                  <MirasMark className="h-3.5 w-3.5" />
                   مِراس
                 </span>
                 <h2 className="text-2xl font-bold tracking-tight text-slate-950 font-sans">
@@ -31272,7 +31523,7 @@ ${rows
                           title="تسجيل الدخول"
                           aria-label="تسجيل الدخول"
                           onClick={handleLogin}
-                          className="flex h-16 w-16 items-center justify-center rounded-3xl bg-slate-950 text-white transition-all duration-300 btn-spring-active shadow-premium-md hover:bg-indigo-750"
+                          className="flex h-16 w-16 items-center justify-center rounded-3xl bg-slate-950 text-white transition-all duration-300 btn-spring-active shadow-premium-md hover:bg-indigo-700"
                         >
                           <Lock className="h-7 w-7" />
                         </button>
@@ -31649,8 +31900,8 @@ ${rows
               </div>
 
               {/* Verified Badge Header block */}
-              <div className="gradient-academic-light p-5 rounded-2xl border border-blue-150/40 mb-5 font-sans shadow-sm flex items-start gap-4">
-                <div className="w-10 h-10 rounded-full bg-indigo-150/60 flex items-center justify-center text-indigo-700 shrink-0 mt-0.5 text-lg font-bold">
+              <div className="gradient-academic-light p-5 rounded-2xl border border-blue-100/40 mb-5 font-sans shadow-sm flex items-start gap-4">
+                <div className="w-10 h-10 rounded-full bg-indigo-100/60 flex items-center justify-center text-indigo-700 shrink-0 mt-0.5 text-lg font-bold">
                   👤
                 </div>
                 <div className="flex-grow text-right space-y-1">
@@ -31762,7 +32013,7 @@ ${rows
                         touchCodeTyping("join-lab", e.target.value, false);
                         setJoinCodeInput(formatJoinCode(e.target.value));
                       }}
-                      className="w-full bg-white border border-slate-350 rounded-2xl py-3.5 pl-14 pr-4 text-center font-mono font-bold tracking-[0.16em] text-indigo-950 text-[15px] sm:text-xl uppercase placeholder:text-slate-300 focus:ring-4 focus:ring-indigo-100"
+                      className="w-full bg-white border border-slate-300 rounded-2xl py-3.5 pl-14 pr-4 text-center font-mono font-bold tracking-[0.16em] text-indigo-950 text-[15px] sm:text-xl uppercase placeholder:text-slate-300 focus:ring-4 focus:ring-indigo-100"
                       placeholder="LAB-7K3Q-92MD-X5P8"
                     />
                     <button
@@ -32059,7 +32310,7 @@ ${rows
                           >
                             <div className="flex justify-between items-center gap-3 border-b border-slate-200/40 pb-2">
                               <div className="flex items-center gap-2">
-                                <span className="bg-indigo-100 text-indigo-850 font-mono text-[10px] px-2.5 py-1 rounded-md font-bold">
+                                <span className="bg-indigo-100 text-indigo-900 font-mono text-[10px] px-2.5 py-1 rounded-md font-bold">
                                   السؤال {idx + 1}
                                 </span>
                                 {!isAnswered && (
@@ -32068,11 +32319,11 @@ ${rows
                                   </span>
                                 )}
                               </div>
-                              <span className="text-[10px] text-slate-450 font-light">
+                              <span className="text-[10px] text-slate-400 font-light">
                                 الدرجة: {q.points}
                               </span>
                             </div>
-                            <p className="font-bold text-xs sm:text-sm text-slate-905 leading-relaxed font-sans">
+                            <p className="font-bold text-xs sm:text-sm text-slate-900 leading-relaxed font-sans">
                               {q.questionText}
                             </p>
 
@@ -32341,7 +32592,7 @@ ${rows
 
                     {sebSessionInfo && (
                       <div className="flex flex-wrap items-center justify-start gap-1.5">
-                        <span className="inline-flex items-center gap-1.5 rounded-full border border-indigo-150 bg-indigo-50/50 px-2.5 py-0.5 text-[9px] font-black text-indigo-700">
+                        <span className="inline-flex items-center gap-1.5 rounded-full border border-indigo-100 bg-indigo-50/50 px-2.5 py-0.5 text-[9px] font-black text-indigo-700">
                           <Lock className="h-3 w-3" /> جلسة SEB آمنة لهذا
                           الاختبار فقط
                         </span>
@@ -32370,9 +32621,9 @@ ${rows
                             title="تثبيت منصة مِراس على الشاشة الرئيسية"
                             aria-label="تثبيت مِراس على جهازك"
                             onClick={triggerPwaInstallation}
-                            className="inline-flex h-12 w-12 items-center justify-center rounded-2xl border border-indigo-150 bg-gradient-to-br from-white to-indigo-50/50 text-indigo-700 shadow-sm hover:bg-indigo-100 relative pwa-glowing-btn"
+                            className="inline-flex h-12 w-12 items-center justify-center rounded-2xl border border-indigo-100 bg-gradient-to-br from-white to-indigo-50/50 text-indigo-700 shadow-sm hover:bg-indigo-100 relative pwa-glowing-btn"
                           >
-                            <Smartphone className="h-4.5 w-4.5 text-indigo-650" />
+                            <Smartphone className="h-4.5 w-4.5 text-indigo-600" />
                           </button>
                         )}
                         {!passkeyEnabledForCurrentSession &&
@@ -32425,7 +32676,7 @@ ${rows
                                 await fetchInAppNotifications();
                               }
                             }}
-                            className={`inline-flex h-12 w-12 items-center justify-center rounded-2xl border border-indigo-150 text-indigo-700 relative bg-gradient-to-br from-white to-indigo-50/50 ${studentNotificationBadgeCount > 0 ? "notification-alert-glowing-btn ring-1 ring-indigo-200" : ""}`}
+                            className={`inline-flex h-12 w-12 items-center justify-center rounded-2xl border border-indigo-100 text-indigo-700 relative bg-gradient-to-br from-white to-indigo-50/50 ${studentNotificationBadgeCount > 0 ? "notification-alert-glowing-btn ring-1 ring-indigo-200" : ""}`}
                           >
                             <Bell className="h-5 w-5" />
                             {studentNotificationBadgeCount > 0 && (
@@ -32453,7 +32704,7 @@ ${rows
                                   type="button"
                                   aria-label="تحديد الكل كمقروء"
                                   onClick={markAllStudentNotificationsRead}
-                                  className="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-emerald-150 bg-emerald-50 text-emerald-700 shadow-sm hover:bg-emerald-100 hover:text-emerald-800 transition-all"
+                                  className="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-emerald-100 bg-emerald-50 text-emerald-700 shadow-sm hover:bg-emerald-100 hover:text-emerald-800 transition-all"
                                 >
                                   <CheckCircle2 className="h-5 w-5" />
                                 </button>
@@ -32969,7 +33220,7 @@ ${rows
                               / 1) جهاز نشط
                             </span>
                           </div>
-                          <div className="text-[10px] bg-indigo-50/30 border border-indigo-150/40 px-3 py-2 rounded-xl text-indigo-805 font-mono text-center">
+                          <div className="text-[10px] bg-indigo-50/30 border border-indigo-100/40 px-3 py-2 rounded-xl text-indigo-800 font-mono text-center">
                             حالة الترخيص: مرخص ومؤمن فصلياً لقاعات المعامل
                           </div>
                         </div>
@@ -33283,7 +33534,7 @@ ${rows
                                             }}
                                             title="عرض السجل الكامل"
                                             aria-label="عرض السجل الكامل"
-                                            className="absolute left-3.5 top-3.5 z-20 group inline-flex h-11 w-11 items-center justify-center rounded-xl border border-indigo-100/95 bg-white/92 text-indigo-700 shadow-[0_5px_15px_rgba(79,70,229,0.06)] ring-1 ring-white/95 transition duration-300 hover:scale-[1.05] hover:bg-indigo-50 hover:text-indigo-850 active:scale-95 cursor-pointer"
+                                            className="absolute left-3.5 top-3.5 z-20 group inline-flex h-11 w-11 items-center justify-center rounded-xl border border-indigo-100/95 bg-white/92 text-indigo-700 shadow-[0_5px_15px_rgba(79,70,229,0.06)] ring-1 ring-white/95 transition duration-300 hover:scale-[1.05] hover:bg-indigo-50 hover:text-indigo-900 active:scale-95 cursor-pointer"
                                           >
                                             <ClipboardList className="h-5.5 w-5.5 transition duration-300 group-hover:rotate-6 group-hover:scale-105" />
                                           </button>
@@ -33380,7 +33631,7 @@ ${rows
                     <div className="max-w-4xl mx-auto space-y-4">
                       <div className="miras-practice-head flex flex-row items-center justify-between gap-4">
                         <div className="miras-practice-title-wrap">
-                          <h2 className="miras-practice-title text-2xl font-bold text-slate-955 font-sans">
+                          <h2 className="miras-practice-title text-2xl font-bold text-slate-950 font-sans">
                             الاختبارات
                           </h2>
                         </div>
@@ -33627,7 +33878,7 @@ ${rows
                       <div className="max-w-4xl mx-auto space-y-4">
                         <div className="miras-practice-head flex flex-row items-center justify-between gap-4">
                           <div className="miras-practice-title-wrap">
-                            <h2 className="miras-practice-title text-2xl font-bold text-slate-955 font-sans">
+                            <h2 className="miras-practice-title text-2xl font-bold text-slate-950 font-sans">
                               المشاريع
                             </h2>
                           </div>
@@ -33828,7 +34079,7 @@ ${rows
                                         {ex.dueDate}
                                       </span>
                                     </div>
-                                    <h3 className="font-extrabold text-base text-slate-905">
+                                    <h3 className="font-extrabold text-base text-slate-900">
                                       {ex.title}
                                     </h3>
                                     <p className="text-xs text-slate-500 leading-relaxed font-normal leading-5">
@@ -33957,7 +34208,7 @@ ${rows
                           <span className="text-indigo-600 text-[10px] font-extrabold uppercase tracking-widest mb-1 block">
                             مشروع المقرر
                           </span>
-                          <h2 className="text-2xl font-bold text-slate-955 font-sans">
+                          <h2 className="text-2xl font-bold text-slate-950 font-sans">
                             تسليم المشروع
                           </h2>
                         </div>
@@ -34013,7 +34264,7 @@ ${rows
                                 >
                                   <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                                     <div>
-                                      <h3 className="mt-3 text-xl font-bold text-slate-905 font-sans">
+                                      <h3 className="mt-3 text-xl font-bold text-slate-900 font-sans">
                                         {project.title}
                                       </h3>
                                     </div>
@@ -34791,9 +35042,9 @@ ${rows
                             title="تثبيت منصة مِراس على هذا الجهاز"
                             aria-label="تثبيت مِراس على جهازك"
                             onClick={triggerPwaInstallation}
-                            className="student-icon-btn text-indigo-650 bg-gradient-to-br from-white to-indigo-50/50 border-indigo-150 hover:text-indigo-800 relative shadow-sm pwa-glowing-btn"
+                            className="student-icon-btn text-indigo-600 bg-gradient-to-br from-white to-indigo-50/50 border-indigo-100 hover:text-indigo-800 relative shadow-sm pwa-glowing-btn"
                           >
-                            <Smartphone className="h-5 w-5 text-indigo-650" />
+                            <Smartphone className="h-5 w-5 text-indigo-600" />
                           </button>
                         )}
                         {!passkeyEnabledForCurrentSession &&
@@ -34981,7 +35232,7 @@ ${rows
 
                   {/* لوحة النبض الحي الديناميكية للقاعة - Dynamic Live-Pulse Dashboard */}
                   {showLivePulsePanel && (
-                    <div className="miras-teacher-live-pulse-card rounded-[2rem] border border-slate-150 bg-white p-6 text-right shadow-sm space-y-4">
+                    <div className="miras-teacher-live-pulse-card rounded-[2rem] border border-slate-100 bg-white p-6 text-right shadow-sm space-y-4">
                       {/* Header Clickable Section */}
                       <div
                         onClick={() =>
@@ -34991,7 +35242,7 @@ ${rows
                       >
                         <div className="flex items-start gap-3">
                           {/* Circular toggle arrow button */}
-                          <div className="mt-1 flex h-8 w-8 shrink-0 items-center justify-center rounded-xl border border-slate-150 bg-slate-50 text-slate-500 shadow-sm transition-transform duration-200 group-hover/pulse-header:bg-slate-100 group-hover/pulse-header:text-slate-800">
+                          <div className="mt-1 flex h-8 w-8 shrink-0 items-center justify-center rounded-xl border border-slate-100 bg-slate-50 text-slate-500 shadow-sm transition-transform duration-200 group-hover/pulse-header:bg-slate-100 group-hover/pulse-header:text-slate-800">
                             <ChevronRight
                               className={`h-4 w-4 transform transition-transform duration-300 ${isLivePulseExpanded ? "-rotate-90" : "rotate-90"}`}
                             />
@@ -35062,7 +35313,7 @@ ${rows
                         <div className="mt-4 pt-4 border-t border-slate-100 space-y-5">
                           {/* Dynamic Course Header Information */}
                           {examDayExams.length > 0 && (
-                            <div className="flex flex-col gap-2 text-right bg-slate-50 border border-slate-150 p-4 rounded-2xl">
+                            <div className="flex flex-col gap-2 text-right bg-slate-50 border border-slate-100 p-4 rounded-2xl">
                               <span className="text-[10px] font-black text-indigo-700 block">
                                 الاختبار
                               </span>
@@ -35912,7 +36163,7 @@ ${rows
                                       onChange={(e) => setSubmissionDetailStudentSearch(e.target.value)}
                                       placeholder=""
                                       inputMode="search"
-                                      className="h-10 w-full rounded-2xl border border-slate-200 bg-slate-50 pr-10 pl-3 text-right text-xs font-black text-slate-800 outline-none transition placeholder:text-slate-450 focus:border-indigo-300 focus:bg-white focus:ring-2 focus:ring-indigo-100"
+                                      className="h-10 w-full rounded-2xl border border-slate-200 bg-slate-50 pr-10 pl-3 text-right text-xs font-black text-slate-800 outline-none transition placeholder:text-slate-400 focus:border-indigo-300 focus:bg-white focus:ring-2 focus:ring-indigo-100"
                                     />
                                   </div>
 
@@ -35964,7 +36215,7 @@ ${rows
                                           ? "border-indigo-300 bg-indigo-600 text-white shadow-md font-black"
                                           : row.submission
                                             ? "border-slate-200 bg-white text-slate-700 hover:border-indigo-200 hover:bg-indigo-50 hover:text-indigo-700 font-bold"
-                                            : "cursor-not-allowed border-slate-150 bg-slate-100 text-slate-300 text-xs"
+                                            : "cursor-not-allowed border-slate-100 bg-slate-100 text-slate-300 text-xs"
                                       }`}
                                       title={row.submission ? "فتح" : "لا يوجد تسليم"}
                                     >
@@ -36156,7 +36407,7 @@ ${rows
                                 {selectedSubmissionDetail.attachments &&
                                   selectedSubmissionDetail.attachments.length >
                                     0 && (
-                                    <div className="pt-2.5 border-t border-slate-150">
+                                    <div className="pt-2.5 border-t border-slate-100">
                                       <span className="block text-[10px] text-emerald-600 font-extrabold mb-2">
                                         الملفات والمرفقات المقدمة من الطالب (
                                         {
@@ -41779,7 +42030,7 @@ ${rows
                                                                             color:
                                                                               "bg-emerald-500",
                                                                             border:
-                                                                              "border-emerald-250",
+                                                                              "border-emerald-200",
                                                                             text: "text-emerald-700",
                                                                             bg: "bg-emerald-50/60",
                                                                           };
@@ -41873,7 +42124,7 @@ ${rows
                                                                           color:
                                                                             "bg-slate-400",
                                                                           border:
-                                                                            "border-slate-250",
+                                                                            "border-slate-200",
                                                                           text: "text-slate-600",
                                                                           bg: "bg-slate-100/60",
                                                                         };
@@ -41906,7 +42157,7 @@ ${rows
                                                                             <div className="w-full">
                                                                               <div className="flex items-center gap-2 flex-wrap mb-1 pb-1 border-b border-black/5">
                                                                                 <span
-                                                                                  className={`font-black px-1.5 py-0.5 rounded text-[9px] bg-white border border-slate-250 shadow-sm ${style.text}`}
+                                                                                  className={`font-black px-1.5 py-0.5 rounded text-[9px] bg-white border border-slate-200 shadow-sm ${style.text}`}
                                                                                 >
                                                                                   {sanitizeCourseIdentifiersForDisplay(
                                                                                     log.action,
@@ -42817,7 +43068,7 @@ ${rows
                                 {pagedJoinCodes.map((c: any) => (
                                   <div
                                     key={c.code}
-                                    className={`miras-join-code-card rounded-3xl border p-4 transition-[box-shadow,border-color,background-color,opacity] shadow-sm ${c.status === "used" ? "border-slate-300 bg-slate-100 text-slate-500 hover:bg-slate-150" : c.status === "active" ? "border-emerald-100 bg-white hover:border-emerald-200 hover:shadow-md" : "border-slate-200 bg-slate-50/70 text-slate-400 opacity-60"}`}
+                                    className={`miras-join-code-card rounded-3xl border p-4 transition-[box-shadow,border-color,background-color,opacity] shadow-sm ${c.status === "used" ? "border-slate-300 bg-slate-100 text-slate-500 hover:bg-slate-100" : c.status === "active" ? "border-emerald-100 bg-white hover:border-emerald-200 hover:shadow-md" : "border-slate-200 bg-slate-50/70 text-slate-400 opacity-60"}`}
                                   >
                                     <div className="flex flex-col gap-3">
                                       <div className="min-w-0 w-full">
@@ -43797,7 +44048,7 @@ ${rows
                                       type="button"
                                       aria-label="تحديد الكل كمقروء"
                                       onClick={markAllTeacherImportantNotificationsRead}
-                                      className="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-emerald-150 bg-emerald-50 text-emerald-700 shadow-sm hover:bg-emerald-100 hover:text-emerald-800 transition-all"
+                                      className="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-emerald-100 bg-emerald-50 text-emerald-700 shadow-sm hover:bg-emerald-100 hover:text-emerald-800 transition-all"
                                     >
                                       <CheckCircle2 className="h-5 w-5" />
                                     </button>
@@ -44306,7 +44557,7 @@ ${rows
           >
             <button
               onClick={() => setShowPwaGuideModal(false)}
-              className="absolute left-4 top-4 w-9 h-9 flex items-center justify-center rounded-xl bg-slate-100 text-slate-500 hover:bg-slate-200 hover:text-slate-800 transition-all border border-slate-150 cursor-pointer"
+              className="absolute left-4 top-4 w-9 h-9 flex items-center justify-center rounded-xl bg-slate-100 text-slate-500 hover:bg-slate-200 hover:text-slate-800 transition-all border border-slate-100 cursor-pointer"
               title="إغلاق"
             >
               <X className="h-4 w-4" />
@@ -44372,7 +44623,7 @@ ${rows
                   اضغط على رمز النقاط الثلاث{" "}
                   <span className="text-slate-900">⁝</span> في الزاوية العلوية
                   للمتصفح، ثم اختر{" "}
-                  <span className="text-indigo-705 font-extrabold">
+                  <span className="text-indigo-700 font-extrabold">
                     "تثبيت التطبيق"
                   </span>{" "}
                   (Install App) ليتم تحويل وتثبيت الملف فوراً في ثوانٍ.
