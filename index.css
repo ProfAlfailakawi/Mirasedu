@@ -18808,3 +18808,47 @@ html[data-theme="dark"] #root [class~="to-red-50"] {
    ميّت. تُحسم هنا بقاعدة واحدة تعلو عليها جميعاً (‎#root‎). ═══ */
 #root .miras-metric-card { min-height: 0 !important; }
 #root .miras-metric-card > div { min-height: 0 !important; }
+
+/* ═══ ٢٥) الوضع الليلي — الجداول
+   خلايا الجدول تُلوَّن بقواعد على الوسم نفسه (‎td‎ / ‎th‎) لا بأصناف، فلم
+   تلتقطها خرائط الأدوات: بقيت الخلايا بيضاء بينما صار نصّها فاتحاً. ═══ */
+html[data-theme="dark"] #root th,
+html[data-theme="dark"] #root .teacher-calm-shell th,
+html[data-theme="dark"] #root .workspace-calm-shell th {
+  background: transparent !important;
+  color: var(--miras-ink-3) !important;
+}
+html[data-theme="dark"] #root td,
+html[data-theme="dark"] #root .teacher-calm-shell td,
+html[data-theme="dark"] #root .workspace-calm-shell td {
+  background: var(--miras-surface) !important;
+  color: var(--miras-ink-2) !important;
+  border-color: var(--miras-line) !important;
+}
+html[data-theme="dark"] #root tr td:first-child,
+html[data-theme="dark"] #root tr td:last-child {
+  border-right-color: var(--miras-line) !important;
+  border-left-color: var(--miras-line) !important;
+}
+html[data-theme="dark"] #root tbody tr:hover td,
+html[data-theme="dark"] #root .teacher-calm-shell tbody tr:hover td,
+html[data-theme="dark"] #root .workspace-calm-shell tbody tr:hover td {
+  background: var(--miras-surface-3) !important;
+  border-color: var(--miras-brand-line) !important;
+}
+
+/* ═══ ٢٦) الوضع الليلي — أسطح بيضاء متوسّطة الشفافية
+   الفاصل عند ٣٠٪: ما دونه (‎/5‎ ‎/8‎ ‎/10‎ ‎/12‎ ‎/20‎) طبقات ضوء زخرفية فوق أسطح
+   داكنة وتبقى كما هي؛ وما فوقه أسطح بطاقات حقيقية تنقلب. ═══ */
+html[data-theme="dark"] #root [class~="bg-white/30"],
+html[data-theme="dark"] #root [class~="bg-white/45"],
+html[data-theme="dark"] #root [class~="bg-white/60"],
+html[data-theme="dark"] #root [class~="bg-white/62"],
+html[data-theme="dark"] #root [class~="bg-white/65"],
+html[data-theme="dark"] #root [class~="bg-white/68"] {
+  background-image: none !important;
+  background-color: var(--miras-surface-3) !important;
+}
+html[data-theme="dark"] #root [class~="border-white/30"],
+html[data-theme="dark"] #root [class~="border-white/60"],
+html[data-theme="dark"] #root [class~="border-white/65"] { border-color: var(--miras-line) !important; }
