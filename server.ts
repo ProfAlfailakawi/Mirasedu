@@ -14504,6 +14504,18 @@ function isWeakDefaultPassword(password: any) {
   return !v || v === "123456" || v === "000000" || v.length < 6;
 }
 
+// Bootstrap credential hashes are supplied via environment variables, never committed to
+// the repo. Accepts a bare sha256/scrypt digest or a "sha256:"/"scrypt:"-prefixed value.
+// When the variable is unset it returns an unmatchable sentinel: it still begins with
+// "sha256:" (so verifyPasswordFlexible never falls back to plaintext comparison) but can
+// never equal a real "sha256:"+<64 hex> digest, so the bootstrap account cannot be used
+// until an admin provisions a hash.
+function envBootstrapPasswordHash(value: string | undefined) {
+  const raw = String(value || "").trim();
+  if (!raw) return "sha256:unprovisioned";
+  return /^(sha256|scrypt):/.test(raw) ? raw : `sha256:${raw}`;
+}
+
 app.post("/api/auth/login", (req, res) => {
   const { idNumber, password } = req.body;
   if (!idNumber || !password) {
@@ -14536,7 +14548,7 @@ app.post("/api/auth/login", (req, res) => {
       name: "د. أحمد حسين الفيلكاوي",
       role: "admin",
       isActive: true,
-      passwordHash: "sha256:REDACTED",
+      passwordHash: envBootstrapPasswordHash(process.env.MIRAS_ADMIN_PASSWORD_HASH),
     },
     "ada.alenezi@paaet.edu.kw": {
       id: "ada.alenezi@paaet.edu.kw",
@@ -14544,7 +14556,7 @@ app.post("/api/auth/login", (req, res) => {
       name: "د. عبدالعزيز دخيل العنزي",
       role: "teacher",
       isActive: true,
-      passwordHash: "sha256:REDACTED",
+      passwordHash: envBootstrapPasswordHash(process.env.MIRAS_TEACHER_PASSWORD_HASH),
     },
   };
   const fixedTeacher = fixedTeacherLogins[normalizedIdentity];

@@ -829,10 +829,21 @@ const initialChapters: TextbookChapter[] = [];
 const initialQuestions: Question[] = [];
 const initialWeeklyExercises: WeeklyExercise[] = [];
 
+// Seed teacher credential hashes come from the environment, never the repo. Provide the
+// sha256 (hex, optionally "sha256:"-prefixed) of the chosen password in MIRAS_TEACHER_PASSWORD_HASH.
+// When unset, seeded accounts get an unmatchable sentinel (starts with "sha256:" so it never
+// falls back to a plaintext compare, yet can never equal a real digest) and cannot be logged
+// into until an admin provisions a password.
+const seedTeacherPasswordHash = (() => {
+  const raw = String(process.env.MIRAS_TEACHER_PASSWORD_HASH || "").trim();
+  if (!raw) return "sha256:unprovisioned";
+  return /^(sha256|scrypt):/.test(raw) ? raw : `sha256:${raw}`;
+})();
+
 const initialTeachers: Teacher[] = [
-  { id: "Ah.Alfailakawi@paaet.edu.kw", name: "د. أحمد حسين الفيلكاوي", email: "Ah.Alfailakawi@paaet.edu.kw", passwordHash: "sha256:REDACTED", role: "teacher", isActive: true },
-  { id: "dr.ahmad.alfailakawi@gmail.com", name: "د. أحمد حسين الفيلكاوي", email: "dr.ahmad.alfailakawi@gmail.com", passwordHash: "sha256:REDACTED", role: "teacher", isActive: true },
-  { id: "ada.alenezi@paaet.edu.kw", name: "د. عبدالعزيز دخيل العنزي", email: "ada.alenezi@paaet.edu.kw", passwordHash: "sha256:REDACTED", role: "teacher", isActive: true }
+  { id: "Ah.Alfailakawi@paaet.edu.kw", name: "د. أحمد حسين الفيلكاوي", email: "Ah.Alfailakawi@paaet.edu.kw", passwordHash: seedTeacherPasswordHash, role: "teacher", isActive: true },
+  { id: "dr.ahmad.alfailakawi@gmail.com", name: "د. أحمد حسين الفيلكاوي", email: "dr.ahmad.alfailakawi@gmail.com", passwordHash: seedTeacherPasswordHash, role: "teacher", isActive: true },
+  { id: "ada.alenezi@paaet.edu.kw", name: "د. عبدالعزيز دخيل العنزي", email: "ada.alenezi@paaet.edu.kw", passwordHash: seedTeacherPasswordHash, role: "teacher", isActive: true }
 ];
 
 const initialStudents: Student[] = [];
