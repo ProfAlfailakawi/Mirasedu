@@ -2339,9 +2339,9 @@ function RoleOnboardingOverlay({
       <div className="miras-onboarding-backdrop absolute inset-0 bg-slate-950/70 backdrop-blur-md" />
 
       <div className="miras-onboarding-panel relative flex w-full max-w-4xl max-h-[calc(100dvh-1.5rem)] flex-col overflow-hidden rounded-[var(--miras-r-xl)] border border-white/60 bg-white text-right miras-shadow-4 sm:max-h-[calc(100dvh-3rem)]">
-        <div className="flex h-full flex-col lg:grid lg:grid-cols-[1fr_1fr]">
+        <div className="flex h-full flex-col overflow-y-auto md:grid md:grid-cols-[1fr_1fr] md:overflow-hidden">
           {/* المسرح — أرضية هوية واحدة لا تتغيّر بين الخطوات */}
-          <div className="miras-tour-stage relative flex shrink-0 flex-col justify-between overflow-hidden p-6 text-white sm:p-8 lg:min-h-full">
+          <div className="miras-tour-stage relative flex shrink-0 flex-col justify-between overflow-hidden p-6 text-white sm:p-8 md:min-h-full">
             <div className="miras-tour-grid absolute inset-0" aria-hidden="true" />
 
             <div className="relative z-10 flex items-center justify-between gap-3">
@@ -3078,7 +3078,6 @@ export default function App() {
     }
   });
   const [currentView, setCurrentView] = useState<
-    | "landing"
     | "signup"
     | "otp"
     | "section"
@@ -3088,15 +3087,6 @@ export default function App() {
     | "teacher_workspace"
     | "payment"
   >(() => {
-    // التدفّق الافتراضي لا يمرّ بصفحة الهبوط. ‎?miras_home=1‎ منفذ معاينة لها.
-    try {
-      if (
-        typeof window !== "undefined" &&
-        new URLSearchParams(window.location.search).get("miras_home") === "1"
-      ) {
-        return "landing";
-      }
-    } catch {}
     try {
       if (storedSessionNeedsPasskeyUnlock()) return "signup";
       const stored = localStorage.getItem("miras_student_session");
@@ -30971,138 +30961,6 @@ ${rows
 
       {/* Main Container */}
       <div className="flex-1 flex flex-col">
-        {/* 1. PUBLIC LANDING VIEW */}
-        {currentView === "landing" && (
-          // صفحة الهبوط: رأس + عمود عرض، مبنية على رموز النظام.
-          <div
-            dir="rtl"
-            className="relative isolate flex-1 overflow-hidden text-slate-950"
-            style={{ background: "var(--miras-surface-2)" }}
-          >
-            <div className="pointer-events-none absolute inset-0 -z-10 bg-[radial-gradient(circle_at_82%_-6%,rgba(67,56,202,0.16),transparent_42%),radial-gradient(circle_at_4%_96%,rgba(67,56,202,0.09),transparent_38%)]" />
-
-            <header className="relative mx-auto flex w-full max-w-6xl items-center justify-between gap-4 px-5 pt-6 md:px-8 md:pt-8">
-              <div className="flex items-center gap-2.5">
-                <span
-                  className="grid h-10 w-10 place-items-center rounded-[var(--miras-r-md)] text-white"
-                  style={{ background: "var(--miras-brand)" }}
-                >
-                  <MirasMark className="h-5 w-5" />
-                </span>
-                <span className="text-lg font-black tracking-tight text-slate-950">مِراس</span>
-              </div>
-
-              <button
-                onClick={handleTeacherAccess}
-                className="rounded-full border border-slate-200 bg-white px-4 py-2 text-xs font-bold text-slate-600 transition hover:border-indigo-200 hover:text-indigo-700"
-              >
-                دخول الأستاذ
-              </button>
-            </header>
-
-            <main className="mx-auto grid w-full max-w-6xl items-center gap-12 px-5 pb-20 pt-12 md:grid-cols-[1.02fr_0.98fr] md:gap-14 md:px-8 md:pb-28 md:pt-16">
-              <section>
-                <span className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-1.5 text-[11px] font-bold text-slate-600">
-                  <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
-                  اختبارات · مشاريع · متابعة لحظية
-                </span>
-
-                <h1 className="mt-6 text-[2.9rem] font-black leading-[1.34] text-slate-950 md:text-[4.2rem]">
-                  المقرّر كلّه
-                  <br />
-                  <span style={{ color: "var(--miras-brand)" }}>في مكان واحد</span>
-                </h1>
-
-                <p className="mt-6 max-w-md text-[15px] font-medium leading-[2] text-slate-600">
-                  مِراس يربط المقرر بالطلبة بمفاتيح الدخول، فتعرف من فعّل ومن
-                  سلّم ومن يحتاج تدخّلك — من شاشة واحدة هادئة.
-                </p>
-
-                <div className="mt-9 flex flex-col gap-3 sm:flex-row sm:items-center">
-                  <button
-                    onClick={() => {
-                      setErrorMsg("");
-                      setCurrentView("signup");
-                    }}
-                    id="btn-nav-login"
-                    className="miras-tour-cta inline-flex items-center justify-center gap-2 rounded-[var(--miras-r-md)] px-8 py-4 text-[15px] font-bold text-white"
-                  >
-                    دخول مِراس
-                    <ChevronLeft className="h-4 w-4" />
-                  </button>
-                  <span className="text-center text-[11px] font-medium text-slate-400 sm:text-right">
-                    بكود التفعيل الذي زوّدك به أستاذك
-                  </span>
-                </div>
-              </section>
-
-              <section className="relative">
-                <div className="rounded-[var(--miras-r-xl)] border border-slate-200/70 bg-white p-4 miras-shadow-4 md:p-5">
-                  <div className="flex items-start justify-between gap-4 px-1 pb-4">
-                    <div>
-                      <p className="text-[11px] font-bold text-indigo-700">مِراس</p>
-                      <h2 className="mt-1 text-xl font-black tracking-tight text-slate-950">
-                        مسار الطالب اليومي
-                      </h2>
-                    </div>
-                    <span className="grid h-10 w-10 place-items-center rounded-[var(--miras-r-md)] bg-indigo-50 text-indigo-700">
-                      <Layers className="h-5 w-5" />
-                    </span>
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-3">
-                    <div
-                      className="col-span-2 rounded-[var(--miras-r-lg)] p-5 text-white"
-                      style={{
-                        background:
-                          "linear-gradient(150deg,#2A2482 0%,#1B1758 58%,#12103C 100%)",
-                      }}
-                    >
-                      <div className="flex items-center justify-between">
-                        <p className="text-[11px] font-bold text-indigo-200">اختبار تدريبي</p>
-                        <CheckCircle className="h-4 w-4 text-emerald-400" />
-                      </div>
-                      <p className="mt-3 text-2xl font-black">واضح ومنظّم</p>
-                      <p className="mt-2 text-[11px] font-medium leading-[1.9] text-indigo-100/80">
-                        واجهة مركّزة تساعد الطالب على الفهم، وتساعد الأستاذ على
-                        المتابعة الفورية.
-                      </p>
-                    </div>
-
-                    <div className="rounded-[var(--miras-r-lg)] border border-slate-200/70 bg-slate-50 p-4">
-                      <BookOpen className="h-5 w-5 text-indigo-700" />
-                      <p className="mt-3 text-base font-black text-slate-950">تمارين</p>
-                      <p className="mt-1 text-[11px] font-medium text-slate-500">
-                        بطاقات خفيفة وواضحة
-                      </p>
-                    </div>
-
-                    <div className="rounded-[var(--miras-r-lg)] border border-emerald-100 bg-emerald-50/70 p-4">
-                      <Compass className="h-5 w-5 text-emerald-700" />
-                      <p className="mt-3 text-base font-black text-slate-950">مشروع</p>
-                      <p className="mt-1 text-[11px] font-medium text-emerald-700">
-                        مسار شخصي للطالب
-                      </p>
-                    </div>
-
-                    <div className="col-span-2 rounded-[var(--miras-r-lg)] border border-slate-200/70 bg-white p-4">
-                      <p className="text-[11px] font-bold text-slate-800">
-                        سياسة الاستخدام الأكاديمي
-                      </p>
-                      <p className="mt-2 text-[11px] font-medium leading-[1.95] text-slate-500">
-                        يهدف مِراس إلى تقديم تجربة تدريبية شخصية مساندة للمقرر،
-                        من خلال توليد اختبارات وتمارين ومشاريع تطبيقية تختلف حسب
-                        مسار الطالب وتقدّمه، مع تحقّق أكاديمي خفيف دون رفع وثائق
-                        هوية رسمية.
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              </section>
-            </main>
-          </div>
-        )}
-
         {currentView === "student_device_locked" && (
           <div
             dir="rtl"
@@ -32079,7 +31937,7 @@ ${rows
               })()}
               <div className="mx-auto flex w-full max-w-4xl flex-1 flex-col overflow-y-auto px-4 py-5 sm:px-6">
                 <div className="bg-white rounded-[var(--miras-r-xl)] border border-slate-200/80 p-4 sm:p-6 shadow-premium-lg">
-                  <div className="flex flex-col gap-3 sm:flex-row sm:justify-between sm:items-center bg-slate-950 text-white p-4 rounded-2xl mb-5 shadow-premium-sm font-sans">
+                  <div className="miras-exam-header-bar flex flex-col gap-3 sm:flex-row sm:justify-between sm:items-center bg-slate-950 text-white p-4 rounded-2xl mb-5 shadow-premium-sm font-sans">
                     <span className="text-sm font-bold font-sans">
                       {(() => {
                         const activeExam = teacherCreatedExams.find(
