@@ -830,6 +830,17 @@ body {
     linear-gradient(180deg, #fbfdff 0%, #f6f8fc 47%, #eef4ff 100%) !important;
 }
 
+/* Responsive fix: the decorative .hero-glow blobs are position:absolute and
+   bleed past the viewport. With the shell's `overflow-hidden` (a scroll
+   container) plus flex `align-items:center`, that overflow expanded the
+   centering reference on narrow phones, pushing the auth card off-screen to
+   the right (clipped, unreadable). `overflow-x: clip` clips the same glows
+   WITHOUT establishing a scroll container, so the card centres correctly.
+   Purely a layout fix — glow visuals, colours, and desktop layout unchanged. */
+.meras-auth-shell {
+  overflow-x: clip;
+}
+
 .meras-auth-shell::before,
 .workspace-calm-shell::before,
 .teacher-calm-shell::before {
