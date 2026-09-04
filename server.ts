@@ -65,7 +65,7 @@ const aiInstance = process.env.GEMINI_API_KEY
   : null;
 
 const app = express();
-const PORT = 3000;
+const PORT = Number(process.env.PORT || 3000);
 
 const PASSKEY_RP_NAME = "مِراس";
 type PasskeyRole = "student" | "teacher";
@@ -13396,6 +13396,11 @@ app.get("/api/teacher/student-lookup/:id", (req, res) => {
 
 // Developer/Testing endpoint to completely reset a student account and its join codes for trial/testing
 app.post("/api/auth/test-reset-student", (req, res) => {
+  // === مُعطَّل أمنيًا (P0): كانت هذه النقطة تحذف حساب أي طالب وكل بياناته بلا أي
+  // مصادقة (تحت /api/auth/* المفتوح). لا تُعاد إلا خلف isAdminEmail + حارس بيئة
+  // NODE_ENV !== "production". الكود الأصلي محفوظ أدناه للرجوع عند الحاجة. ===
+  return res.status(404).json({ error: "هذه الخدمة غير متاحة." });
+  // eslint-disable-next-line no-unreachable
   const { studentId } = req.body;
   if (!studentId) {
     return res.status(400).json({ error: "يرجى تحديد الرقم الجامعي" });
@@ -18006,6 +18011,10 @@ app.post("/api/projects/:id/grade", (req, res) => {
 // ================= ONLINE PAYMENT SIMULATOR =================
 
 app.post("/api/payment/simulate", (req, res) => {
+  // === مُعطَّل مؤقتًا: لا مدفوعات فعلية بعد، فلا نمنح isPaid مجانًا لأي طالب.
+  // الكود الأصلي محفوظ أدناه؛ لإعادة التفعيل احذف السطر التالي واربطه ببوابة دفع حقيقية. ===
+  return res.status(503).json({ error: "خدمة الدفع غير مفعّلة حالياً.", code: "PAYMENT_DISABLED" });
+  // eslint-disable-next-line no-unreachable
   const { studentId, paymentMethod, amount } = req.body;
   const student = dbInstance
     .getStudents()
