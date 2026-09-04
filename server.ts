@@ -133,9 +133,43 @@ const MIRAS_PUBLIC_LOGIN_DEFAULT_ORIGINS = new Set([
 
 const MIRAS_SESSION_COOKIE = "miras_session";
 const MIRAS_DEVICE_COOKIE = "miras_device_secret";
-const MIRAS_SESSION_SECRET =
-  process.env.MIRAS_SESSION_SECRET ||
-  crypto.createHash("sha256").update(`miras-local-${process.cwd()}`).digest("hex");
+
+// سرّ توقيع الجلسات. سابقاً كان يسقط إلى قيمة مشتقّة من مسار العمل
+// (`sha256("miras-local-" + cwd)`) — قابلة للتخمين وثابتة عبر أي نشر له نفس
+// المسار، فيمكن تزوير كعكة جلسة. الآن: فشل صريح في الإنتاج، وسرّ عشوائي
+// لكل تشغيل في التطوير/الاختبار (يُبطل الجلسات القديمة عند إعادة التشغيل،
+// وهذا مقبول محلياً).
+function resolveMirasSessionSecret(): string {
+  const explicit = String(process.env.MIRAS_SESSION_SECRET || "").trim();
+  if (explicit) return explicit;
+  if (isProductionLikeRuntime()) {
+    console.error(
+      [
+        "",
+        "══════════════════════════════════════════════════════════════════",
+        "❌ MIRAS_SESSION_SECRET is not set — refusing to start in production.",
+        "   Session cookies are HMAC-signed with this secret; booting without",
+        "   it would let anyone forge admin/teacher sessions.",
+        "",
+        "   Generate a strong value and store it as a runtime secret:",
+        '     node -e "console.log(require(\'crypto\').randomBytes(48).toString(\'hex\'))"',
+        "",
+        "   Then set MIRAS_SESSION_SECRET on the service (e.g. Cloud Run",
+        "   --set-secrets / --set-env-vars) and redeploy.",
+        "══════════════════════════════════════════════════════════════════",
+        "",
+      ].join("\n"),
+    );
+    process.exit(1);
+  }
+  console.warn(
+    "⚠️  MIRAS_SESSION_SECRET is not set — using a random per-process secret " +
+      "(development/test only). Sessions are invalidated on every restart.",
+  );
+  return crypto.randomBytes(48).toString("hex");
+}
+
+const MIRAS_SESSION_SECRET = resolveMirasSessionSecret();
 const MIRAS_SESSION_TTL_MS = 1000 * 60 * 60 * 24 * 14;
 
 type MirasSessionRole = "student" | "teacher" | "admin";
@@ -8778,7 +8812,63 @@ async function generateContentWithRetry(params: {
 }
 
 // Express Middlewares
-app.use(cors());
+// CORS: كان `cors()` مفتوحاً لأي أصل. المسار الطبيعي للتطبيق يمرّ عبر إعادة
+// كتابة Firebase Hosting (`/api/**` → Cloud Run) فيصير الطلب same-origin ولا
+// يحتاج CORS أصلاً؛ الاستثناء هو الرفع المباشر إلى نطاق Cloud Run. لذلك نقصر
+// السماح على نطاقات المشروع المعروفة + ما يُضاف عبر MIRAS_ALLOWED_ORIGINS
+// (مفصولة بفواصل) + localhost في التطوير/الاختبار فقط.
+function mirasCorsAllowedOrigins(): Set<string> {
+  const out = new Set<string>(MIRAS_PUBLIC_LOGIN_DEFAULT_ORIGINS);
+  const fromEnv = [
+    process.env.MIRAS_ALLOWED_ORIGINS,
+    process.env.MIRAS_PUBLIC_LOGIN_ORIGINS,
+    process.env.MIRAS_PUBLIC_APP_URL,
+    process.env.APP_URL,
+  ]
+    .map((value) => String(value || ""))
+    .join(",")
+    .split(",")
+    .map((item) => item.trim().replace(/\/+$/, ""))
+    .filter(Boolean);
+  for (const candidate of fromEnv) {
+    try {
+      out.add(new URL(candidate).origin);
+    } catch {}
+  }
+  return out;
+}
+
+function mirasCorsOriginAllowed(origin: string): boolean {
+  const normalized = String(origin || "").trim().replace(/\/+$/, "");
+  if (!normalized) return false;
+  let parsed: URL;
+  try {
+    parsed = new URL(normalized);
+  } catch {
+    return false;
+  }
+  if (mirasCorsAllowedOrigins().has(parsed.origin)) return true;
+  // التطوير/الاختبار فقط: الواجهة وVite واختبارات التدفّق تعمل على localhost.
+  if (
+    !isProductionLikeRuntime() &&
+    (parsed.hostname === "localhost" ||
+      parsed.hostname === "127.0.0.1" ||
+      parsed.hostname === "[::1]")
+  )
+    return true;
+  return false;
+}
+
+app.use(
+  cors({
+    // الطلبات بلا ترويسة Origin (curl، سكربتات الاختبار، فحوص الصحة) تمرّ كما
+    // هي — CORS يخصّ المتصفح فقط، ولا يُعدّ منح ترويسة هنا توسيعاً للصلاحية.
+    origin(origin, callback) {
+      if (!origin) return callback(null, true);
+      return callback(null, mirasCorsOriginAllowed(origin));
+    },
+  }),
+);
 // useTempFiles: الملف المرفوع يتدفق إلى قرص مؤقت بدل الذاكرة. كان ملف ٢١م.ب
 // يُحمَّل كاملاً في RAM (targetFile.data) ثم يتنسّخ عدة مرات عبر مسار الأرشفة
 // حتى تنفجر ذاكرة الحاوية ويقتلها Cloud Run (OOM موثّق في السجلات) فيصل
