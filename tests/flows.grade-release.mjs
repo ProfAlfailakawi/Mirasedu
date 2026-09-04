@@ -23,10 +23,10 @@ const inboxArr = (r) => (Array.isArray(r.data) ? r.data : (r.data.notifications 
 
 // logins
 const tjar = makeJar(); const tdev = "gr-teacher-dev";
-const tlogin = await api("POST", "/api/auth/login", { idNumber: AA, password: "***REDACTED***" }, { jar: tjar, deviceToken: tdev });
+const tlogin = await api("POST", "/api/auth/login", { idNumber: AA, password: (process.env.TEST_TEACHER_PASSWORD || "change-me-in-ci") }, { jar: tjar, deviceToken: tdev });
 check("GR0a) teacher A (owner) login", tlogin.ok && tlogin.data.role === "teacher", `${tlogin.status}`);
 const tbjar = makeJar(); const tbdev = "gr-teacherB-dev";
-const tblogin = await api("POST", "/api/auth/login", { idNumber: BB, password: "***REDACTED***" }, { jar: tbjar, deviceToken: tbdev });
+const tblogin = await api("POST", "/api/auth/login", { idNumber: BB, password: (process.env.TEST_TEACHER_PASSWORD || "change-me-in-ci") }, { jar: tbjar, deviceToken: tbdev });
 check("GR0b) teacher B (non-owner) login", tblogin.ok && tblogin.data.role === "teacher", `${tblogin.status}`);
 const sjar = makeJar();
 const slogin = await api("POST", "/api/auth/login", { idNumber: SID, password: "pass1001" }, { jar: sjar, deviceToken: TOK });

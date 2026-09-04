@@ -30,7 +30,7 @@ const examClose = new Date(Date.now() + 86400000).toISOString();
 
 // logins
 const tjar = makeJar(); const tdev = "notif-teacher-dev";
-const tlogin = await api("POST", "/api/auth/login", { idNumber: AA, password: "***REDACTED***" }, { jar: tjar, deviceToken: tdev });
+const tlogin = await api("POST", "/api/auth/login", { idNumber: AA, password: (process.env.TEST_TEACHER_PASSWORD || "change-me-in-ci") }, { jar: tjar, deviceToken: tdev });
 check("N0a) teacher A login", tlogin.ok && tlogin.data.role === "teacher", `${tlogin.status}`);
 const sjar = makeJar();
 const slogin = await api("POST", "/api/auth/login", { idNumber: SID, password: "pass1001" }, { jar: sjar, deviceToken: TOK });

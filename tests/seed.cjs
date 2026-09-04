@@ -15,7 +15,7 @@ const tokHash = (tok) => crypto.createHash("sha256").update(String(tok)).digest(
 // fingerprint that embeds a *previous* IP, so a local request (different ip)
 // reproduces the "same device, IP changed" scenario.
 const fpPrevIp = (tok) => `Mozilla/5.0_203.0.113.9_${tokHash(tok)}`;
-const TEACHER_HASH = "sha256:15ed79e05666cab81a531c5b91fb6d9183604984c7ecad0ef5fa9d086928d678"; // ***REDACTED***
+const TEACHER_HASH = sha256pw(process.env.TEST_TEACHER_PASSWORD || "change-me-in-ci");
 
 const AA = "aa@test.kw", BB = "bb@test.kw", CC = "cc@test.kw", DD = "dd@test.kw";
 const S_A1 = `111-${AA}`, S_A2 = `222-${AA}`, S_C = `333-${AA}`;
