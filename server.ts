@@ -8812,7 +8812,63 @@ async function generateContentWithRetry(params: {
 }
 
 // Express Middlewares
-app.use(cors());
+// CORS: كان `cors()` مفتوحاً لأي أصل. المسار الطبيعي للتطبيق يمرّ عبر إعادة
+// كتابة Firebase Hosting (`/api/**` → Cloud Run) فيصير الطلب same-origin ولا
+// يحتاج CORS أصلاً؛ الاستثناء هو الرفع المباشر إلى نطاق Cloud Run. لذلك نقصر
+// السماح على نطاقات المشروع المعروفة + ما يُضاف عبر MIRAS_ALLOWED_ORIGINS
+// (مفصولة بفواصل) + localhost في التطوير/الاختبار فقط.
+function mirasCorsAllowedOrigins(): Set<string> {
+  const out = new Set<string>(MIRAS_PUBLIC_LOGIN_DEFAULT_ORIGINS);
+  const fromEnv = [
+    process.env.MIRAS_ALLOWED_ORIGINS,
+    process.env.MIRAS_PUBLIC_LOGIN_ORIGINS,
+    process.env.MIRAS_PUBLIC_APP_URL,
+    process.env.APP_URL,
+  ]
+    .map((value) => String(value || ""))
+    .join(",")
+    .split(",")
+    .map((item) => item.trim().replace(/\/+$/, ""))
+    .filter(Boolean);
+  for (const candidate of fromEnv) {
+    try {
+      out.add(new URL(candidate).origin);
+    } catch {}
+  }
+  return out;
+}
+
+function mirasCorsOriginAllowed(origin: string): boolean {
+  const normalized = String(origin || "").trim().replace(/\/+$/, "");
+  if (!normalized) return false;
+  let parsed: URL;
+  try {
+    parsed = new URL(normalized);
+  } catch {
+    return false;
+  }
+  if (mirasCorsAllowedOrigins().has(parsed.origin)) return true;
+  // التطوير/الاختبار فقط: الواجهة وVite واختبارات التدفّق تعمل على localhost.
+  if (
+    !isProductionLikeRuntime() &&
+    (parsed.hostname === "localhost" ||
+      parsed.hostname === "127.0.0.1" ||
+      parsed.hostname === "[::1]")
+  )
+    return true;
+  return false;
+}
+
+app.use(
+  cors({
+    // الطلبات بلا ترويسة Origin (curl، سكربتات الاختبار، فحوص الصحة) تمرّ كما
+    // هي — CORS يخصّ المتصفح فقط، ولا يُعدّ منح ترويسة هنا توسيعاً للصلاحية.
+    origin(origin, callback) {
+      if (!origin) return callback(null, true);
+      return callback(null, mirasCorsOriginAllowed(origin));
+    },
+  }),
+);
 // useTempFiles: الملف المرفوع يتدفق إلى قرص مؤقت بدل الذاكرة. كان ملف ٢١م.ب
 // يُحمَّل كاملاً في RAM (targetFile.data) ثم يتنسّخ عدة مرات عبر مسار الأرشفة
 // حتى تنفجر ذاكرة الحاوية ويقتلها Cloud Run (OOM موثّق في السجلات) فيصل
