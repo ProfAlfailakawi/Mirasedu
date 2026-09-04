@@ -27,5 +27,5 @@ data/
 # مخرجات بناء ملتزمة سابقاً بالخطأ — تُبنى عبر npm run build إلى dist/
 server.cjs
 server.cjs.map
-assets/
+/assets/
 *.tsbuildinfo
