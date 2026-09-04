@@ -18852,3 +18852,15 @@ html[data-theme="dark"] #root [class~="bg-white/68"] {
 html[data-theme="dark"] #root [class~="border-white/30"],
 html[data-theme="dark"] #root [class~="border-white/60"],
 html[data-theme="dark"] #root [class~="border-white/65"] { border-color: var(--miras-line) !important; }
+
+/* ═══ ٢٧) رأس شاشة الاختبار — نبرة هادئة في الليل
+   القاعدة العامة تحوّل ‎bg-slate-950‎ إلى لون الهوية الساطع كي لا يختفي السطح
+   الداكن. لكن رأس الاختبار يجب أن يكون مركّزاً وهادئاً لا صارخاً، فيُستثنى هنا
+   بسطح داكن مرتفع بنبرة هوية خفيفة، مع إبقاء النص أبيض. ═══ */
+html[data-theme="dark"] #root .miras-exam-header-bar,
+html[data-theme="dark"] #root .miras-exam-header-bar.bg-slate-950 {
+  background-color: var(--miras-surface-3) !important;
+  background-image: linear-gradient(135deg, rgba(139,128,255,.14), rgba(139,128,255,0) 60%) !important;
+  border: 1px solid var(--miras-brand-line) !important;
+  color: #fff !important;
+}
