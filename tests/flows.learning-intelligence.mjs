@@ -29,7 +29,7 @@ function containsForbiddenDecisionField(value) {
 let r = await api(
   "POST",
   "/api/auth/login",
-  { idNumber: AA, password: "***REDACTED***" },
+  { idNumber: AA, password: (process.env.TEST_TEACHER_PASSWORD || "change-me-in-ci") },
   { jar: teacherJar, deviceToken: "li-teacher-a" },
 );
 check("teacher A login", r.ok && r.data.role === "teacher", `${r.status}`);
@@ -37,7 +37,7 @@ check("teacher A login", r.ok && r.data.role === "teacher", `${r.status}`);
 r = await api(
   "POST",
   "/api/auth/login",
-  { idNumber: BB, password: "***REDACTED***" },
+  { idNumber: BB, password: (process.env.TEST_TEACHER_PASSWORD || "change-me-in-ci") },
   { jar: teacherBJar, deviceToken: "li-teacher-b" },
 );
 check("teacher B login", r.ok && r.data.role === "teacher", `${r.status}`);

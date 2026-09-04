@@ -23,7 +23,7 @@ const RETURNED_STATUS = "معاد للطالب"; // a status only a teacher may 
 // teacher A: publish the project the student will submit against, and read back.
 const tjar = makeJar();
 const tdev = "ss-teacher-dev";
-const login = await api("POST", "/api/auth/login", { idNumber: AA, password: "***REDACTED***" }, { jar: tjar, deviceToken: tdev });
+const login = await api("POST", "/api/auth/login", { idNumber: AA, password: (process.env.TEST_TEACHER_PASSWORD || "change-me-in-ci") }, { jar: tjar, deviceToken: tdev });
 check("S0a) teacher A login", login.ok && login.data.role === "teacher", `${login.status}`);
 const proj = await api("POST", "/api/teacher/projects",
   { id: PROJECT_ID, title: "مشروع تسليم الطالب", courseCode: S_A1, status: "published", points: 10 },

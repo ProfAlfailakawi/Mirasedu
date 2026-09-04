@@ -37,7 +37,7 @@ const gradeSubmission = (grade) => ({
 
 // teacher A login — grade endpoints are teacher-session gated.
 const tjar = makeJar();
-const login = await api("POST", "/api/auth/login", { idNumber: AA, password: "***REDACTED***" }, { jar: tjar, deviceToken: dev });
+const login = await api("POST", "/api/auth/login", { idNumber: AA, password: (process.env.TEST_TEACHER_PASSWORD || "change-me-in-ci") }, { jar: tjar, deviceToken: dev });
 check("G0a) teacher A login", login.ok && login.data.role === "teacher", `${login.status}`);
 
 // a published project (points=10) so the graded submission targets a real active
