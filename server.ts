@@ -133,9 +133,43 @@ const MIRAS_PUBLIC_LOGIN_DEFAULT_ORIGINS = new Set([
 
 const MIRAS_SESSION_COOKIE = "miras_session";
 const MIRAS_DEVICE_COOKIE = "miras_device_secret";
-const MIRAS_SESSION_SECRET =
-  process.env.MIRAS_SESSION_SECRET ||
-  crypto.createHash("sha256").update(`miras-local-${process.cwd()}`).digest("hex");
+
+// سرّ توقيع الجلسات. سابقاً كان يسقط إلى قيمة مشتقّة من مسار العمل
+// (`sha256("miras-local-" + cwd)`) — قابلة للتخمين وثابتة عبر أي نشر له نفس
+// المسار، فيمكن تزوير كعكة جلسة. الآن: فشل صريح في الإنتاج، وسرّ عشوائي
+// لكل تشغيل في التطوير/الاختبار (يُبطل الجلسات القديمة عند إعادة التشغيل،
+// وهذا مقبول محلياً).
+function resolveMirasSessionSecret(): string {
+  const explicit = String(process.env.MIRAS_SESSION_SECRET || "").trim();
+  if (explicit) return explicit;
+  if (isProductionLikeRuntime()) {
+    console.error(
+      [
+        "",
+        "══════════════════════════════════════════════════════════════════",
+        "❌ MIRAS_SESSION_SECRET is not set — refusing to start in production.",
+        "   Session cookies are HMAC-signed with this secret; booting without",
+        "   it would let anyone forge admin/teacher sessions.",
+        "",
+        "   Generate a strong value and store it as a runtime secret:",
+        '     node -e "console.log(require(\'crypto\').randomBytes(48).toString(\'hex\'))"',
+        "",
+        "   Then set MIRAS_SESSION_SECRET on the service (e.g. Cloud Run",
+        "   --set-secrets / --set-env-vars) and redeploy.",
+        "══════════════════════════════════════════════════════════════════",
+        "",
+      ].join("\n"),
+    );
+    process.exit(1);
+  }
+  console.warn(
+    "⚠️  MIRAS_SESSION_SECRET is not set — using a random per-process secret " +
+      "(development/test only). Sessions are invalidated on every restart.",
+  );
+  return crypto.randomBytes(48).toString("hex");
+}
+
+const MIRAS_SESSION_SECRET = resolveMirasSessionSecret();
 const MIRAS_SESSION_TTL_MS = 1000 * 60 * 60 * 24 * 14;
 
 type MirasSessionRole = "student" | "teacher" | "admin";
