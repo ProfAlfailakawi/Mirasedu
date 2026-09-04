@@ -23,3 +23,9 @@ data/
 
 # لا تُرفع ملفات مضغوطة للمستودع
 *.zip
+
+# مخرجات بناء ملتزمة سابقاً بالخطأ — تُبنى عبر npm run build إلى dist/
+server.cjs
+server.cjs.map
+assets/
+*.tsbuildinfo
