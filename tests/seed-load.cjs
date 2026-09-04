@@ -11,7 +11,7 @@ const DB = path.join(ROOT, "data", "db.json");
 fs.mkdirSync(path.dirname(DB), { recursive: true });
 
 const sha256pw = (pw) => "sha256:" + crypto.createHash("sha256").update(String(pw)).digest("hex");
-const TEACHER_HASH = "sha256:15ed79e05666cab81a531c5b91fb6d9183604984c7ecad0ef5fa9d086928d678"; // ***REDACTED***
+const TEACHER_HASH = sha256pw(process.env.TEST_TEACHER_PASSWORD || "change-me-in-ci");
 
 const COUNT = Number(process.env.MIRAS_LOAD_STUDENTS || 1000);
 const T = "load@test.kw";

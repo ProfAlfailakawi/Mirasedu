@@ -30,7 +30,7 @@ check("D4) original device still works after blocked attempts", r.ok && r.data.s
 // D5: a FRESHLY registered+activated student, then a second device — end to end.
 await (async () => {
   const teacherJar = makeJar();
-  await api("POST", "/api/auth/login", { idNumber: "aa@test.kw", password: "***REDACTED***" }, { jar: teacherJar, deviceToken: "t-dev" });
+  await api("POST", "/api/auth/login", { idNumber: "aa@test.kw", password: (process.env.TEST_TEACHER_PASSWORD || "change-me-in-ci") }, { jar: teacherJar, deviceToken: "t-dev" });
   await api("POST", "/api/teacher/upload-allowed", { sectionCode: "111", studentsList: [{ idNumber: "5501", name: "طالب قفل", sectionCode: "111" }] }, { jar: teacherJar, deviceToken: "t-dev" });
   const issued = await api("POST", "/api/teacher/join-codes/create", { sectionCode: "111", count: 1, assignedStudentId: "5501", isFreeCode: true }, { jar: teacherJar, deviceToken: "t-dev" });
   const code = issued.data?.created?.[0]?.code;

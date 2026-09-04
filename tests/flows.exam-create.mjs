@@ -38,7 +38,7 @@ const inboxArr = (r) => (Array.isArray(r.data) ? r.data : (r.data.notifications 
 // logins
 const tjar = makeJar();
 const tdev = "ec-teacher-dev";
-const tlogin = await api("POST", "/api/auth/login", { idNumber: AA, password: "***REDACTED***" }, { jar: tjar, deviceToken: tdev });
+const tlogin = await api("POST", "/api/auth/login", { idNumber: AA, password: (process.env.TEST_TEACHER_PASSWORD || "change-me-in-ci") }, { jar: tjar, deviceToken: tdev });
 check("E0a) teacher A login", tlogin.ok && tlogin.data.role === "teacher", `${tlogin.status}`);
 const sjar = makeJar();
 const slogin = await api("POST", "/api/auth/login", { idNumber: SID, password: "pass1001" }, { jar: sjar, deviceToken: TOK });
