@@ -12,7 +12,7 @@ const { check, done } = createReporter("FLOWS / AUTHZ-AUDIT");
 // see tests/run-flows.sh). These are throwaway test credentials, not secrets —
 // assembled from parts so secret scanners don't treat the fixtures as leaks.
 const spw = (id) => `pass${id}`; // students seed as sha256pw(`pass${id}`)
-const TPW = "***REDACTED***"; // teachers share this seeded password
+const TPW = process.env.TEST_TEACHER_PASSWORD || "change-me-in-ci"; // matches tests/seed.cjs (no plaintext secret in the repo)
 
 // --- sessions ---
 const jar1001 = makeJar();

@@ -10,7 +10,7 @@ const { check, done } = createReporter("FLOWS / LIFECYCLE");
 // teacher A login (also authorizes read-only lifecycle inspection after the
 // student-owned live endpoint became session protected).
 const tjar = makeJar();
-const login = await api("POST", "/api/auth/login", { idNumber: AA, password: "***REDACTED***" }, { jar: tjar, deviceToken: "teacher-A-dev" });
+const login = await api("POST", "/api/auth/login", { idNumber: AA, password: (process.env.TEST_TEACHER_PASSWORD || "change-me-in-ci") }, { jar: tjar, deviceToken: "teacher-A-dev" });
 check("T) teacher A login", login.ok && login.data.role === "teacher", `${login.status}`);
 
 // L0: Fix B — ghost codes (no existing section) are hidden; real courses keep names; no bare numbers/emails.
@@ -184,7 +184,7 @@ await (async () => {
 
   // admin login
   const ajar = makeJar();
-  const alogin = await api("POST", "/api/auth/login", { idNumber: "ah.alfailakawi@paaet.edu.kw", password: "***REDACTED***" }, { jar: ajar, deviceToken: "admin-dev" });
+  const alogin = await api("POST", "/api/auth/login", { idNumber: "ah.alfailakawi@paaet.edu.kw", password: (process.env.TEST_TEACHER_PASSWORD || "change-me-in-ci") }, { jar: ajar, deviceToken: "admin-dev" });
   check("L7b) super-admin login", alogin.ok && alogin.data.role === "admin", `${alogin.status} ${JSON.stringify(alogin.data).slice(0, 120)}`);
 
   // code-integrity returns dataHealth for admin, and 1001's ghosts are detected
@@ -203,7 +203,7 @@ await (async () => {
 // Must NOT auto-enroll, name must show, and a fresh code must work end-to-end.
 await (async () => {
   const ajar = makeJar();
-  await api("POST", "/api/auth/login", { idNumber: "ah.alfailakawi@paaet.edu.kw", password: "***REDACTED***" }, { jar: ajar, deviceToken: "admin-dev" });
+  await api("POST", "/api/auth/login", { idNumber: "ah.alfailakawi@paaet.edu.kw", password: (process.env.TEST_TEACHER_PASSWORD || "change-me-in-ci") }, { jar: ajar, deviceToken: "admin-dev" });
   const S888 = "888-ah.alfailakawi@paaet.edu.kw";
   const codeName = (s) => { const e = (s?.enrollments||[]).find(x=>String(x.courseCode||x.sectionCode||"").toLowerCase()===S888); return e ? [e.isActive, e.courseName] : null; };
 

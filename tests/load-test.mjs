@@ -22,7 +22,7 @@ let cookie = "";
 const login = await fetch(BASE + "/api/auth/login", {
   method: "POST",
   headers: { "content-type": "application/json", "x-miras-device-id": "load-teacher" },
-  body: JSON.stringify({ idNumber: "load@test.kw", password: "***REDACTED***" }),
+  body: JSON.stringify({ idNumber: "load@test.kw", password: (process.env.TEST_TEACHER_PASSWORD || "change-me-in-ci") }),
 });
 for (const c of (login.headers.getSetCookie ? login.headers.getSetCookie() : [])) {
   const kv = c.split(";")[0];
