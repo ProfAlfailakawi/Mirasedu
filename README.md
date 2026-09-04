@@ -37,6 +37,25 @@ The application relies heavily on an end-to-end API behavioral testing suite.
 
 Deployments are managed via GitHub Actions (`.github/workflows/firebase-hosting-deploy.yml`). Pushing to `main` triggers an automated pipeline that strictly verifies linting, tests, and the production build (`npm run build`) before publishing to Firebase Hosting.
 
+### Cloud Run API service (`miras-api`)
+
+The `/api/**` and `/seb/**` Hosting rewrites point at the Cloud Run service `miras-api` (region `us-central1`). That service is **not** deployed from this repository — there is no `cloudbuild.yaml` / `service.yaml` here — so the two settings below must be applied on the service itself.
+
+1.  **`--max-instances=1` is mandatory.** The server keeps the whole database in process memory and persists it to `data/db.json` / Firestore. A second instance means split, inconsistent state and lost writes. Until the storage layer moves to a shared store, deploy with:
+
+    ```sh
+    gcloud run services update miras-api --region us-central1 --max-instances=1
+    ```
+
+2.  **`MIRAS_SESSION_SECRET` is mandatory.** The container refuses to boot without it (see `.env.example`). Set it as a secret, never as a committed value:
+
+    ```sh
+    gcloud run services update miras-api --region us-central1 \
+      --set-secrets MIRAS_SESSION_SECRET=miras-session-secret:latest
+    ```
+
+Optional: `MIRAS_ALLOWED_ORIGINS` (comma separated) widens the CORS allowlist beyond the project's own Hosting domains.
+
 ## Security
 
 *   **Firebase Security Rules:** Firestore rules restrict data access based on authentication context and specific user roles (student vs. teacher).
