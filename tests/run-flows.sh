@@ -39,9 +39,9 @@ cp -f "$DB" "$DB_BAK" 2>/dev/null || true
 
 start_server() {
   if command -v setsid >/dev/null 2>&1; then
-    setsid env DISABLE_HMR=true MIRAS_ALLOW_LOCAL_ONLY_MODE=true MIRAS_JOIN_CODE_SIGNING_SECRET="flow-test-signing-secret" MIRAS_ROLLCALL_QR_SECRET="flow-test-rollcall-secret" node node_modules/.bin/tsx server.ts > /tmp/miras_flowtest_server.log 2>&1 &
+    setsid env DISABLE_HMR=true MIRAS_ALLOW_LOCAL_ONLY_MODE=true MIRAS_SESSION_SECRET="flow-test-session-secret" MIRAS_JOIN_CODE_SIGNING_SECRET="flow-test-signing-secret" MIRAS_ROLLCALL_QR_SECRET="flow-test-rollcall-secret" node node_modules/.bin/tsx server.ts > /tmp/miras_flowtest_server.log 2>&1 &
   else
-    env DISABLE_HMR=true MIRAS_ALLOW_LOCAL_ONLY_MODE=true MIRAS_JOIN_CODE_SIGNING_SECRET="flow-test-signing-secret" MIRAS_ROLLCALL_QR_SECRET="flow-test-rollcall-secret" node node_modules/.bin/tsx server.ts > /tmp/miras_flowtest_server.log 2>&1 &
+    env DISABLE_HMR=true MIRAS_ALLOW_LOCAL_ONLY_MODE=true MIRAS_SESSION_SECRET="flow-test-session-secret" MIRAS_JOIN_CODE_SIGNING_SECRET="flow-test-signing-secret" MIRAS_ROLLCALL_QR_SECRET="flow-test-rollcall-secret" node node_modules/.bin/tsx server.ts > /tmp/miras_flowtest_server.log 2>&1 &
   fi
   SRV_PID=$!
   for _ in $(seq 1 60); do

@@ -65,7 +65,7 @@ const aiInstance = process.env.GEMINI_API_KEY
   : null;
 
 const app = express();
-const PORT = Number(process.env.PORT || 3000);
+const PORT = isProductionLikeRuntime() ? Number(process.env.PORT || 8080) : 3000;
 
 const PASSKEY_RP_NAME = "مِراس";
 type PasskeyRole = "student" | "teacher";
@@ -8414,10 +8414,15 @@ function makeJoinCode(
 }
 
 function isProductionLikeRuntime(): boolean {
-  return (
-    String(process.env.NODE_ENV || "").toLowerCase() === "production" ||
-    Boolean(process.env.K_SERVICE || process.env.FIREBASE_CONFIG || process.env.GOOGLE_CLOUD_PROJECT)
-  );
+  const nodeEnv = String(process.env.NODE_ENV || "").toLowerCase();
+  if (nodeEnv === "development" || nodeEnv === "test") {
+    return false;
+  }
+  const kService = String(process.env.K_SERVICE || "");
+  if (kService.startsWith("ais-dev-")) {
+    return false;
+  }
+  return nodeEnv === "production";
 }
 
 function joinCodeSignatureRequired(): boolean {
