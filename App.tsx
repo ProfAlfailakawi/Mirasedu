@@ -9708,17 +9708,12 @@ export default function App() {
     try {
       window.sessionStorage.setItem("miras_splash_seen", "1");
     } catch {}
-    // ── توقيت شاشة الإقلاع: مصدر واحد ──────────────────────────────────────
-    // ‎SPLASH_LAND_MS‎ = زمن «تشرّب الحبر» وحطّ الخلفية، ويجب أن يساوي
-    // ‎--miras-splash-dur‎ في index.css (1.9s). يبدأ الإخفاء (fade) بعد اكتماله
-    // مباشرةً — راجع className أدناه: ‎delay-[1900ms] duration-300‎ — ثم نُزيل
-    // العنصر من DOM عند اكتمال الإخفاء. أي تغيير للزمن يُعدَّل في هذين المكانين
-    // معاً مع ‎--miras-splash-dur‎ فلا تنجرف الثلاثة.
-    const SPLASH_LAND_MS = 1900; // = --miras-splash-dur
-    const SPLASH_FADE_MS = 300; // = fade duration-300 (يبدأ بعد اكتمال الحبر)
+    // ⚠️ توقيت مقصود — لا يُختصر (مرجع الذوق المعتمد). يجب أن يبقى متوافقاً مع
+    // ‎delay-[3300ms] duration-500‎ في className الخاص بـ‎.miras-splash‎ أدناه،
+    // ومع ‎miras-splash-land 3.4s‎ في index.css.
     const splashTimer = setTimeout(() => {
       setShowSplash(false);
-    }, SPLASH_LAND_MS + SPLASH_FADE_MS);
+    }, 3900);
 
     return () => {
       window.removeEventListener("storage", handleStorage);
@@ -30041,7 +30036,7 @@ ${rows
         </div>
       </div>
       {showSplash && (
-        <div className="miras-splash fixed inset-0 z-[100] flex flex-col items-center justify-center animate-out fade-out duration-300 delay-[1900ms] fill-mode-forwards">
+        <div className="miras-splash fixed inset-0 z-[100] flex flex-col items-center justify-center animate-out fade-out duration-500 delay-[3300ms] fill-mode-forwards">
           <div className="relative flex flex-col items-center">
             <MirasMarkDrawn className="miras-splash-mark h-24 w-24 sm:h-28 sm:w-28" />
             <div className="miras-splash-reveal mt-7 flex flex-col items-center">
