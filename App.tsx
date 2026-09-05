@@ -7201,25 +7201,6 @@ export default function App() {
     return () => window.clearTimeout(timer);
   }, [connectionRecoveredAt]);
 
-  // يبني وسم SVG لرمز QR كلما فُتحت نافذة الرمز، ويمسحه عند الإغلاق.
-  useEffect(() => {
-    if (!joinQrModalCode) {
-      setJoinQrSvg("");
-      setJoinQrBusy(false);
-      return;
-    }
-    let cancelled = false;
-    setJoinQrBusy(true);
-    buildMirasJoinQrSvg(buildJoinQrDeepLink(joinQrModalCode)).then((svg) => {
-      if (cancelled) return;
-      setJoinQrSvg(svg);
-      setJoinQrBusy(false);
-    });
-    return () => {
-      cancelled = true;
-    };
-  }, [joinQrModalCode]);
-
   // مُعالِج الرابط العميق للتفعيل: إذا فُتح التطبيق برابط ‎?miras_code=… (من مسح
   // الطالب لرمز QR بكاميرا جواله العادية) نعبّئ كود الانضمام تلقائياً ونحتفظ به
   // في sessionStorage حتى بعد تسجيل الدخول، ثم ننظّف الرابط حتى لا يتكرر. لا يمنح
@@ -7287,6 +7268,24 @@ export default function App() {
         : "https://miras.app";
     return `${origin}/?miras_code=${encodeURIComponent(code)}`;
   };
+  // يبني وسم SVG لرمز QR كلما فُتحت نافذة الرمز، ويمسحه عند الإغلاق.
+  useEffect(() => {
+    if (!joinQrModalCode) {
+      setJoinQrSvg("");
+      setJoinQrBusy(false);
+      return;
+    }
+    let cancelled = false;
+    setJoinQrBusy(true);
+    buildMirasJoinQrSvg(buildJoinQrDeepLink(joinQrModalCode)).then((svg) => {
+      if (cancelled) return;
+      setJoinQrSvg(svg);
+      setJoinQrBusy(false);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [joinQrModalCode]);
   const [activationQrScannerOpen, setActivationQrScannerOpen] = useState(false);
   const [activationQrScannerStatus, setActivationQrScannerStatus] =
     useState("");
@@ -20284,6 +20283,21 @@ ${rows
         return bd - ad;
       });
   }, [visibleJoinCodes, codesFilterStatus, codesFilterSearch]);
+  // عدّاد الأكواد المتبقية غير المستخدمة: رموز عامة فعّالة، كاملة الصيغة، غير
+  // مرتبطة بطالب وغير مجانية — أي الجاهزة للبيع/الطباعة والتفعيل بعد. يُحسب من
+  // كامل النطاق لا من صفحة الفلاتر الحالية حتى يبقى رقماً كلياً موثوقاً.
+  const remainingUnusedCodesCount = useMemo(
+    () =>
+      scopedJoinCodes.filter(
+        (c: any) =>
+          String(c.status || "") === "active" &&
+          isFullJoinCode(c.code) &&
+          !c.studentId &&
+          !c.assignedStudentId &&
+          !c.isFreeCode,
+      ).length,
+    [scopedJoinCodes],
+  );
   const codesTotalPages = Math.max(
     1,
     Math.ceil(filteredJoinCodes.length / codesPageSize),
@@ -42971,10 +42985,20 @@ ${rows
                           className="xl:col-span-12 lg:col-span-12 bg-white rounded-[var(--miras-r-xl)] border border-slate-200 p-4 sm:p-6 space-y-5 shadow-sm overflow-hidden"
                         >
                           <div className="flex w-full flex-col xl:flex-row justify-between items-start xl:items-center gap-4 border-b border-slate-100 pb-4 text-right">
-                            <div className="flex items-center gap-2 rounded-2xl px-2 py-1 text-right">
+                            <div className="flex flex-wrap items-center gap-2 rounded-2xl px-2 py-1 text-right">
                               <h3 className="font-black text-base text-slate-900">
                                 بيانات كروت حالة الرموز والتفعيل
                               </h3>
+                              <span
+                                title="أكواد عامة فعّالة غير مستخدمة وجاهزة للتفعيل"
+                                className="inline-flex items-center gap-1.5 rounded-full border border-emerald-100 bg-emerald-50 px-3 py-1 text-[11px] font-black text-emerald-700"
+                              >
+                                <Key className="h-3.5 w-3.5" />
+                                المتبقّي غير المستخدم:
+                                <span className="font-mono tabular-nums">
+                                  {remainingUnusedCodesCount}
+                                </span>
+                              </span>
                             </div>
 
                             <div className="flex flex-wrap items-center gap-2 text-[11px] font-bold">
