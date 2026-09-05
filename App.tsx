@@ -268,6 +268,7 @@ import {
   UserX,
   UserCheck,
   Fingerprint,
+  QrCode,
 } from "lucide-react";
 
 type MirasLocalVisionMode =
@@ -1759,6 +1760,77 @@ const ensureMirasJsQrReader = (): Promise<any> => {
     }
   });
   return mirasJsQrLoadingPromise;
+};
+
+// مولّد QR للتفعيل المباشر (مشرف فقط): يحمَّل ديناميكياً مرة واحدة عند الحاجة.
+// السبب: لا نريد تضخيم الـ bundle بمكتبة توليد لا يستعملها الطلبة، ولا نرسل
+// الكود لأي خدمة صور خارجية (خصوصية). التوليد يتم محلياً بالكامل ويعيد وسم SVG
+// حاد الطباعة يمكن عرضه للطالب فوراً ليمسحه بكاميرا جواله العادية.
+const MIRAS_QRGEN_CDN_URL =
+  "https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.js";
+let mirasQrGenLoadingPromise: Promise<any> | null = null;
+const ensureMirasQrGenerator = (): Promise<any> => {
+  if (typeof window === "undefined") return Promise.resolve(null);
+  const w = window as any;
+  if (typeof w.qrcode === "function") return Promise.resolve(w.qrcode);
+  if (mirasQrGenLoadingPromise) return mirasQrGenLoadingPromise;
+  mirasQrGenLoadingPromise = new Promise((resolve) => {
+    try {
+      const existing = document.querySelector<HTMLScriptElement>(
+        'script[data-miras-qrgen="1"]',
+      );
+      const finalize = () => resolve((window as any).qrcode || null);
+      if (existing) {
+        if ((window as any).qrcode) return finalize();
+        existing.addEventListener("load", finalize, { once: true });
+        existing.addEventListener(
+          "error",
+          () => {
+            mirasQrGenLoadingPromise = null;
+            resolve(null);
+          },
+          { once: true },
+        );
+        return;
+      }
+      const script = document.createElement("script");
+      script.src = MIRAS_QRGEN_CDN_URL;
+      script.async = true;
+      script.crossOrigin = "anonymous";
+      script.setAttribute("data-miras-qrgen", "1");
+      script.onload = finalize;
+      script.onerror = () => {
+        mirasQrGenLoadingPromise = null;
+        try {
+          script.remove();
+        } catch {}
+        resolve(null);
+      };
+      document.head.appendChild(script);
+    } catch {
+      mirasQrGenLoadingPromise = null;
+      resolve(null);
+    }
+  });
+  return mirasQrGenLoadingPromise;
+};
+
+// يبني وسم SVG لرمز QR محلياً من نص (رابط التفعيل). يعيد "" إن تعذّر التحميل.
+const buildMirasJoinQrSvg = async (text: string): Promise<string> => {
+  const value = String(text || "").trim();
+  if (!value) return "";
+  const qrcode = await ensureMirasQrGenerator();
+  if (!qrcode) return "";
+  try {
+    // typeNumber=0 يترك المكتبة تختار أصغر حجم يكفي، وتصحيح مستوى M متوازن
+    // بين الكثافة وتحمّل تلف الطباعة.
+    const qr = qrcode(0, "M");
+    qr.addData(value);
+    qr.make();
+    return qr.createSvgTag({ cellSize: 6, margin: 4, scalable: true });
+  } catch {
+    return "";
+  }
 };
 
 // فك ترميز QR من مصدر صورة (فيديو/Bitmap/Image) عبر Canvas — يعمل على كل متصفح.
@@ -7129,6 +7201,60 @@ export default function App() {
     return () => window.clearTimeout(timer);
   }, [connectionRecoveredAt]);
 
+  // يبني وسم SVG لرمز QR كلما فُتحت نافذة الرمز، ويمسحه عند الإغلاق.
+  useEffect(() => {
+    if (!joinQrModalCode) {
+      setJoinQrSvg("");
+      setJoinQrBusy(false);
+      return;
+    }
+    let cancelled = false;
+    setJoinQrBusy(true);
+    buildMirasJoinQrSvg(buildJoinQrDeepLink(joinQrModalCode)).then((svg) => {
+      if (cancelled) return;
+      setJoinQrSvg(svg);
+      setJoinQrBusy(false);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [joinQrModalCode]);
+
+  // مُعالِج الرابط العميق للتفعيل: إذا فُتح التطبيق برابط ‎?miras_code=… (من مسح
+  // الطالب لرمز QR بكاميرا جواله العادية) نعبّئ كود الانضمام تلقائياً ونحتفظ به
+  // في sessionStorage حتى بعد تسجيل الدخول، ثم ننظّف الرابط حتى لا يتكرر. لا يمنح
+  // أي صلاحية بذاته — الخادم يبقى مصدر الحقيقة عند التفعيل الفعلي.
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    try {
+      const params = new URLSearchParams(window.location.search);
+      const raw = params.get("miras_code") || params.get("joinCode") || "";
+      let stored = "";
+      try {
+        stored = sessionStorage.getItem("miras_pending_join_code") || "";
+      } catch {}
+      const incoming = raw || stored;
+      if (!incoming) return;
+      const code = extractActivationCodeFromQrText(incoming);
+      if (!code) return;
+      setJoinCodeInput(code);
+      try {
+        sessionStorage.setItem("miras_pending_join_code", code);
+      } catch {}
+      if (raw) {
+        params.delete("miras_code");
+        params.delete("joinCode");
+        const qs = params.toString();
+        const newUrl =
+          window.location.pathname +
+          (qs ? `?${qs}` : "") +
+          window.location.hash;
+        window.history.replaceState(null, "", newUrl);
+      }
+    } catch {}
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   // Security elements
   const [verificationCodeToday, setVerificationCodeToday] = useState("EDU-47");
   const [webcamSnapshot, setWebcamSnapshot] = useState<string | null>(null);
@@ -7148,6 +7274,19 @@ export default function App() {
     voucher: "",
   });
   const [joinCodeInput, setJoinCodeInput] = useState("");
+  // نافذة QR للتفعيل المباشر (مشرف فقط): تعرض رمزاً يمسحه الطالب بكاميرا جواله
+  // فيفتح التطبيق وكود الانضمام معبّأ جاهزاً بدل كتابته يدوياً.
+  const [joinQrModalCode, setJoinQrModalCode] = useState<string>("");
+  const [joinQrSvg, setJoinQrSvg] = useState<string>("");
+  const [joinQrBusy, setJoinQrBusy] = useState<boolean>(false);
+  const buildJoinQrDeepLink = (rawCode: string) => {
+    const code = formatJoinCode(String(rawCode || "").trim());
+    const origin =
+      typeof window !== "undefined"
+        ? window.location.origin
+        : "https://miras.app";
+    return `${origin}/?miras_code=${encodeURIComponent(code)}`;
+  };
   const [activationQrScannerOpen, setActivationQrScannerOpen] = useState(false);
   const [activationQrScannerStatus, setActivationQrScannerStatus] =
     useState("");
@@ -17806,6 +17945,11 @@ ${rows
         return;
       }
       if (resp.ok && data.success !== false) {
+        // نُسقط الكود المعلّق فور نجاح التفعيل حتى لا تُعيد جلسة/تحديث لاحق
+        // تعبئة كود استُهلك بالفعل.
+        try {
+          sessionStorage.removeItem("miras_pending_join_code");
+        } catch {}
         const returnedEnrollments = Array.isArray(data.enrollments)
           ? data.enrollments
           : Array.isArray(data.student?.enrollments)
@@ -30081,6 +30225,76 @@ ${rows
         </div>
       )}
 
+      {joinQrModalCode && (
+        <div
+          className="fixed inset-0 z-[135] flex items-center justify-center bg-slate-950/55 p-4 backdrop-blur-md"
+          dir="rtl"
+          onClick={() => setJoinQrModalCode("")}
+        >
+          <div
+            className="relative w-full max-w-[22rem] overflow-hidden rounded-[var(--miras-r-xl)] border border-white/80 bg-white p-5 text-center miras-shadow-3"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-start justify-between gap-3 text-right">
+              <div className="inline-flex items-center gap-2 rounded-2xl border border-indigo-100 bg-indigo-50/70 px-3 py-1.5 text-[11px] font-bold text-indigo-700">
+                <QrCode className="h-4 w-4" />
+                رمز تفعيل مباشر
+              </div>
+              <button
+                type="button"
+                onClick={() => setJoinQrModalCode("")}
+                className="grid h-10 w-10 shrink-0 place-items-center rounded-[var(--miras-r-lg)] border border-slate-100 bg-slate-50/80 text-slate-500 transition hover:bg-slate-100"
+                aria-label="إغلاق"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+            <p className="mt-4 text-[12px] font-bold leading-6 text-slate-600">
+              يمسحه الطالب بكاميرا جواله فيفتح التطبيق والكود معبّأ جاهز
+              للتفعيل — دون كتابة.
+            </p>
+            <div className="mx-auto mt-4 flex aspect-square w-full max-w-[15rem] items-center justify-center rounded-[var(--miras-r-lg)] border border-slate-100 bg-white p-3 shadow-inner">
+              {joinQrBusy ? (
+                <span className="text-[11px] font-bold text-slate-400">
+                  جارٍ توليد الرمز…
+                </span>
+              ) : joinQrSvg ? (
+                <div
+                  className="h-full w-full [&>svg]:h-full [&>svg]:w-full"
+                  dangerouslySetInnerHTML={{ __html: joinQrSvg }}
+                />
+              ) : (
+                <span className="px-3 text-[11px] font-bold leading-5 text-red-500">
+                  تعذّر توليد الرمز. تحقّق من الاتصال ثم أعد المحاولة.
+                </span>
+              )}
+            </div>
+            <div
+              dir="ltr"
+              className="mt-4 rounded-2xl bg-slate-50 px-3 py-2 font-mono text-[13px] font-black tracking-[0.12em] text-indigo-900"
+            >
+              {formatJoinCode(joinQrModalCode)}
+            </div>
+            <button
+              type="button"
+              onClick={async () => {
+                try {
+                  await navigator.clipboard.writeText(
+                    buildJoinQrDeepLink(joinQrModalCode),
+                  );
+                  setSuccessMsg("تم نسخ رابط التفعيل المباشر.");
+                } catch {
+                  setErrorMsg("تعذّر نسخ الرابط. انسخ الكود يدوياً.");
+                }
+              }}
+              className="mt-3 inline-flex w-full items-center justify-center gap-2 rounded-2xl border border-indigo-100 bg-indigo-50 px-4 py-3 text-[12px] font-bold text-indigo-700 transition hover:bg-indigo-600 hover:text-white"
+            >
+              <Link2 className="h-4 w-4" />
+              نسخ رابط التفعيل المباشر
+            </button>
+          </div>
+        </div>
+      )}
       {activationQrScannerOpen && (
         <div
           className="fixed inset-0 z-[130] flex items-center justify-center bg-slate-950/55 p-4 backdrop-blur-md"
@@ -43005,6 +43219,21 @@ ${rows
                                             : "ملغي"}
                                       </span>
                                       <div className="flex shrink-0 items-center gap-2">
+                                        {isAdminTeacher &&
+                                          c.status === "active" &&
+                                          isFullJoinCode(c.code) && (
+                                            <button
+                                              type="button"
+                                              title="QR للتفعيل المباشر"
+                                              aria-label="QR للتفعيل المباشر"
+                                              onClick={() =>
+                                                setJoinQrModalCode(c.code)
+                                              }
+                                              className="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-indigo-50 text-indigo-700 transition-all hover:bg-indigo-600 hover:text-white"
+                                            >
+                                              <QrCode className="h-4 w-4" />
+                                            </button>
+                                          )}
                                         <button
                                           type="button"
                                           title="نسخ"
