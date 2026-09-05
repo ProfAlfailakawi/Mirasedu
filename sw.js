@@ -1,5 +1,5 @@
 /* Miras PWA + FCM service worker */
-const MIRAS_CACHE_VERSION = 'miras-shell-v81-brand-v3-20260903';
+const MIRAS_CACHE_VERSION = 'miras-shell-v82-qr-counter-20260905';
 const MIRAS_STUDENT_LIVE_CHANNEL = 'miras-student-live-v1';
 const MIRAS_STATIC_ASSETS = [
   '/',
