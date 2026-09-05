@@ -7,7 +7,7 @@
   "display_override": ["standalone", "minimal-ui", "browser"],
   "orientation": "portrait-primary",
   "background_color": "#0f172a",
-  "theme_color": "#4f46e5",
+  "theme_color": "#0A0A12",
   "dir": "rtl",
   "lang": "ar",
   "categories": ["education", "productivity"],

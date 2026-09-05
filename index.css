@@ -17924,9 +17924,17 @@ html.miras-teacher-scroll-locked .meras-teacher-shell.teacher-calm-shell .teache
    الأرضية تتحوّل تدريجياً إلى لون سطح التطبيق، والعلامة تُرسم ثم تهبط إلى لون
    الهوية — فيكون الانتقال إلى الواجهة متّصلاً بلا قطع.
    ═══════════════════════════════════════════════════════════════════════════ */
+/* ─────────────────────────────────────────────────────────────────────────
+   مصدر واحد لزمن شاشة الإقلاع: ‎--miras-splash-dur‎ هو لحظة اكتمال «تشرّب
+   الحبر» (ink-fill) وحطّ الخلفية (background-land) على سطح التطبيق. كل مراحل
+   الحركة تُشتقّ منه بنِسبها الأصلية (الأساس القديم كان 3.4s) عبر calc، فلا
+   يمكن أن تنجرف عن بعضها. الإخفاء (fade) وإزالة العنصر من DOM في App.tsx
+   يبدآن بعد هذه اللحظة تماماً كي يبقى «الذوبان في التطبيق» سليماً.
+   ───────────────────────────────────────────────────────────────────────── */
 .miras-splash {
+  --miras-splash-dur: 1.9s;
   background: var(--miras-splash-from) !important;
-  animation: miras-splash-land 3.4s cubic-bezier(.65,0,.35,1) forwards;
+  animation: miras-splash-land var(--miras-splash-dur) cubic-bezier(.65,0,.35,1) forwards;
   overflow: hidden;
 }
 .miras-splash::before {
@@ -17938,7 +17946,7 @@ html.miras-teacher-scroll-locked .meras-teacher-shell.teacher-calm-shell .teache
   background-size: 54px 54px;
   -webkit-mask-image: radial-gradient(circle at 50% 44%, #000 0%, transparent 66%);
   mask-image: radial-gradient(circle at 50% 44%, #000 0%, transparent 66%);
-  animation: miras-splash-grid 3.4s ease-out forwards;
+  animation: miras-splash-grid var(--miras-splash-dur) ease-out forwards;
 }
 @keyframes miras-splash-land {
   0%, 70% { background-color: var(--miras-splash-from); }
@@ -17946,26 +17954,34 @@ html.miras-teacher-scroll-locked .meras-teacher-shell.teacher-calm-shell .teache
 }
 @keyframes miras-splash-grid { 0%,66% { opacity: 1; } 100% { opacity: 0; } }
 
-.miras-splash-mark { color: #fff; animation: miras-splash-ink 3.4s cubic-bezier(.65,0,.35,1) forwards; }
+.miras-splash-mark { color: #fff; animation: miras-splash-ink var(--miras-splash-dur) cubic-bezier(.65,0,.35,1) forwards; }
 @keyframes miras-splash-ink { 0%,70% { color: #fff; } 100% { color: var(--miras-brand); } }
 
-.miras-splash-word { color: #fff; animation: miras-splash-ink-word 3.4s cubic-bezier(.65,0,.35,1) forwards; }
+.miras-splash-word { color: #fff; animation: miras-splash-ink-word var(--miras-splash-dur) cubic-bezier(.65,0,.35,1) forwards; }
 @keyframes miras-splash-ink-word { 0%,70% { color: #fff; } 100% { color: var(--miras-ink); } }
 
-.miras-splash-sub { color: rgba(255,255,255,.62); animation: miras-splash-ink-sub 3.4s cubic-bezier(.65,0,.35,1) forwards; }
+.miras-splash-sub { color: rgba(255,255,255,.62); animation: miras-splash-ink-sub var(--miras-splash-dur) cubic-bezier(.65,0,.35,1) forwards; }
 @keyframes miras-splash-ink-sub { 0%,70% { color: rgba(255,255,255,.62); } 100% { color: var(--miras-ink-3); } }
 
-/* رسم العلامة: الحلقة أولاً ثم الذيل */
-.miras-draw-ring { stroke-dasharray: 100; stroke-dashoffset: 100; animation: miras-draw 1s cubic-bezier(.55,.1,.25,1) .2s forwards; }
-.miras-draw-tail { stroke-dasharray: 100; stroke-dashoffset: 100; animation: miras-draw .8s cubic-bezier(.4,0,.3,1) 1.1s forwards; }
+/* رسم العلامة: الحلقة أولاً ثم الذيل — بنسب الأساس القديم (‎÷3.4s‎).
+   يرث ‎--miras-splash-dur‎ من ‎.miras-splash‎ فيبقى مصدراً واحداً. */
+.miras-draw-ring { stroke-dasharray: 100; stroke-dashoffset: 100; animation: miras-draw calc(var(--miras-splash-dur) * .294) cubic-bezier(.55,.1,.25,1) calc(var(--miras-splash-dur) * .059) forwards; }
+.miras-draw-tail { stroke-dasharray: 100; stroke-dashoffset: 100; animation: miras-draw calc(var(--miras-splash-dur) * .235) cubic-bezier(.4,0,.3,1) calc(var(--miras-splash-dur) * .324) forwards; }
 @keyframes miras-draw { to { stroke-dashoffset: 0; } }
 
-.miras-splash-reveal { opacity: 0; animation: miras-splash-reveal .75s cubic-bezier(.16,1,.3,1) 1.95s forwards; }
+.miras-splash-reveal { opacity: 0; animation: miras-splash-reveal calc(var(--miras-splash-dur) * .221) cubic-bezier(.16,1,.3,1) calc(var(--miras-splash-dur) * .574) forwards; }
 @keyframes miras-splash-reveal { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
 
 @media (prefers-reduced-motion: reduce) {
   .miras-draw-ring, .miras-draw-tail { stroke-dashoffset: 0; animation: none; }
   .miras-splash-reveal { opacity: 1; animation: none; }
+  /* بلا حركة: نعرض شاشة الإقلاع في حالتها النهائية فوراً بدل الانتقالات
+     اللونية (background-land) وتلوين العلامة/الكلمة/الوصف (color-ink). */
+  .miras-splash { animation: none; background: var(--miras-surface) !important; }
+  .miras-splash::before { animation: none; opacity: 0; }
+  .miras-splash-mark { animation: none; color: var(--miras-brand); }
+  .miras-splash-word { animation: none; color: var(--miras-ink); }
+  .miras-splash-sub { animation: none; color: var(--miras-ink-3); }
 }
 
 /* ═══ ٩) مسرح الجولة التعريفية ═══ */

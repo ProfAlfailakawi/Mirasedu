@@ -7087,6 +7087,15 @@ export default function App() {
   const [showSplash, setShowSplash] = useState(() => {
     if (typeof window === "undefined") return false;
     try {
+      // لا شاشة إقلاع داخل متصفح الاختبار الآمن (SEB): الطالب لا يحتاج تأخيراً
+      // إضافياً قبل الاختبار. نفس منطق isMirasSebEntry في src/main.tsx.
+      const params = new URLSearchParams(window.location.search);
+      const isSeb =
+        params.get("miras_seb") === "1" ||
+        params.get("seb") === "1" ||
+        !!params.get("seb_token") ||
+        /SafeExamBrowser|SEB/i.test(navigator.userAgent);
+      if (isSeb) return false;
       return !window.sessionStorage.getItem("miras_splash_seen");
     } catch {
       return true;
@@ -9699,9 +9708,17 @@ export default function App() {
     try {
       window.sessionStorage.setItem("miras_splash_seen", "1");
     } catch {}
+    // ── توقيت شاشة الإقلاع: مصدر واحد ──────────────────────────────────────
+    // ‎SPLASH_LAND_MS‎ = زمن «تشرّب الحبر» وحطّ الخلفية، ويجب أن يساوي
+    // ‎--miras-splash-dur‎ في index.css (1.9s). يبدأ الإخفاء (fade) بعد اكتماله
+    // مباشرةً — راجع className أدناه: ‎delay-[1900ms] duration-300‎ — ثم نُزيل
+    // العنصر من DOM عند اكتمال الإخفاء. أي تغيير للزمن يُعدَّل في هذين المكانين
+    // معاً مع ‎--miras-splash-dur‎ فلا تنجرف الثلاثة.
+    const SPLASH_LAND_MS = 1900; // = --miras-splash-dur
+    const SPLASH_FADE_MS = 300; // = fade duration-300 (يبدأ بعد اكتمال الحبر)
     const splashTimer = setTimeout(() => {
       setShowSplash(false);
-    }, 3900);
+    }, SPLASH_LAND_MS + SPLASH_FADE_MS);
 
     return () => {
       window.removeEventListener("storage", handleStorage);
@@ -30024,7 +30041,7 @@ ${rows
         </div>
       </div>
       {showSplash && (
-        <div className="miras-splash fixed inset-0 z-[100] flex flex-col items-center justify-center animate-out fade-out duration-500 delay-[3300ms] fill-mode-forwards">
+        <div className="miras-splash fixed inset-0 z-[100] flex flex-col items-center justify-center animate-out fade-out duration-300 delay-[1900ms] fill-mode-forwards">
           <div className="relative flex flex-col items-center">
             <MirasMarkDrawn className="miras-splash-mark h-24 w-24 sm:h-28 sm:w-28" />
             <div className="miras-splash-reveal mt-7 flex flex-col items-center">
