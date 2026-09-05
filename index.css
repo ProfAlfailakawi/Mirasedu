@@ -17924,6 +17924,12 @@ html.miras-teacher-scroll-locked .meras-teacher-shell.teacher-calm-shell .teache
    الأرضية تتحوّل تدريجياً إلى لون سطح التطبيق، والعلامة تُرسم ثم تهبط إلى لون
    الهوية — فيكون الانتقال إلى الواجهة متّصلاً بلا قطع.
    ═══════════════════════════════════════════════════════════════════════════ */
+/* ⚠️ توقيت مقصود — لا يُختصر. إيقاع شاشة الإقلاع (3.4s حبر + إخفاء) هو مرجع
+   الذوق المعتمد للمنصّة. ثلاثة مواضع يجب أن تبقى متوافقة معاً:
+     ١) ‎miras-splash-land 3.4s‎ هنا (وباقي حركات الحبر/الشبكة بنفس الزمن)،
+     ٢) ‎delay-[3300ms] duration-500‎ في className الخاص بـ‎.miras-splash‎ في App.tsx،
+     ٣) ‎setTimeout(..., 3900)‎ في App.tsx الذي يزيل العنصر من DOM.
+   أي تعديل لأحدها دون الآخرين يكسر «الذوبان في التطبيق». */
 .miras-splash {
   background: var(--miras-splash-from) !important;
   animation: miras-splash-land 3.4s cubic-bezier(.65,0,.35,1) forwards;
@@ -17966,6 +17972,13 @@ html.miras-teacher-scroll-locked .meras-teacher-shell.teacher-calm-shell .teache
 @media (prefers-reduced-motion: reduce) {
   .miras-draw-ring, .miras-draw-tail { stroke-dashoffset: 0; animation: none; }
   .miras-splash-reveal { opacity: 1; animation: none; }
+  /* بلا حركة: نعرض شاشة الإقلاع في حالتها النهائية فوراً بدل الانتقالات
+     اللونية (background-land) وتلوين العلامة/الكلمة/الوصف (color-ink). */
+  .miras-splash { animation: none; background: var(--miras-surface) !important; }
+  .miras-splash::before { animation: none; opacity: 0; }
+  .miras-splash-mark { animation: none; color: var(--miras-brand); }
+  .miras-splash-word { animation: none; color: var(--miras-ink); }
+  .miras-splash-sub { animation: none; color: var(--miras-ink-3); }
 }
 
 /* ═══ ٩) مسرح الجولة التعريفية ═══ */

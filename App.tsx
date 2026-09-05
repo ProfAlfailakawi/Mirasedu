@@ -7087,6 +7087,15 @@ export default function App() {
   const [showSplash, setShowSplash] = useState(() => {
     if (typeof window === "undefined") return false;
     try {
+      // لا شاشة إقلاع داخل متصفح الاختبار الآمن (SEB): الطالب لا يحتاج تأخيراً
+      // إضافياً قبل الاختبار. نفس منطق isMirasSebEntry في src/main.tsx.
+      const params = new URLSearchParams(window.location.search);
+      const isSeb =
+        params.get("miras_seb") === "1" ||
+        params.get("seb") === "1" ||
+        !!params.get("seb_token") ||
+        /SafeExamBrowser|SEB/i.test(navigator.userAgent);
+      if (isSeb) return false;
       return !window.sessionStorage.getItem("miras_splash_seen");
     } catch {
       return true;
@@ -9699,6 +9708,9 @@ export default function App() {
     try {
       window.sessionStorage.setItem("miras_splash_seen", "1");
     } catch {}
+    // ⚠️ توقيت مقصود — لا يُختصر (مرجع الذوق المعتمد). يجب أن يبقى متوافقاً مع
+    // ‎delay-[3300ms] duration-500‎ في className الخاص بـ‎.miras-splash‎ أدناه،
+    // ومع ‎miras-splash-land 3.4s‎ في index.css.
     const splashTimer = setTimeout(() => {
       setShowSplash(false);
     }, 3900);
