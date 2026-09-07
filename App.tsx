@@ -5510,6 +5510,10 @@ export default function App() {
   const hasAttemptedGesturePasskeyRef = useRef(false);
   const isPasskeyAuthenticatingRef = useRef(false);
   const [passkeyLocalRevision, setPasskeyLocalRevision] = useState(0);
+  // حقيقة الخادم عن تفعيل البصمة لهذا الحساب: null = لم تُقرأ بعد.
+  const [passkeyServerEnabled, setPasskeyServerEnabled] = useState<
+    boolean | null
+  >(null);
   const [passkeyTrustedDevices, setPasskeyTrustedDevices] = useState<any[]>([]);
   const [passkeyDevicesOpen, setPasskeyDevicesOpen] = useState(false);
   const [passkeyRecoveryRole, setPasskeyRecoveryRole] = useState<
@@ -5517,11 +5521,18 @@ export default function App() {
   >("student");
   const [passkeyRecoveryUserId, setPasskeyRecoveryUserId] = useState("");
   const [passkeyRecoveryBusy, setPasskeyRecoveryBusy] = useState(false);
+  // زر «تفعيل البصمة» يتبع الخادم متى عرفناه. القفل المحلي وحده كان يخفي الزر
+  // إلى الأبد على أي جهاز بقي فيه قفل قديم بعد حذف البصمة من الخادم، فيظهر الزر
+  // على جهاز ويغيب عن آخر لنفس الحساب. القفل يبقى مرجعاً قبل وصول جواب الخادم
+  // فقط، فلا يومض الزر عند الإقلاع ولا يتأثر سلوك شاشة القفل دون اتصال.
   const passkeyEnabledForCurrentSession = useMemo(
     () =>
-      passkeyLockMatchesSession("teacher", teacherSession) ||
-      passkeyLockMatchesSession("student", studentSession),
+      passkeyServerEnabled !== null
+        ? passkeyServerEnabled
+        : passkeyLockMatchesSession("teacher", teacherSession) ||
+          passkeyLockMatchesSession("student", studentSession),
     [
+      passkeyServerEnabled,
       teacherSession?.email,
       teacherSession?.id,
       studentSession?.id,
@@ -16971,6 +16982,7 @@ ${rows
     rememberMirasPasskeyUnlockNow();
     setPasskeyUnlockRequired(false);
     setPasskeyPasswordFallback(false);
+    setPasskeyServerEnabled(true);
     setPasskeyLocalRevision((value) => value + 1);
   };
 
@@ -16992,6 +17004,7 @@ ${rows
       });
       const data = await resp.json().catch(() => ({}));
       if (resp.ok) {
+        setPasskeyServerEnabled(!!data.enabled);
         if (data.enabled) {
           rememberPasskeyForSession(role, data.userId || userId, userName);
         } else {
@@ -17005,6 +17018,8 @@ ${rows
   };
 
   useEffect(() => {
+    // حساب جديد ⇒ حالته على الخادم غير معروفة بعد.
+    setPasskeyServerEnabled(null);
     refreshPasskeyStatusForCurrentSession();
   }, [
     teacherSession?.email,
@@ -17421,6 +17436,7 @@ ${rows
         });
         const data = await resp.json().catch(() => ({}));
         if (cancelled || !resp.ok) return;
+        setPasskeyServerEnabled(!!data.enabled);
         if (
           !data.enabled &&
           passkeyLockMatchesSession(activeRole, activeSession)
