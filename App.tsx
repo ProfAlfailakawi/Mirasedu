@@ -34875,6 +34875,26 @@ ${rows
                 >
                   <Home className="h-5 w-5" />
                 </button>
+                {/* زر تفعيل البصمة سقط من الرأس المختصر عند إعادة تصميم واجهة
+                    الجوال (v5)، فبقي ظاهراً على الشاشات العريضة ومختفياً على
+                    الهاتف لنفس الحساب. نعيده هنا بنفس شرط الرأس الكلاسيكي. */}
+                {!passkeyEnabledForCurrentSession &&
+                  !isSafeExamBrowserSession() && (
+                    <button
+                      type="button"
+                      title="تفعيل الدخول بالبصمة لهذا الجهاز"
+                      aria-label="تفعيل الدخول بالبصمة لهذا الجهاز"
+                      onClick={registerPasskeyForCurrentSession}
+                      disabled={passkeyBusy}
+                      className="miras-zero-action-btn"
+                    >
+                      {passkeyBusy ? (
+                        <RefreshCw className="h-5 w-5 animate-spin" />
+                      ) : (
+                        <Fingerprint className="h-5 w-5" />
+                      )}
+                    </button>
+                  )}
                 {shouldShowTeacherImportantNotificationsButton && (
                   <button
                     type="button"
