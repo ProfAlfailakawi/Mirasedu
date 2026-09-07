@@ -17013,6 +17013,32 @@ ${rows
     studentSession?.email,
   ]);
 
+  // إعادة مزامنة حالة البصمة عند العودة إلى التطبيق أو عودة الشبكة. المزامنة
+  // الأولى تحدث مرة واحدة عند الإقلاع فقط، وإذا فشلت (تطبيق PWA يُفتح قبل جهوز
+  // الشبكة على الجوال) يبقى القفل المحلي القديم فيختفي زر البصمة على ذلك الجهاز
+  // بينما يظهر على غيره. هذه المزامنة المتكررة تُنهي ذلك التفاوت.
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    if (!teacherSession && !studentSession) return;
+    const resync = () => {
+      if (document.visibilityState === "hidden") return;
+      refreshPasskeyStatusForCurrentSession();
+    };
+    document.addEventListener("visibilitychange", resync);
+    window.addEventListener("online", resync);
+    window.addEventListener("focus", resync);
+    return () => {
+      document.removeEventListener("visibilitychange", resync);
+      window.removeEventListener("online", resync);
+      window.removeEventListener("focus", resync);
+    };
+  }, [
+    teacherSession?.email,
+    teacherSession?.id,
+    studentSession?.id,
+    studentSession?.email,
+  ]);
+
   const registerPasskeyForCurrentSession = async () => {
     setErrorMsg("");
     setSuccessMsg("");
@@ -17360,6 +17386,9 @@ ${rows
       setSuccessMsg(data.message || "تمت تهيئة البصمة للحساب.");
       setPasskeyRecoveryUserId("");
       await fetchTrustedPasskeyDevices();
+      // إن كانت التهيئة لحساب السوبر أدمن نفسه، نُحدّث حالته فوراً كي يعود زر
+      // تفعيل البصمة للظهور بلا إعادة تحميل الصفحة.
+      await refreshPasskeyStatusForCurrentSession();
       await fetchLogs();
     } catch {
       setErrorMsg("تعذر الاتصال بالخادم لتهيئة البصمة.");
@@ -19874,6 +19903,29 @@ ${rows
       );
     };
   }, []);
+
+  // آبل لا تُطلق حدث beforeinstallprompt إطلاقاً، فلافتة التثبيت التلقائية لا
+  // تظهر أبداً على iPhone/iPad ويبقى الطالب ينتظر دعوة لن تصل. هنا نعرض اللافتة
+  // نفسها يدوياً على أجهزة آبل غير المثبَّتة؛ زر «تثبيت الآن» فيها يفتح نافذة
+  // الإرشادات (مشاركة ← إضافة إلى الشاشة الرئيسية) وهي المسار الوحيد على iOS.
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const ua = String(navigator.userAgent || "");
+    const isAppleTouchDevice =
+      /iPad|iPhone|iPod/.test(ua) ||
+      // iPadOS يعرّف نفسه كـ Mac، ويميّزه دعم اللمس.
+      (/Macintosh/.test(ua) && (navigator as any).maxTouchPoints > 1);
+    if (!isAppleTouchDevice || isAppStandalone) return;
+    let lastDismissed: string | null = null;
+    try {
+      lastDismissed = localStorage.getItem("miras_pwa_dismissed_at");
+    } catch {}
+    const twoHours = 2 * 60 * 60 * 1000;
+    if (lastDismissed && Date.now() - Number(lastDismissed) <= twoHours) return;
+    // مهلة قصيرة كي لا تقفز اللافتة فوق أول رسم للواجهة.
+    const timer = window.setTimeout(() => setShowPwaBanner(true), 4000);
+    return () => window.clearTimeout(timer);
+  }, [isAppStandalone]);
 
   useEffect(() => {
     setPulseExamFilter("all");
@@ -41633,6 +41685,81 @@ ${rows
                         </div>
                       )}
 
+                      {analyticsSubTab === "accounts" && isAdminTeacher && (
+                        <div className="rounded-[var(--miras-r-xl)] border border-indigo-100 bg-indigo-50/60 p-4 shadow-sm">
+                          <div className="text-right">
+                            <h3 className="flex items-center gap-2 text-sm font-bold text-indigo-900">
+                              <Fingerprint className="h-4 w-4" />
+                              تهيئة البصمة بعد التحقق من الهوية
+                            </h3>
+                            <p className="mt-1 text-[11px] font-bold leading-5 text-indigo-700">
+                              لمن فقد جهازه أو حذف بصمته: تُلغى كل أجهزته
+                              الموثوقة، فيدخل بكلمة المرور ثم يفعّل البصمة من
+                              جديد. تحقّق من هوية صاحب الحساب قبل التنفيذ.
+                            </p>
+                          </div>
+                          <div className="mt-3 flex flex-col gap-2 md:flex-row md:items-center">
+                            <div className="flex shrink-0 overflow-hidden rounded-2xl border border-indigo-100 bg-white text-[11px] font-bold shadow-sm">
+                              {(
+                                [
+                                  ["student", "طالب"],
+                                  ["teacher", "معلم"],
+                                ] as const
+                              ).map(([value, label]) => (
+                                <button
+                                  key={value}
+                                  type="button"
+                                  onClick={() =>
+                                    setPasskeyRecoveryRole(value)
+                                  }
+                                  aria-pressed={passkeyRecoveryRole === value}
+                                  className={`px-4 py-2.5 transition ${
+                                    passkeyRecoveryRole === value
+                                      ? "bg-indigo-600 text-white"
+                                      : "text-indigo-700 hover:bg-indigo-50"
+                                  }`}
+                                >
+                                  {label}
+                                </button>
+                              ))}
+                            </div>
+                            <input
+                              value={passkeyRecoveryUserId}
+                              onChange={(e) =>
+                                setPasskeyRecoveryUserId(e.target.value)
+                              }
+                              onKeyDown={(e) => {
+                                if (e.key === "Enter" && !passkeyRecoveryBusy)
+                                  resetPasskeyRecoveryForIdentity();
+                              }}
+                              placeholder={
+                                passkeyRecoveryRole === "teacher"
+                                  ? "بريد المعلم الجامعي"
+                                  : "الرقم الجامعي للطالب"
+                              }
+                              aria-label="الرقم الجامعي أو بريد المعلم"
+                              className="w-full rounded-2xl border border-indigo-100 bg-white px-4 py-2.5 text-xs font-bold text-slate-800 outline-none focus:ring-2 focus:ring-indigo-100"
+                            />
+                            <button
+                              type="button"
+                              onClick={resetPasskeyRecoveryForIdentity}
+                              disabled={
+                                passkeyRecoveryBusy ||
+                                !passkeyRecoveryUserId.trim()
+                              }
+                              title="تهيئة البصمة لهذا الحساب"
+                              className="inline-flex shrink-0 items-center justify-center gap-2 rounded-2xl border border-indigo-100 bg-indigo-600 px-5 py-2.5 text-xs font-bold text-white shadow-sm transition hover:bg-indigo-700 disabled:opacity-60"
+                            >
+                              {passkeyRecoveryBusy ? (
+                                <RefreshCw className="h-4 w-4 animate-spin" />
+                              ) : (
+                                <Fingerprint className="h-4 w-4" />
+                              )}
+                              تهيئة البصمة
+                            </button>
+                          </div>
+                        </div>
+                      )}
                       {analyticsSubTab === "audit" && !isAdminTeacher && (
                         <button
                           type="button"
