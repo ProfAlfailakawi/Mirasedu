@@ -4,6 +4,8 @@ import path from 'path';
 import fs from 'fs';
 import https from 'https';
 import {defineConfig, type Plugin} from 'vite';
+// @ts-ignore -- إضافة بلا أنواع: تحقن بصمة البناء وتطبعها في dist/build-id.json و sw.js
+import {buildStamp} from './scripts/build-stamp.mjs';
 
 // ───────────────────────────────────────────────────────────────────────────
 // حارس ملفات عارض PDF.js — مدمج داخل إعداد Vite عمداً.
@@ -72,7 +74,7 @@ function ensurePdfjs(): Plugin {
 
 export default defineConfig(() => {
   return {
-    plugins: [ensurePdfjs(), react(), tailwindcss()],
+    plugins: [ensurePdfjs(), react(), tailwindcss(), buildStamp()],
     resolve: {
       alias: {
         '@': path.resolve(__dirname, '.'),

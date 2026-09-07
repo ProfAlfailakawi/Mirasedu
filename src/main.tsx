@@ -1,5 +1,6 @@
 import {Component, StrictMode, type ReactNode} from 'react';
 import {createRoot} from 'react-dom/client';
+import {installAppUpdate, pageIsBusy} from './shared/app-update';
 // Google AI Studio edits the root App.tsx/index.css files. Keep those files as
 // the single production source so preview, build, and Firebase Hosting cannot
 // silently drift onto different copies of the interface.
@@ -238,100 +239,23 @@ const mountApp = () => {
 
 mountApp();
 
+// التحديث الذاتي الصامت: بصمة الإصدار، منارتها، ثم التحديث والتصعيد عند اللزوم.
+installAppUpdate();
+
 const MIRAS_CLIENT_BUILD_VERSION = 'miras-v80-radar-compact-again-20260712';
 
 // ───────────────────────────────────────────────────────────────────────────
-// شريط «تحديث جاهز» — أعلى الشاشة، مرة واحدة، بضغطة واحدة
+// تفعيل صامت للعامل المنتظِر
 //
-// ملاحظات المالك: (١) موضعه كان أسفل الشاشة فيغطّي شريط التنقّل والبحث — نقلناه
-// إلى الأعلى. (٢) كان يظهر في كل فتح للتطبيق — الآن يظهر مرة واحدة في الجلسة فقط،
-// وبمجرد الضغط على «حدّث الآن» يُفعَّل التحديث ويُعاد التحميل فيختفي نهائياً (لا
-// يوجد عامل خدمة منتظِر بعدها = لا شريط بعدها). لا يظهر إطلاقاً داخل متصفح الاختبار.
+// كان هنا شريط «تحديث جديد جاهز» بزرّ «حدّث الآن». وهذا يطلب من المستخدم أن يُصلح
+// البرنامج بيده، وأكثر مستخدمي مِراس ليسوا تقنيين. صار التفعيل صامتاً: العامل
+// الجديد يُؤمر بتخطّي الانتظار فوراً، وإعادة التحميل تأتي من controllerchange
+// أدناه — ولا تقع فوق عملٍ جارٍ.
 // ───────────────────────────────────────────────────────────────────────────
-const showMirasUpdateBanner = (worker: ServiceWorker | null | undefined) => {
+const activateWaitingWorker = (worker: ServiceWorker | null | undefined) => {
   try {
     if (!worker || isMirasSebEntry()) return;
-    if (document.getElementById('miras-update-banner')) return;
-    const onceKey = `miras-update-banner:${MIRAS_CLIENT_BUILD_VERSION}`;
-    if (sessionStorage.getItem(onceKey) === '1') return;
-    sessionStorage.setItem(onceKey, '1');
-
-    const bar = document.createElement('div');
-    bar.id = 'miras-update-banner';
-    bar.setAttribute('dir', 'rtl');
-    bar.style.cssText = [
-      'position:fixed',
-      'top:calc(env(safe-area-inset-top,0px) + 12px)',
-      'left:50%',
-      'transform:translateX(-50%) translateY(-160%)',
-      'z-index:2147483647',
-      'display:flex',
-      'align-items:center',
-      'gap:10px',
-      'max-width:calc(100vw - 24px)',
-      'padding:9px 10px 9px 14px',
-      'border-radius:9999px',
-      'background:rgba(15,23,42,0.95)',
-      'color:#fff',
-      "font-family:'Tajawal','Cairo',system-ui,sans-serif",
-      'font-weight:800',
-      'font-size:13px',
-      'box-shadow:0 18px 50px rgba(15,23,42,0.45)',
-      '-webkit-backdrop-filter:blur(10px)',
-      'backdrop-filter:blur(10px)',
-      'transition:transform .5s cubic-bezier(.2,.9,.25,1)',
-    ].join(';');
-
-    const label = document.createElement('span');
-    label.textContent = 'تحديث جديد جاهز ✨';
-    label.style.cssText = 'white-space:nowrap;padding-inline-start:4px';
-
-    let autoHide: ReturnType<typeof setTimeout> | undefined;
-    const hideBar = () => {
-      if (autoHide) clearTimeout(autoHide);
-      bar.style.transform = 'translateX(-50%) translateY(-160%)';
-      setTimeout(() => bar.remove(), 520);
-    };
-
-    const updateBtn = document.createElement('button');
-    updateBtn.type = 'button';
-    updateBtn.textContent = 'حدّث الآن';
-    updateBtn.style.cssText =
-      'border:none;cursor:pointer;border-radius:9999px;padding:7px 15px;background:#34d399;color:#04231a;font:inherit;font-weight:900;font-size:12px';
-    updateBtn.onclick = () => {
-      updateBtn.textContent = 'يُحدّث…';
-      updateBtn.disabled = true;
-      if (autoHide) clearTimeout(autoHide);
-      try {
-        worker.postMessage({type: 'SKIP_WAITING'});
-      } catch {}
-      // شبكة أمان: إن لم يُطلق controllerchange إعادةَ التحميل خلال ثانيتين (مثلاً
-      // لا يوجد عامل خدمة منتظِر فعلاً) نُعيد التحميل يدوياً كي لا يعلق الزر على
-      // «يُحدّث…» إلى ما لا نهاية.
-      setTimeout(() => {
-        try {
-          window.location.reload();
-        } catch {}
-      }, 2000);
-    };
-
-    const laterBtn = document.createElement('button');
-    laterBtn.type = 'button';
-    laterBtn.setAttribute('aria-label', 'لاحقاً');
-    laterBtn.textContent = '✕';
-    laterBtn.style.cssText =
-      'border:none;cursor:pointer;border-radius:9999px;width:28px;height:28px;background:rgba(255,255,255,.14);color:#fff;font:inherit;font-weight:900;font-size:12px';
-    laterBtn.onclick = hideBar;
-
-    bar.appendChild(label);
-    bar.appendChild(updateBtn);
-    bar.appendChild(laterBtn);
-    document.body.appendChild(bar);
-    requestAnimationFrame(() => {
-      bar.style.transform = 'translateX(-50%) translateY(0)';
-    });
-    // يختفي تلقائياً بعد ١٤ ثانية إن لم يتفاعل المستخدم — لا يبقى ظاهراً طويلاً.
-    autoHide = setTimeout(hideBar, 14000);
+    worker.postMessage({type: 'SKIP_WAITING'});
   } catch {}
 };
 
@@ -344,8 +268,13 @@ if ('serviceWorker' in navigator) {
       const key = `miras-sw-refresh:${MIRAS_CLIENT_BUILD_VERSION}`;
       if (sessionStorage.getItem(key) === '1') return;
       sessionStorage.setItem(key, '1');
-      window.location.reload();
     } catch {}
+    // لا تُعاد الصفحة فوق عملٍ جارٍ (حوار مفتوح، سحب، كتابة): نؤجّل أربع ثوانٍ.
+    const reloadWhenIdle = () => {
+      if (pageIsBusy()) { window.setTimeout(reloadWhenIdle, 4000); return; }
+      window.location.reload();
+    };
+    reloadWhenIdle();
   });
 
   window.addEventListener('load', () => {
@@ -361,7 +290,7 @@ if ('serviceWorker' in navigator) {
       .then(registration => {
         // عامل خدمة جديد ينتظر بالفعل عند فتح التطبيق → اعرض الشريط لتفعيله بضغطة.
         if (registration.waiting && navigator.serviceWorker.controller) {
-          showMirasUpdateBanner(registration.waiting);
+          activateWaitingWorker(registration.waiting);
         }
         try {
           registration.addEventListener('updatefound', () => {
@@ -369,7 +298,7 @@ if ('serviceWorker' in navigator) {
             worker?.addEventListener('statechange', () => {
               // اكتمل تنزيل نسخة جديدة وهناك نسخة تعمل حالياً = تحديث حقيقي.
               if (worker.state === 'installed' && navigator.serviceWorker.controller) {
-                showMirasUpdateBanner(worker);
+                activateWaitingWorker(worker);
               }
             });
           });

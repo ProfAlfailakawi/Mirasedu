@@ -1,5 +1,8 @@
 /* Miras PWA + FCM service worker */
-const MIRAS_CACHE_VERSION = 'miras-shell-v82-qr-counter-20260905';
+/* بصمة البناء تُطبع هنا عند البناء (scripts/build-stamp.mjs). بايتات هذا الملف يجب أن
+   تتغيّر مع كل إصدار، وإلا لم يرَ المتصفح تحديثاً أصلاً ولم تعلم التبويبات المفتوحة بشيء. */
+const MIRAS_BUILD_ID = '__BUILD_ID__';
+const MIRAS_CACHE_VERSION = 'miras-shell-' + MIRAS_BUILD_ID;
 const MIRAS_STUDENT_LIVE_CHANNEL = 'miras-student-live-v1';
 const MIRAS_STATIC_ASSETS = [
   '/',
@@ -416,21 +419,22 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // بقية الأصول الثابتة الاسم (عارض PDF.js، manifest، ...): stale-while-revalidate.
-  // نُرجع النسخة المخزّنة فوراً إن وُجدت (فتح لحظي) ونُحدّث الكاش في الخلفية،
-  // فلا ينتظر المستخدم الشبكة عند كل فتحة، ويصل التحديث في الزيارة التالية.
+  // بقية الأصول الثابتة الاسم (manifest، سكربتات بلا هاش…): الشبكة أولاً والكاش
+  // احتياطاً عند انقطاع الاتصال. تقديمُ المخزّن أولاً كان يُبقي التبويب على ملفٍ
+  // من نشرةٍ سابقة زيارةً كاملة، وهو بالضبط ما يجعل عطلاً مُصلَحاً يبدو باقياً.
   if (['style', 'script', 'worker', 'font', 'manifest'].includes(request.destination)) {
     event.respondWith((async () => {
-      const cached = await caches.match(request);
-      const network = fetch(request, { cache: 'no-store' })
-        .then((fresh) => {
-          if (fresh && fresh.ok) {
-            caches.open(MIRAS_CACHE_VERSION).then((cache) => cache.put(request, fresh.clone())).catch(() => undefined);
-          }
-          return fresh;
-        })
-        .catch(() => cached);
-      return cached || network;
+      try {
+        const fresh = await fetch(request, { cache: 'no-store' });
+        if (fresh && fresh.ok) {
+          caches.open(MIRAS_CACHE_VERSION).then((cache) => cache.put(request, fresh.clone())).catch(() => undefined);
+        }
+        return fresh;
+      } catch {
+        const cached = await caches.match(request);
+        if (cached) return cached;
+        throw new Error('offline');
+      }
     })());
     return;
   }
