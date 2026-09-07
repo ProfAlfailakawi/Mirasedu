@@ -9794,6 +9794,24 @@ function sendSebConfig(req: express.Request, res: express.Response) {
 app.get("/seb/config/:token/miras-official.seb", sendSebConfig);
 app.get("/seb/miras-official.seb", sendSebConfig);
 
+/*
+ * نقطة خفيفة تعرض بصمة البناء الحالية: هي الحقيقة الوحيدة التي يقارنها العميل بثابت
+ * الحزمة (__BUILD_ID__)، وتُكتب في dist/build-id.json عند البناء.
+ */
+let cachedBuildId = "";
+const currentBuildId = () => {
+  if (cachedBuildId) return cachedBuildId;
+  try {
+    cachedBuildId = String(JSON.parse(fs.readFileSync(path.join(process.cwd(), "dist", "build-id.json"), "utf8")).build || "");
+  } catch { cachedBuildId = ""; }
+  if (!cachedBuildId) cachedBuildId = process.env.BUILD_ID || "dev";
+  return cachedBuildId;
+};
+app.get("/api/version", (_req, res) => {
+  res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate");
+  res.json({ build: currentBuildId() });
+});
+
 app.get("/api/config/firebase-public", (req, res) => {
   const config = firebasePublicConfig();
   const hasFirebaseClientConfig = !!(
@@ -23403,7 +23421,17 @@ async function bootstrap() {
     // Serve static files from react dist folder
     const distPath = path.join(process.cwd(), "dist");
     if (fs.existsSync(distPath)) {
-      app.use(express.static(distPath));
+      app.use(express.static(distPath, {
+        setHeaders(res, filePath) {
+          // الغلاف وعامل الخدمة وبصمة البناء لا تُخزَّن أبداً؛ الأصول المبصومة بهاش
+          // تُخزَّن للأبد لأن اسمها يتغيّر مع بايتاتها.
+          if (filePath.endsWith(".html") || filePath.endsWith("sw.js") || filePath.endsWith("build-id.json")) {
+            res.setHeader("Cache-Control", "no-cache, must-revalidate");
+          } else if (/[-.][A-Za-z0-9_-]{8,}\.[a-z0-9]+$/i.test(filePath)) {
+            res.setHeader("Cache-Control", "public, max-age=31536000, immutable");
+          }
+        },
+      }));
       app.get("*", (req, res) => {
         res.sendFile(path.join(distPath, "index.html"));
       });
