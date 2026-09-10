@@ -10,6 +10,7 @@ import { createPortal } from "react-dom";
 import { motion, AnimatePresence } from "motion/react";
 import logoImg from "./src/assets/images/meras_logo_1781178543060.png";
 import LearningIntelligencePanel from "./src/features/learning-intelligence/LearningIntelligencePanel";
+import LoginRevealOverlay from "./src/components/LoginRevealOverlay";
 import { normalizeArabicIndicDigits, stripArabicIndicDigitsFromInput } from "./src/shared/arabic-text";
 import { mirasPhoneticWordMatch } from "./src/shared/phonetic-search";
 
@@ -3149,6 +3150,22 @@ export default function App() {
       return null;
     }
   });
+  // بوابة الدخول: تُعرض مرة واحدة فقط مباشرة بعد نجاح تسجيل الدخول (حارس
+  // sessionStorage)، وتُتجاوز كلياً عند تفضيل تقليل الحركة. لا تلمس أي منطق.
+  const [loginRevealRole, setLoginRevealRole] = useState<
+    "student" | "teacher" | null
+  >(null);
+  const triggerLoginReveal = (role: "student" | "teacher") => {
+    try {
+      if (sessionStorage.getItem("miras_login_reveal_played") === "1") return;
+      sessionStorage.setItem("miras_login_reveal_played", "1");
+    } catch {}
+    try {
+      if (window.matchMedia?.("(prefers-reduced-motion: reduce)").matches)
+        return;
+    } catch {}
+    setLoginRevealRole(role);
+  };
   const [currentView, setCurrentView] = useState<
     | "signup"
     | "otp"
@@ -16479,6 +16496,7 @@ ${rows
             ? `مرحباً ${teacherWithAuth.name}. فُتحت جلسة آمنة ومؤقتة على هذا الكمبيوتر.`
           : `مرحباً ${teacherWithAuth.name}. تم فتح لوحة التحكم الرئيسية.`,
       );
+      triggerLoginReveal("teacher");
       setCurrentView("teacher_workspace");
 
       Promise.allSettled([
@@ -16542,7 +16560,10 @@ ${rows
         );
       }
       if (!studentWithAuth.isPaid) setCurrentView("payment");
-      else setCurrentView("student_workspace");
+      else {
+        triggerLoginReveal("student");
+        setCurrentView("student_workspace");
+      }
 
       try {
         await refreshStudentLiveState(studentWithAuth);
@@ -45206,6 +45227,12 @@ ${rows
             </div>
           </div>
         </div>
+      )}
+      {loginRevealRole && (
+        <LoginRevealOverlay
+          role={loginRevealRole}
+          onDone={() => setLoginRevealRole(null)}
+        />
       )}
     </div>
   );
