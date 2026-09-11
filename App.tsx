@@ -29311,7 +29311,7 @@ ${rows
                   className="mt-5 flex w-full items-center justify-center gap-2.5 rounded-2xl bg-slate-950 px-5 py-4 text-sm font-bold text-white miras-shadow-2 transition hover:bg-indigo-700 disabled:cursor-wait disabled:opacity-70"
                 >
                   {publicLoginApproval.phase === "verifying" ? (
-                    <RefreshCw className="h-5 w-5 animate-spin" />
+                    <MirasLoader size={18} role="current" label="جارٍ التحقق…" />
                   ) : (
                     <Fingerprint className="h-5 w-5" />
                   )}
@@ -29435,7 +29435,11 @@ ${rows
                 <div className="mt-4 flex items-center justify-center gap-2 text-[10px] font-bold text-slate-400">
                   {publicDeviceLogin.phase === "connecting" ? (
                     <>
-                      <RefreshCw className="h-3.5 w-3.5 animate-spin text-emerald-600" />
+                      <MirasLoader
+                        size={14}
+                        role="teacher"
+                        label="جارٍ فتح لوحة التحكم…"
+                      />
                       تم الاعتماد، جارٍ فتح لوحة التحكم…
                     </>
                   ) : (
@@ -31562,7 +31566,11 @@ ${rows
                             className="miras-passkey-auto-button inline-flex h-20 w-20 items-center justify-center rounded-3xl border border-emerald-100 bg-white text-emerald-700 transition-all duration-300 btn-spring-active miras-shadow-2 hover:bg-emerald-50 disabled:opacity-70"
                           >
                             {passkeyBusy ? (
-                              <RefreshCw className="h-8 w-8 animate-spin" />
+                              <MirasLoader
+                                size={32}
+                                role="current"
+                                label="جارٍ التحقق بالبصمة…"
+                              />
                             ) : (
                               <Fingerprint className="h-9 w-9" />
                             )}
@@ -31698,7 +31706,11 @@ ${rows
                           className="flex h-16 w-16 items-center justify-center rounded-3xl border border-emerald-100 bg-emerald-50 text-emerald-700 transition-all duration-300 btn-spring-active shadow-premium-sm hover:bg-emerald-100 disabled:opacity-60"
                         >
                           {passkeyBusy ? (
-                            <RefreshCw className="h-6 w-6 animate-spin" />
+                            <MirasLoader
+                              size={24}
+                              role="current"
+                              label="جارٍ التحقق بالبصمة…"
+                            />
                           ) : (
                             <Fingerprint className="h-7 w-7" />
                           )}
@@ -32106,7 +32118,7 @@ ${rows
                       className="mx-auto inline-flex h-12 w-12 items-center justify-center rounded-2xl border border-emerald-100 bg-white text-emerald-700 shadow-sm hover:bg-emerald-100 disabled:opacity-60"
                     >
                       {passkeyBusy ? (
-                        <RefreshCw className="h-5 w-5 animate-spin" />
+                        <MirasLoader size={20} role="current" label="جارٍ التنفيذ…" />
                       ) : (
                         <Fingerprint className="h-5 w-5" />
                       )}
@@ -32578,25 +32590,11 @@ ${rows
                               className={`shrink-0 h-13 w-13 rounded-2xl text-white shadow-premium-md transition duration-300 btn-spring-active inline-flex items-center justify-center ${isSubmittingQuiz ? "bg-indigo-400 cursor-not-allowed opacity-70" : unansweredCount > 0 ? "bg-amber-500 hover:bg-amber-600" : "bg-indigo-600 hover:bg-indigo-700"}`}
                             >
                               {isSubmittingQuiz ? (
-                                <svg
-                                  className="h-6 w-6 animate-spin"
-                                  viewBox="0 0 24 24"
-                                  fill="none"
-                                >
-                                  <circle
-                                    className="opacity-25"
-                                    cx="12"
-                                    cy="12"
-                                    r="10"
-                                    stroke="currentColor"
-                                    strokeWidth="4"
-                                  />
-                                  <path
-                                    className="opacity-75"
-                                    fill="currentColor"
-                                    d="M4 12a8 8 0 018-8v8z"
-                                  />
-                                </svg>
+                                <MirasLoader
+                                  size={24}
+                                  role="current"
+                                  label="جاري التسليم…"
+                                />
                               ) : (
                                 <CheckCircle className="h-6 w-6" />
                               )}
@@ -32804,7 +32802,7 @@ ${rows
                               className="inline-flex h-12 w-12 items-center justify-center rounded-2xl border border-emerald-100 bg-emerald-50 text-emerald-700 shadow-sm hover:bg-emerald-100 disabled:opacity-60"
                             >
                               {passkeyBusy ? (
-                                <RefreshCw className="h-5 w-5 animate-spin" />
+                                <MirasLoader size={20} role="current" label="جارٍ التنفيذ…" />
                               ) : (
                                 <Fingerprint className="h-5 w-5" />
                               )}
@@ -34704,7 +34702,7 @@ ${rows
                                               ☁️
                                             </span>
                                           ) : (
-                                            <RefreshCw className="h-5 w-5 animate-spin" />
+                                            <MirasLoader size={20} role="current" label="جارٍ التنفيذ…" />
                                           )
                                         ) : (
                                           <Send className="h-5 w-5" />
@@ -34942,7 +34940,7 @@ ${rows
                       className="miras-zero-action-btn"
                     >
                       {passkeyBusy ? (
-                        <RefreshCw className="h-5 w-5 animate-spin" />
+                        <MirasLoader size={20} role="current" label="جارٍ التنفيذ…" />
                       ) : (
                         <Fingerprint className="h-5 w-5" />
                       )}
@@ -35255,7 +35253,7 @@ ${rows
                               className="student-icon-btn text-emerald-700 relative bg-gradient-to-br from-white to-emerald-50 border-emerald-100 transition-all duration-200 disabled:opacity-60"
                             >
                               {passkeyBusy ? (
-                                <RefreshCw className="h-5 w-5 animate-spin" />
+                                <MirasLoader size={20} role="current" label="جارٍ التنفيذ…" />
                               ) : (
                                 <Fingerprint className="h-5 w-5" />
                               )}
@@ -36937,7 +36935,11 @@ ${rows
                           className="bg-indigo-600 hover:bg-indigo-500 disabled:bg-slate-700 font-semibold px-5 py-3 rounded-xl text-xs transition-all flex items-center gap-1"
                         >
                           {isUploadingBook ? (
-                            <RefreshCw className="h-4 w-4 animate-spin" />
+                            <MirasLoader
+                              size={16}
+                              role="current"
+                              label="جارٍ رفع الملف…"
+                            />
                           ) : (
                             <Upload className="h-5 w-5" />
                           )}
@@ -39908,7 +39910,7 @@ ${rows
                                             className="grid h-11 w-11 place-items-center rounded-2xl bg-white text-indigo-600 shadow-sm transition btn-spring-active disabled:opacity-50"
                                           >
                                             {dataHealBusy ? (
-                                              <RefreshCw className="h-5 w-5 animate-spin" />
+                                              <MirasLoader size={20} role="current" label="جارٍ التنفيذ…" />
                                             ) : (
                                               <Sparkles className="h-5 w-5" />
                                             )}
@@ -40084,7 +40086,7 @@ ${rows
                                         className={`grid h-12 w-12 place-items-center rounded-2xl text-white shadow-premium-md transition btn-spring-active disabled:opacity-50 ${issues > 0 ? "bg-indigo-600 hover:bg-indigo-700 animate-pulse" : "bg-emerald-500"}`}
                                       >
                                         {dataHealBusy ? (
-                                          <RefreshCw className="h-5 w-5 animate-spin" />
+                                          <MirasLoader size={20} role="current" label="جارٍ التنفيذ…" />
                                         ) : issues > 0 ? (
                                           <Sparkles className="h-5 w-5" />
                                         ) : (
@@ -44116,7 +44118,7 @@ ${rows
                                               {accessBusyIds[
                                                 String(student.id)
                                               ] ? (
-                                                <RefreshCw className="h-5 w-5 animate-spin" />
+                                                <MirasLoader size={20} role="current" label="جارٍ التنفيذ…" />
                                               ) : (
                                                 <RotateCw className="h-5 w-5" />
                                               )}
@@ -44176,7 +44178,7 @@ ${rows
                                                 {accessBusyIds[
                                                   String(student.id)
                                                 ] ? (
-                                                  <RefreshCw className="h-5 w-5 animate-spin" />
+                                                  <MirasLoader size={20} role="current" label="جارٍ التنفيذ…" />
                                                 ) : accessStoppedIds[
                                                     String(student.id)
                                                   ] ||

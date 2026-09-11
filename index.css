@@ -17393,10 +17393,6 @@ body,
 }
 
 /* MIRAS action feedback rescue — unified save/edit/send/create loading state */
-@keyframes miras-action-spin {
-  to { transform: rotate(360deg); }
-}
-
 button[data-miras-action-busy="true"] {
   position: relative !important;
   cursor: wait !important;
@@ -17421,9 +17417,15 @@ button[data-miras-action-busy="true"]::after {
   to { transform: translateX(-105%); }
 }
 
+/* بدل تدوير أي أيقونة كدوّارة عامة (مشبك يدور، قلم يدور…): نبضة سكون هادئة
+   من هوية محمّل مِراس — transform/opacity فقط، والشيمر أعلاه يبقى مؤشر التقدم. */
 button[data-miras-action-busy="true"] svg {
-  animation: miras-action-spin .75s linear infinite !important;
+  animation: miras-loader-idle 1.6s ease-in-out infinite !important;
   transform-origin: center !important;
+}
+@media (prefers-reduced-motion: reduce) {
+  button[data-miras-action-busy="true"] svg { animation: none !important; }
+  button[data-miras-action-busy="true"]::after { animation: none !important; }
 }
 
 .teacher-calm-shell input[type="date"],
