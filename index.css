@@ -18888,3 +18888,37 @@ html[data-theme="dark"] #root .miras-exam-header-bar.bg-slate-950 {
   border: 1px solid var(--miras-brand-line) !important;
   color: #fff !important;
 }
+
+/* ═══ ٢٨) محمّل مِراس المصغّر — MirasLoader
+   مشتقّ من لغة بوابة الدخول (LoginRevealOverlay): أربع قطع تنجذب من التشتت
+   لتتراصّ كمعيّن صغير، مرة واحدة فقط، ثم نبضة سكون هادئة. حركة transform/opacity
+   حصراً، ومع تفضيل تقليل الحركة يُعرض الشكل المكتمل بنبضة شفافية لطيفة. ═══ */
+.miras-loader { position: relative; display: inline-block; color: inherit; }
+.miras-loader-piece {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  background: currentColor;
+  border-radius: 28%;
+  opacity: 0;
+  transform: translate(var(--fx), var(--fy)) scale(0.4);
+  animation:
+    miras-loader-assemble 0.6s cubic-bezier(0.22, 1, 0.36, 1) var(--ad, 0s) forwards,
+    miras-loader-idle 2.8s ease-in-out calc(0.9s + var(--ad, 0s)) infinite;
+  will-change: transform, opacity;
+}
+@keyframes miras-loader-assemble {
+  from { transform: translate(var(--fx), var(--fy)) scale(0.4); opacity: 0; }
+  to   { transform: translate(var(--tx), var(--ty)) scale(1); opacity: 1; }
+}
+@keyframes miras-loader-idle {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.55; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .miras-loader-piece {
+    animation: miras-loader-idle 2.8s ease-in-out infinite;
+    transform: translate(var(--tx), var(--ty));
+    opacity: 1;
+  }
+}

@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { motion } from "motion/react";
 import {
   BookOpen,
@@ -36,19 +36,24 @@ const SCATTER = [
   { x: 80, y: 180, r: -12 },
 ];
 
+// target: عنصر اللوحة الحقيقي الذي «تسافر» إليه الشارة عند الكشف
+// (data-reveal-target في App). يُقاس عبر getBoundingClientRect لحظة المغادرة —
+// لا إحداثيات شاشة ثابتة — فإن غاب العنصر تعود الشارة للتلاشي الهادئ القديم.
 const STUDENT_PIECES = [
-  { Icon: BookOpen, label: "الكتاب" },
-  { Icon: PlayCircle, label: "الدرس" },
-  { Icon: FileQuestion, label: "الاختبار" },
-  { Icon: TrendingUp, label: "التقدم" },
+  { Icon: BookOpen, label: "الكتاب", target: "student-book" },
+  { Icon: PlayCircle, label: "الدرس", target: "student-lesson" },
+  { Icon: FileQuestion, label: "الاختبار", target: "student-quiz" },
+  { Icon: TrendingUp, label: "التقدم", target: "student-progress" },
 ];
 
 const TEACHER_PIECES = [
-  { Icon: GraduationCap, label: "التدريس" },
-  { Icon: Users, label: "الطلاب" },
-  { Icon: ClipboardCheck, label: "التقييم" },
-  { Icon: BarChart3, label: "التقارير" },
+  { Icon: GraduationCap, label: "التدريس", target: "teacher-teaching" },
+  { Icon: Users, label: "الطلاب", target: "teacher-students" },
+  { Icon: ClipboardCheck, label: "التقييم", target: "teacher-assessment" },
+  { Icon: BarChart3, label: "التقارير", target: "teacher-reports" },
 ];
+
+type Flight = { dx: number; dy: number; scale: number } | null;
 
 export default function LoginRevealOverlay({
   role,
@@ -58,19 +63,55 @@ export default function LoginRevealOverlay({
   onDone: () => void;
 }) {
   const [leaving, setLeaving] = useState(false);
+  // مسارات سفر الشارات إلى عناصر اللوحة الحقيقية — تُقاس لحظة المغادرة فقط.
+  const [flights, setFlights] = useState<Flight[]>([null, null, null, null]);
+  const pieceEls = useRef<(HTMLDivElement | null)[]>([]);
+
+  const isTeacher = role === "teacher";
+  const pieces = isTeacher ? TEACHER_PIECES : STUDENT_PIECES;
 
   useEffect(() => {
-    // مغادرة عند ~1.25 ثانية وإزالة كاملة عند ~1.68 ثانية؛ لا تعليق أطول من ذلك.
-    const t1 = window.setTimeout(() => setLeaving(true), 1250);
-    const t2 = window.setTimeout(onDone, 1680);
+    // مغادرة عند ~1.25 ثانية: تُقاس مواقع عناصر اللوحة الحقيقية (المرسومة أسفل
+    // الستارة) فتسافر إليها الشارات نفسها — «العنصر يتحوّل إلى مكانه» بدل
+    // الاختفاء. إزالة كاملة عند ~1.86 ثانية؛ لا تعليق أطول من ذلك.
+    const t1 = window.setTimeout(() => {
+      const next: Flight[] = pieces.map(({ target }, i) => {
+        const el = pieceEls.current[i];
+        const dest = document.querySelector(
+          `[data-reveal-target="${target}"]`,
+        ) as HTMLElement | null;
+        if (!el || !dest) return null;
+        const a = el.getBoundingClientRect();
+        const b = dest.getBoundingClientRect();
+        // وجهة غير مرئية (تبويب آخر/خارج الشاشة) → تلاشٍ هادئ بدل سفرٍ عبثي.
+        if (
+          b.width < 8 ||
+          b.height < 8 ||
+          b.bottom < 0 ||
+          b.top > window.innerHeight ||
+          b.right < 0 ||
+          b.left > window.innerWidth
+        )
+          return null;
+        return {
+          dx: b.left + b.width / 2 - (a.left + a.width / 2),
+          dy: b.top + b.height / 2 - (a.top + a.height / 2),
+          scale: Math.min(
+            Math.max(Math.min(b.width, b.height) / a.width, 0.4),
+            0.9,
+          ),
+        };
+      });
+      setFlights(next);
+      setLeaving(true);
+    }, 1250);
+    const t2 = window.setTimeout(onDone, 1960);
     return () => {
       window.clearTimeout(t1);
       window.clearTimeout(t2);
     };
-  }, [onDone]);
-
-  const isTeacher = role === "teacher";
-  const pieces = isTeacher ? TEACHER_PIECES : STUDENT_PIECES;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [onDone, role]);
   const title = isTeacher ? "لوحة المعلم" : "مسارك الأكاديمي";
   const subtitle = isTeacher ? "تجهيز فصولك وأدواتك…" : "تجهيز رحلتك التعليمية…";
 
@@ -87,36 +128,36 @@ export default function LoginRevealOverlay({
   const easeLift: [number, number, number, number] = [0.32, 0.72, 0, 1];
 
   return (
-    <motion.div
+    <div
       dir="rtl"
-      className="fixed inset-0 z-[220] grid place-items-center overflow-hidden bg-gradient-to-b from-slate-50 via-white to-slate-100"
-      style={{ pointerEvents: "none", willChange: "opacity" }}
-      initial={{ opacity: 1 }}
-      animate={{ opacity: leaving ? 0 : 1 }}
-      transition={{ duration: 0.43, ease: easeLift }}
+      className="fixed inset-0 z-[220] grid place-items-center overflow-hidden"
+      style={{ pointerEvents: "none" }}
       aria-hidden="true"
     >
-      {/* عمق الستارة: نغمة قطرية بلون الدور + هالة علوية خافتة (طبقات ثابتة) */}
-      <div className="absolute inset-0" style={{ background: tone }} />
-      <div
-        className="absolute inset-0"
-        style={{
-          background:
-            "radial-gradient(90% 55% at 50% 108%, rgba(15,23,42,0.055) 0%, rgba(15,23,42,0) 60%)",
-        }}
-      />
+      {/* الستارة نفسها ترتفع (تتلاشى) عند المغادرة بينما تبقى الشارات فوق
+          اللوحة الظاهرة تحتها لتسافر إلى مكوّناتها الحقيقية. */}
+      <motion.div
+        className="absolute inset-0 bg-gradient-to-b from-slate-50 via-white to-slate-100"
+        initial={{ opacity: 1 }}
+        animate={{ opacity: leaving ? 0 : 1 }}
+        transition={{ duration: 0.5, ease: easeLift }}
+        style={{ willChange: "opacity" }}
+      >
+        {/* عمق الستارة: نغمة قطرية بلون الدور + هالة علوية خافتة (طبقات ثابتة) */}
+        <div className="absolute inset-0" style={{ background: tone }} />
+        <div
+          className="absolute inset-0"
+          style={{
+            background:
+              "radial-gradient(90% 55% at 50% 108%, rgba(15,23,42,0.055) 0%, rgba(15,23,42,0) 60%)",
+          }}
+        />
+      </motion.div>
 
-      {/* التكوين الكامل: عند المغادرة يتقدّم بلطف داخل اللوحة (كشفٌ عبر البوابة) */}
+      {/* التكوين الكامل: يبقى ثابتاً عند المغادرة كي تُقاس مواقع الشارات بدقة؛
+          «تقدّم البوابة» ينتقل إلى الإطار والحلقة فقط بينما تسافر الشارات. */}
       <motion.div
         className="relative flex items-center justify-center px-6"
-        animate={
-          leaving ? { scale: 1.14, opacity: 0 } : { scale: 1, opacity: 1 }
-        }
-        transition={
-          leaving
-            ? { duration: 0.43, ease: easeLift }
-            : { duration: 0.01 }
-        }
         style={{ willChange: "transform, opacity" }}
       >
         {/* نفَسٌ واحد هادئ للمنظومة بعد اكتمال التراصّ */}
@@ -135,8 +176,12 @@ export default function LoginRevealOverlay({
           <motion.div
             className={`relative z-10 flex w-[176px] flex-col items-center rounded-[22px] border ${frameBorder} bg-white/85 px-5 py-5 shadow-[0_18px_50px_-24px_rgba(15,23,42,0.28)] sm:w-[196px]`}
             initial={{ scale: 0.88, opacity: 0 }}
-            animate={{ scale: 1, opacity: 1 }}
-            transition={{ duration: 0.55, delay: 0.32, ease: easeOut }}
+            animate={leaving ? { scale: 1.14, opacity: 0 } : { scale: 1, opacity: 1 }}
+            transition={
+              leaving
+                ? { duration: 0.43, ease: easeLift }
+                : { duration: 0.55, delay: 0.32, ease: easeOut }
+            }
             style={{ willChange: "transform, opacity" }}
           >
             <div
@@ -161,8 +206,14 @@ export default function LoginRevealOverlay({
           <motion.div
             className={`absolute h-[248px] w-[316px] rounded-full border ${frameBorder}`}
             initial={{ scale: 0.8, opacity: 0 }}
-            animate={{ scale: 1, opacity: 0.55 }}
-            transition={{ duration: 0.65, delay: 0.42, ease: easeOut }}
+            animate={
+              leaving ? { scale: 1.18, opacity: 0 } : { scale: 1, opacity: 0.55 }
+            }
+            transition={
+              leaving
+                ? { duration: 0.43, ease: easeLift }
+                : { duration: 0.65, delay: 0.42, ease: easeOut }
+            }
             style={{ willChange: "transform, opacity" }}
           />
 
@@ -170,9 +221,25 @@ export default function LoginRevealOverlay({
           {pieces.map(({ Icon, label }, i) => {
             const post = POSTS[i];
             const from = SCATTER[i];
+            const flight = leaving ? flights[i] : null;
+            // عند المغادرة: الشارة نفسها تسافر إلى موقع مكوّنها الحقيقي في
+            // اللوحة (المقاس لحظتها) وتذوب فيه عند الوصول — انتقال عنصرٍ مشترك.
+            // إن غاب الهدف: تلاشٍ هادئ في مكانها (السلوك السابق نفسه).
+            const leaveAnim = flight
+              ? {
+                  x: post.x + flight.dx,
+                  y: post.y + flight.dy,
+                  rotate: 0,
+                  scale: flight.scale,
+                  opacity: [1, 1, 0] as number[],
+                }
+              : { x: post.x, y: post.y, rotate: 0, scale: 1.1, opacity: 0 };
             return (
               <motion.div
                 key={label}
+                ref={(el: HTMLDivElement | null) => {
+                  pieceEls.current[i] = el;
+                }}
                 className={`absolute z-20 flex h-[58px] w-[58px] flex-col items-center justify-center gap-0.5 rounded-2xl border ${chipBorder} bg-white shadow-[0_10px_30px_-14px_rgba(15,23,42,0.3)] sm:h-[66px] sm:w-[66px]`}
                 initial={{
                   x: from.x,
@@ -181,18 +248,33 @@ export default function LoginRevealOverlay({
                   scale: 0.7,
                   opacity: 0,
                 }}
-                animate={{
-                  x: post.x,
-                  y: post.y,
-                  rotate: 0,
-                  scale: 1,
-                  opacity: 1,
-                }}
-                transition={{
-                  duration: 0.72,
-                  delay: 0.06 + i * 0.07,
-                  ease: easeOut,
-                }}
+                animate={
+                  leaving
+                    ? leaveAnim
+                    : {
+                        x: post.x,
+                        y: post.y,
+                        rotate: 0,
+                        scale: 1,
+                        opacity: 1,
+                      }
+                }
+                transition={
+                  leaving
+                    ? {
+                        duration: 0.56,
+                        delay: i * 0.04,
+                        ease: easeLift,
+                        opacity: flight
+                          ? { duration: 0.56, times: [0, 0.72, 1] }
+                          : { duration: 0.4 },
+                      }
+                    : {
+                        duration: 0.72,
+                        delay: 0.06 + i * 0.07,
+                        ease: easeOut,
+                      }
+                }
                 style={{ willChange: "transform, opacity" }}
               >
                 <Icon
@@ -207,6 +289,6 @@ export default function LoginRevealOverlay({
           })}
         </motion.div>
       </motion.div>
-    </motion.div>
+    </div>
   );
 }
