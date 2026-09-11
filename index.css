@@ -500,7 +500,8 @@ input:focus, select:focus, textarea:focus {
 
 /* Mobile-first PWA polish */
 @media (max-width: 640px) {
-  html, body, #root { min-height: 100%; overflow-x: hidden; }
+  /* overflow-x: clip يقصّ الفائض الأفقي دون إنشاء حاوية تمرير، فتبقى القوائم اللاصقة (position: sticky) ثابتة على الجوال. */
+  html, body, #root { min-height: 100%; overflow-x: hidden; overflow-x: clip; }
   button, input, select, textarea { font-size: 16px; }
   .teacher-calm-shell header { position: sticky; top: 0; border-radius: 0 0 1.5rem 1.5rem; }
   .teacher-calm-shell main { padding-left: 0.75rem; padding-right: 0.75rem; }
@@ -1528,7 +1529,7 @@ html.miras-app-shell button {
   html.miras-app-shell body {
     width: 100%;
     max-width: 100vw;
-    overflow-x: hidden;
+    overflow-x: hidden; overflow-x: clip;
   }
 }
 
@@ -6758,7 +6759,7 @@ html,
 body,
 #root {
   max-width: 100% !important;
-  overflow-x: hidden !important;
+  overflow-x: hidden !important; overflow-x: clip !important;
 }
 .meras-teacher-shell,
 .workspace-calm-shell {
@@ -7622,7 +7623,7 @@ body,
   html.miras-app-shell #root {
     min-height: 100% !important;
     height: auto !important;
-    overflow-x: hidden !important;
+    overflow-x: hidden !important; overflow-x: clip !important;
     overflow-y: auto !important;
     overscroll-behavior-y: auto !important;
     scroll-behavior: smooth;
@@ -8099,7 +8100,7 @@ html.miras-app-shell #root {
   min-height: 100dvh !important;
   height: auto !important;
   max-width: 100% !important;
-  overflow-x: hidden !important;
+  overflow-x: hidden !important; overflow-x: clip !important;
 }
 
 html.miras-app-shell body {
@@ -17274,7 +17275,7 @@ html.miras-teacher-scroll-locked .meras-teacher-shell.teacher-calm-shell .teache
     min-height: 100vh !important;
     min-height: 100svh !important;
     max-height: none !important;
-    overflow-x: hidden !important;
+    overflow-x: hidden !important; overflow-x: clip !important;
     overflow-y: visible !important;
     overscroll-behavior: auto !important;
   }
@@ -17342,7 +17343,7 @@ body,
     min-height: 100vh !important;
     min-height: 100svh !important;
     max-height: none !important;
-    overflow-x: hidden !important;
+    overflow-x: hidden !important; overflow-x: clip !important;
     overflow-y: visible !important;
   }
 }

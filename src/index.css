@@ -38,7 +38,8 @@ html.dark {
 
 html {
   scroll-behavior: smooth;
-  overflow-x: hidden;
+  /* overflow-x: clip يقصّ الفائض الأفقي دون إنشاء حاوية تمرير، فتبقى القوائم اللاصقة (position: sticky) ثابتة على الجوال. */
+  overflow-x: hidden; overflow-x: clip;
   max-width: 100%;
   transition: background-color 0.5s var(--E);
 }
@@ -49,7 +50,7 @@ body {
   font-family: "Tajawal", system-ui, sans-serif;
   line-height: 1.85;
   -webkit-font-smoothing: antialiased;
-  overflow-x: hidden;
+  overflow-x: hidden; overflow-x: clip;
   transition: background-color 0.5s var(--E), color 0.5s var(--E);
 }
 
