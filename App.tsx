@@ -30777,7 +30777,7 @@ ${rows
                       <span className="mb-2 block text-[10px] font-bold text-slate-400">سجل رصد ومراجعة الدرجات:</span>
                       {gradeAuditTrailForSubmission(selectedSubmissionDetail).map((audit: any, idx: number) => (
                         <div key={idx} className="flex items-center justify-between rounded-xl bg-white px-3 py-1.5 text-[10px] font-bold text-slate-600 border border-slate-50">
-                          <span>الدرجة: {audit.grade} ({audit.changedBy === "teacher" ? "المعلم" : "تحديث تلقائي"})</span>
+                          <span>الدرجة: {audit.grade} ({audit.changedBy === "teacher" ? "المعلم" : "النظام"})</span>
                           <span className="font-mono text-[8px] text-slate-400">{formatKwDateTime(audit.timestamp)}</span>
                         </div>
                       ))}
