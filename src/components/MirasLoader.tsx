@@ -7,12 +7,15 @@ import { useEffect, useState, type CSSProperties } from "react";
 // نصوص داخل المحمّل. لا يظهر قبل ~250ms كي لا يومض في العمليات السريعة،
 // وحركته transform/opacity حصراً (CSS في index.css §٢٨).
 
-type LoaderRole = "student" | "teacher" | "neutral";
+type LoaderRole = "student" | "teacher" | "neutral" | "current";
 
+// "current": متغيّر داخل الأزرار — يرث currentColor من الزر نفسه (أبيض على
+// زر داكن، زمردي على زر زمردي…) دون فرض لون، وبلا أي إزاحة في التخطيط.
 const ROLE_COLOR: Record<LoaderRole, string> = {
   student: "text-indigo-600",
   teacher: "text-emerald-600",
   neutral: "text-indigo-600",
+  current: "text-current",
 };
 
 // نقاط التراصّ (معيّن) ونقاط التشتت — نِسَب من حجم المحمّل، لا إحداثيات شاشة.
