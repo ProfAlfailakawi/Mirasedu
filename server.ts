@@ -1,4 +1,5 @@
 import express from "express";
+import rateLimit from "express-rate-limit";
 import cors from "cors";
 import path from "path";
 import fs from "fs";
@@ -65,6 +66,8 @@ const aiInstance = process.env.GEMINI_API_KEY
   : null;
 
 const app = express();
+// خلف Cloud Run وسيط واحد؛ ضبطه يجعل req.ip عنوان العميل الحقيقي لا عنوان الوسيط.
+app.set("trust proxy", 1);
 const PORT = isProductionLikeRuntime() ? Number(process.env.PORT || 8080) : 3000;
 
 const PASSKEY_RP_NAME = "مِراس";
@@ -8943,7 +8946,16 @@ app.use((req, _res, next) => {
   next();
 });
 
-app.post("/api/convert-data-to-pdf", async (req: any, res: any) => {
+// تحويل المستندات مكلف (LibreOffice)؛ حدّ لكل عنوان IP حتى لا تُستنزف
+// موارد الخادم حتى من جلسات موثقة.
+const convertRateLimit = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 60,
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+app.post("/api/convert-data-to-pdf", convertRateLimit, async (req: any, res: any) => {
   try {
     // حماية: كان هذا المسار مفتوحاً بلا أي مصادقة، فيستطيع أي مجهول إغراق
     // الخادم بتحويلات LibreOffice (استنزاف موارد) أو دفع ملفات خبيثة إلى
