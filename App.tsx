@@ -30338,7 +30338,7 @@ ${rows
             }`}
             aria-hidden="true"
           />
-          <span className="truncate">
+          <span className="truncate min-w-0">
             {isAppOffline
               ? "غير متصل — سنكمل تلقائياً عند عودة الشبكة"
               : liveConnectionTrouble
