@@ -2868,7 +2868,13 @@ function renderQuestions(questions, title, minutes){
     card.className="question question-slide"+(idx===0?"":" hidden");
     
     const head=document.createElement("div");head.className="qhead";
-    head.innerHTML="<span>السؤال "+(idx+1)+" من "+questions.length+"</span><span>"+(q.points||1)+" درجة</span>";
+    // بناء عبر DOM بدل innerHTML: q.points قيمة قادمة من بيانات الاختبار، لو
+    // كانت نصاً مُصاغاً لَحُقن HTML داخل صفحة الاختبار الآمن. textContent يمنع ذلك.
+    const headCount=document.createElement("span");
+    headCount.textContent="السؤال "+(idx+1)+" من "+questions.length;
+    const headPoints=document.createElement("span");
+    headPoints.textContent=(Number(q.points)||1)+" درجة";
+    head.appendChild(headCount);head.appendChild(headPoints);
     card.appendChild(head);
     
     const qtext=document.createElement("p");qtext.className="qtext";qtext.textContent=q.questionText||"سؤال";
@@ -8939,6 +8945,18 @@ app.use((req, _res, next) => {
 
 app.post("/api/convert-data-to-pdf", async (req: any, res: any) => {
   try {
+    // حماية: كان هذا المسار مفتوحاً بلا أي مصادقة، فيستطيع أي مجهول إغراق
+    // الخادم بتحويلات LibreOffice (استنزاف موارد) أو دفع ملفات خبيثة إلى
+    // محرّك التحويل. الآن يتطلّب جلسة أستاذ أو جلسة طالب موثقة — نفس الجلسات
+    // التي تستخدمه فعلياً من واجهة معاينة المرفقات.
+    const conversionTeacherEmail = teacherEmailFromRequest(req);
+    const conversionSession = verifyMirasSessionToken(req);
+    if (!conversionTeacherEmail && !conversionSession) {
+      return res.status(401).json({
+        error: "SESSION_REQUIRED",
+        code: "SESSION_REQUIRED",
+      });
+    }
     const { dataUrl, filename } = req.body;
     if (!dataUrl || !dataUrl.startsWith("data:")) {
       return res.status(400).json({ error: "Invalid data URL" });
