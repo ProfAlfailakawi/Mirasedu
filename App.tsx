@@ -11,6 +11,7 @@ import { motion, AnimatePresence } from "motion/react";
 import logoImg from "./src/assets/images/meras_logo_1781178543060.png";
 import LearningIntelligencePanel from "./src/features/learning-intelligence/LearningIntelligencePanel";
 import LoginRevealOverlay from "./src/components/LoginRevealOverlay";
+import MirasLoader from "./src/components/MirasLoader";
 import { normalizeArabicIndicDigits, stripArabicIndicDigitsFromInput } from "./src/shared/arabic-text";
 import { mirasPhoneticWordMatch } from "./src/shared/phonetic-search";
 
@@ -25402,6 +25403,8 @@ ${rows
       badgeTone?: string;
       extraClass?: string;
       handlers?: Record<string, any>;
+      // مرساة انتقال بوابة الدخول: شارة الدور تسافر إلى هذا الزر عند الكشف.
+      reveal?: string;
     }) => {
       const active = teacherTab === opts.tab;
       const Icon = opts.Icon;
@@ -25413,6 +25416,7 @@ ${rows
           aria-current={active ? "page" : undefined}
           onClick={opts.onClick}
           className={`miras-dock-item${active ? " is-active" : ""}${opts.extraClass ? " " + opts.extraClass : ""}`}
+          {...(opts.reveal ? { "data-reveal-target": opts.reveal } : {})}
           {...(opts.handlers ?? {})}
         >
           <Icon className="miras-dock-icon" />
@@ -25428,6 +25432,7 @@ ${rows
           label: "المقررات",
           title: "المقررات",
           Icon: Compass,
+          reveal: "teacher-teaching",
           onClick: () => openTeacherDockTab("sections"),
         })}
         {navItem({
@@ -25435,6 +25440,7 @@ ${rows
           label: "الطلبة",
           title: "الطلبة",
           Icon: User,
+          reveal: "teacher-students",
           onClick: () => openTeacherDockTab("students"),
           badgeTone: "bg-emerald-500",
         })}
@@ -25463,6 +25469,7 @@ ${rows
           label: "التسليمات",
           title: "تسليمات الاختبارات والمشاريع",
           Icon: Award,
+          reveal: "teacher-assessment",
           onClick: () => openTeacherDockTab("submissions"),
           badgeTone: "bg-amber-500",
         })}
@@ -25496,6 +25503,7 @@ ${rows
           label: "المتابعة",
           title: "مركز المتابعة",
           Icon: ShieldAlert,
+          reveal: "teacher-reports",
           onClick: () => {
             setDockQuickMenu(null);
             dismissDockBadge("analytics");
@@ -29235,7 +29243,11 @@ ${rows
 
             {publicLoginApproval.phase === "loading" && (
               <div className="py-8">
-                <RefreshCw className="mx-auto h-7 w-7 animate-spin text-indigo-600" />
+                <MirasLoader
+                  size={36}
+                  role="neutral"
+                  label="جارٍ التحقق من طلب الكمبيوتر…"
+                />
                 <p className="mt-4 text-sm font-bold text-slate-800">
                   جارٍ التحقق من طلب الكمبيوتر…
                 </p>
@@ -29385,7 +29397,11 @@ ${rows
 
             {publicDeviceLogin.phase === "starting" && (
               <div className="py-12">
-                <RefreshCw className="mx-auto h-8 w-8 animate-spin text-indigo-600" />
+                <MirasLoader
+                  size={36}
+                  role="neutral"
+                  label="جارٍ إنشاء رمز آمن…"
+                />
                 <p className="mt-4 text-[12px] font-bold text-slate-600">
                   جارٍ إنشاء رمز آمن…
                 </p>
@@ -32201,7 +32217,13 @@ ${rows
             className="min-h-screen flex flex-col items-center justify-center bg-[#f4f5f8] px-4 py-8 text-center"
           >
             <div className="w-full max-w-md rounded-[var(--miras-r-xl)] border border-white/70 bg-white/90 p-8 shadow-premium-lg">
-              <RefreshCw className="mx-auto mb-4 h-7 w-7 animate-spin text-indigo-700" />
+              <div className="mb-4">
+                <MirasLoader
+                  size={36}
+                  role="student"
+                  label="جاري تحميل حساب الطالب…"
+                />
+              </div>
               <h2 className="text-lg font-black text-slate-950">
                 جاري تحميل حساب الطالب
               </h2>
@@ -33425,7 +33447,10 @@ ${rows
                           <div className="relative z-10 space-y-3 text-right">
                             {(studentVisibleExamCards.length > 0 ||
                               studentVisibleProjectCards.length > 0) && (
-                              <div className="miras-now-available rounded-[var(--miras-r-xl)] border border-white/85 bg-white/82 p-3 miras-shadow-glow backdrop-blur">
+                              <div
+                                data-reveal-target="student-lesson"
+                                className="miras-now-available rounded-[var(--miras-r-xl)] border border-white/85 bg-white/82 p-3 miras-shadow-glow backdrop-blur"
+                              >
                                 <div className="mb-1 flex items-center justify-end px-1">
                                   <span className="text-[12px] font-bold text-slate-700">
                                     المتاح الآن
@@ -33437,6 +33462,7 @@ ${rows
                                       type="button"
                                       title="الاختبارات"
                                       aria-label="الاختبارات"
+                                      data-reveal-target="student-quiz"
                                       onClick={async () => {
                                         closeStudentPanels();
                                         setStudentTab("practice");
@@ -33495,7 +33521,10 @@ ${rows
                             )}
 
                             {studentCourseOptions.length > 0 && (
-                              <div className="miras-study-path rounded-[var(--miras-r-lg)] border border-white/85 bg-white/76 p-2.5 miras-shadow-1 backdrop-blur">
+                              <div
+                                data-reveal-target="student-book"
+                                className="miras-study-path rounded-[var(--miras-r-lg)] border border-white/85 bg-white/76 p-2.5 miras-shadow-1 backdrop-blur"
+                              >
                                 <div
                                   className="flex flex-col items-end justify-start gap-1.5 text-right"
                                   dir="rtl"
@@ -33587,7 +33616,10 @@ ${rows
                                   )}
                                 </div>
 
-                                <div className="mt-2.5 rounded-[var(--miras-r-lg)] border border-white/85 bg-white/62 p-2.5 shadow-inner backdrop-blur">
+                                <div
+                                  data-reveal-target="student-progress"
+                                  className="mt-2.5 rounded-[var(--miras-r-lg)] border border-white/85 bg-white/62 p-2.5 shadow-inner backdrop-blur"
+                                >
                                   <div className="mb-2 flex items-center justify-between gap-4">
                                     <span className="text-[11px] font-bold text-slate-500">
                                       المكتمل
