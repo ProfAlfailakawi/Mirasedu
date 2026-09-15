@@ -631,6 +631,11 @@ export interface JoinCode extends SignedJoinCodeFields {
   replacedBy?: string;
   reissuedFrom?: string;
   leakAttemptCount?: number;
+  // ختم التصدير للمطبعة: يُوضع مرة واحدة فقط ولا يُمحى، فالكود المُصدَّر لا
+  // يدخل أي ملف تصدير لاحق (منع طباعة نفس الكود مرتين لدى المطبعة).
+  printedAt?: string;
+  printBatchId?: string;
+  printedByEmail?: string;
   lastFailedAttemptAt?: string;
   lastFailedAttemptStudentId?: string;
   lastFailedAttemptReason?: string;
