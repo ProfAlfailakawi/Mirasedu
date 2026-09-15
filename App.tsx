@@ -13803,6 +13803,38 @@ export default function App() {
   // مرجع "قيد التنفيذ" يمنع توليد ملفين متتاليين عند ضغط زر PDF بسرعة،
   // ويمنع حالة "أحياناً ما يشتغل" التي ناتجة عن إعادة استخدام نافذة منبثقة
   // مسبقة أو سباق document.write على about:blank.
+  // ختم الأكواد التي خرجت في ملف المطبعة. الختم على الخادم نهائي، وبه يُستبعد
+  // الكود من كل تصدير لاحق فلا يصل نفس الكود إلى المطبعة مرتين.
+  const stampPrintedJoinCodes = async (codes: any[]) => {
+    const list = (codes || [])
+      .map((item: any) => String(item?.code || "").trim())
+      .filter(Boolean);
+    if (!list.length) return;
+    try {
+      const resp = await fetch("/api/teacher/join-codes/mark-printed", {
+        method: "POST",
+        headers: teacherHeaders(),
+        body: JSON.stringify({
+          codes: list,
+          teacherEmail: activeTeacherEmail(),
+        }),
+      });
+      if (!resp.ok) {
+        const d = await resp.json().catch(() => ({}));
+        setErrorMsg(
+          d.error ||
+            "تم تجهيز الملف لكن تعذر ختم الأكواد كمُصدَّرة. راجع القائمة قبل تصدير دفعة جديدة.",
+        );
+        return;
+      }
+      await fetchJoinCodes();
+    } catch {
+      setErrorMsg(
+        "تم تجهيز الملف لكن تعذر ختم الأكواد كمُصدَّرة. راجع القائمة قبل تصدير دفعة جديدة.",
+      );
+    }
+  };
+
   const printStarterCardsBusyRef = useRef(false);
   const printStarterCards = (limitOverride?: number) => {
     if (printStarterCardsBusyRef.current) return;
@@ -13833,9 +13865,20 @@ export default function App() {
         !item.usedByStudentId &&
         !item.isFreeCode,
     );
-    const allPrintableCodes = cleanPrintableCodes.length
+    const printablePool = cleanPrintableCodes.length
       ? cleanPrintableCodes
       : activeCodes;
+    // الأكواد المختومة سابقاً لا تدخل أي ملف جديد مهما كانت الظروف.
+    const allPrintableCodes = printablePool.filter(
+      (item: any) => !String(item?.printedAt || "").trim(),
+    );
+    if (!allPrintableCodes.length) {
+      setErrorMsg(
+        `لا توجد أكواد جديدة للتصدير — كل الأكواد الجاهزة سبق تصديرها للمطبعة (${printedJoinCodesCount} مُصدَّر، ${usedJoinCodesCount} مستخدم). أنشئ رموزاً جديدة أولاً.`,
+      );
+      releaseBusy();
+      return;
+    }
     // حدّ الطباعة: يُقرأ من الحقل بجانب الزر (أو من limitOverride)، ويُقصّ على
     // العدد المتاح فعلاً. أي قيمة غير صالحة أو صفر تعني "اطبع الكل".
     const requestedPrintLimit = Number.isFinite(limitOverride as number)
@@ -13976,7 +14019,10 @@ ${rows
         releaseBusy();
         return;
       }
-      setSuccessMsg(`تم تجهيز ملف PDF للمطبعة (${rows.length} كود تفعيل).`);
+      setSuccessMsg(
+        `تم تجهيز ملف PDF للمطبعة (${rows.length} كود تفعيل). هذه الأكواد صارت مختومة كمُصدَّرة ولن تظهر في أي تصدير قادم.`,
+      );
+      void stampPrintedJoinCodes(codesForPrint);
       releaseBusy();
       return;
     }
@@ -13998,7 +14044,10 @@ ${rows
       releaseBusy();
       return;
     }
-    setSuccessMsg(`تم تجهيز ملف PDF للمطبعة (${rows.length} كود تفعيل).`);
+    setSuccessMsg(
+      `تم تجهيز ملف PDF للمطبعة (${rows.length} كود تفعيل). هذه الأكواد صارت مختومة كمُصدَّرة ولن تظهر في أي تصدير قادم.`,
+    );
+    void stampPrintedJoinCodes(codesForPrint);
     releaseBusy();
   };
 
@@ -20398,7 +20447,9 @@ ${rows
   // عدّاد الأكواد المتبقية غير المستخدمة: رموز عامة فعّالة، كاملة الصيغة، غير
   // مرتبطة بطالب وغير مجانية — أي الجاهزة للبيع/الطباعة والتفعيل بعد. يُحسب من
   // كامل النطاق لا من صفحة الفلاتر الحالية حتى يبقى رقماً كلياً موثوقاً.
-  const remainingUnusedCodesCount = useMemo(
+  // ثلاثة أرقام تحكي حالة المخزون بلا لبس: جاهز لم يُصدَّر بعد، سبق تصديره
+  // للمطبعة (مختوم فلا يتكرر)، واستُخدم فعلياً من طالب.
+  const readyToPrintCodesCount = useMemo(
     () =>
       scopedJoinCodes.filter(
         (c: any) =>
@@ -20406,8 +20457,20 @@ ${rows
           isFullJoinCode(c.code) &&
           !c.studentId &&
           !c.assignedStudentId &&
-          !c.isFreeCode,
+          !c.isFreeCode &&
+          !String(c.printedAt || "").trim(),
       ).length,
+    [scopedJoinCodes],
+  );
+  const printedJoinCodesCount = useMemo(
+    () =>
+      scopedJoinCodes.filter((c: any) => String(c.printedAt || "").trim()).length,
+    [scopedJoinCodes],
+  );
+  const usedJoinCodesCount = useMemo(
+    () =>
+      scopedJoinCodes.filter((c: any) => String(c.status || "") === "used")
+        .length,
     [scopedJoinCodes],
   );
   const codesTotalPages = Math.max(
@@ -43154,13 +43217,33 @@ ${rows
                                 بيانات كروت حالة الرموز والتفعيل
                               </h3>
                               <span
-                                title="أكواد عامة فعّالة غير مستخدمة وجاهزة للتفعيل"
+                                title="أكواد عامة فعّالة لم تُصدَّر للمطبعة بعد — وهي وحدها ما يدخل ملف التصدير القادم"
                                 className="inline-flex items-center gap-1.5 rounded-full border border-emerald-100 bg-emerald-50 px-3 py-1 text-[11px] font-black text-emerald-700"
                               >
                                 <Key className="h-3.5 w-3.5" />
-                                المتبقّي غير المستخدم:
+                                جاهز للتصدير:
                                 <span className="font-mono tabular-nums">
-                                  {remainingUnusedCodesCount}
+                                  {readyToPrintCodesCount}
+                                </span>
+                              </span>
+                              <span
+                                title="أكواد خرجت في ملف مطبعة سابق — مختومة نهائياً ولن تتكرر في أي تصدير قادم"
+                                className="inline-flex items-center gap-1.5 rounded-full border border-indigo-100 bg-indigo-50 px-3 py-1 text-[11px] font-black text-indigo-700"
+                              >
+                                <FileText className="h-3.5 w-3.5" />
+                                سبق تصديره:
+                                <span className="font-mono tabular-nums">
+                                  {printedJoinCodesCount}
+                                </span>
+                              </span>
+                              <span
+                                title="أكواد فعّلها الطلبة فعلياً"
+                                className="inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-[11px] font-black text-slate-600"
+                              >
+                                <CheckCircle className="h-3.5 w-3.5" />
+                                تم استخدامه:
+                                <span className="font-mono tabular-nums">
+                                  {usedJoinCodesCount}
                                 </span>
                               </span>
                             </div>
@@ -43181,7 +43264,7 @@ ${rows
                                 <input
                                   type="number"
                                   min={1}
-                                  max={remainingUnusedCodesCount || undefined}
+                                  max={readyToPrintCodesCount || undefined}
                                   inputMode="numeric"
                                   value={printCardsLimit}
                                   onChange={(e) => {
@@ -43197,17 +43280,14 @@ ${rows
                                     }
                                     setPrintCardsLimit(
                                       String(
-                                        remainingUnusedCodesCount
-                                          ? Math.min(
-                                              num,
-                                              remainingUnusedCodesCount,
-                                            )
+                                        readyToPrintCodesCount
+                                          ? Math.min(num, readyToPrintCodesCount)
                                           : num,
                                       ),
                                     );
                                   }}
                                   placeholder="الكل"
-                                  title={`عدد الكروت المطلوب طباعتها (اتركه فارغاً لطباعة الكل — المتاح ${remainingUnusedCodesCount})`}
+                                  title={`عدد الكروت المطلوب تصديرها (اتركه فارغاً لتصدير الكل — الجاهز ${readyToPrintCodesCount})`}
                                   aria-label="عدد كروت التفعيل المطلوب طباعتها"
                                   className="h-11 w-20 rounded-2xl border border-indigo-100 bg-white px-3 text-center font-mono tabular-nums text-[12px] font-black text-indigo-700 outline-none placeholder:font-sans placeholder:text-slate-400 focus:ring-2 focus:ring-indigo-100"
                                 />

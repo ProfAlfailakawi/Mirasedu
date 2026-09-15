@@ -19774,6 +19774,69 @@ app.post("/api/teacher/join-codes/update", (req, res) => {
   return res.json({ success: true });
 });
 
+// ختم أكواد التصدير للمطبعة. الختم نهائي ولا يُمحى: الكود المختوم يُستبعد من كل
+// ملف تصدير لاحق، فلا يمكن أن يصل نفس الكود إلى المطبعة مرتين ولو نُسي ذلك.
+// يُختم فقط ما لم يُختم من قبل، فإعادة إرسال نفس القائمة لا تُغيّر ختماً قائماً.
+app.post("/api/teacher/join-codes/mark-printed", (req, res) => {
+  const teacherEmail = teacherEmailFromRequest(req);
+  if (!teacherEmail) return res.status(401).json({ error: "جلسة غير صالحة." });
+  const requested = Array.isArray(req.body?.codes) ? req.body.codes : [];
+  if (!requested.length)
+    return res.status(400).json({ error: "لا توجد أكواد للختم." });
+  if (requested.length > 20000)
+    return res.status(413).json({ error: "دفعة التصدير أكبر من الحد المسموح." });
+
+  const wanted = new Set(
+    requested
+      .map((value: any) => compactJoinCode(String(value || "")))
+      .filter(Boolean),
+  );
+  const stampedAt = new Date().toISOString();
+  const batchId = `PRINT-${stampedAt.slice(0, 10).replace(/-/g, "")}-${Math.random()
+    .toString(36)
+    .slice(2, 8)
+    .toUpperCase()}`;
+
+  let marked = 0;
+  let alreadyPrinted = 0;
+  let forbidden = 0;
+  for (const record of dbInstance.getJoinCodes()) {
+    if (!wanted.has(compactJoinCode(record.code))) continue;
+    if (!canAccessJoinCode(record, teacherEmail)) {
+      forbidden += 1;
+      continue;
+    }
+    if (String((record as any).printedAt || "").trim()) {
+      alreadyPrinted += 1;
+      continue;
+    }
+    dbInstance.updateJoinCode(record.code, {
+      printedAt: stampedAt,
+      printBatchId: batchId,
+      printedByEmail: teacherEmail,
+      updatedAt: stampedAt,
+    } as any);
+    marked += 1;
+  }
+
+  if (marked) {
+    dbInstance.addActivityLog({
+      studentName: "",
+      actorEmail: teacherEmail,
+      teacherEmail,
+      action: "تصدير أكواد للمطبعة",
+      details: `دفعة ${batchId}: ختم ${marked} كود تفعيل كمُصدَّر للمطبعة.`,
+      ip: req.ip || "127.0.0.1",
+      userAgent: req.headers["user-agent"] || "Unknown",
+      os: "متصفح",
+      browser: "لوحة الأستاذ",
+      isViolationWarning: false,
+    });
+  }
+
+  return res.json({ success: true, batchId, marked, alreadyPrinted, forbidden });
+});
+
 app.post("/api/teacher/join-codes/delete", (req, res) => {
   const { code } = req.body;
   if (!code) return res.status(400).json({ error: "معلومات ناقصة" });
