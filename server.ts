@@ -702,7 +702,11 @@ function responseForPasskeyUser(req: express.Request, saved: any, user: any) {
         id: teacher.id,
         name: teacher.name,
         email: teacher.email,
-        role: teacher.role,
+        // الدور الفعّال لا يُقرأ من سجل قاعدة البيانات وحده: بريد المشرف يُرقّى
+        // دائماً إلى admin كما في مسار /api/auth/login، وإلا اختفت أدوات
+        // السوبر-أدمن عند الدخول بالبصمة/Face ID بينما تظهر عند الدخول بكلمة
+        // المرور (نفس الحساب، نتيجتان مختلفتان).
+        role: isAdminEmail(teacher.email) ? "admin" : teacher.role || "teacher",
       },
     };
   }
