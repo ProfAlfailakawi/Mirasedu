@@ -19787,16 +19787,13 @@ ${rows
 
   // صلاحية المشرف تُقرأ من دور الجلسة، والخادم هو من يفرضها فعلياً (٤٠٣).
   // لا تُقارن بُرد إلكترونية مضمّنة هنا: الحزمة عامة ويقرأها أي زائر.
-  // كان يقارن role === "admin" حصراً، فكانت أدوات المشرف تختفي كلما وصلت
-  // الجلسة بدور مكافئ (superadmin/super_admin) كالذي يستعمله الخادم في بعض
-  // المسارات — ومن هنا ظهورها "مرّة نعم ومرّة لا" على نفس الحساب.
-  const MIRAS_ADMIN_ROLES = ["admin", "superadmin", "super_admin"];
+  // الدور الوحيد الذي يوقّعه الخادم للمشرف هو "admin" (createTeacherAuthPayload)،
+  // وحُرّاس الخادم تتحقق عبر isAdminEmail. لذلك لا تُقبل هنا أدوار أخرى مثل
+  // superadmin/super_admin: قبولها يُظهر أدوات ترفضها نقاط النهاية بـ ٤٠٣.
   const isMirasAdminEmail = (_email?: any) =>
-    MIRAS_ADMIN_ROLES.includes(
-      String(teacherSession?.role || "")
-        .trim()
-        .toLowerCase(),
-    );
+    String(teacherSession?.role || "")
+      .trim()
+      .toLowerCase() === "admin";
   const isSameTeacherIdentity = (a: any, b: any) => {
     const aa = String(a || "").toLowerCase();
     const bb = String(b || "").toLowerCase();
