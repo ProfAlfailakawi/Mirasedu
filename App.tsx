@@ -7652,6 +7652,9 @@ export default function App() {
   const [studentDirectorySearch, setStudentDirectorySearch] = useState("");
   const [codesPage, setCodesPage] = useState(1);
   const codesPageSize = 50;
+  // عدد كروت التفعيل المطلوب طباعتها من المتبقّي غير المستخدم.
+  // فارغ = طباعة الكل (السلوك السابق).
+  const [printCardsLimit, setPrintCardsLimit] = useState("");
   const [singleCodeStudentId, setSingleCodeStudentId] = useState("");
   const [singleCodeStudentName, setSingleCodeStudentName] = useState("");
   const mergeJoinCodeRecords = (primary: any[] = [], secondary: any[] = []) => {
@@ -13801,7 +13804,7 @@ export default function App() {
   // ويمنع حالة "أحياناً ما يشتغل" التي ناتجة عن إعادة استخدام نافذة منبثقة
   // مسبقة أو سباق document.write على about:blank.
   const printStarterCardsBusyRef = useRef(false);
-  const printStarterCards = () => {
+  const printStarterCards = (limitOverride?: number) => {
     if (printStarterCardsBusyRef.current) return;
     printStarterCardsBusyRef.current = true;
     const releaseBusy = () => {
@@ -13830,9 +13833,19 @@ export default function App() {
         !item.usedByStudentId &&
         !item.isFreeCode,
     );
-    const codesForPrint = cleanPrintableCodes.length
+    const allPrintableCodes = cleanPrintableCodes.length
       ? cleanPrintableCodes
       : activeCodes;
+    // حدّ الطباعة: يُقرأ من الحقل بجانب الزر (أو من limitOverride)، ويُقصّ على
+    // العدد المتاح فعلاً. أي قيمة غير صالحة أو صفر تعني "اطبع الكل".
+    const requestedPrintLimit = Number.isFinite(limitOverride as number)
+      ? Math.floor(Number(limitOverride))
+      : Math.floor(Number(String(printCardsLimit).trim()));
+    const effectivePrintLimit =
+      Number.isFinite(requestedPrintLimit) && requestedPrintLimit > 0
+        ? Math.min(requestedPrintLimit, allPrintableCodes.length)
+        : allPrintableCodes.length;
+    const codesForPrint = allPrintableCodes.slice(0, effectivePrintLimit);
     const rows = codesForPrint.map((code: any, index: number) => {
       const formattedCode = formatJoinCode(code.code);
       const courseCode =
@@ -19774,7 +19787,13 @@ ${rows
 
   // صلاحية المشرف تُقرأ من دور الجلسة، والخادم هو من يفرضها فعلياً (٤٠٣).
   // لا تُقارن بُرد إلكترونية مضمّنة هنا: الحزمة عامة ويقرأها أي زائر.
-  const isMirasAdminEmail = (_email?: any) => teacherSession?.role === "admin";
+  // الدور الوحيد الذي يوقّعه الخادم للمشرف هو "admin" (createTeacherAuthPayload)،
+  // وحُرّاس الخادم تتحقق عبر isAdminEmail. لذلك لا تُقبل هنا أدوار أخرى مثل
+  // superadmin/super_admin: قبولها يُظهر أدوات ترفضها نقاط النهاية بـ ٤٠٣.
+  const isMirasAdminEmail = (_email?: any) =>
+    String(teacherSession?.role || "")
+      .trim()
+      .toLowerCase() === "admin";
   const isSameTeacherIdentity = (a: any, b: any) => {
     const aa = String(a || "").toLowerCase();
     const bb = String(b || "").toLowerCase();
@@ -43156,12 +43175,51 @@ ${rows
                                 <FileText className="w-4 h-4" />
                               </button>
                               {isAdminTeacher && (
+                                <input
+                                  type="number"
+                                  min={1}
+                                  max={remainingUnusedCodesCount || undefined}
+                                  inputMode="numeric"
+                                  value={printCardsLimit}
+                                  onChange={(e) => {
+                                    const raw = e.target.value;
+                                    if (raw === "") {
+                                      setPrintCardsLimit("");
+                                      return;
+                                    }
+                                    const num = Math.floor(Number(raw));
+                                    if (!Number.isFinite(num) || num <= 0) {
+                                      setPrintCardsLimit("");
+                                      return;
+                                    }
+                                    setPrintCardsLimit(
+                                      String(
+                                        remainingUnusedCodesCount
+                                          ? Math.min(
+                                              num,
+                                              remainingUnusedCodesCount,
+                                            )
+                                          : num,
+                                      ),
+                                    );
+                                  }}
+                                  placeholder="الكل"
+                                  title={`عدد الكروت المطلوب طباعتها (اتركه فارغاً لطباعة الكل — المتاح ${remainingUnusedCodesCount})`}
+                                  aria-label="عدد كروت التفعيل المطلوب طباعتها"
+                                  className="h-11 w-20 rounded-2xl border border-indigo-100 bg-white px-3 text-center font-mono tabular-nums text-[12px] font-black text-indigo-700 outline-none placeholder:font-sans placeholder:text-slate-400 focus:ring-2 focus:ring-indigo-100"
+                                />
+                              )}
+                              {isAdminTeacher && (
                                 <button
                                   onClick={(e) => {
                                     e.stopPropagation();
                                     printStarterCards();
                                   }}
-                                  title="ملف PDF لأكواد التفعيل"
+                                  title={
+                                    printCardsLimit
+                                      ? `ملف PDF لعدد ${printCardsLimit} كود تفعيل`
+                                      : "ملف PDF لأكواد التفعيل"
+                                  }
                                   aria-label="ملف PDF لأكواد التفعيل"
                                   className="inline-flex h-11 w-11 items-center justify-center rounded-2xl border border-indigo-100 bg-indigo-50 text-indigo-700 hover:bg-indigo-600 hover:text-white transition-all shadow-sm"
                                 >
