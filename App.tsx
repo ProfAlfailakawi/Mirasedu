@@ -13906,8 +13906,7 @@ html,body{margin:0;padding:0;background:#ffffff;color:#0f172a;font-family:-apple
   .toolbar{display:none!important}
   .sheet{page-break-after:always!important;break-after:page!important;page-break-inside:avoid!important;break-inside:avoid!important}
   .sheet:last-of-type{page-break-after:auto!important;break-after:auto!important}
-  .booklet{width:202.05mm!important;height:245.05mm!important;margin:0!important;padding:12.525mm!important;display:block!important;overflow:visible!important;background:#ffffff!important}
-  .card{margin:0 auto!important}
+  .booklet{width:202.05mm!important;height:245.05mm!important;margin:0!important;overflow:hidden!important;background:#ffffff!important}
   .booklet-bg,.card{overflow:hidden!important}
   .booklet-bg span{filter:none!important;mix-blend-mode:normal!important}
   .card{background:#ffffff!important;box-shadow:0 18px 48px rgba(15,23,42,.11)!important;border-color:rgba(226,232,240,.92)!important}
