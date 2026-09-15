@@ -13805,11 +13805,17 @@ export default function App() {
   // مسبقة أو سباق document.write على about:blank.
   // ختم الأكواد التي خرجت في ملف المطبعة. الختم على الخادم نهائي، وبه يُستبعد
   // الكود من كل تصدير لاحق فلا يصل نفس الكود إلى المطبعة مرتين.
-  const stampPrintedJoinCodes = async (codes: any[]) => {
+  // النتيجة تُعرض دائماً برقمها: الختم الصامت لا يُكتشف فشله إلا بعد أن يصل
+  // كود مكرر إلى المطبعة، وهي الكارثة التي وُجد هذا المسار لمنعها.
+  const stampPrintedJoinCodes = async (codes: any[], fileCount: number) => {
     const list = (codes || [])
       .map((item: any) => String(item?.code || "").trim())
       .filter(Boolean);
     if (!list.length) return;
+    const failNote = (reason: string) =>
+      setErrorMsg(
+        `تم تجهيز ملف PDF (${fileCount} كود) لكن لم تُختم الأكواد كمُصدَّرة: ${reason} — لا تُرسل الملف للمطبعة قبل أن يظهر العدد في «سبق تصديره»، فقد تتكرر نفس الأكواد في تصدير قادم.`,
+      );
     try {
       const resp = await fetch("/api/teacher/join-codes/mark-printed", {
         method: "POST",
@@ -13819,19 +13825,24 @@ export default function App() {
           teacherEmail: activeTeacherEmail(),
         }),
       });
+      const data = await resp.json().catch(() => ({}) as any);
       if (!resp.ok) {
-        const d = await resp.json().catch(() => ({}));
-        setErrorMsg(
-          d.error ||
-            "تم تجهيز الملف لكن تعذر ختم الأكواد كمُصدَّرة. راجع القائمة قبل تصدير دفعة جديدة.",
-        );
+        failNote(data?.error || `استجابة الخادم ${resp.status}`);
         return;
       }
       await fetchJoinCodes();
-    } catch {
-      setErrorMsg(
-        "تم تجهيز الملف لكن تعذر ختم الأكواد كمُصدَّرة. راجع القائمة قبل تصدير دفعة جديدة.",
+      const marked = Number(data?.marked || 0);
+      if (marked > 0) {
+        setSuccessMsg(
+          `تم تجهيز ملف PDF (${fileCount} كود تفعيل)، وخُتم ${marked} كود كمُصدَّر للمطبعة فلن يظهر في أي تصدير قادم.`,
+        );
+        return;
+      }
+      failNote(
+        `لم يُختم أي كود (سبق ختمه: ${Number(data?.alreadyPrinted || 0)}، خارج صلاحيتك: ${Number(data?.forbidden || 0)})`,
       );
+    } catch {
+      failNote("تعذر الاتصال بالخادم");
     }
   };
 
@@ -14022,7 +14033,7 @@ ${rows
       setSuccessMsg(
         `تم تجهيز ملف PDF للمطبعة (${rows.length} كود تفعيل). هذه الأكواد صارت مختومة كمُصدَّرة ولن تظهر في أي تصدير قادم.`,
       );
-      void stampPrintedJoinCodes(codesForPrint);
+      void stampPrintedJoinCodes(codesForPrint, rows.length);
       releaseBusy();
       return;
     }
@@ -14047,7 +14058,7 @@ ${rows
     setSuccessMsg(
       `تم تجهيز ملف PDF للمطبعة (${rows.length} كود تفعيل). هذه الأكواد صارت مختومة كمُصدَّرة ولن تظهر في أي تصدير قادم.`,
     );
-    void stampPrintedJoinCodes(codesForPrint);
+    void stampPrintedJoinCodes(codesForPrint, rows.length);
     releaseBusy();
   };
 
