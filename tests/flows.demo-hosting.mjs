@@ -114,6 +114,84 @@ const leaked = (realSections.data?.sections || []).some(
 );
 check("ما كُتب في الصندوق لا يظهر في البيانات الحقيقية", !leaked, MARK);
 
+// ── تبديل الدور: الصندوق نفسه، بهويةٍ أخرى ──────────────────────────────────
+// شاشة المعلّم وحدها نصفُ المنتج؛ والطرف الآخر من كل شيء هنا — التسليم والاختبار
+// وقفل الجهاز — لا يُرى إلا من حساب طالب.
+const STUDENT_AUTHED = "/api/student/submissions"; // يردّ 401 إن لم تُعرف الهوية
+
+const roleOut = await hosted("POST", "/api/demo/role", { body: { role: "student" } });
+check(
+  "تبديل الدور خارج صندوقٍ مرفوض",
+  roleOut.status === 404,
+  `status=${roleOut.status}`,
+);
+
+const badRole = await hosted("POST", "/api/demo/role", {
+  demo: demoId,
+  body: { role: "admin" },
+});
+check("دورٌ غير معروف مرفوض", badRole.status === 400, `status=${badRole.status}`);
+
+const asStudent = await hosted("POST", "/api/demo/role", {
+  demo: demoId,
+  body: { role: "student" },
+});
+check(
+  "التبديل إلى الطالب يُصدر جلسته",
+  asStudent.ok && !!asStudent.data?.student?.authToken,
+  `status=${asStudent.status}`,
+);
+
+const studentToken = String(asStudent.data?.student?.authToken || "");
+/* الشاشة الفارغة عرضٌ فاشل: الطالب المعروض مدفوعٌ ومفعَّل وله تسجيلٌ نشط. */
+check("الطالب المعروض مدفوع", asStudent.data?.student?.isPaid === true);
+check(
+  "وله تسجيلٌ في مقرر",
+  (asStudent.data?.student?.enrollments || []).length > 0,
+  JSON.stringify(asStudent.data?.student?.enrollments || []).slice(0, 120),
+);
+
+/* وهذا هو ما كان يسقط بلا فكّ ارتباط الجهاز: البذرة تربط الطالب بجهازٍ مصطنع،
+   وقاعدة «جهاز واحد لكل حساب» ترفض بعدها متصفح الزائر — فيبدّل ويُطرد في اللحظة. */
+const studentIn = await hosted("POST", STUDENT_AUTHED, {
+  demo: demoId,
+  token: studentToken,
+  body: {},
+});
+check(
+  "هوية الطالب التجريبي مقبولة داخل الصندوق (لا قفل جهاز)",
+  studentIn.status !== 401 && studentIn.status !== 403 && studentIn.status !== 409,
+  `status=${studentIn.status} ${JSON.stringify(studentIn.data).slice(0, 160)}`,
+);
+
+/* والحارس نفسه يلزم الطالب كما لزم المدرّب: هويةُ الصندوق لا تعمل خارجه. */
+const studentOut = await hosted("POST", STUDENT_AUTHED, { token: studentToken, body: {} });
+check(
+  "هوية الطالب التجريبي مرفوضة خارج الصندوق",
+  studentOut.status === 401,
+  `status=${studentOut.status}`,
+);
+
+const backToTeacher = await hosted("POST", "/api/demo/role", {
+  demo: demoId,
+  body: { role: "teacher" },
+});
+check(
+  "الرجوع إلى المعلّم يُصدر جلسته",
+  backToTeacher.ok && !!backToTeacher.data?.teacher?.authToken,
+  `status=${backToTeacher.status}`,
+);
+
+const teacherAgain = await hosted("GET", AUTHED, {
+  demo: demoId,
+  token: String(backToTeacher.data?.teacher?.authToken || ""),
+});
+check(
+  "وشاشة المعلّم تعمل بعد الرجوع",
+  teacherAgain.status !== 401,
+  `status=${teacherAgain.status}`,
+);
+
 // ── والهدم يحتاج الترويسة كذلك ──────────────────────────────────────────────
 const resetOut = await hosted("POST", "/api/demo/reset");
 check("إعادة التعيين بلا ترويسة تُرفض", resetOut.status === 410, `status=${resetOut.status}`);

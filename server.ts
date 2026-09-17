@@ -344,9 +344,15 @@ function verifyMirasSessionToken(req: express.Request): MirasVerifiedSession | n
   );
   if (!session) return null;
   /* هوية الصندوق لا تعمل خارجه، ولو حُملت كعكتها إلى طلبٍ عادي. دفاعٌ ثانٍ:
-     الحساب أصلاً لا وجود له في قاعدةٍ حقيقية، وهذا يغلق الباب حتى لو وُجد. */
+     الحساب أصلاً لا وجود له في قاعدةٍ حقيقية، وهذا يغلق الباب حتى لو وُجد.
+
+     والشرط على النطاق لا على بريدٍ بعينه: صار للصندوق هويتان — المدرّب والطالب —
+     وبريد كل ما يسكنه ينتهي بـ`@demo.miras.test`. فحصُ بريدٍ واحد كان يترك
+     هوية الطالب التجريبي بلا هذا الحارس. */
+  const sessionEmail = String(session.email || "").toLowerCase();
   if (
-    String(session.email || "").toLowerCase() === MIRAS_DEMO_TEACHER_EMAIL &&
+    (sessionEmail === MIRAS_DEMO_TEACHER_EMAIL ||
+      sessionEmail.endsWith(MIRAS_DEMO_EMAIL_DOMAIN)) &&
     !MirasDemo.isDemoRequest()
   ) {
     console.warn("[AUTH_DEBUG] demo identity rejected outside a demo sandbox");
@@ -8995,6 +9001,17 @@ const MIRAS_DEMO_SESSION_PATTERN = /^demo_[0-9a-f]{64}$/;
    خارجه صراحةً (انظر `verifyMirasSessionToken`) — فالرمز لا ينفع بلا صندوق. */
 const MIRAS_DEMO_TEACHER_EMAIL = "demo.teacher@miras.test";
 const MIRAS_DEMO_TEACHER_ID = "demo_teacher_1";
+/* كل هوية تسكن الصندوق بريدُها في هذا النطاق — ولا وجود له في أي قاعدة حقيقية. */
+const MIRAS_DEMO_EMAIL_DOMAIN = "@demo.miras.test";
+/*
+ * الطالب المعروض.
+ *
+ * البذرة تولّد مئة طالب بأرقام `2026100000 + index*7`، وهذا `index = 1`: مدفوع
+ * (`index % 8`)، ومفعَّل (`index % 11`)، وتسجيله نشط (`index % 13`) — أي أن كل
+ * شاشة يراها المشاهد ممتلئة. واختيار طالبٍ معلَّق أو غير مدفوع كان يعرض المنتج
+ * في أضعف حالاته.
+ */
+const MIRAS_DEMO_STUDENT_ID = "2026100007";
 
 function readDemoSessionId(req: express.Request): string {
   const rawHeader = req.headers[MIRAS_DEMO_HEADER];
@@ -9057,6 +9074,17 @@ app.get("/api/demo/config", (req, res) => {
   });
 });
 
+/* هوية المدرّب التجريبي — يستعملها المدخل وتبديلُ الدور معاً، فلا تُكتب مرتين. */
+function buildDemoTeacher() {
+  return {
+    id: MIRAS_DEMO_TEACHER_ID,
+    email: MIRAS_DEMO_TEACHER_EMAIL,
+    name: "د. سارة الخالد (بيئة تجريبية)",
+    role: "teacher" as const,
+    isActive: true,
+  };
+}
+
 app.post("/api/demo/enter", demoEntryRateLimit, (req, res) => {
   if (!mirasDemoEnabled()) {
     res.status(404).json({ error: "البيئة التجريبية غير مفعّلة في هذا النشر" });
@@ -9084,13 +9112,7 @@ app.post("/api/demo/enter", demoEntryRateLimit, (req, res) => {
    * لا وجود لهذا الحساب في أي قاعدة حقيقية، ويرفض `verifyMirasSessionToken`
    * جلستَه صراحةً إن لم يكن الطلب داخل صندوق تجريبي.
    */
-  const demoTeacher = {
-    id: MIRAS_DEMO_TEACHER_ID,
-    email: MIRAS_DEMO_TEACHER_EMAIL,
-    name: "د. سارة الخالد (بيئة تجريبية)",
-    role: "teacher" as const,
-    isActive: true,
-  };
+  const demoTeacher = buildDemoTeacher();
   const authToken = createTeacherAuthPayload(req, res, demoTeacher);
   /* الواجهة تقرأ جلستها من التخزين لا من الكعكة، فتُعاد الجلسة كاملةً هنا.
      ويُعاد معها `sessionId`: الكعكة `HttpOnly` لا يراها العميل، وهو يحتاجه
@@ -9101,6 +9123,75 @@ app.post("/api/demo/enter", demoEntryRateLimit, (req, res) => {
     ttlMs: MIRAS_DEMO_TTL_MS,
     sessionId,
     teacher: { ...demoTeacher, authToken },
+    authToken,
+  });
+});
+
+/*
+ * تبديل الدور المعروض داخل الصندوق — معلّم أو طالب.
+ *
+ * عرضُ مِراس على جهةٍ بشاشة المعلّم وحدها يعرض نصف المنتج: الطرف الآخر من كل
+ * شيء هنا — التسليم والاختبار والتفعيل وقفل الجهاز — لا يُرى إلا من حساب طالب.
+ * وهذا ليس رفعَ صلاحية: هو اختيار أيّ واجهةٍ من واجهات الصندوق المعزول تُعرض،
+ * ولهذا يرفض المسار العمل خارج صندوقٍ تجريبي رفضاً صريحاً لا بالاتفاق.
+ */
+app.post("/api/demo/role", demoEntryRateLimit, (req, res) => {
+  if (!mirasDemoEnabled() || !MirasDemo.isDemoRequest()) {
+    res.status(404).json({ error: "البيئة التجريبية غير مفعّلة في هذا النشر" });
+    return;
+  }
+  const role = String((req.body as any)?.role || "").trim().toLowerCase();
+
+  if (role === "teacher") {
+    const demoTeacher = buildDemoTeacher();
+    const authToken = createTeacherAuthPayload(req, res, demoTeacher);
+    res.json({ ok: true, role: "teacher", teacher: { ...demoTeacher, authToken }, authToken });
+    return;
+  }
+
+  if (role !== "student") {
+    res.status(400).json({ error: "دور غير معروف" });
+    return;
+  }
+
+  const findDemoStudent = () =>
+    dbInstance
+      .getStudents()
+      .find((st: any) => normalizeStudentId(st?.id) === MIRAS_DEMO_STUDENT_ID);
+
+  if (!findDemoStudent()) {
+    res.status(503).json({ error: "تعذّر تجهيز حساب الطالب التجريبي" });
+    return;
+  }
+
+  /*
+   * يُفكّ ارتباط الجهاز قبل إصدار الجلسة.
+   *
+   * البذرة تربط كل طالب بجهازٍ مصطنع (`dev_N_a`)، وقاعدة «جهاز واحد لكل حساب»
+   * ترفض بعدها متصفح الزائر برسالة «هذا الحساب مسجل في جهاز آخر» — فيبدّل الدور
+   * ويُطرد في اللحظة نفسها. وبإفراغ القائمة يرتبط جهازه هو ارتباطاً أول، وهو
+   * المسار الطبيعي الذي يمرّ به أي طالب جديد.
+   *
+   * والتعديل لا يخرج من الصندوق: قاعدة بياناته نسخةٌ في الذاكرة تُهدم بانتهاء
+   * المهلة، ولا طالب حقيقي يُمسّ.
+   */
+  dbInstance.updateStudent(findDemoStudent()!.id, {
+    devices: [],
+    pendingDeviceTransfer: false,
+    retiredDeviceTokens: [],
+    retiredDeviceFingerprints: [],
+  } as any);
+
+  const student = findDemoStudent()!;
+  const responseStudent: any = sanitizeStudentForClient(
+    student,
+    getStudentEnrollmentDetails(student),
+  );
+  const authToken = createStudentAuthPayload(req, res, responseStudent);
+  res.json({
+    ok: true,
+    role: "student",
+    student: { ...responseStudent, authToken },
     authToken,
   });
 });

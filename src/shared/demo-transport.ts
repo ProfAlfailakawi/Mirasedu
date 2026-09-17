@@ -134,10 +134,31 @@ export function installDemoTransport(): void {
   } as typeof window.fetch;
 }
 
-/* مفاتيح التخزين التي تحمل جلسة المدرّب، وبريد مدرّب العرض كما يُصدره الخادم. */
+/* مفاتيح التخزين التي تحمل الجلسات، وبريد مدرّب العرض كما يُصدره الخادم. */
 const MIRAS_TEACHER_SESSION_KEY = "miras_teacher_session";
+const MIRAS_STUDENT_SESSION_KEY = "miras_student_session";
 const MIRAS_PRE_DEMO_TEACHER_SESSION = "miras_pre_demo_teacher_session";
 const MIRAS_DEMO_TEACHER_EMAIL = "demo.teacher@miras.test";
+/* وبريد كل هوية أخرى في الصندوق — الطالب المعروض منها — في هذا النطاق. */
+const MIRAS_DEMO_EMAIL_DOMAIN = "@demo.miras.test";
+
+/** هل هذا البريد بريدَ هويةٍ لا تعيش إلا داخل الصندوق؟ */
+function isDemoIdentityEmail(email: string): boolean {
+  const value = email.toLowerCase();
+  return value === MIRAS_DEMO_TEACHER_EMAIL || value.endsWith(MIRAS_DEMO_EMAIL_DOMAIN);
+}
+
+/** بريد الجلسة المخزَّنة تحت مفتاح، أو null إن لم تكن جلسةً نعرف صيغتها. */
+function storedSessionEmail(key: string): string | null {
+  const raw = localStorage.getItem(key);
+  if (!raw) return null;
+  try {
+    return String((JSON.parse(raw) as { email?: unknown })?.email || "").toLowerCase();
+  } catch {
+    /* محتوى غير صالح ليس جلسةً نعرفها: لا يُمسّ ولا يُحكم عليه. */
+    return null;
+  }
+}
 
 /**
  * جلسةُ عرضٍ بلا صندوق: تُطرح، ولا تُترك تطرق الخادم.
@@ -162,23 +183,27 @@ const MIRAS_DEMO_TEACHER_EMAIL = "demo.teacher@miras.test";
 export function discardOrphanedDemoSession(): boolean {
   try {
     if (readDemoSessionId()) return false;
-    const raw = localStorage.getItem(MIRAS_TEACHER_SESSION_KEY);
-    if (!raw) return false;
+    let discarded = false;
 
-    let email = "";
-    try {
-      email = String((JSON.parse(raw) as { email?: unknown })?.email || "").toLowerCase();
-    } catch {
-      /* محتوى غير صالح ليس جلسة عرضٍ نعرفها: لا يُمسّ. */
-      return false;
+    /* جلسة الطالب التجريبي تُطرح كذلك: صار للعرض دوران، وترْكُ هويةِ طالبٍ بلا
+       صندوق يملأ الشاشة بـ401 تماماً كهوية المدرّب. ولا جلسة سابقة تُعاد هنا:
+       الدخول إلى العرض لا يكتب فوق جلسة طالبٍ حقيقي أصلاً. */
+    const studentEmail = storedSessionEmail(MIRAS_STUDENT_SESSION_KEY);
+    if (studentEmail !== null && isDemoIdentityEmail(studentEmail)) {
+      localStorage.removeItem(MIRAS_STUDENT_SESSION_KEY);
+      discarded = true;
     }
-    if (email !== MIRAS_DEMO_TEACHER_EMAIL) return false;
 
-    const previous = sessionStorage.getItem(MIRAS_PRE_DEMO_TEACHER_SESSION);
-    if (previous) localStorage.setItem(MIRAS_TEACHER_SESSION_KEY, previous);
-    else localStorage.removeItem(MIRAS_TEACHER_SESSION_KEY);
-    sessionStorage.removeItem(MIRAS_PRE_DEMO_TEACHER_SESSION);
-    return true;
+    const teacherEmail = storedSessionEmail(MIRAS_TEACHER_SESSION_KEY);
+    if (teacherEmail !== null && isDemoIdentityEmail(teacherEmail)) {
+      const previous = sessionStorage.getItem(MIRAS_PRE_DEMO_TEACHER_SESSION);
+      if (previous) localStorage.setItem(MIRAS_TEACHER_SESSION_KEY, previous);
+      else localStorage.removeItem(MIRAS_TEACHER_SESSION_KEY);
+      sessionStorage.removeItem(MIRAS_PRE_DEMO_TEACHER_SESSION);
+      discarded = true;
+    }
+
+    return discarded;
   } catch {
     /* تخزين محجوب: لا شيء يُطرح، ولا شيء يُكسر. */
     return false;
