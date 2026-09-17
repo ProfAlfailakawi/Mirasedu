@@ -1,0 +1,117 @@
+# ينشر خدمة الـAPI (miras-api) على Cloud Run عند كل دفع إلى main.
+#
+# لماذا هذا الملف موجود:
+#   `/api/**` و`/seb/**` في firebase.json تُوجَّه إلى خدمة Cloud Run اسمها
+#   `miras-api`، وورك-فلو الاستضافة ينشر الواجهة وحدها (`--only hosting`).
+#   فكان كل تعديل في `server.ts` يُدمج ولا يصل إلى أحد — المسار الجديد يعود
+#   404 على الموقع الحيّ بينما الواجهة الجديدة تناديه. وهذا ما حصل فعلاً مع
+#   مسارات البيئة التجريبية.
+#
+# ولا ينشر فوق فحصٍ أحمر: الأنواع والاختبارات تسبق النشر في المهمة نفسها.
+
+name: نشر مِراس API إلى Cloud Run
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: miras-api-deploy
+  cancel-in-progress: false
+
+env:
+  GCP_PROJECT_ID: meras-320eb
+  GCP_REGION: us-central1
+  CLOUD_RUN_SERVICE: miras-api
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+
+      - name: تثبيت الحزم
+        run: npm ci
+
+      # لا نشر فوق فحصٍ أحمر: نفس بوابات ورك-فلو التحقق.
+      - name: فحص الأنواع
+        run: npm run lint
+
+      - name: اختبارات المسارات
+        run: npm run test:flows
+
+      - name: التحقق من إعداد هوية النشر
+        shell: bash
+        env:
+          WIF_PROVIDER: ${{ vars.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          DEPLOY_SERVICE_ACCOUNT: ${{ vars.GCP_DEPLOY_SERVICE_ACCOUNT }}
+        run: |
+          set -euo pipefail
+          if [[ -z "$WIF_PROVIDER" || -z "$DEPLOY_SERVICE_ACCOUNT" ]]; then
+            echo "هوية النشر غير مُعدّة بعد، فلا يمكن النشر." >&2
+            echo "تُضبط مرة واحدة فقط — الخطوات في docs/deploy-miras-api.md" >&2
+            echo "ثم تُضاف في GitHub → Settings → Secrets and variables → Actions → Variables:" >&2
+            echo "  GCP_WORKLOAD_IDENTITY_PROVIDER" >&2
+            echo "  GCP_DEPLOY_SERVICE_ACCOUNT" >&2
+            exit 1
+          fi
+
+      - name: مصادقة Google Cloud بلا مفتاح دائم
+        uses: google-github-actions/auth@v2
+        with:
+          project_id: ${{ env.GCP_PROJECT_ID }}
+          workload_identity_provider: ${{ vars.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ vars.GCP_DEPLOY_SERVICE_ACCOUNT }}
+
+      - uses: google-github-actions/setup-gcloud@v2
+        with:
+          project_id: ${{ env.GCP_PROJECT_ID }}
+
+      # `--max-instances=1` إلزامي: الخادم يحمل قاعدة البيانات في ذاكرة العملية،
+      # ونسخة ثانية تعني حالتين منفصلتين وكتاباتٍ ضائعة (README يشرح ذلك).
+      #
+      # ولا يُمرَّر `--set-secrets` ولا `--set-env-vars` عمداً: تمريرهما يستبدل ما
+      # هو مضبوط على الخدمة اليوم — ومنه MIRAS_SESSION_SECRET. والنشر لا يجوز أن
+      # يمحو إعدادًا لم يطلب أحد تغييره، فيُتحقَّق منه بعده بدل أن يُعاد ضبطه.
+      - name: نشر الخدمة
+        shell: bash
+        run: |
+          set -euo pipefail
+          gcloud run deploy "$CLOUD_RUN_SERVICE" \
+            --source . \
+            --project "$GCP_PROJECT_ID" \
+            --region "$GCP_REGION" \
+            --platform managed \
+            --allow-unauthenticated \
+            --max-instances=1 \
+            --quiet
+
+      - name: التحقق من الثوابت بعد النشر
+        shell: bash
+        run: |
+          set -euo pipefail
+          MAX="$(gcloud run services describe "$CLOUD_RUN_SERVICE" \
+                  --project "$GCP_PROJECT_ID" --region "$GCP_REGION" \
+                  --format='value(spec.template.metadata.annotations["autoscaling.knative.dev/maxScale"])')"
+          if [[ "$MAX" != "1" ]]; then
+            echo "maxScale = '$MAX' وليس 1 — نسختان تعنيان حالتين منفصلتين وكتاباتٍ ضائعة." >&2
+            exit 1
+          fi
+          if ! gcloud run services describe "$CLOUD_RUN_SERVICE" \
+                 --project "$GCP_PROJECT_ID" --region "$GCP_REGION" --format=yaml \
+               | grep -q "MIRAS_SESSION_SECRET"; then
+            echo "MIRAS_SESSION_SECRET غير مضبوط على الخدمة — الحاوية ترفض الإقلاع بدونه." >&2
+            exit 1
+          fi
+          echo "النشر تمّ: maxScale=1 وسرّ الجلسة مضبوط."
