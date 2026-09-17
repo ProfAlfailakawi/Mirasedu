@@ -39,6 +39,9 @@ import {
   deleteRuntimeAuthChallenge,
   mutateRuntimeAuthChallenge,
   cleanupRuntimeAuthChallenges,
+  MirasDemo,
+  MIRAS_DEMO_TTL_MS,
+  mirasDemoEnabled,
 } from "./src/server/db.js";
 import type { SharingRingGraph } from "./src/shared/types";
 import {
@@ -8947,6 +8950,68 @@ app.use((req, res, next) => {
   next();
 });
 app.use(express.urlencoded({ limit: "50mb", extended: true }));
+
+// ═══ البيئة التجريبية (Demo) ═════════════════════════════════════════════
+// زائر يدخل الديمو يحصل على نسخة قاعدة بيانات خاصة به في الذاكرة. هذا الوسيط
+// يسبق كل المسارات، فأي طلب يحمل كعكة ديمو لا يستطيع الوصول إلى قاعدة البيانات
+// الحقيقية إطلاقاً — لا على القرص ولا في Firestore. الطلبات بلا الكعكة تمرّ كما هي.
+const MIRAS_DEMO_COOKIE = "miras_demo";
+
+function readDemoCookie(req: express.Request): string {
+  const value = String(parseCookies(req)[MIRAS_DEMO_COOKIE] || "").trim();
+  return value.startsWith("demo_") ? value : "";
+}
+
+app.use((req, res, next) => {
+  const sessionId = readDemoCookie(req);
+  if (!sessionId) return next();
+  if (!MirasDemo.run(sessionId, MIRAS_DEMO_TTL_MS, next)) {
+    // انتهت الجلسة: نمسح الكعكة بدل تقديم البيانات الحقيقية بصمت.
+    res.append("Set-Cookie", `${MIRAS_DEMO_COOKIE}=; ${cookieOptions(req, 0)}`);
+    next();
+  }
+});
+
+app.get("/api/demo/config", (req, res) => {
+  res.setHeader("Cache-Control", "no-store");
+  res.json({
+    enabled: mirasDemoEnabled(),
+    active: MirasDemo.isDemoRequest(),
+    ttlMs: MIRAS_DEMO_TTL_MS,
+  });
+});
+
+app.post("/api/demo/enter", (req, res) => {
+  if (!mirasDemoEnabled()) {
+    res.status(404).json({ error: "البيئة التجريبية غير مفعّلة في هذا النشر" });
+    return;
+  }
+  const sessionId = `demo_${crypto.randomBytes(32).toString("hex")}`;
+  MirasDemo.create(sessionId, MIRAS_DEMO_TTL_MS);
+  res.append(
+    "Set-Cookie",
+    `${MIRAS_DEMO_COOKIE}=${encodeURIComponent(sessionId)}; ${cookieOptions(req, Math.floor(MIRAS_DEMO_TTL_MS / 1000))}`,
+  );
+  res.json({ ok: true, demo: true, ttlMs: MIRAS_DEMO_TTL_MS });
+});
+
+app.post("/api/demo/reset", (req, res) => {
+  const sessionId = readDemoCookie(req);
+  if (!sessionId || !MirasDemo.reset(sessionId, MIRAS_DEMO_TTL_MS)) {
+    res.status(410).json({ error: "انتهت الجلسة التجريبية" });
+    return;
+  }
+  res.json({ ok: true });
+});
+
+app.post("/api/demo/exit", (req, res) => {
+  const sessionId = readDemoCookie(req);
+  if (sessionId) MirasDemo.destroy(sessionId);
+  res.append("Set-Cookie", `${MIRAS_DEMO_COOKIE}=; ${cookieOptions(req, 0)}`);
+  // كعكة الجلسة التجريبية تُمسح أيضاً حتى لا تبقى هوية معلّقة بعد الخروج.
+  res.append("Set-Cookie", `${MIRAS_SESSION_COOKIE}=; ${cookieOptions(req, 0)}`);
+  res.json({ ok: true });
+});
 
 app.use((req, _res, next) => {
   normalizeDigitsDeep(req.body);

@@ -2,6 +2,7 @@ import {
   useState,
   useEffect,
   useLayoutEffect,
+  useCallback,
   useRef,
   useMemo,
   useDeferredValue,
@@ -271,6 +272,8 @@ import {
   UserCheck,
   Fingerprint,
   QrCode,
+  FlaskConical,
+  RefreshCw as MirasRefreshCw,
 } from "lucide-react";
 
 type MirasLocalVisionMode =
@@ -3392,6 +3395,63 @@ export default function App() {
 
   let activeCourseCode = "";
   const [instructorMode, setInstructorMode] = useState(true);
+
+  /* البيئة التجريبية: الخادم هو من يقرر إن كانت متاحة وإن كانت هذه الجلسة
+     داخلها. لا نستنتج شيئاً من المتصفح — الكعكة HttpOnly ولا يراها العميل. */
+  const [demoEnabled, setDemoEnabled] = useState(false);
+  const [demoActive, setDemoActive] = useState(false);
+  const [demoBusy, setDemoBusy] = useState(false);
+
+  const refreshDemoState = useCallback(async () => {
+    try {
+      const response = await fetch("/api/demo/config", { cache: "no-store" });
+      if (!response.ok) return;
+      const data = await response.json();
+      setDemoEnabled(Boolean(data?.enabled));
+      setDemoActive(Boolean(data?.active));
+    } catch {
+      // الديمو رفاهية عرض؛ فشل الاستعلام يخفيه ولا يعطّل التطبيق.
+    }
+  }, []);
+
+  useEffect(() => {
+    void refreshDemoState();
+  }, [refreshDemoState]);
+
+  const enterDemo = useCallback(async () => {
+    setDemoBusy(true);
+    try {
+      const response = await fetch("/api/demo/enter", { method: "POST" });
+      if (!response.ok) throw new Error("demo unavailable");
+      // إعادة تحميل كاملة: كل شاشة يجب أن تُبنى من الصندوق التجريبي، لا أن
+      // تبقى ممسكة بصفوف من الحالة السابقة.
+      window.location.reload();
+    } catch {
+      setDemoBusy(false);
+    }
+  }, []);
+
+  const resetDemo = useCallback(async () => {
+    setDemoBusy(true);
+    try {
+      const response = await fetch("/api/demo/reset", { method: "POST" });
+      if (!response.ok) throw new Error("expired");
+      window.location.reload();
+    } catch {
+      setDemoBusy(false);
+      void refreshDemoState();
+    }
+  }, [refreshDemoState]);
+
+  const exitDemo = useCallback(async () => {
+    setDemoBusy(true);
+    try {
+      await fetch("/api/demo/exit", { method: "POST" });
+    } catch {
+      // نتابع للتحديث على أي حال: الكعكة قد تكون مُسحت فعلاً.
+    }
+    window.location.reload();
+  }, []);
   const [teacherSession, setTeacherSession] = useState<any>(() => {
     try {
       const stored = localStorage.getItem("miras_teacher_session");
@@ -29325,6 +29385,38 @@ ${rows
       className={`bg-slate-50 text-slate-800 font-sans text-right flex flex-col ${currentView === "teacher_workspace" ? "miras-app-teacher-root miras-teacher-viewport-v5 min-h-screen justify-start overflow-x-hidden" : currentView === "student_workspace" ? "min-h-screen justify-start overflow-x-hidden" : "min-h-screen justify-between"}`}
       dir="rtl"
     >
+      {/* شارة البيئة التجريبية: ثابتة فوق كل الشاشات طوال الجلسة التجريبية.
+          في أي عرض أمام جهة، لازم يكون واضحاً بنظرة واحدة أن ولا سجل على الشاشة
+          يخصّ طالباً حقيقياً — ومعها زرّا إعادة التعيين والخروج. */}
+      {demoActive && (
+        <div className="fixed inset-x-0 top-0 z-[200600] flex justify-center pointer-events-none">
+          <div className="pointer-events-auto mt-2 flex items-center gap-2 rounded-full border border-amber-300 bg-amber-100/95 px-3 py-1.5 text-[11px] font-black text-amber-900 shadow-lg backdrop-blur">
+            <FlaskConical className="h-3.5 w-3.5" aria-hidden="true" />
+            <span>بيئة تجريبية — بيانات مصطنعة</span>
+            <button
+              type="button"
+              disabled={demoBusy}
+              onClick={() => void resetDemo()}
+              title="إعادة تعيين البيانات التجريبية"
+              aria-label="إعادة تعيين البيانات التجريبية"
+              className="grid h-6 w-6 place-items-center rounded-full transition hover:bg-amber-200 disabled:opacity-50"
+            >
+              <MirasRefreshCw className="h-3.5 w-3.5" />
+            </button>
+            <button
+              type="button"
+              disabled={demoBusy}
+              onClick={() => void exitDemo()}
+              title="الخروج من البيئة التجريبية"
+              aria-label="الخروج من البيئة التجريبية"
+              className="grid h-6 w-6 place-items-center rounded-full transition hover:bg-amber-200 disabled:opacity-50"
+            >
+              <X className="h-3.5 w-3.5" />
+            </button>
+          </div>
+        </div>
+      )}
+
       {publicLoginApprovalToken && (
         <div className="fixed inset-0 z-[200500] flex min-h-[100dvh] items-center justify-center overflow-y-auto bg-[radial-gradient(circle_at_top_right,#e0e7ff_0,transparent_42%),radial-gradient(circle_at_bottom_left,#d1fae5_0,transparent_40%),#f8fafc] px-4 py-7">
           <div className="relative w-full max-w-md overflow-hidden rounded-[var(--miras-r-xl)] border border-white/90 bg-white/90 p-6 text-center miras-shadow-4 backdrop-blur-2xl sm:p-8">
@@ -31825,6 +31917,24 @@ ${rows
                         <div className="rounded-2xl border border-emerald-100 bg-emerald-50 px-4 py-3 text-center text-[11px] font-bold text-emerald-700">
                           {passkeyStatus}
                         </div>
+                      )}
+
+                      {/* مدخل العرض: بيئة معزولة ببيانات مصطنعة، بلا حساب.
+                          تُفتح بضغطة صريحة فقط، ولا تلمس بيانات أي جهة حقيقية. */}
+                      {demoEnabled && !demoActive && (
+                        <button
+                          type="button"
+                          disabled={demoBusy}
+                          onClick={() => void enterDemo()}
+                          className="flex w-full items-center justify-center gap-2 rounded-2xl border border-amber-300/60 bg-amber-50 px-4 py-3 text-[11px] font-bold text-amber-800 transition hover:bg-amber-100 disabled:opacity-60"
+                        >
+                          {demoBusy ? (
+                            <MirasLoader size={16} role="current" label="جارٍ فتح البيئة التجريبية…" />
+                          ) : (
+                            <FlaskConical className="h-4 w-4" />
+                          )}
+                          <span>استعراض النظام ببيانات تجريبية</span>
+                        </button>
                       )}
                     </>
                   )}
