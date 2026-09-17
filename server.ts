@@ -343,6 +343,15 @@ function verifyMirasSessionToken(req: express.Request): MirasVerifiedSession | n
     `${req.method} ${req.path}`,
   );
   if (!session) return null;
+  /* هوية الصندوق لا تعمل خارجه، ولو حُملت كعكتها إلى طلبٍ عادي. دفاعٌ ثانٍ:
+     الحساب أصلاً لا وجود له في قاعدةٍ حقيقية، وهذا يغلق الباب حتى لو وُجد. */
+  if (
+    String(session.email || "").toLowerCase() === MIRAS_DEMO_TEACHER_EMAIL &&
+    !MirasDemo.isDemoRequest()
+  ) {
+    console.warn("[AUTH_DEBUG] demo identity rejected outside a demo sandbox");
+    return null;
+  }
   if (session.publicDeviceSession) {
     const currentDeviceToken = getRequestDeviceToken(req);
     if (
@@ -8957,6 +8966,11 @@ app.use(express.urlencoded({ limit: "50mb", extended: true }));
 // الحقيقية إطلاقاً — لا على القرص ولا في Firestore. الطلبات بلا الكعكة تمرّ كما هي.
 const MIRAS_DEMO_COOKIE = "miras_demo";
 
+/* هوية مدرّب البيئة التجريبية. لا وجود لها إلا داخل الصندوق، وجلستُها مرفوضة
+   خارجه صراحةً (انظر `verifyMirasSessionToken`) — فالرمز لا ينفع بلا كعكة الصندوق. */
+const MIRAS_DEMO_TEACHER_EMAIL = "demo.teacher@miras.test";
+const MIRAS_DEMO_TEACHER_ID = "demo_teacher_1";
+
 function readDemoCookie(req: express.Request): string {
   const value = String(parseCookies(req)[MIRAS_DEMO_COOKIE] || "").trim();
   return value.startsWith("demo_") ? value : "";
@@ -8972,6 +8986,16 @@ app.use((req, res, next) => {
   }
 });
 
+/* مدخل العرض يُصدر جلسةً ويحجز ذاكرةً بلا حساب، فيُحدَّد معدّله كما يُحدَّد أي
+   مسار يمنح صلاحية. والسقف في `MirasDemo.create` يكمله حين تتعدّد العناوين. */
+const demoEntryRateLimit = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 20,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: "طلبات كثيرة على البيئة التجريبية. أعد المحاولة بعد قليل." },
+});
+
 app.get("/api/demo/config", (req, res) => {
   res.setHeader("Cache-Control", "no-store");
   res.json({
@@ -8981,21 +9005,52 @@ app.get("/api/demo/config", (req, res) => {
   });
 });
 
-app.post("/api/demo/enter", (req, res) => {
+app.post("/api/demo/enter", demoEntryRateLimit, (req, res) => {
   if (!mirasDemoEnabled()) {
     res.status(404).json({ error: "البيئة التجريبية غير مفعّلة في هذا النشر" });
     return;
   }
   const sessionId = `demo_${crypto.randomBytes(32).toString("hex")}`;
-  MirasDemo.create(sessionId, MIRAS_DEMO_TTL_MS);
+  if (!MirasDemo.create(sessionId, MIRAS_DEMO_TTL_MS)) {
+    res
+      .status(503)
+      .json({ error: "البيئة التجريبية مشغولة الآن بعدد الزوّار الأقصى. أعد المحاولة بعد قليل." });
+    return;
+  }
   res.append(
     "Set-Cookie",
     `${MIRAS_DEMO_COOKIE}=${encodeURIComponent(sessionId)}; ${cookieOptions(req, Math.floor(MIRAS_DEMO_TTL_MS / 1000))}`,
   );
-  res.json({ ok: true, demo: true, ttlMs: MIRAS_DEMO_TTL_MS });
+  /*
+   * الدخول إلى الصندوق يجب أن يُدخل الزائر فعلاً.
+   *
+   * كان إنشاء الصندوق يقف هنا، فيعود الزائر إلى نموذج الدخول نفسه ومعه حسابٌ
+   * تجريبي بلا كلمة مرور — فلا سبيل إلى الدخول أصلاً. والصندوق كامل خلف الشاشة
+   * ولا أحد يصل إليه.
+   *
+   * ولهذا تُصدَر هنا جلسةُ المدرّب التجريبي مباشرة. وهي بلا خطرٍ خارج الصندوق:
+   * لا وجود لهذا الحساب في أي قاعدة حقيقية، ويرفض `verifyMirasSessionToken`
+   * جلستَه صراحةً إن لم يكن الطلب داخل صندوق تجريبي.
+   */
+  const demoTeacher = {
+    id: MIRAS_DEMO_TEACHER_ID,
+    email: MIRAS_DEMO_TEACHER_EMAIL,
+    name: "د. سارة الخالد (بيئة تجريبية)",
+    role: "teacher" as const,
+    isActive: true,
+  };
+  const authToken = createTeacherAuthPayload(req, res, demoTeacher);
+  /* الواجهة تقرأ جلستها من التخزين لا من الكعكة، فتُعاد الجلسة كاملةً هنا. */
+  res.json({
+    ok: true,
+    demo: true,
+    ttlMs: MIRAS_DEMO_TTL_MS,
+    teacher: { ...demoTeacher, authToken },
+    authToken,
+  });
 });
 
-app.post("/api/demo/reset", (req, res) => {
+app.post("/api/demo/reset", demoEntryRateLimit, (req, res) => {
   const sessionId = readDemoCookie(req);
   if (!sessionId || !MirasDemo.reset(sessionId, MIRAS_DEMO_TTL_MS)) {
     res.status(410).json({ error: "انتهت الجلسة التجريبية" });

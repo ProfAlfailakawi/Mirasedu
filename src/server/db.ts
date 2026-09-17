@@ -3676,12 +3676,28 @@ function buildDemoDatabase(): LocalDatabase {
   return new LocalDatabase(createDemoDatabaseState(JSON.parse(JSON.stringify(initialTeachers))));
 }
 
+/*
+ * سقف الصناديق المتزامنة.
+ *
+ * كل صندوق قاعدةُ بياناتٍ كاملة في الذاكرة — مئة طالب ومئتان وخمسون تسليماً
+ * ومئتان وستون سجلاً — ومدخله مفتوح بلا حساب. فبلا سقفٍ يكفي نداءٌ متكرر على
+ * `/api/demo/enter` ليستهلك ذاكرة الخدمة حتى تسقط. وتحديد المعدّل يبطئ ذلك من
+ * عنوانٍ واحد، والسقف يمنعه مهما تعدّدت العناوين.
+ *
+ * والقيمة مختارة لعرضٍ لا لخدمةٍ عامة: خمسون زائراً في آنٍ واحد أكثر من أي
+ * اجتماع، ودونها يُردّ الطلب بوضوح بدل أن يسقط الخادم على الجميع.
+ */
+const MIRAS_DEMO_MAX_SANDBOXES = 50;
+
 export const MirasDemo = {
   isDemoRequest: (): boolean => Boolean(demoContext.getStore()),
   currentSessionId: (): string => demoContext.getStore()?.sessionId || "",
-  create(sessionId: string, ttlMs: number = MIRAS_DEMO_TTL_MS): void {
+  /** يُرجع false حين تمتلئ الطاقة — والمستدعي يردّ بوضوح لا يُنشئ صندوقاً صامتاً. */
+  create(sessionId: string, ttlMs: number = MIRAS_DEMO_TTL_MS): boolean {
     sweepDemoSandboxes();
+    if (demoSandboxes.size >= MIRAS_DEMO_MAX_SANDBOXES) return false;
     demoSandboxes.set(sessionId, { db: buildDemoDatabase(), expiresAt: Date.now() + ttlMs });
+    return true;
   },
   reset(sessionId: string, ttlMs: number = MIRAS_DEMO_TTL_MS): boolean {
     if (!sessionId.startsWith("demo_") || !demoSandboxes.has(sessionId)) return false;
