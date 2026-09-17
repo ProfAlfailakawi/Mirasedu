@@ -1,3 +1,4 @@
+import { AsyncLocalStorage } from "node:async_hooks";
 import fs from "fs";
 import os from "os";
 import path from "path";
@@ -11,6 +12,7 @@ import {
 import { getFirestore } from "firebase-admin/firestore";
 import { getStorage } from "firebase-admin/storage";
 import type { CodeLedgerEvent, SignedJoinCodeFields } from "../shared/types";
+import { createDemoDatabaseState } from "./demoSeed";
 
 // Initialize Firebase server-side if exists
 let dbFS: any = null;
@@ -1169,7 +1171,25 @@ export class LocalDatabase {
   private allowEmptyDatabaseWriteOnce: boolean = false;
   public initialSyncPromise: Promise<void>;
 
-  constructor() {
+  /**
+   * `isDemo` marks a throwaway instance handed to one demo visitor.
+   *
+   * A demo instance is built from a seed instead of `data/db.json`, never runs
+   * the initial Firestore read, and every save path below refuses early. That
+   * refusal is the whole safety property: a demo session can grade, revoke and
+   * suspend as freely as it likes without one byte reaching the real database
+   * on disk or in the cloud.
+   */
+  public readonly isDemo: boolean;
+
+  constructor(demoSeed?: DatabaseState) {
+    this.isDemo = Boolean(demoSeed);
+    if (demoSeed) {
+      this.data = demoSeed;
+      this.lastSyncedState = null;
+      this.initialSyncPromise = Promise.resolve();
+      return;
+    }
     this.data = this.load();
     this.lastSyncedState = cloneDbValue(this.data);
     this.initialSyncPromise = this.syncFromFirestore();
@@ -1805,6 +1825,8 @@ export class LocalDatabase {
   }
 
   private saveState(state: DatabaseState) {
+    // A demo sandbox lives and dies in memory. Nothing it does is written.
+    if (this.isDemo) return;
     try {
       const nextHasContent = databaseHasMeaningfulContent(state);
       const existingHasContent = readExistingDbFileHasMeaningfulContent();
@@ -1828,6 +1850,7 @@ export class LocalDatabase {
   // setImmediate، وكل تعديل لاحق في نفس الدورة يكتفي برفع علم dirty. النتيجة:
   // كتابة قرص واحدة لكل دفعة بدل N كتابات متزامنة تجمّد حلقة الأحداث.
   private scheduleLocalSave() {
+    if (this.isDemo) return;
     this.dirtyLocal = true;
     if (this.localSaveTimer) return;
     this.localSaveTimer = setImmediate(() => {
@@ -1838,6 +1861,7 @@ export class LocalDatabase {
 
   // تفريغ متزامن فوري لأي حالة مؤجَّلة (يُستخدم قبل المزامنة وعند إيقاف الخادم).
   public flushLocalSave() {
+    if (this.isDemo) return;
     if (!this.dirtyLocal) return;
     this.dirtyLocal = false;
     if (this.localSaveTimer) {
@@ -1855,6 +1879,14 @@ export class LocalDatabase {
   }
 
   public async persist(immediate: boolean = true) {
+    if (this.isDemo) {
+      // The mutation counter still advances so cache keys that depend on it
+      // (for example /api/live/student-state) invalidate exactly as they do in
+      // production; only the two durable writes are skipped.
+      this.mutationVersion += 1;
+      this.data.lastUpdated = Math.max(Date.now(), Number(this.data.lastUpdated || 0) + 1);
+      return;
+    }
     await this.reattemptDatabaseGuardIfCooldownPassed();
     if (this.databaseGuardLocked && !MIRAS_ALLOW_EMPTY_FIRESTORE_INIT && !MIRAS_ALLOW_LOCAL_RESTORE_TO_EMPTY_CLOUD) {
       console.error(
@@ -3590,26 +3622,107 @@ export class LocalDatabase {
   }
 }
 
-export const dbInstance = new LocalDatabase();
+const liveDbInstance = new LocalDatabase();
+
+/**
+ * Demo sandboxes.
+ *
+ * Each visitor who enters the demo gets a private `LocalDatabase`, seeded from
+ * `demoSeed.ts` and reachable only through their own session cookie.
+ * `dbInstance` is a proxy: inside a demo request it resolves to that visitor's
+ * sandbox, and everywhere else to the single real database. Every route and
+ * helper in the codebase was written against `dbInstance` and did not change.
+ */
+type DemoRecord = { db: LocalDatabase; expiresAt: number };
+const demoContext = new AsyncLocalStorage<{ sessionId: string; db: LocalDatabase }>();
+const demoSandboxes = new Map<string, DemoRecord>();
+
+function currentDb(): LocalDatabase {
+  return demoContext.getStore()?.db || liveDbInstance;
+}
+
+export const dbInstance: LocalDatabase = new Proxy(liveDbInstance, {
+  get(_target, prop, receiver) {
+    const active = currentDb();
+    const value = Reflect.get(active, prop, receiver);
+    return typeof value === "function" ? value.bind(active) : value;
+  },
+  set(_target, prop, value) {
+    return Reflect.set(currentDb(), prop, value);
+  },
+  has(_target, prop) { return Reflect.has(currentDb(), prop); },
+  ownKeys() { return Reflect.ownKeys(currentDb()); },
+  getOwnPropertyDescriptor(_target, prop) {
+    return Reflect.getOwnPropertyDescriptor(currentDb(), prop);
+  },
+}) as LocalDatabase;
+
+export const MIRAS_DEMO_TTL_MS = 60 * 60 * 1000;
+
+/** Demo is on by default; a deployment that must never offer it sets this to "false". */
+export function mirasDemoEnabled(): boolean {
+  return process.env.MIRAS_DEMO_ENABLED !== "false";
+}
+
+function sweepDemoSandboxes(): void {
+  const now = Date.now();
+  for (const [id, record] of demoSandboxes)
+    if (record.expiresAt <= now) demoSandboxes.delete(id);
+}
+
+function buildDemoDatabase(): LocalDatabase {
+  // Teacher login accounts carry over so the demo instructor is reached through
+  // the same code paths as a real one; everything else is synthetic.
+  return new LocalDatabase(createDemoDatabaseState(JSON.parse(JSON.stringify(initialTeachers))));
+}
+
+export const MirasDemo = {
+  isDemoRequest: (): boolean => Boolean(demoContext.getStore()),
+  currentSessionId: (): string => demoContext.getStore()?.sessionId || "",
+  create(sessionId: string, ttlMs: number = MIRAS_DEMO_TTL_MS): void {
+    sweepDemoSandboxes();
+    demoSandboxes.set(sessionId, { db: buildDemoDatabase(), expiresAt: Date.now() + ttlMs });
+  },
+  reset(sessionId: string, ttlMs: number = MIRAS_DEMO_TTL_MS): boolean {
+    if (!sessionId.startsWith("demo_") || !demoSandboxes.has(sessionId)) return false;
+    demoSandboxes.set(sessionId, { db: buildDemoDatabase(), expiresAt: Date.now() + ttlMs });
+    return true;
+  },
+  destroy(sessionId: string): void { demoSandboxes.delete(sessionId); },
+  has(sessionId: string): boolean {
+    const record = demoSandboxes.get(sessionId);
+    if (!record) return false;
+    if (record.expiresAt <= Date.now()) { demoSandboxes.delete(sessionId); return false; }
+    return true;
+  },
+  /** Runs `fn` bound to the visitor's sandbox. Returns false when the session has expired. */
+  run(sessionId: string, ttlMs: number, fn: () => void): boolean {
+    const record = demoSandboxes.get(sessionId);
+    if (!record || record.expiresAt <= Date.now()) { demoSandboxes.delete(sessionId); return false; }
+    record.expiresAt = Date.now() + ttlMs;
+    demoContext.run({ sessionId, db: record.db }, fn);
+    return true;
+  },
+};
 
 // عند إيقاف الخادم: بما أن الكتابة المحلية صارت مؤجَّلة، نضمن تفريغ آخر دفعة بشكل
 // متزامن حتى لا نفقد أي تعديل، ثم نمنح Firestore فرصة قصيرة لاستلام آخر مزامنة.
 let shuttingDownDb = false;
 process.on("exit", () => {
   try {
-    dbInstance.flushLocalSave();
+    liveDbInstance.flushLocalSave();
   } catch {}
 });
 const gracefulDbShutdown = (signal: NodeJS.Signals) => {
   if (shuttingDownDb) return;
   shuttingDownDb = true;
   try {
-    dbInstance.flushLocalSave();
+    liveDbInstance.flushLocalSave();
   } catch {}
   const finish = () => process.exit(0);
   // سقف 3 ثوانٍ حتى لا يتعلّق الإيقاف عند تعطل الشبكة.
   const timer = setTimeout(finish, 3000);
-  Promise.resolve(dbInstance.waitForSync())
+  Promise.resolve(liveDbInstance.waitForSync())
     .catch(() => {})
     .finally(() => {
       clearTimeout(timer);
