@@ -3398,6 +3398,7 @@ export default function App() {
 
   /* البيئة التجريبية: الخادم هو من يقرر إن كانت متاحة وإن كانت هذه الجلسة
      داخلها. لا نستنتج شيئاً من المتصفح — الكعكة HttpOnly ولا يراها العميل. */
+  const MIRAS_PRE_DEMO_TEACHER_SESSION = "miras_pre_demo_teacher_session";
   const [demoEnabled, setDemoEnabled] = useState(false);
   const [demoActive, setDemoActive] = useState(false);
   const [demoBusy, setDemoBusy] = useState(false);
@@ -3423,6 +3424,28 @@ export default function App() {
     try {
       const response = await fetch("/api/demo/enter", { method: "POST" });
       if (!response.ok) throw new Error("demo unavailable");
+      /*
+       * الصندوق وحده لا يُدخل أحداً.
+       *
+       * كان الخادم يُنشئ الصندوق ويكتفي، فيعود الزائر إلى نموذج الدخول ومعه
+       * حسابٌ تجريبي بلا كلمة مرور — أي بلا سبيلٍ إلى الدخول أصلاً. والواجهة
+       * تقرأ جلستها من التخزين لا من الكعكة، فتُكتب هنا جلسةُ المدرّب التجريبي.
+       *
+       * وتُحفظ الجلسة القائمة — إن وُجدت — جانباً قبل الكتابة فوقها، وتُعاد عند
+       * الخروج: دخولُ عرضٍ اختياري لا يجوز أن يُخرج أحداً من حسابه الحقيقي.
+       */
+      const payload = await response.clone().json().catch(() => ({}) as any);
+      const demoTeacher = payload?.teacher;
+      if (demoTeacher?.authToken) {
+        try {
+          const previous = localStorage.getItem("miras_teacher_session");
+          if (previous) sessionStorage.setItem(MIRAS_PRE_DEMO_TEACHER_SESSION, previous);
+          else sessionStorage.removeItem(MIRAS_PRE_DEMO_TEACHER_SESSION);
+          localStorage.setItem("miras_teacher_session", JSON.stringify(demoTeacher));
+        } catch {
+          /* تخزين محجوب: الصندوق يبقى، والدخول يتعذّر — ولا يُكسر شيء. */
+        }
+      }
       // إعادة تحميل كاملة: كل شاشة يجب أن تُبنى من الصندوق التجريبي، لا أن
       // تبقى ممسكة بصفوف من الحالة السابقة.
       window.location.reload();
@@ -3447,6 +3470,15 @@ export default function App() {
     setDemoBusy(true);
     try {
       await fetch("/api/demo/exit", { method: "POST" });
+      /* تُمحى جلسة العرض وتُعاد الجلسة السابقة كما كانت قبل الدخول. */
+      try {
+        const previous = sessionStorage.getItem(MIRAS_PRE_DEMO_TEACHER_SESSION);
+        if (previous) localStorage.setItem("miras_teacher_session", previous);
+        else localStorage.removeItem("miras_teacher_session");
+        sessionStorage.removeItem(MIRAS_PRE_DEMO_TEACHER_SESSION);
+      } catch {
+        /* لا يمنع الخروج */
+      }
     } catch {
       // نتابع للتحديث على أي حال: الكعكة قد تكون مُسحت فعلاً.
     }
