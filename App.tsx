@@ -16,6 +16,7 @@ import MirasLoader from "./src/components/MirasLoader";
 import { normalizeArabicIndicDigits, stripArabicIndicDigitsFromInput } from "./src/shared/arabic-text";
 import { mirasPhoneticWordMatch } from "./src/shared/phonetic-search";
 import {
+  allowDemoTransportOrigin,
   forgetDemoSessionId,
   rememberDemoSessionId,
 } from "./src/shared/demo-transport";
@@ -2622,6 +2623,9 @@ function resolveMirasDeviceId(): string {
 const originalFetch = typeof window !== "undefined" ? window.fetch : null;
 const MIRAS_API_ORIGIN =
   "https://miras-api-538577909672.us-central1.run.app";
+/* المسار المباشر خادمُنا نحن: تُحمل إليه ترويسة الصندوق كما تُحمل عبر Hosting،
+   وإلا خرج طلبُ الارتداد من صندوقه عند أول تعثّرٍ للشبكة. */
+allowDemoTransportOrigin(MIRAS_API_ORIGIN);
 const MIRAS_STUDENT_LIVE_SYNC_KEY = "miras_student_live_sync_v1";
 const MIRAS_STUDENT_LIVE_CHANNEL = "miras-student-live-v1";
 const MIRAS_DEVICE_LOCK_MESSAGE =

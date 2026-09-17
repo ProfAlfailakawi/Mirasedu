@@ -66,8 +66,22 @@ export function forgetDemoSessionId(): void {
   }
 }
 
-/* الترويسة لا تُرسل إلا إلى مسارات هذا الموقع نفسه. معرّف الصندوق لا يُسلَّم
+/* الترويسة لا تُرسل إلا إلى مسارات هذا الموقع — أو إلى أصلٍ أعلنه التطبيق
+   صراحةً أنه خادمُه هو (المسار المباشر إلى Cloud Run الذي يرتدّ إليه
+   `mirasFetchWithRecovery` حين تتعثّر شبكة Hosting). معرّف الصندوق لا يُسلَّم
    إلى أي جهةٍ أخرى مهما نادى التطبيقُ إليها. */
+const extraOwnOrigins = new Set<string>();
+
+/** يُعلن أصلًا إضافيًا على أنه خادم التطبيق نفسه، فتُحمل إليه الترويسة أيضًا. */
+export function allowDemoTransportOrigin(origin: unknown): void {
+  try {
+    const value = new URL(String(origin || "")).origin;
+    if (value.startsWith("https://")) extraOwnOrigins.add(value);
+  } catch {
+    /* أصل مشوّه لا يُضاف — والباب لا يُفتح على العموم. */
+  }
+}
+
 function isOwnApiRequest(input: RequestInfo | URL): boolean {
   try {
     const raw =
@@ -75,7 +89,7 @@ function isOwnApiRequest(input: RequestInfo | URL): boolean {
         ? input.url
         : String(input);
     const url = new URL(raw, window.location.href);
-    if (url.origin !== window.location.origin) return false;
+    if (url.origin !== window.location.origin && !extraOwnOrigins.has(url.origin)) return false;
     return url.pathname.startsWith("/api/") || url.pathname.startsWith("/seb/");
   } catch {
     return false;
@@ -170,3 +184,18 @@ export function discardOrphanedDemoSession(): boolean {
     return false;
   }
 }
+
+/*
+ * التركيب هنا، عند تقييم الوحدة — لا في `main.tsx` وحده.
+ *
+ * `App.tsx` يلتقط `window.fetch` في ثابتٍ على مستوى الوحدة (`originalFetch`)
+ * ويظلّل الاسم `fetch` لكل الملف. وبحكم ترتيب تقييم وحدات ES، يُقيَّم `App.tsx`
+ * قبل أن يعمل سطرٌ واحد من جسم `main.tsx` — فتركيبٌ يُنادى هناك يأتي بعد فوات
+ * الالتقاط، وتخرج كل نداءات `App.tsx` من غير الترويسة. وهذا رُئي على النشر
+ * الحيّ نصًّا: `Authorization` حاضرة و`x-miras-demo` غائبة، وكل شيء 401.
+ *
+ * أما هنا فالضمانة من المعيار نفسه: `App.tsx` يستورد هذه الوحدة، والتوابع
+ * تُقيَّم قبل مستورديها — فالتركيب يسبق الالتقاط حتمًا، مهما تغيّر ترتيب
+ * الاستيرادات في `main.tsx` غدًا.
+ */
+installDemoTransport();
