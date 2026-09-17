@@ -15,6 +15,10 @@ import LoginRevealOverlay from "./src/components/LoginRevealOverlay";
 import MirasLoader from "./src/components/MirasLoader";
 import { normalizeArabicIndicDigits, stripArabicIndicDigitsFromInput } from "./src/shared/arabic-text";
 import { mirasPhoneticWordMatch } from "./src/shared/phonetic-search";
+import {
+  forgetDemoSessionId,
+  rememberDemoSessionId,
+} from "./src/shared/demo-transport";
 
 // البصمة مسار اختياري؛ لا نحمل مكتبتها مع أول شاشة لكل طالب. تُجلب مرة واحدة
 // عند استخدام البصمة فقط، فتخف حزمة البداية من دون تغيير أي سلوك أمني.
@@ -3435,6 +3439,15 @@ export default function App() {
        * الخروج: دخولُ عرضٍ اختياري لا يجوز أن يُخرج أحداً من حسابه الحقيقي.
        */
       const payload = await response.clone().json().catch(() => ({}) as any);
+      /*
+       * معرّف الصندوق يُحفظ أولاً، قبل الجلسة وقبل إعادة التحميل.
+       *
+       * الكعكة وحدها لا تكفي: Firebase Hosting يحذفها قبل أن تصل إلى الخادم،
+       * فتضيع نسبة الطلب إلى صندوقه — ويُقذف الزائر إلى شاشة الدخول فور دخوله.
+       * والمعرّف المحفوظ هنا هو ما يرسله `installDemoTransport` في ترويسة مع كل
+       * نداء بعد إعادة التحميل. التفصيل في `src/shared/demo-transport.ts`.
+       */
+      rememberDemoSessionId(payload?.sessionId);
       const demoTeacher = payload?.teacher;
       if (demoTeacher?.authToken) {
         try {
@@ -3469,18 +3482,25 @@ export default function App() {
   const exitDemo = useCallback(async () => {
     setDemoBusy(true);
     try {
+      // يُطلب هدم الصندوق أولاً، وما زالت الترويسة تُرسل — فنسيانُ المعرّف قبل
+      // الطلب يُخرجه من صندوقه، فلا يُهدم شيء ويبقى معلّقاً حتى تنتهي مهلته.
       await fetch("/api/demo/exit", { method: "POST" });
-      /* تُمحى جلسة العرض وتُعاد الجلسة السابقة كما كانت قبل الدخول. */
-      try {
-        const previous = sessionStorage.getItem(MIRAS_PRE_DEMO_TEACHER_SESSION);
-        if (previous) localStorage.setItem("miras_teacher_session", previous);
-        else localStorage.removeItem("miras_teacher_session");
-        sessionStorage.removeItem(MIRAS_PRE_DEMO_TEACHER_SESSION);
-      } catch {
-        /* لا يمنع الخروج */
-      }
     } catch {
-      // نتابع للتحديث على أي حال: الكعكة قد تكون مُسحت فعلاً.
+      // شبكة متعثّرة لا تحبس أحداً في العرض: يمضي التنظيف المحلي على أي حال،
+      // والصندوق يسقط وحده بانتهاء مهلته.
+    }
+
+    /* ما يلي يجري دائماً — نجح الطلب أو فشل. كان داخل `try` الطلب نفسه، فكان
+       فشلُ الشبكة يُبقي الزائر بهوية العرض ويؤجّل إعادة جلسته الحقيقية. */
+    forgetDemoSessionId();
+    /* تُمحى جلسة العرض وتُعاد الجلسة السابقة كما كانت قبل الدخول. */
+    try {
+      const previous = sessionStorage.getItem(MIRAS_PRE_DEMO_TEACHER_SESSION);
+      if (previous) localStorage.setItem("miras_teacher_session", previous);
+      else localStorage.removeItem("miras_teacher_session");
+      sessionStorage.removeItem(MIRAS_PRE_DEMO_TEACHER_SESSION);
+    } catch {
+      /* لا يمنع الخروج */
     }
     window.location.reload();
   }, []);

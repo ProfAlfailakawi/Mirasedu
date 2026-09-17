@@ -8966,18 +8966,46 @@ app.use(express.urlencoded({ limit: "50mb", extended: true }));
 // الحقيقية إطلاقاً — لا على القرص ولا في Firestore. الطلبات بلا الكعكة تمرّ كما هي.
 const MIRAS_DEMO_COOKIE = "miras_demo";
 
+/*
+ * ولا يُحمل المعرّف في كعكة وحدها.
+ *
+ * Firebase Hosting يحذف كل الكعكات من الطلبات التي يمرّرها إلى Cloud Run إلا
+ * `__session` وحدها — سلوكٌ موثّق عندهم، سببه أن الكعكات تدخل في مفتاح التخزين
+ * المؤقت في شبكتهم. و`/api/**` هنا تمرّ بهذا الطريق (انظر `firebase.json`).
+ *
+ * فكانت كعكة `miras_demo` تُضبط في المتصفح ولا تصل إلى هنا أبداً على النشر
+ * الحيّ: يرى الخادم طلباً بلا صندوق، فترفض `verifyMirasSessionToken` هوية
+ * المدرّب التجريبي — لأنها لا تعمل خارج صندوق — ويُقذف الزائر إلى شاشة الدخول
+ * بعد لحظةٍ من دخوله. ومحلياً لا شبكة بين المتصفح والخادم، فكان يعمل ولا يُرى
+ * العطب.
+ *
+ * وبقيةُ التطبيق كانت قد جاوزت هذا القيد من قبل: الجلسة تصل في `Authorization`
+ * ومعرّف الجهاز في `x-miras-device-id`. فالصندوق يسير الطريق نفسه.
+ *
+ * والكعكة تبقى مقبولة كبديل — تصل في التشغيل المحلي وعند بلوغ الخدمة مباشرة —
+ * وقبولها لا يمنح شيئاً: المعرّف يُتحقَّق من صيغته في الحالتين.
+ */
+const MIRAS_DEMO_HEADER = "x-miras-demo";
+
+/* صيغة ما يُصدره `/api/demo/enter` حرفياً: `demo_` + 32 بايت عشوائية بالست عشري.
+   ما لا يطابقها ليس معرّفاً أصدرناه، فلا يُقرأ ولا يُحيي صندوقاً. */
+const MIRAS_DEMO_SESSION_PATTERN = /^demo_[0-9a-f]{64}$/;
+
 /* هوية مدرّب البيئة التجريبية. لا وجود لها إلا داخل الصندوق، وجلستُها مرفوضة
-   خارجه صراحةً (انظر `verifyMirasSessionToken`) — فالرمز لا ينفع بلا كعكة الصندوق. */
+   خارجه صراحةً (انظر `verifyMirasSessionToken`) — فالرمز لا ينفع بلا صندوق. */
 const MIRAS_DEMO_TEACHER_EMAIL = "demo.teacher@miras.test";
 const MIRAS_DEMO_TEACHER_ID = "demo_teacher_1";
 
-function readDemoCookie(req: express.Request): string {
-  const value = String(parseCookies(req)[MIRAS_DEMO_COOKIE] || "").trim();
-  return value.startsWith("demo_") ? value : "";
+function readDemoSessionId(req: express.Request): string {
+  const rawHeader = req.headers[MIRAS_DEMO_HEADER];
+  const header = String((Array.isArray(rawHeader) ? rawHeader[0] : rawHeader) || "").trim();
+  if (MIRAS_DEMO_SESSION_PATTERN.test(header)) return header;
+  const cookie = String(parseCookies(req)[MIRAS_DEMO_COOKIE] || "").trim();
+  return MIRAS_DEMO_SESSION_PATTERN.test(cookie) ? cookie : "";
 }
 
 app.use((req, res, next) => {
-  const sessionId = readDemoCookie(req);
+  const sessionId = readDemoSessionId(req);
   if (!sessionId) return next();
   if (MirasDemo.run(sessionId, MIRAS_DEMO_TTL_MS, next)) return;
 
@@ -8993,12 +9021,14 @@ app.use((req, res, next) => {
    * والبيانات حتمية: إعادة البناء تعطي الصندوق نفسه. فيفقد الزائر ما كتبه في
    * جلسته — لا أكثر — ويبقى داخل العرض. وطردُه من عرضٍ يشاهده أسوأ بكثير.
    *
-   * ولا يفتح ذلك بابًا: المعرّف يجب أن يكون من صيغة `demo_` وطوله كطول ما
-   * يُصدره الخادم، وكل ما يُبنى صندوقٌ معزول لا يمسّ بيانات أحد.
+   * ولا يفتح ذلك بابًا: `readDemoSessionId` لا يعيد إلا معرّفاً مطابقاً لصيغة
+   * ما يُصدره الخادم، وكل ما يُبنى صندوقٌ معزول لا يمسّ بيانات أحد.
    */
-  const revivable =
-    mirasDemoEnabled() && sessionId.startsWith("demo_") && sessionId.length === 69;
-  if (revivable && MirasDemo.create(sessionId, MIRAS_DEMO_TTL_MS) && MirasDemo.run(sessionId, MIRAS_DEMO_TTL_MS, next)) {
+  if (
+    mirasDemoEnabled() &&
+    MirasDemo.create(sessionId, MIRAS_DEMO_TTL_MS) &&
+    MirasDemo.run(sessionId, MIRAS_DEMO_TTL_MS, next)
+  ) {
     return;
   }
 
@@ -9062,18 +9092,21 @@ app.post("/api/demo/enter", demoEntryRateLimit, (req, res) => {
     isActive: true,
   };
   const authToken = createTeacherAuthPayload(req, res, demoTeacher);
-  /* الواجهة تقرأ جلستها من التخزين لا من الكعكة، فتُعاد الجلسة كاملةً هنا. */
+  /* الواجهة تقرأ جلستها من التخزين لا من الكعكة، فتُعاد الجلسة كاملةً هنا.
+     ويُعاد معها `sessionId`: الكعكة `HttpOnly` لا يراها العميل، وهو يحتاجه
+     ليرسله في `x-miras-demo` مع كل طلب — وإلا لم يصل الصندوق عبر Hosting. */
   res.json({
     ok: true,
     demo: true,
     ttlMs: MIRAS_DEMO_TTL_MS,
+    sessionId,
     teacher: { ...demoTeacher, authToken },
     authToken,
   });
 });
 
 app.post("/api/demo/reset", demoEntryRateLimit, (req, res) => {
-  const sessionId = readDemoCookie(req);
+  const sessionId = readDemoSessionId(req);
   if (!sessionId || !MirasDemo.reset(sessionId, MIRAS_DEMO_TTL_MS)) {
     res.status(410).json({ error: "انتهت الجلسة التجريبية" });
     return;
@@ -9082,7 +9115,7 @@ app.post("/api/demo/reset", demoEntryRateLimit, (req, res) => {
 });
 
 app.post("/api/demo/exit", (req, res) => {
-  const sessionId = readDemoCookie(req);
+  const sessionId = readDemoSessionId(req);
   if (sessionId) MirasDemo.destroy(sessionId);
   res.append("Set-Cookie", `${MIRAS_DEMO_COOKIE}=; ${cookieOptions(req, 0)}`);
   // كعكة الجلسة التجريبية تُمسح أيضاً حتى لا تبقى هوية معلّقة بعد الخروج.

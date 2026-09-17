@@ -1,6 +1,12 @@
 import {Component, StrictMode, type ReactNode} from 'react';
 import {createRoot} from 'react-dom/client';
 import {installAppUpdate, pageIsBusy} from './shared/app-update';
+import {installDemoTransport} from './shared/demo-transport';
+
+// قبل أي طلب يخرج من هذه الصفحة — ومنها بلاغ حاجز العرض أدناه: كل نداء إلى
+// `/api/` في لسانٍ داخل البيئة التجريبية يجب أن يحمل معرّف صندوقه، وإلا خرج
+// إلى البيانات الحقيقية. التفصيل وسببه في `shared/demo-transport.ts`.
+installDemoTransport();
 // Google AI Studio edits the root App.tsx/index.css files. Keep those files as
 // the single production source so preview, build, and Firebase Hosting cannot
 // silently drift onto different copies of the interface.

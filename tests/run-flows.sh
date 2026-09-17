@@ -79,6 +79,7 @@ run_group tests/flows.grade-release.mjs
 run_group tests/flows.device-lock.mjs
 run_group tests/flows.public-device-login.mjs
 run_group tests/flows.authz-audit.mjs
+run_group tests/flows.demo-hosting.mjs
 node node_modules/.bin/tsx tests/flows.arabic-text.mjs || overall=1
 stop_server
 
