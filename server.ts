@@ -290,8 +290,13 @@ function verifyMirasSessionTokenValue(
     return null;
   }
   const computedSig = signMirasPayload(payload);
-  if (computedSig !== sig) {
-    console.warn(`[AUTH_DEBUG] Signature mismatch for ${context}. Expected: ${computedSig}, Got: ${sig}`);
+  // مقارنة ثابتة الزمن لمنع تسريب التوقيت، ولا نُسجّل التوقيع المتوقّع في
+  // السجلّات (كان تسريباً يتيح تزوير الجلسات لمن يقرأ السجلّات).
+  const sigMatches =
+    computedSig.length === sig.length &&
+    crypto.timingSafeEqual(Buffer.from(computedSig), Buffer.from(sig));
+  if (!sigMatches) {
+    console.warn(`[AUTH_DEBUG] Signature mismatch for ${context}.`);
     return null;
   }
   try {
