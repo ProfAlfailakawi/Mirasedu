@@ -119,3 +119,54 @@ export function installDemoTransport(): void {
     }
   } as typeof window.fetch;
 }
+
+/* مفاتيح التخزين التي تحمل جلسة المدرّب، وبريد مدرّب العرض كما يُصدره الخادم. */
+const MIRAS_TEACHER_SESSION_KEY = "miras_teacher_session";
+const MIRAS_PRE_DEMO_TEACHER_SESSION = "miras_pre_demo_teacher_session";
+const MIRAS_DEMO_TEACHER_EMAIL = "demo.teacher@miras.test";
+
+/**
+ * جلسةُ عرضٍ بلا صندوق: تُطرح، ولا تُترك تطرق الخادم.
+ *
+ * جلسة المدرّب تُحفظ في `localStorage` فتبقى عبر كل تحميلٍ ونشر، بينما معرّف
+ * الصندوق في `sessionStorage` ويزول بإغلاق اللسان. فيجتمع الاثنان على حالٍ لا
+ * تعمل: هويةُ مدرّب العرض حاضرة، ولا صندوق ينسبها إليه.
+ *
+ * وتقع هذه الحال في ثلاثة مواضع على الأقل:
+ *   • لسانٌ دخل العرض قبل أن يُنشر نقل الترويسة، فكُتبت الهوية ولم يُحفظ معرّف.
+ *   • انقضاء مهلة الصندوق أو إعادة تشغيل الخدمة تحت زائرٍ ما زال فاتحًا.
+ *   • لسانٌ يُستعاد من تاريخ المتصفح بعد إغلاقه.
+ *
+ * وأثرُها ليس رسالةً واحدة: كل نداء إلى `/api/teacher/*` يُردّ بـ401 لأن الخادم
+ * يرفض هوية العرض خارج صندوقها، فتمتلئ الشاشة بأخطاء ولا مخرج منها إلا مسح
+ * التخزين يدويًا — وهذا ما لا يفعله من يُعرض عليه المنتج.
+ *
+ * فتُطرح الهوية هنا قبل أن تُرسم الواجهة أو يخرج طلب، وتُعاد الجلسة الحقيقية إن
+ * كانت محفوظة. والشرط دقيق: لا تُمسّ إلا جلسةٌ بريدُها بريدُ مدرّب العرض بعينه،
+ * ويُقرأ من الحقل لا بالبحث في النص — فجلسة مدرّبٍ حقيقي لا تُلمس بحال.
+ */
+export function discardOrphanedDemoSession(): boolean {
+  try {
+    if (readDemoSessionId()) return false;
+    const raw = localStorage.getItem(MIRAS_TEACHER_SESSION_KEY);
+    if (!raw) return false;
+
+    let email = "";
+    try {
+      email = String((JSON.parse(raw) as { email?: unknown })?.email || "").toLowerCase();
+    } catch {
+      /* محتوى غير صالح ليس جلسة عرضٍ نعرفها: لا يُمسّ. */
+      return false;
+    }
+    if (email !== MIRAS_DEMO_TEACHER_EMAIL) return false;
+
+    const previous = sessionStorage.getItem(MIRAS_PRE_DEMO_TEACHER_SESSION);
+    if (previous) localStorage.setItem(MIRAS_TEACHER_SESSION_KEY, previous);
+    else localStorage.removeItem(MIRAS_TEACHER_SESSION_KEY);
+    sessionStorage.removeItem(MIRAS_PRE_DEMO_TEACHER_SESSION);
+    return true;
+  } catch {
+    /* تخزين محجوب: لا شيء يُطرح، ولا شيء يُكسر. */
+    return false;
+  }
+}
