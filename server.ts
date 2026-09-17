@@ -8979,11 +8979,33 @@ function readDemoCookie(req: express.Request): string {
 app.use((req, res, next) => {
   const sessionId = readDemoCookie(req);
   if (!sessionId) return next();
-  if (!MirasDemo.run(sessionId, MIRAS_DEMO_TTL_MS, next)) {
-    // انتهت الجلسة: نمسح الكعكة بدل تقديم البيانات الحقيقية بصمت.
-    res.append("Set-Cookie", `${MIRAS_DEMO_COOKIE}=; ${cookieOptions(req, 0)}`);
-    next();
+  if (MirasDemo.run(sessionId, MIRAS_DEMO_TTL_MS, next)) return;
+
+  /*
+   * ضاع الصندوق — يُعاد بناؤه، ولا يُطرد الزائر.
+   *
+   * الصندوق يعيش في ذاكرة العملية، و Cloud Run يُطفئ النسخة عند الخمول ويعيد
+   * تشغيلها. فكانت الذاكرة تُمحى تحت زائرٍ في منتصف عرضه: تُمسح الكعكة، فتُرفض
+   * هوية المدرّب التجريبي (لأنها لا تعمل خارج صندوق)، فيُقذف إلى شاشة الدخول
+   * بعد لحظات من دخوله. وهذا ما ظهر على النشر الحيّ ولا يظهر محليًا، لأن
+   * العملية هناك لا تُطفأ.
+   *
+   * والبيانات حتمية: إعادة البناء تعطي الصندوق نفسه. فيفقد الزائر ما كتبه في
+   * جلسته — لا أكثر — ويبقى داخل العرض. وطردُه من عرضٍ يشاهده أسوأ بكثير.
+   *
+   * ولا يفتح ذلك بابًا: المعرّف يجب أن يكون من صيغة `demo_` وطوله كطول ما
+   * يُصدره الخادم، وكل ما يُبنى صندوقٌ معزول لا يمسّ بيانات أحد.
+   */
+  const revivable =
+    mirasDemoEnabled() && sessionId.startsWith("demo_") && sessionId.length === 69;
+  if (revivable && MirasDemo.create(sessionId, MIRAS_DEMO_TTL_MS) && MirasDemo.run(sessionId, MIRAS_DEMO_TTL_MS, next)) {
+    return;
   }
+
+  // تعذّرت الإعادة (الديمو مطفأ، أو امتلأت الطاقة): تُمسح الكعكة بدل تقديم
+  // البيانات الحقيقية بصمت.
+  res.append("Set-Cookie", `${MIRAS_DEMO_COOKIE}=; ${cookieOptions(req, 0)}`);
+  next();
 });
 
 /* مدخل العرض يُصدر جلسةً ويحجز ذاكرةً بلا حساب، فيُحدَّد معدّله كما يُحدَّد أي

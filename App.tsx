@@ -31837,7 +31837,9 @@ ${rows
                             type="button"
                             disabled={demoBusy}
                             onClick={() => void enterDemo()}
-                            className="flex w-full items-center justify-center gap-2 rounded-2xl border border-amber-300/60 bg-amber-50 px-4 py-3 text-[11px] font-bold text-amber-800 transition hover:bg-amber-100 disabled:opacity-60"
+                            title="استعراض النظام ببيانات تجريبية — بيئة معزولة لا تمسّ بيانات أي جهة"
+                            aria-label="استعراض النظام ببيانات تجريبية"
+                            className="mx-auto grid h-11 w-11 place-items-center rounded-2xl border border-amber-300/60 bg-amber-50 text-amber-800 transition hover:bg-amber-100 disabled:opacity-60"
                           >
                             {demoBusy ? (
                               <MirasLoader
@@ -31846,9 +31848,8 @@ ${rows
                                 label="جارٍ فتح البيئة التجريبية…"
                               />
                             ) : (
-                              <FlaskConical className="h-4 w-4" />
+                              <FlaskConical className="h-4 w-4" aria-hidden="true" />
                             )}
-                            <span>استعراض النظام ببيانات تجريبية</span>
                           </button>
                         )}
                       </div>
@@ -31981,14 +31982,15 @@ ${rows
                           type="button"
                           disabled={demoBusy}
                           onClick={() => void enterDemo()}
-                          className="flex w-full items-center justify-center gap-2 rounded-2xl border border-amber-300/60 bg-amber-50 px-4 py-3 text-[11px] font-bold text-amber-800 transition hover:bg-amber-100 disabled:opacity-60"
+                          title="استعراض النظام ببيانات تجريبية — بيئة معزولة لا تمسّ بيانات أي جهة"
+                          aria-label="استعراض النظام ببيانات تجريبية"
+                          className="mx-auto grid h-11 w-11 place-items-center rounded-2xl border border-amber-300/60 bg-amber-50 text-amber-800 transition hover:bg-amber-100 disabled:opacity-60"
                         >
                           {demoBusy ? (
                             <MirasLoader size={16} role="current" label="جارٍ فتح البيئة التجريبية…" />
                           ) : (
-                            <FlaskConical className="h-4 w-4" />
+                            <FlaskConical className="h-4 w-4" aria-hidden="true" />
                           )}
-                          <span>استعراض النظام ببيانات تجريبية</span>
                         </button>
                       )}
                     </>
