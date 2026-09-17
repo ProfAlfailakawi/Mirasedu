@@ -8986,6 +8986,16 @@ app.use((req, res, next) => {
   }
 });
 
+/* مدخل العرض يُصدر جلسةً ويحجز ذاكرةً بلا حساب، فيُحدَّد معدّله كما يُحدَّد أي
+   مسار يمنح صلاحية. والسقف في `MirasDemo.create` يكمله حين تتعدّد العناوين. */
+const demoEntryRateLimit = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 20,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: "طلبات كثيرة على البيئة التجريبية. أعد المحاولة بعد قليل." },
+});
+
 app.get("/api/demo/config", (req, res) => {
   res.setHeader("Cache-Control", "no-store");
   res.json({
@@ -8995,13 +9005,18 @@ app.get("/api/demo/config", (req, res) => {
   });
 });
 
-app.post("/api/demo/enter", (req, res) => {
+app.post("/api/demo/enter", demoEntryRateLimit, (req, res) => {
   if (!mirasDemoEnabled()) {
     res.status(404).json({ error: "البيئة التجريبية غير مفعّلة في هذا النشر" });
     return;
   }
   const sessionId = `demo_${crypto.randomBytes(32).toString("hex")}`;
-  MirasDemo.create(sessionId, MIRAS_DEMO_TTL_MS);
+  if (!MirasDemo.create(sessionId, MIRAS_DEMO_TTL_MS)) {
+    res
+      .status(503)
+      .json({ error: "البيئة التجريبية مشغولة الآن بعدد الزوّار الأقصى. أعد المحاولة بعد قليل." });
+    return;
+  }
   res.append(
     "Set-Cookie",
     `${MIRAS_DEMO_COOKIE}=${encodeURIComponent(sessionId)}; ${cookieOptions(req, Math.floor(MIRAS_DEMO_TTL_MS / 1000))}`,
@@ -9035,7 +9050,7 @@ app.post("/api/demo/enter", (req, res) => {
   });
 });
 
-app.post("/api/demo/reset", (req, res) => {
+app.post("/api/demo/reset", demoEntryRateLimit, (req, res) => {
   const sessionId = readDemoCookie(req);
   if (!sessionId || !MirasDemo.reset(sessionId, MIRAS_DEMO_TTL_MS)) {
     res.status(410).json({ error: "انتهت الجلسة التجريبية" });
