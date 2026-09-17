@@ -3410,6 +3410,15 @@ export default function App() {
   const [demoEnabled, setDemoEnabled] = useState(false);
   const [demoActive, setDemoActive] = useState(false);
   const [demoBusy, setDemoBusy] = useState(false);
+  /* الدور المعروض داخل الصندوق. يُقرأ من التخزين لا من حالةٍ في الذاكرة: تبديل
+     الدور يُعيد التحميل، فالمصدر الوحيد الباقي بعد الإقلاع هو الجلسة المكتوبة. */
+  const demoRole: "teacher" | "student" = (() => {
+    try {
+      return localStorage.getItem("miras_student_session") ? "student" : "teacher";
+    } catch {
+      return "teacher";
+    }
+  })();
 
   const refreshDemoState = useCallback(async () => {
     try {
@@ -3465,6 +3474,47 @@ export default function App() {
       }
       // إعادة تحميل كاملة: كل شاشة يجب أن تُبنى من الصندوق التجريبي، لا أن
       // تبقى ممسكة بصفوف من الحالة السابقة.
+      window.location.reload();
+    } catch {
+      setDemoBusy(false);
+    }
+  }, []);
+
+  /*
+   * تبديل الدور المعروض — معلّم أو طالب — داخل الصندوق نفسه.
+   *
+   * شاشة المعلّم وحدها نصفُ المنتج: التسليم والاختبار والتفعيل وقفل الجهاز لا
+   * تُرى إلا من حساب طالب. والصندوق واحد لا يتغيّر: يبقى معرّفه ومعه بياناته،
+   * وإنما تُستبدل الهوية التي تُقرأ بها.
+   *
+   * وتُمحى الجلسة الأخرى قبل كتابة الجديدة: الواجهة تختار شاشتها عند الإقلاع
+   * بأسبقية الطالب على المعلّم، فبقاء الاثنتين معاً يحبس العرض في شاشة الطالب
+   * مهما بُدِّل الدور. وإعادةُ التحميل مقصودة: الشاشات تُبنى على الدور عند
+   * الإقلاع، وتبديلٌ في منتصف العمر يترك نصف واجهةٍ من دورٍ ونصفَها من آخر.
+   */
+  const switchDemoRole = useCallback(async (role: "teacher" | "student") => {
+    setDemoBusy(true);
+    try {
+      const response = await fetch("/api/demo/role", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ role }),
+      });
+      if (!response.ok) throw new Error("role unavailable");
+      const payload = await response.json().catch(() => ({}) as any);
+      const identity = role === "student" ? payload?.student : payload?.teacher;
+      if (!identity?.authToken) throw new Error("no session");
+      try {
+        localStorage.removeItem("miras_student_session");
+        localStorage.removeItem("miras_teacher_session");
+        localStorage.setItem(
+          role === "student" ? "miras_student_session" : "miras_teacher_session",
+          JSON.stringify(identity),
+        );
+      } catch {
+        /* تخزين محجوب: الصندوق يبقى، والتبديل يتعذّر — ولا يُكسر شيء. */
+        throw new Error("storage blocked");
+      }
       window.location.reload();
     } catch {
       setDemoBusy(false);
@@ -29447,8 +29497,40 @@ ${rows
       {demoActive && (
         <div className="fixed inset-x-0 top-0 z-[200600] flex justify-center pointer-events-none">
           <div className="pointer-events-auto mt-2 flex items-center gap-2 rounded-full border border-amber-300 bg-amber-100/95 px-3 py-1.5 text-[11px] font-black text-amber-900 shadow-lg backdrop-blur">
-            <FlaskConical className="h-3.5 w-3.5" aria-hidden="true" />
-            <span>بيئة تجريبية — بيانات مصطنعة</span>
+            {/* أيقونات بلا كلام: الشريط وسمٌ هادئ فوق شاشةٍ تُعرض على جهة، والنصّ
+                فيه يسرق النظر من المنتج نفسه. والمعنى يصل من الأيقونة، ويبقى
+                كاملاً لقارئ الشاشة في `aria-label` و`title`. */}
+            <FlaskConical
+              className="h-3.5 w-3.5"
+              role="img"
+              aria-label="بيئة تجريبية — بيانات مصطنعة معزولة"
+            />
+            {/* اختيار الدور: عرضُ مِراس بشاشة المعلّم وحدها يعرض نصف المنتج،
+                والطرف الآخر من كل شيء هنا لا يُرى إلا من حساب طالب. زرّان لا
+                قائمة: القائمة لا تُقرأ إلا بفتحها، والزرّ يُظهر الدور الحاضر. */}
+            {(
+              [
+                ["teacher", "عرض شاشة المعلّم", Presentation],
+                ["student", "عرض شاشة الطالب", GraduationCap],
+              ] as const
+            ).map(([role, label, Icon]) => (
+              <button
+                key={role}
+                type="button"
+                disabled={demoBusy || demoRole === role}
+                aria-pressed={demoRole === role}
+                onClick={() => void switchDemoRole(role)}
+                title={label}
+                aria-label={label}
+                className={`grid h-6 w-6 place-items-center rounded-full transition ${
+                  demoRole === role
+                    ? "bg-amber-900 text-amber-50"
+                    : "hover:bg-amber-200 disabled:opacity-50"
+                }`}
+              >
+                <Icon className="h-3.5 w-3.5" />
+              </button>
+            ))}
             <button
               type="button"
               disabled={demoBusy}
