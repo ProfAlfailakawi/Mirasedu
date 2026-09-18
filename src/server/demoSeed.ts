@@ -348,6 +348,332 @@ export function createDemoDatabaseState(liveTeachers: Teacher[]): DatabaseState 
     };
   });
 
+  /*
+   * الاختبارات والمشاريع — طرفا العمل في مِراس.
+   *
+   * كانت `teacherExams` و`teacherProjects` و`teacherSubmissions` فارغةً كلها،
+   * فيظهر المنتج بنصفه: لوحةٌ فيها طلبة ودرجات، ولا شيء يُسلَّم ولا شيء يُصحَّح.
+   * وشاشة الطالب تقول «مطلوب: ٠» — وهي أول ما ينظر إليه من يُعرض عليه النظام.
+   *
+   * والتوزيع مقصود لا عشوائي، وكله في شعبة الطالب المعروض (`EDU-TECH-B2`):
+   *   • اختبارٌ مفتوح الآن ولم يدخله      → «مطلوب» على شاشته
+   *   • مشروعان لم يُسلَّما بعد ومهلتهما قادمة → «مطلوب» كذلك
+   *   • اختبارٌ أُغلق وسلّمه وينتظر الرصد   → صفٌّ في طابور الأستاذ
+   *   • مشروعٌ سلّمه هو وأربعون غيره        → طابورُ تصحيحٍ حقيقي لا صفٌّ واحد
+   *   • اختبارٌ أُغلق ورُصد وأُعلنت درجته    → تاريخٌ مكتمل لا شاشةٌ بلا ماضٍ
+   */
+  const DEMO_SECTION = "EDU-TECH-B2";
+  /*
+   * والشعبة الأولى تُملأ كذلك، ولها سببٌ دقيق: لوحة الأستاذ تختار مقررها
+   * افتراضيًا بأول شعبة في القائمة (`visibleTeacherSections[0]`) لا بشعبة
+   * الطالب المعروض. فلو كان العمل كله في شعبة الطالب وحدها لفتح الأستاذ لوحته
+   * على «الاختبارات ٠ · المشاريع ٠» — وهي أول شاشة تُعرض على جهة. رُئي فعلًا
+   * في المتصفح قبل أن تُملأ.
+   */
+  const LANDING_SECTION = "EDU-TECH-A1";
+  const demoSectionStudents = students.filter((st) => st.sectionCode === DEMO_SECTION);
+  const landingSectionStudents = students.filter((st) => st.sectionCode === LANDING_SECTION);
+
+  const teacherExams = [
+    {
+      id: "demo_exam_open",
+      title: "اختبار الفصل الثاني — أنماط التعلّم والوسائط",
+      points: 20,
+      questionsCount: 15,
+      /* مفتوحٌ الآن: فُتح أمس ويُغلق بعد أربعة أيام. */
+      open: ago(1),
+      close: ahead(4),
+      courseCode: DEMO_SECTION,
+      antiCheat: { randomizeQuestions: true, randomizeOptions: true, timerMinutes: 45, autosave: true },
+      review: { mode: "after_close" as const, scope: "mistakes" as const, showGrade: true, gradesReleased: false },
+      createdBy: "demo.teacher@miras.test",
+      createdAt: ago(9),
+    },
+    {
+      id: "demo_exam_grading",
+      title: "اختبار قصير — تصميم الأنشطة الرقمية",
+      points: 10,
+      questionsCount: 8,
+      /* أُغلق قبل ثلاثة أيام، وتسليماته تنتظر الرصد. */
+      open: ago(10),
+      close: ago(3),
+      courseCode: DEMO_SECTION,
+      antiCheat: { randomizeQuestions: true, timerMinutes: 20, autosave: true },
+      review: { mode: "after_close" as const, scope: "all" as const, showGrade: true, gradesReleased: false },
+      createdBy: "demo.teacher@miras.test",
+      createdAt: ago(18),
+    },
+    {
+      id: "demo_exam_released",
+      title: "اختبار الفصل الأول — أسس تقنيات التعليم",
+      points: 25,
+      questionsCount: 20,
+      open: ago(34),
+      close: ago(28),
+      courseCode: DEMO_SECTION,
+      antiCheat: { randomizeQuestions: true, randomizeOptions: true, timerMinutes: 60, autosave: true },
+      review: { mode: "after_close" as const, scope: "all" as const, showGrade: true, gradesReleased: true, releasedAt: ago(26) },
+      createdBy: "demo.teacher@miras.test",
+      createdAt: ago(45),
+    },
+    {
+      id: "demo_exam_a1_grading",
+      title: "اختبار منتصف الفصل — الوسائط وأثرها التعليمي",
+      points: 20,
+      questionsCount: 16,
+      open: ago(9),
+      close: ago(2),
+      courseCode: LANDING_SECTION,
+      antiCheat: { randomizeQuestions: true, randomizeOptions: true, timerMinutes: 45, autosave: true },
+      review: { mode: "after_close" as const, scope: "mistakes" as const, showGrade: true, gradesReleased: false },
+      createdBy: "demo.teacher@miras.test",
+      createdAt: ago(20),
+    },
+    {
+      id: "demo_exam_a1_open",
+      title: "اختبار قصير — معايير اختيار الوسيلة",
+      points: 10,
+      questionsCount: 8,
+      open: ago(1),
+      close: ahead(3),
+      courseCode: LANDING_SECTION,
+      antiCheat: { randomizeQuestions: true, timerMinutes: 20, autosave: true },
+      review: { mode: "after_close" as const, scope: "all" as const, showGrade: true, gradesReleased: false },
+      createdBy: "demo.teacher@miras.test",
+      createdAt: ago(6),
+    },
+    {
+      id: "demo_exam_upcoming",
+      title: "اختبار تطبيقات الذكاء الاصطناعي في الصف",
+      points: 15,
+      questionsCount: 12,
+      /* لم يُفتح بعد: يظهر على شاشة الطالب كقادمٍ لا كمطلوبٍ الآن. */
+      open: ahead(5),
+      close: ahead(8),
+      courseCode: "AI-EDU-KW-C1",
+      antiCheat: { randomizeQuestions: true, timerMinutes: 30, autosave: true },
+      review: { mode: "after_close" as const, scope: "mistakes" as const, showGrade: true, gradesReleased: false },
+      createdBy: "demo.teacher@miras.test",
+      createdAt: ago(4),
+    },
+  ];
+
+  const teacherProjects = [
+    {
+      id: "demo_proj_due_soon",
+      title: "تصميم وحدة تعليمية رقمية قصيرة",
+      description:
+        "صمّم وحدة تعليمية لا تتجاوز ثلاث حصص لموضوعٍ من الفصل الثاني، موضّحًا الأهداف السلوكية والوسائط المستخدمة وأداة التقويم. سلّم ملفًا واحدًا يتضمّن خطة الوحدة وعيّنة من النشاط.",
+      courseCode: DEMO_SECTION,
+      points: 15,
+      dueDate: ahead(6),
+      closeDate: ahead(8),
+      status: "published",
+      createdBy: "demo.teacher@miras.test",
+      createdAt: ago(8),
+      updatedAt: ago(8),
+    },
+    {
+      id: "demo_proj_due_later",
+      title: "تحليل أداة تعليمية رقمية ونقدها",
+      description:
+        "اختر أداةً تعليمية رقمية مستخدمة فعليًا في مدرسة، وحلّلها من حيث الأثر التعليمي وسهولة الاستخدام وملاءمتها للمرحلة، ثم اقترح بديلًا أو تحسينًا مدعومًا بمرجعين.",
+      courseCode: DEMO_SECTION,
+      points: 20,
+      dueDate: ahead(12),
+      closeDate: ahead(14),
+      status: "published",
+      createdBy: "demo.teacher@miras.test",
+      createdAt: ago(3),
+      updatedAt: ago(3),
+    },
+    {
+      id: "demo_proj_grading",
+      title: "تحليل موقف صفّي — توظيف الوسائط",
+      description:
+        "اعرض موقفًا صفيًّا واجهته أو لاحظته، وبيّن كيف وُظِّفت فيه الوسائط، وما البديل الذي كنت ستختاره ولماذا.",
+      courseCode: DEMO_SECTION,
+      points: 10,
+      dueDate: ago(5),
+      closeDate: ago(3),
+      status: "published",
+      createdBy: "demo.teacher@miras.test",
+      createdAt: ago(20),
+      updatedAt: ago(20),
+    },
+    {
+      id: "demo_proj_a1_grading",
+      title: "ملف إنجاز: وسيلة تعليمية من تصميمك",
+      description:
+        "صمّم وسيلة تعليمية واحدة ونفّذها، ووثّق خطوات التصميم والتجريب مع صور للمنتج، وبيّن ما الذي عدّلته بعد التجريب ولماذا.",
+      courseCode: LANDING_SECTION,
+      points: 20,
+      dueDate: ago(4),
+      closeDate: ago(2),
+      status: "published",
+      createdBy: "demo.teacher@miras.test",
+      createdAt: ago(22),
+      updatedAt: ago(22),
+    },
+    {
+      id: "demo_proj_a1_open",
+      title: "مقارنة بين منصّتين تعليميتين",
+      description:
+        "قارن بين منصّتين تعليميتين من حيث إدارة المحتوى والتقويم وتقارير المتابعة، ثم أوصِ بإحداهما لمدرسةٍ محدّدة مع تبرير الاختيار.",
+      courseCode: LANDING_SECTION,
+      points: 15,
+      dueDate: ahead(9),
+      closeDate: ahead(11),
+      status: "published",
+      createdBy: "demo.teacher@miras.test",
+      createdAt: ago(2),
+      updatedAt: ago(2),
+    },
+    {
+      id: "demo_proj_graded",
+      title: "خريطة مفاهيم لأسس تقنيات التعليم",
+      description:
+        "ابنِ خريطة مفاهيم تربط مفاهيم الفصل الأول، مع شرحٍ موجز لكل علاقة بين مفهومين.",
+      courseCode: DEMO_SECTION,
+      points: 10,
+      dueDate: ago(30),
+      closeDate: ago(28),
+      status: "published",
+      createdBy: "demo.teacher@miras.test",
+      createdAt: ago(44),
+      updatedAt: ago(44),
+    },
+  ];
+
+  /*
+   * التسليمات.
+   *
+   * الطالب المعروض (`MIRAS_DEMO_STUDENT_ID` في الخادم) لا يُسلَّم عنه في
+   * `demo_exam_open` ولا في المشروعين القادمين — وهذا هو «المطلوب» على شاشته،
+   * وحذفُه يعيد الشاشة إلى «مطلوب: ٠» الذي بدأنا منه.
+   */
+  const SUBMITTED_STATUS = "مقفل بعد التسليم";
+  const teacherSubmissions: any[] = [];
+
+  const pushSubmission = (
+    activity: { id: string; title: string; points: number; courseCode: string },
+    kind: "exam" | "project",
+    student: Student,
+    index: number,
+    options: { graded?: boolean; returned?: boolean; submittedAt: string },
+  ) => {
+    const grade = options.graded
+      ? Math.max(4, Math.round(activity.points * (0.55 + (index % 9) * 0.05)))
+      : "";
+    teacherSubmissions.push({
+      id: `${kind}-${activity.id}-${student.id}`,
+      kind,
+      activityId: activity.id,
+      activityTitle: activity.title,
+      courseCode: activity.courseCode,
+      studentId: student.id,
+      studentName: student.name,
+      studentIdNumber: student.id,
+      answerText:
+        kind === "project"
+          ? "أرفقتُ خطة العمل والتحليل في ملفٍ واحد، مع المراجع في آخره."
+          : "أُجيبت أسئلة الاختبار داخل المنصّة.",
+      attachments: [],
+      status: options.returned ? "معاد للطالب" : SUBMITTED_STATUS,
+      grade: String(grade),
+      visibleGrade: options.graded ? String(grade) : "",
+      points: activity.points,
+      submittedAt: options.submittedAt,
+      updatedAt: options.submittedAt,
+      gradedAt: options.graded ? ago(2) : undefined,
+      gradedBy: options.graded ? "demo.teacher@miras.test" : undefined,
+      returnedAt: options.returned ? ago(1) : undefined,
+      returnedByEmail: options.returned ? "demo.teacher@miras.test" : undefined,
+      returnNote: options.returned
+        ? "المطلوب تحليلٌ لا وصف. أعد الجزء الثاني موضّحًا سبب اختيارك للوسيلة."
+        : undefined,
+      submittedLate: index % 11 === 0,
+    });
+  };
+
+  /*
+   * والنشاط يُطلب باسمه لا بموضعه في المصفوفة.
+   *
+   * كان هنا `teacherExams[1]` و`teacherProjects[3]`، فلمّا أُضيف نشاطان في
+   * المنتصف انزاحت المواضع: كتب «المشروع القديم المرصود» تسليماته في مشروع
+   * شعبةٍ أخرى — خمسةٌ وعشرون طالبًا من شعبةٍ لا ينتمون إليها، ومشروعٌ بلا
+   * تسليمٍ واحد. ولم يُكسر بناءٌ ولا نوع، وإنما ظهر الخلل في عدّادٍ على الشاشة.
+   * فالبحث بالمعرّف يجعل الترتيب بلا أثر، ويسقط صراحةً إن أُعيدت التسمية.
+   */
+  const examById = (id: string) => {
+    const found = teacherExams.find((exam) => exam.id === id);
+    if (!found) throw new Error(`demo seed: اختبارٌ غير معروف: ${id}`);
+    return found;
+  };
+  const projectById = (id: string) => {
+    const found = teacherProjects.find((project) => project.id === id);
+    if (!found) throw new Error(`demo seed: مشروعٌ غير معروف: ${id}`);
+    return found;
+  };
+
+  /* اختبارٌ أُغلق: أغلب الشعبة سلّمت وتنتظر الرصد — وهذا طابور الأستاذ. */
+  demoSectionStudents.forEach((student, index) => {
+    if (index % 7 === 6) return; // بعضهم لم يدخل الاختبار: الواقع ليس مكتملًا دائمًا
+    /* الشرط لا يبدأ من الصفر عمدًا: الطالب المعروض أوّل شعبته، فكل شرطٍ
+       صيغته `index % n === 0` يصدق عليه — فتُرصد تسليماته كلها، ولا يبقى له
+       شيءٌ في طابور الأستاذ. أمسكه فحصُ «كل شيء مرصود» قبل أن يُرى. */
+    pushSubmission(examById("demo_exam_grading"), "exam", student, index, {
+      submittedAt: ago(4 + (index % 3)),
+      graded: index % 5 === 2,
+    });
+  });
+
+  /* واختبارٌ رُصد وأُعلنت درجاته: تاريخٌ مكتمل. */
+  demoSectionStudents.forEach((student, index) => {
+    if (index % 9 === 8) return;
+    pushSubmission(examById("demo_exam_released"), "exam", student, index, {
+      submittedAt: ago(29),
+      graded: true,
+    });
+  });
+
+  /* ومشروعٌ أُغلقت مهلته: تسليماتٌ تنتظر التصحيح، وفيها واحدٌ أُعيد لصاحبه. */
+  demoSectionStudents.forEach((student, index) => {
+    if (index % 6 === 5) return;
+    pushSubmission(projectById("demo_proj_grading"), "project", student, index, {
+      submittedAt: ago(6 + (index % 2)),
+      graded: index % 8 === 3,
+      returned: index % 13 === 5,
+    });
+  });
+
+  /* ومشروعٌ قديم رُصد كاملًا. */
+  demoSectionStudents.forEach((student, index) => {
+    pushSubmission(projectById("demo_proj_graded"), "project", student, index, {
+      submittedAt: ago(31),
+      graded: true,
+    });
+  });
+
+  /* وطابورٌ للشعبة التي تفتح عليها لوحة الأستاذ، وإلا فتحها على جدولٍ فارغ. */
+  const landingExamGrading = examById("demo_exam_a1_grading");
+  const landingProjectGrading = projectById("demo_proj_a1_grading");
+  landingSectionStudents.forEach((student, index) => {
+    if (index % 8 === 7) return;
+    pushSubmission(landingExamGrading, "exam", student, index, {
+      submittedAt: ago(3 + (index % 2)),
+      graded: index % 6 === 0,
+    });
+  });
+  landingSectionStudents.forEach((student, index) => {
+    if (index % 5 === 4) return;
+    pushSubmission(landingProjectGrading, "project", student, index, {
+      submittedAt: ago(5 + (index % 3)),
+      graded: index % 7 === 0,
+      returned: index % 12 === 4,
+    });
+  });
+
   const joinCodes: JoinCode[] = sections.map((section, index) => ({
     code: `MIRAS-${section.code}-${String(1000 + index * 37)}`,
     courseCode: section.code,
@@ -377,9 +703,9 @@ export function createDemoDatabaseState(liveTeachers: Teacher[]): DatabaseState 
     otps: [],
     joinCodes,
     retiredJoinCodes: [],
-    teacherExams: [],
-    teacherProjects: [],
-    teacherSubmissions: [],
+    teacherExams,
+    teacherProjects,
+    teacherSubmissions,
     sebAttempts: [],
     examSessions: [],
     passwordResetRequests: [],

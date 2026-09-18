@@ -3407,6 +3407,19 @@ export default function App() {
   /* البيئة التجريبية: الخادم هو من يقرر إن كانت متاحة وإن كانت هذه الجلسة
      داخلها. لا نستنتج شيئاً من المتصفح — الكعكة HttpOnly ولا يراها العميل. */
   const MIRAS_PRE_DEMO_TEACHER_SESSION = "miras_pre_demo_teacher_session";
+  /*
+   * إظهار زرّ الدخول إلى العرض.
+   *
+   * مخفيّ الآن بطلبٍ صريح من صاحب المنتج، على أن يُفعَّل لاحقًا. والإخفاء مقصورٌ
+   * على الزرّ وحده: الصندوق ونقلُ الترويسة وتبديلُ الدور وبياناته وحرّاسه
+   * واختباراته كلها باقية تعمل كما هي — فلا شيء يحتاج بناءً من جديد حين يُطلب
+   * رجوعه، وتحويلُ هذه القيمة إلى `true` وحدها يكفي.
+   *
+   * ولم يُطفأ `MIRAS_DEMO_ENABLED` في الخادم بدلًا من هذا عمدًا: ذاك يُسقط
+   * المسارات نفسها فتسقط معها اختبارات الصندوق على النشر، ويحتاج تغييرًا في
+   * إعدادات الخدمة لا في المستودع — فيصير رجوعه أصعب مما يجب.
+   */
+  const MIRAS_DEMO_ENTRY_VISIBLE = false;
   const [demoEnabled, setDemoEnabled] = useState(false);
   const [demoActive, setDemoActive] = useState(false);
   const [demoBusy, setDemoBusy] = useState(false);
@@ -31938,7 +31951,7 @@ ${rows
                             عن قصد: الجهاز الذي سجّل بصمةً يرى هذه البطاقة المختصرة
                             وحدها ولا يرى النموذج إطلاقاً — وهو حال أي جهاز عرضٍ
                             معتاد، فلولا تكراره لاختفى المدخل عمّن يحتاجه أكثر. */}
-                        {demoEnabled && !demoActive && (
+                        {MIRAS_DEMO_ENTRY_VISIBLE && demoEnabled && !demoActive && (
                           <button
                             type="button"
                             disabled={demoBusy}
@@ -32083,7 +32096,7 @@ ${rows
 
                       {/* مدخل العرض: بيئة معزولة ببيانات مصطنعة، بلا حساب.
                           تُفتح بضغطة صريحة فقط، ولا تلمس بيانات أي جهة حقيقية. */}
-                      {demoEnabled && !demoActive && (
+                      {MIRAS_DEMO_ENTRY_VISIBLE && demoEnabled && !demoActive && (
                         <button
                           type="button"
                           disabled={demoBusy}
