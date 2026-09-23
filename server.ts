@@ -15121,7 +15121,20 @@ function envBootstrapPasswordHash(value: string | undefined) {
   return /^(sha256|scrypt):/.test(raw) ? raw : `sha256:${raw}`;
 }
 
-app.post("/api/auth/login", (req, res) => {
+// سقف لكل عنوان IP فوق حارس المحاولات لكل هوية (checkLoginRateLimit): ذاك
+// يوقف تخمين كلمة مرور حساب واحد، وهذا يوقف رشّ كلمات على حسابات كثيرة من
+// عنوان واحد. تُحسب المحاولات الفاشلة فقط، والسقف واسع، لأن فصلاً كاملاً
+// يدخل غالباً من عنوان واحد خلف شبكة الكلية.
+const loginIpRateLimit = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 100,
+  skipSuccessfulRequests: true,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: "محاولات دخول فاشلة كثيرة من هذه الشبكة. حاول بعد ١٥ دقيقة." },
+});
+
+app.post("/api/auth/login", loginIpRateLimit, (req, res) => {
   const { idNumber, password } = req.body;
   if (!idNumber || !password) {
     return res
