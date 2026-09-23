@@ -228,6 +228,7 @@ import {
   FileText,
   Layout,
   Key,
+  KeyRound,
   LogOut,
   Check,
   ChevronRight,
@@ -3948,6 +3949,26 @@ export default function App() {
   const [showCustomResetConfirm, setShowCustomResetConfirm] = useState(false);
   const [showFullResetConfirm, setShowFullResetConfirm] = useState(false);
   const [showDbResetPanel, setShowDbResetPanel] = useState(false);
+
+  // لوحة إعادة تعيين كلمات مرور الأساتذة (سوبر أدمن). كلمة المرور لا تُحفظ في
+  // أي تخزين محلي ولا تُرسل إلا مرة واحدة إلى الخادم ليحفظها مشفّرة.
+  const [teacherAccounts, setTeacherAccounts] = useState<any[]>([]);
+  const [teacherPwTarget, setTeacherPwTarget] = useState("");
+  const [teacherPwValue, setTeacherPwValue] = useState("");
+  const [teacherPwLoading, setTeacherPwLoading] = useState(false);
+  const [teacherPwStatus, setTeacherPwStatus] = useState<{
+    success?: boolean;
+    message?: string;
+  } | null>(null);
+
+  // تغيير الأستاذ كلمة مروره بنفسه بعد استلامها من السوبر أدمن.
+  const [myPwCurrent, setMyPwCurrent] = useState("");
+  const [myPwNext, setMyPwNext] = useState("");
+  const [myPwLoading, setMyPwLoading] = useState(false);
+  const [myPwStatus, setMyPwStatus] = useState<{
+    success?: boolean;
+    message?: string;
+  } | null>(null);
   const [firestoreQuotaExceededState, setFirestoreQuotaExceededState] =
     useState(false);
 
@@ -19277,6 +19298,112 @@ ${rows
     ]);
   };
 
+  const loadTeacherAccounts = async () => {
+    try {
+      const resp = await fetch("/api/admin/teachers", {
+        headers: teacherHeaders(),
+      });
+      const data = await resp.json().catch(() => ({}));
+      if (!resp.ok) {
+        setTeacherAccounts([]);
+        return;
+      }
+      setTeacherAccounts(
+        Array.isArray(data?.teachers) ? data.teachers : [],
+      );
+    } catch {
+      setTeacherAccounts([]);
+    }
+  };
+
+  const handleSetTeacherPassword = async () => {
+    const email = String(teacherPwTarget || "").trim();
+    const newPassword = String(teacherPwValue || "");
+    if (!email) {
+      setTeacherPwStatus({ success: false, message: "اختر حساب الأستاذ أولاً." });
+      return;
+    }
+    if (newPassword.trim().length < 6) {
+      setTeacherPwStatus({
+        success: false,
+        message: "كلمة المرور الجديدة يجب ألا تقل عن ٦ خانات.",
+      });
+      return;
+    }
+    setTeacherPwLoading(true);
+    setTeacherPwStatus(null);
+    try {
+      const resp = await fetch("/api/admin/teachers/set-password", {
+        method: "POST",
+        headers: teacherHeaders(),
+        body: JSON.stringify({ email, newPassword }),
+      });
+      const data = await resp.json().catch(() => ({}));
+      if (!resp.ok) {
+        setTeacherPwStatus({
+          success: false,
+          message: data?.error || "تعذر حفظ كلمة المرور الجديدة.",
+        });
+        return;
+      }
+      setTeacherPwStatus({
+        success: true,
+        message: `تم تعيين كلمة مرور جديدة لحساب ${email}. سلّمها له مباشرة ولن تظهر هنا مرة أخرى.`,
+      });
+      setTeacherPwValue("");
+      loadTeacherAccounts();
+    } catch {
+      setTeacherPwStatus({
+        success: false,
+        message: "تعذر الاتصال بالخادم. حاول مرة أخرى.",
+      });
+    } finally {
+      setTeacherPwLoading(false);
+    }
+  };
+
+  const handleChangeMyPassword = async () => {
+    const currentPassword = String(myPwCurrent || "");
+    const newPassword = String(myPwNext || "");
+    if (newPassword.trim().length < 6) {
+      setMyPwStatus({
+        success: false,
+        message: "كلمة المرور الجديدة يجب ألا تقل عن ٦ خانات.",
+      });
+      return;
+    }
+    setMyPwLoading(true);
+    setMyPwStatus(null);
+    try {
+      const resp = await fetch("/api/teacher/change-my-password", {
+        method: "POST",
+        headers: teacherHeaders(),
+        body: JSON.stringify({ currentPassword, newPassword }),
+      });
+      const data = await resp.json().catch(() => ({}));
+      if (!resp.ok) {
+        setMyPwStatus({
+          success: false,
+          message: data?.error || "تعذر تغيير كلمة المرور.",
+        });
+        return;
+      }
+      setMyPwStatus({
+        success: true,
+        message: "تم تغيير كلمة المرور. استخدمها في الدخول القادم.",
+      });
+      setMyPwCurrent("");
+      setMyPwNext("");
+    } catch {
+      setMyPwStatus({
+        success: false,
+        message: "تعذر الاتصال بالخادم. حاول مرة أخرى.",
+      });
+    } finally {
+      setMyPwLoading(false);
+    }
+  };
+
   const handleDatabaseReset = async (type: "custom" | "full") => {
     const confirmed = await confirmAdminPasskeyForSensitiveAction(
       type === "full" ? "التصفير الكامل" : "التصفير المخصص",
@@ -20044,6 +20171,12 @@ ${rows
     return isMirasAdminEmail(aa) && isMirasAdminEmail(bb);
   };
   const isAdminTeacher = isMirasAdminEmail(teacherSession?.email);
+  useEffect(() => {
+    if (isAdminTeacher && analyticsSubTab === "admin") {
+      loadTeacherAccounts();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isAdminTeacher, analyticsSubTab]);
   useEffect(() => {
     if (!isAdminTeacher && analyticsSubTab === "admin") {
       setAnalyticsSubTab("summary");
@@ -41772,6 +41905,94 @@ ${rows
                     </>
                   )}
 
+                  {/* Teacher password reset panel (super admin only) */}
+                  {teacherSession &&
+                    isAdminTeacher &&
+                    analyticsSubTab === "admin" && (
+                      <div className="rounded-[var(--miras-r-xl)] border border-violet-100 bg-gradient-to-br from-violet-50/40 to-white/90 p-6 backdrop-blur shadow-sm space-y-4">
+                        <div className="flex flex-col gap-1 border-b border-slate-100 pb-4">
+                          <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">
+                            <KeyRound className="h-4 w-4 text-violet-600" />
+                            إعادة تعيين كلمة مرور أستاذ
+                          </h3>
+                          <p className="text-[11px] font-bold leading-5 text-slate-500">
+                            اختر الحساب واكتب كلمة مرور جديدة. تُحفظ مشفّرة في
+                            قاعدة البيانات مباشرة، ويستطيع الأستاذ تغييرها بنفسه
+                            بعد أول دخول. لا يمكن استرجاع كلمة المرور القديمة
+                            لأن النظام لا يخزّنها.
+                          </p>
+                        </div>
+
+                        <div className="grid gap-3 md:grid-cols-2">
+                          <label className="space-y-1">
+                            <span className="block text-[11px] font-bold text-slate-600">
+                              حساب الأستاذ
+                            </span>
+                            <select
+                              value={teacherPwTarget}
+                              onChange={(e) => {
+                                setTeacherPwTarget(e.target.value);
+                                setTeacherPwStatus(null);
+                              }}
+                              className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-800"
+                            >
+                              <option value="">— اختر الحساب —</option>
+                              {teacherAccounts.map((t: any) => (
+                                <option key={t.email} value={t.email}>
+                                  {t.name} — {t.email}
+                                </option>
+                              ))}
+                            </select>
+                          </label>
+
+                          <label className="space-y-1">
+                            <span className="block text-[11px] font-bold text-slate-600">
+                              كلمة المرور الجديدة (٦ خانات فأكثر)
+                            </span>
+                            <input
+                              type="text"
+                              value={teacherPwValue}
+                              autoComplete="off"
+                              onChange={(e) => {
+                                setTeacherPwValue(e.target.value);
+                                setTeacherPwStatus(null);
+                              }}
+                              placeholder="اكتب كلمة المرور الجديدة"
+                              className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-800"
+                            />
+                          </label>
+                        </div>
+
+                        {teacherPwStatus && (
+                          <div
+                            className={`rounded-xl px-4 py-2 text-xs font-bold leading-5 ${teacherPwStatus.success ? "bg-emerald-50 text-emerald-800 border border-emerald-100" : "bg-rose-50 text-rose-800 border border-rose-100"}`}
+                          >
+                            {teacherPwStatus.message}
+                          </div>
+                        )}
+
+                        <div className="flex flex-wrap items-center gap-2">
+                          <button
+                            type="button"
+                            onClick={handleSetTeacherPassword}
+                            disabled={teacherPwLoading}
+                            className="rounded-xl bg-violet-600 px-4 py-2 text-xs font-bold text-white shadow-sm transition-all hover:bg-violet-700 disabled:opacity-60"
+                          >
+                            {teacherPwLoading
+                              ? "جاري الحفظ..."
+                              : "حفظ كلمة المرور الجديدة"}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={loadTeacherAccounts}
+                            className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-xs font-bold text-slate-700"
+                          >
+                            تحديث القائمة
+                          </button>
+                        </div>
+                      </div>
+                    )}
+
                   {/* Database Cleanse / Reset Panel */}
                   {teacherSession &&
                     (analyticsSubTab === "admin" ||
@@ -41941,6 +42162,72 @@ ${rows
                         )}
                       </div>
                     )}
+
+                  {/* Teacher self-service password change */}
+                  {teacherSession && analyticsSubTab === "accounts" && (
+                    <div className="rounded-[var(--miras-r-xl)] border border-sky-100 bg-gradient-to-br from-sky-50/40 to-white/90 p-6 backdrop-blur shadow-sm space-y-4">
+                      <div className="flex flex-col gap-1 border-b border-slate-100 pb-4">
+                        <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">
+                          <KeyRound className="h-4 w-4 text-sky-600" />
+                          تغيير كلمة مروري
+                        </h3>
+                        <p className="text-[11px] font-bold leading-5 text-slate-500">
+                          اكتب كلمة المرور الحالية ثم الجديدة. تُحفظ مشفّرة ولا
+                          يراها أحد، بما في ذلك السوبر أدمن.
+                        </p>
+                      </div>
+
+                      <div className="grid gap-3 md:grid-cols-2">
+                        <label className="space-y-1">
+                          <span className="block text-[11px] font-bold text-slate-600">
+                            كلمة المرور الحالية
+                          </span>
+                          <input
+                            type="password"
+                            value={myPwCurrent}
+                            autoComplete="current-password"
+                            onChange={(e) => {
+                              setMyPwCurrent(e.target.value);
+                              setMyPwStatus(null);
+                            }}
+                            className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-800"
+                          />
+                        </label>
+                        <label className="space-y-1">
+                          <span className="block text-[11px] font-bold text-slate-600">
+                            كلمة المرور الجديدة (٦ خانات فأكثر)
+                          </span>
+                          <input
+                            type="password"
+                            value={myPwNext}
+                            autoComplete="new-password"
+                            onChange={(e) => {
+                              setMyPwNext(e.target.value);
+                              setMyPwStatus(null);
+                            }}
+                            className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-800"
+                          />
+                        </label>
+                      </div>
+
+                      {myPwStatus && (
+                        <div
+                          className={`rounded-xl px-4 py-2 text-xs font-bold leading-5 ${myPwStatus.success ? "bg-emerald-50 text-emerald-800 border border-emerald-100" : "bg-rose-50 text-rose-800 border border-rose-100"}`}
+                        >
+                          {myPwStatus.message}
+                        </div>
+                      )}
+
+                      <button
+                        type="button"
+                        onClick={handleChangeMyPassword}
+                        disabled={myPwLoading}
+                        className="rounded-xl bg-sky-600 px-4 py-2 text-xs font-bold text-white shadow-sm transition-all hover:bg-sky-700 disabled:opacity-60"
+                      >
+                        {myPwLoading ? "جاري الحفظ..." : "حفظ كلمة المرور"}
+                      </button>
+                    </div>
+                  )}
 
                   {(analyticsSubTab === "accounts" ||
                     analyticsSubTab === "audit") && (

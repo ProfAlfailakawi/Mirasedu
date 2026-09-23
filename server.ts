@@ -13396,6 +13396,146 @@ function validateSessionFingerprint(
 
 // Register Allowed Students list from Excel Paste CSV
 
+// مسارات كلمات مرور الأساتذة تتحقق من هوية وتقارن كلمة مرور حالية، فتُحدَّد
+// معدّلاتها لكل عنوان IP كي لا تصبح باباً لتخمين كلمة المرور بالقوة.
+const teacherCredentialRateLimit = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 10,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: "محاولات كثيرة على إعدادات كلمة المرور. حاول بعد ١٥ دقيقة." },
+});
+// مسارات السوبر أدمن محصورة أصلاً بجلسة أدمن موثقة، وقائمتها تُحمَّل عند كل فتح
+// للتبويب وبعد كل حفظ، فسقفها أوسع من مسار تغيير كلمة المرور الذاتي.
+const adminTeacherAccountsRateLimit = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 60,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: "طلبات كثيرة على إدارة حسابات الأساتذة. حاول بعد قليل." },
+});
+
+// إعادة تعيين كلمة مرور أستاذ من لوحة السوبر أدمن. تُخزَّن مشفّرة (scrypt) في
+// قاعدة البيانات، فلا حاجة لتعديل متغيرات البيئة أو إعادة النشر بعد اليوم.
+app.post("/api/admin/teachers/set-password", adminTeacherAccountsRateLimit, (req, res) => {
+  const actorEmail = verifiedTeacherEmailFromSession(req);
+  if (!actorEmail || !isAdminEmail(actorEmail)) {
+    return res.status(403).json({ error: "هذا الإجراء مخصص للسوبر أدمن فقط." });
+  }
+  const targetEmail = String(req.body?.email || "").trim().toLowerCase();
+  const newPassword = String(req.body?.newPassword || "");
+  if (!targetEmail) {
+    return res.status(400).json({ error: "حدد بريد الأستاذ." });
+  }
+  if (isWeakDefaultPassword(newPassword)) {
+    return res
+      .status(400)
+      .json({ error: "كلمة المرور الجديدة يجب ألا تقل عن 6 خانات ولا تكون افتراضية." });
+  }
+  const teacher = dbInstance
+    .getTeachers()
+    .find((t: any) => String(t.email || "").trim().toLowerCase() === targetEmail);
+  if (!teacher) {
+    return res.status(404).json({ error: "لا يوجد حساب أستاذ بهذا البريد." });
+  }
+  const updated = dbInstance.updateTeacher(teacher.email, {
+    passwordHash: hashPasswordSecure(newPassword),
+    passwordUpdatedAt: new Date().toISOString(),
+    isActive: true,
+  } as any);
+  if (!updated) {
+    return res.status(500).json({ error: "تعذر حفظ كلمة المرور الجديدة." });
+  }
+  clearLoginRateLimit(targetEmail);
+  dbInstance.addActivityLog({
+    studentName: teacher.name,
+    actorEmail,
+    teacherEmail: teacher.email,
+    action: "إعادة تعيين كلمة مرور أستاذ",
+    // كلمة المرور نفسها لا تُسجَّل إطلاقاً، فقط واقعة التغيير ومن نفّذها.
+    details: `قام السوبر أدمن ${actorEmail} بتعيين كلمة مرور جديدة لحساب ${teacher.email}.`,
+    ip: req.ip || "127.0.0.1",
+    userAgent: req.headers["user-agent"] || "Unknown",
+    os: "لوحة الأدمن",
+    browser: "إدارة حسابات الأساتذة",
+    isViolationWarning: false,
+  });
+  return res.json({ success: true });
+});
+
+// قائمة حسابات الأساتذة للوحة السوبر أدمن. لا تُعاد أي بصمات كلمات مرور.
+app.get("/api/admin/teachers", adminTeacherAccountsRateLimit, (req, res) => {
+  const actorEmail = verifiedTeacherEmailFromSession(req);
+  if (!actorEmail || !isAdminEmail(actorEmail)) {
+    return res.status(403).json({ error: "هذا الإجراء مخصص للسوبر أدمن فقط." });
+  }
+  const teachers = dbInstance.getTeachers().map((t: any) => ({
+    id: t.id,
+    name: t.name,
+    email: t.email,
+    role: isAdminEmail(t.email) ? "admin" : t.role || "teacher",
+    isActive: t.isActive !== false,
+    passwordUpdatedAt: t.passwordUpdatedAt || "",
+  }));
+  return res.json({ success: true, teachers });
+});
+
+// تغيير الأستاذ كلمة مروره بنفسه بعد أن يستلمها من السوبر أدمن.
+app.post("/api/teacher/change-my-password", teacherCredentialRateLimit, (req, res) => {
+  const actorEmail = verifiedTeacherEmailFromSession(req);
+  if (!actorEmail) {
+    return res.status(401).json({ error: "الجلسة غير موثقة." });
+  }
+  const currentPassword = String(req.body?.currentPassword || "");
+  const newPassword = String(req.body?.newPassword || "");
+  if (isWeakDefaultPassword(newPassword)) {
+    return res
+      .status(400)
+      .json({ error: "كلمة المرور الجديدة يجب ألا تقل عن 6 خانات ولا تكون افتراضية." });
+  }
+  const teacher = dbInstance
+    .getTeachers()
+    .find((t: any) => String(t.email || "").trim().toLowerCase() === actorEmail);
+  if (!teacher) {
+    return res.status(404).json({ error: "لا يوجد حساب أستاذ لهذه الجلسة." });
+  }
+  // كلمة المرور الحالية قد تكون المخزّنة في القاعدة أو قيمة التمهيد من البيئة
+  // للحسابات التي لم تُغيَّر بعد، فنقبل الاثنتين هنا فقط.
+  const bootstrapHash = teacher.passwordUpdatedAt
+    ? ""
+    : envBootstrapPasswordHash(
+        isAdminEmail(teacher.email)
+          ? process.env.MIRAS_ADMIN_PASSWORD_HASH
+          : process.env.MIRAS_TEACHER_PASSWORD_HASH,
+      );
+  const currentMatches =
+    verifyPasswordFlexible(teacher.passwordHash, currentPassword) ||
+    (!!bootstrapHash && verifyPasswordFlexible(bootstrapHash, currentPassword));
+  if (!currentMatches) {
+    return res.status(401).json({ error: "كلمة المرور الحالية غير صحيحة." });
+  }
+  const updated = dbInstance.updateTeacher(teacher.email, {
+    passwordHash: hashPasswordSecure(newPassword),
+    passwordUpdatedAt: new Date().toISOString(),
+  } as any);
+  if (!updated) {
+    return res.status(500).json({ error: "تعذر حفظ كلمة المرور الجديدة." });
+  }
+  dbInstance.addActivityLog({
+    studentName: teacher.name,
+    actorEmail,
+    teacherEmail: teacher.email,
+    action: "تغيير كلمة مرور الأستاذ",
+    details: `قام ${teacher.email} بتغيير كلمة مروره بنفسه.`,
+    ip: req.ip || "127.0.0.1",
+    userAgent: req.headers["user-agent"] || "Unknown",
+    os: "لوحة الأستاذ",
+    browser: "إعدادات الحساب",
+    isViolationWarning: false,
+  });
+  return res.json({ success: true });
+});
+
 app.post("/api/auth/forgot-password", (req, res) => {
   const idNumber = normalizeStudentId(req.body?.idNumber);
   if (!/^\d{4,}$/.test(idNumber))
@@ -14894,6 +15034,15 @@ function recordLoginFailure(req: express.Request, identity: any) {
 function recordLoginSuccess(req: express.Request, identity: any) {
   loginAttemptBuckets.delete(loginRateKey(req, identity));
 }
+// Drop every block held against an identity, whatever IP it was attempted from.
+// An admin-issued password reset should let the teacher in immediately instead of
+// leaving them stuck behind a lockout earned with the old password.
+function clearLoginRateLimit(identity: any) {
+  const suffix = `:${String(identity || "").trim().toLowerCase()}`;
+  for (const key of [...loginAttemptBuckets.keys()]) {
+    if (key.endsWith(suffix)) loginAttemptBuckets.delete(key);
+  }
+}
 
 function hashPasswordSecure(password: string, salt = crypto.randomBytes(16).toString("hex")) {
   const key = crypto.scryptSync(String(password || ""), salt, 64).toString("hex");
@@ -14977,7 +15126,14 @@ app.post("/api/auth/login", (req, res) => {
       passwordHash: envBootstrapPasswordHash(process.env.MIRAS_TEACHER_PASSWORD_HASH),
     },
   };
-  const fixedTeacher = fixedTeacherLogins[normalizedIdentity];
+  // Once an admin (or the teacher) sets a real password through the panel, the
+  // stored credential wins and the environment bootstrap value stops working —
+  // otherwise the old deploy-time password would silently remain valid.
+  const storedTeacherForIdentity = dbInstance
+    .getTeachers()
+    .find((t: any) => String(t.email || "").trim().toLowerCase() === normalizedIdentity);
+  const bootstrapSuperseded = !!storedTeacherForIdentity?.passwordUpdatedAt;
+  const fixedTeacher = bootstrapSuperseded ? undefined : fixedTeacherLogins[normalizedIdentity];
   if (fixedTeacher && verifyPasswordFlexible(fixedTeacher.passwordHash, cleanPassword) && fixedTeacher.isActive) {
     recordLoginSuccess(req, identity);
     const effectiveRole = isAdminEmail(fixedTeacher.email) ? "admin" : fixedTeacher.role || "teacher";
