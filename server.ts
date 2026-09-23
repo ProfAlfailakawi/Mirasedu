@@ -13531,19 +13531,14 @@ app.post("/api/teacher/change-my-password", teacherCredentialRateLimit, (req, re
   if (!teacher) {
     return res.status(404).json({ error: "لا يوجد حساب أستاذ لهذه الجلسة." });
   }
-  // كلمة المرور الحالية قد تكون المخزّنة في القاعدة أو قيمة التمهيد من البيئة
-  // للحسابات التي لم تُغيَّر بعد، فنقبل الاثنتين هنا فقط.
-  const bootstrapHash = teacher.passwordUpdatedAt
-    ? ""
-    : envBootstrapPasswordHash(
-        isAdminEmail(teacher.email)
-          ? process.env.MIRAS_ADMIN_PASSWORD_HASH
-          : process.env.MIRAS_TEACHER_PASSWORD_HASH,
-      );
-  const currentMatches =
-    verifyPasswordFlexible(teacher.passwordHash, currentPassword) ||
-    (!!bootstrapHash && verifyPasswordFlexible(bootstrapHash, currentPassword));
-  if (!currentMatches) {
+  // التغيير الذاتي يعمل فقط على كلمة مرور محفوظة بـ scrypt. الحسابات التي ما زالت
+  // على قيمة التمهيد (sha256 من البيئة) يعيد السوبر أدمن تعيينها أولاً من لوحته.
+  if (!String(teacher.passwordHash || "").startsWith("scrypt:")) {
+    return res.status(409).json({
+      error: "كلمة مرورك الحالية من الإعداد الأولي. اطلب من السوبر أدمن إعادة تعيينها أولاً، ثم غيّرها من هنا.",
+    });
+  }
+  if (!verifyScryptPassword(teacher.passwordHash, currentPassword)) {
     return res.status(401).json({ error: "كلمة المرور الحالية غير صحيحة." });
   }
   const updated = dbInstance.updateTeacher(teacher.email, {
@@ -15102,6 +15097,19 @@ function verifyPasswordFlexible(stored: any, submitted: any) {
     return saved === candidate;
   }
   return saved === clean;
+}
+
+// تحقّق بـ scrypt فقط، للمسارات الجديدة. verifyPasswordFlexible يبقى للدخول
+// لأنه يدعم بصمات sha256 القديمة وقيم التمهيد من البيئة، لكن sha256 أضعف من أن
+// يُمرَّر إليه كلمة مرور في مسار جديد (CodeQL: js/insufficient-password-hash).
+function verifyScryptPassword(stored: any, submitted: any) {
+  const saved = String(stored || "");
+  if (!saved.startsWith("scrypt:")) return false;
+  const [, salt, key] = saved.split(":");
+  if (!salt || !key) return false;
+  const candidate = crypto.scryptSync(String(submitted || "").trim(), salt, 64).toString("hex");
+  try { return crypto.timingSafeEqual(Buffer.from(key, "hex"), Buffer.from(candidate, "hex")); }
+  catch { return false; }
 }
 
 function isWeakDefaultPassword(password: any) {
