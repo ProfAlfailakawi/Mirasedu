@@ -438,6 +438,10 @@ export interface Teacher {
   passwordHash: string;
   role: "teacher";
   isActive: boolean;
+  // ISO timestamp of the last admin/self password change. Its presence tells the
+  // login route that a real password now lives in the database, so the
+  // environment bootstrap credential must no longer be accepted for this account.
+  passwordUpdatedAt?: string;
 }
 
 export interface Section {
@@ -3169,6 +3173,22 @@ export class LocalDatabase {
     }
     this.data.students.push(student);
     this.persist();
+  }
+
+  // Update a teacher record found by id or email (case-insensitive). Used by the
+  // admin password-reset panel so credentials never have to be redeployed as
+  // environment variables.
+  public updateTeacher(idOrEmail: string, updated: Partial<Teacher>) {
+    const key = normalizeDbEmail(idOrEmail);
+    if (!key) return false;
+    const teachers = this.getTeachers();
+    const index = teachers.findIndex(
+      (t) => normalizeDbEmail(t.id) === key || normalizeDbEmail(t.email) === key,
+    );
+    if (index === -1) return false;
+    teachers[index] = { ...teachers[index], ...updated } as Teacher;
+    this.persist();
+    return true;
   }
 
   public updateStudent(id: string, updated: Partial<Student>) {
