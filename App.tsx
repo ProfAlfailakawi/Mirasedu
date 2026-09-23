@@ -19298,6 +19298,20 @@ ${rows
     ]);
   };
 
+  // بعد تغيير كلمة المرور يُبطل الخادم الجلسات الأقدم ويرسل جلسة جديدة لهذا
+  // الجهاز؛ نستبدلها في التخزين نفسه الذي جاءت منه الجلسة الحالية.
+  const replaceTeacherAuthToken = (authToken: any) => {
+    const token = String(authToken || "");
+    if (!token || !teacherSession) return;
+    const next = { ...teacherSession, authToken: token };
+    try {
+      if (localStorage.getItem("miras_teacher_session")) {
+        localStorage.setItem("miras_teacher_session", JSON.stringify(next));
+      }
+    } catch {}
+    setTeacherSession(next);
+  };
+
   const loadTeacherAccounts = async () => {
     try {
       const resp = await fetch("/api/admin/teachers", {
@@ -19318,12 +19332,12 @@ ${rows
 
   const handleSetTeacherPassword = async () => {
     const email = String(teacherPwTarget || "").trim();
-    const newPassword = String(teacherPwValue || "");
+    const newPassword = String(teacherPwValue || "").trim();
     if (!email) {
       setTeacherPwStatus({ success: false, message: "اختر حساب الأستاذ أولاً." });
       return;
     }
-    if (newPassword.trim().length < 6) {
+    if (newPassword.length < 6) {
       setTeacherPwStatus({
         success: false,
         message: "كلمة المرور الجديدة يجب ألا تقل عن ٦ خانات.",
@@ -19346,9 +19360,10 @@ ${rows
         });
         return;
       }
+      replaceTeacherAuthToken(data?.authToken);
       setTeacherPwStatus({
         success: true,
-        message: `تم تعيين كلمة مرور جديدة لحساب ${email}. سلّمها له مباشرة ولن تظهر هنا مرة أخرى.`,
+        message: `تم تعيين كلمة مرور جديدة لحساب ${email}. سلّمها له مباشرة ولن تظهر هنا مرة أخرى. سيُطلب منه الدخول من جديد على أجهزته الأخرى.`,
       });
       setTeacherPwValue("");
       loadTeacherAccounts();
@@ -19363,9 +19378,9 @@ ${rows
   };
 
   const handleChangeMyPassword = async () => {
-    const currentPassword = String(myPwCurrent || "");
-    const newPassword = String(myPwNext || "");
-    if (newPassword.trim().length < 6) {
+    const currentPassword = String(myPwCurrent || "").trim();
+    const newPassword = String(myPwNext || "").trim();
+    if (newPassword.length < 6) {
       setMyPwStatus({
         success: false,
         message: "كلمة المرور الجديدة يجب ألا تقل عن ٦ خانات.",
@@ -19388,9 +19403,12 @@ ${rows
         });
         return;
       }
+      replaceTeacherAuthToken(data?.authToken);
       setMyPwStatus({
         success: true,
-        message: "تم تغيير كلمة المرور. استخدمها في الدخول القادم.",
+        message: data?.authToken
+          ? "تم تغيير كلمة المرور. خرجت جلساتك على الأجهزة الأخرى، وبقي هذا الجهاز متصلاً."
+          : "تم تغيير كلمة المرور. سجّل الدخول من جديد بكلمة المرور الجديدة.",
       });
       setMyPwCurrent("");
       setMyPwNext("");

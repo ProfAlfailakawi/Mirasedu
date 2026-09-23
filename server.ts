@@ -332,6 +332,20 @@ function verifyMirasSessionTokenValue(
   }
 }
 
+function teacherPasswordUpdatedAtMs(identity: any): number {
+  const key = String(identity || "").trim().toLowerCase();
+  if (!key) return 0;
+  const teacher = dbInstance
+    .getTeachers()
+    .find(
+      (t: any) =>
+        String(t.email || "").trim().toLowerCase() === key ||
+        String(t.id || "").trim().toLowerCase() === key,
+    );
+  const ms = Date.parse(String(teacher?.passwordUpdatedAt || ""));
+  return Number.isFinite(ms) ? ms : 0;
+}
+
 function verifyMirasSessionToken(req: express.Request): MirasVerifiedSession | null {
   const token = readBearerToken(req);
   if (!token) {
@@ -357,6 +371,17 @@ function verifyMirasSessionToken(req: express.Request): MirasVerifiedSession | n
   ) {
     console.warn("[AUTH_DEBUG] demo identity rejected outside a demo sandbox");
     return null;
+  }
+  // تغيير كلمة مرور الأستاذ يُبطل كل جلساته الصادرة قبله: إعادة التعيين غالباً
+  // سببها كلمة مرور مكشوفة، فلا يصح أن تبقى جلسة المهاجم صالحة ١٤ يوماً.
+  if (session.role === "teacher" || session.role === "admin") {
+    const passwordUpdatedAt = teacherPasswordUpdatedAtMs(
+      session.email || session.userId,
+    );
+    if (passwordUpdatedAt && session.issuedAt < passwordUpdatedAt) {
+      console.warn("[AUTH_DEBUG] teacher session predates password change");
+      return null;
+    }
   }
   if (session.publicDeviceSession) {
     const currentDeviceToken = getRequestDeviceToken(req);
@@ -13423,7 +13448,9 @@ app.post("/api/admin/teachers/set-password", adminTeacherAccountsRateLimit, (req
     return res.status(403).json({ error: "هذا الإجراء مخصص للسوبر أدمن فقط." });
   }
   const targetEmail = String(req.body?.email || "").trim().toLowerCase();
-  const newPassword = String(req.body?.newPassword || "");
+  // الدخول يقصّ المسافات قبل المقارنة (verifyPasswordFlexible)، فنقصّها هنا قبل
+  // التحقق والتشفير معاً، وإلا لم تطابق كلمةٌ لُصقت بمسافة زائدة أبداً.
+  const newPassword = String(req.body?.newPassword || "").trim();
   if (!targetEmail) {
     return res.status(400).json({ error: "حدد بريد الأستاذ." });
   }
@@ -13438,15 +13465,20 @@ app.post("/api/admin/teachers/set-password", adminTeacherAccountsRateLimit, (req
   if (!teacher) {
     return res.status(404).json({ error: "لا يوجد حساب أستاذ بهذا البريد." });
   }
+  // حالة التفعيل تبقى كما هي: إعادة تعيين كلمة المرور لا تُعيد حساباً معطّلاً.
   const updated = dbInstance.updateTeacher(teacher.email, {
     passwordHash: hashPasswordSecure(newPassword),
     passwordUpdatedAt: new Date().toISOString(),
-    isActive: true,
   } as any);
   if (!updated) {
     return res.status(500).json({ error: "تعذر حفظ كلمة المرور الجديدة." });
   }
   clearLoginRateLimit(targetEmail);
+  const actorSession = verifyMirasSessionTokenValue(readBearerToken(req), "admin self reset");
+  const refreshedAuthToken =
+    targetEmail === actorEmail && !actorSession?.publicDeviceSession
+      ? createTeacherAuthPayload(req, res, teacher)
+      : "";
   dbInstance.addActivityLog({
     studentName: teacher.name,
     actorEmail,
@@ -13460,7 +13492,7 @@ app.post("/api/admin/teachers/set-password", adminTeacherAccountsRateLimit, (req
     browser: "إدارة حسابات الأساتذة",
     isViolationWarning: false,
   });
-  return res.json({ success: true });
+  return res.json({ success: true, ...(refreshedAuthToken ? { authToken: refreshedAuthToken } : {}) });
 });
 
 // قائمة حسابات الأساتذة للوحة السوبر أدمن. لا تُعاد أي بصمات كلمات مرور.
@@ -13486,8 +13518,8 @@ app.post("/api/teacher/change-my-password", teacherCredentialRateLimit, (req, re
   if (!actorEmail) {
     return res.status(401).json({ error: "الجلسة غير موثقة." });
   }
-  const currentPassword = String(req.body?.currentPassword || "");
-  const newPassword = String(req.body?.newPassword || "");
+  const currentPassword = String(req.body?.currentPassword || "").trim();
+  const newPassword = String(req.body?.newPassword || "").trim();
   if (isWeakDefaultPassword(newPassword)) {
     return res
       .status(400)
@@ -13533,7 +13565,13 @@ app.post("/api/teacher/change-my-password", teacherCredentialRateLimit, (req, re
     browser: "إعدادات الحساب",
     isViolationWarning: false,
   });
-  return res.json({ success: true });
+  // الجلسات السابقة صارت باطلة، فنُصدر جلسة جديدة لهذا الجهاز كي لا يُطرد صاحبها.
+  // جلسات الأجهزة العامة قصيرة ومؤقتة، فتُترك لتنتهي ويعيد الدخول.
+  const actorSession = verifyMirasSessionTokenValue(readBearerToken(req), "self password change");
+  const authToken = actorSession?.publicDeviceSession
+    ? ""
+    : createTeacherAuthPayload(req, res, teacher);
+  return res.json({ success: true, ...(authToken ? { authToken } : {}) });
 });
 
 app.post("/api/auth/forgot-password", (req, res) => {
