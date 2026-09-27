@@ -289,6 +289,7 @@ import {
   WifiOff,
   DoorOpen,
   History,
+  CircleDashed,
 } from "lucide-react";
 
 type MirasLocalVisionMode =
@@ -33147,7 +33148,7 @@ ${rows
                         return (
                           <div
                             key={q.id}
-                            className={`p-4 rounded-2xl border ${isAnswered ? "bg-slate-50 border-slate-200/60" : "bg-rose-50/30 border-rose-200/80 ring-1 ring-rose-100"} space-y-3 font-sans transition-colors`}
+                            className={`p-4 rounded-2xl border ${isAnswered ? "bg-slate-50 border-slate-200/60" : "bg-white border-slate-200/80"} space-y-3 font-sans transition-colors`}
                           >
                             <div className="flex justify-between items-center gap-3 border-b border-slate-200/40 pb-2">
                               <div className="flex items-center gap-2">
@@ -33155,7 +33156,8 @@ ${rows
                                   السؤال {idx + 1}
                                 </span>
                                 {!isAnswered && (
-                                  <span className="text-[10px] text-rose-600 bg-rose-50 border border-rose-100 px-2 py-0.5 rounded font-bold font-sans">
+                                  <span className="inline-flex items-center gap-1 text-[11px] text-slate-500 font-bold font-sans">
+                                    <CircleDashed className="h-3.5 w-3.5" aria-hidden="true" />
                                     لم تتم الإجابة
                                   </span>
                                 )}
@@ -33208,7 +33210,7 @@ ${rows
                                 onChange={(e) =>
                                   selectQuizAnswer(q.id, e.target.value)
                                 }
-                                className={`w-full bg-white border ${isAnswered ? "border-slate-200" : "border-rose-200 focus:border-rose-400 focus:ring-rose-200"} rounded-xl px-3 py-2.5 text-xs focus:outline-none focus:ring-2 focus:ring-indigo-500/30 focus:border-indigo-500 transition duration-300 shadow-inner text-right`}
+                                className={`w-full bg-white border border-slate-200 rounded-xl px-3 py-2.5 text-xs focus:outline-none focus:ring-2 focus:ring-indigo-500/30 focus:border-indigo-500 transition duration-300 shadow-inner text-right`}
                               />
                             )}
                           </div>
@@ -33222,8 +33224,8 @@ ${rows
                         return (
                           <div className="sticky bottom-0 z-10 mt-6 flex items-center justify-between gap-3 border-t border-slate-100 bg-white/95 pt-4 backdrop-blur pb-2">
                             {unansweredCount > 0 ? (
-                              <div className="flex items-center gap-2 bg-rose-50 border border-rose-100 text-rose-700 px-3 py-2.5 rounded-xl text-xs font-bold w-full sm:w-auto shadow-sm">
-                                <AlertTriangle className="w-4 h-4 shrink-0" />
+                              <div className="flex items-center gap-2 bg-slate-50 border border-slate-100 text-slate-600 px-3 py-2.5 rounded-xl text-xs font-bold w-full sm:w-auto">
+                                <CircleDashed className="w-4 h-4 shrink-0" />
                                 <span>
                                   متبقي {unansweredCount} سؤال لم تتم الإجابة
                                   عليه
