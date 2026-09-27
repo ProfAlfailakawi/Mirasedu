@@ -36131,16 +36131,7 @@ ${rows
                           </div>
                           <div>
                             <h3 className="flex items-center gap-2 text-base font-black text-slate-900">
-                              <span className="relative flex h-3 w-3 !p-0">
-                                {examDayExams.length > 0 ? (
-                                  <>
-                                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full !p-0 bg-emerald-400 opacity-75"></span>
-                                    <span className="relative inline-flex rounded-full h-3 w-3 !p-0 bg-emerald-500"></span>
-                                  </>
-                                ) : (
-                                  <span className="relative inline-flex rounded-full h-3 w-3 !p-0 bg-slate-400"></span>
-                                )}
-                              </span>
+                              <Activity className="h-4 w-4 text-indigo-600" aria-hidden="true" />
                               نبض الاختبار
                             </h3>
                           </div>
@@ -36152,66 +36143,99 @@ ${rows
                           onClick={(e) => e.stopPropagation()}
                         >
                           {examDayExams.length > 0 ? (
-                            <div className="rounded-xl border border-emerald-100 bg-emerald-50 px-3 py-1.5 text-right shrink-0">
-                              <span className="block text-[8px] font-bold text-emerald-400">
-                                البث الحي نشط الآن
-                              </span>
-                              <span className="text-[10px] font-bold text-emerald-700 animate-pulse">
+                            <span
+                              className="miras-pulse-live inline-flex max-w-full items-center gap-2 rounded-full bg-indigo-50 px-3 py-1.5 text-[12px] font-bold text-indigo-700"
+                              title="البث الحي نشط الآن"
+                            >
+                              <span className="miras-pulse-live-dot" aria-hidden="true" />
+                              <span className="sr-only">البث الحي نشط الآن: </span>
+                              <span className="truncate">
                                 {examDayExams.length === 1
                                   ? examDayExams[0].title
                                   : `${examDayExams.length} اختبارات نشطة`}
                               </span>
-                            </div>
+                            </span>
                           ) : (
-                            <div className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-1.5 text-right shrink-0">
-                              <span className="block text-[8px] font-bold text-slate-400">
-                                حالة القاعة
-                              </span>
-                              <span className="text-[10px] font-bold text-slate-600">
-                                💤 آمنة / خاملة
-                              </span>
-                            </div>
+                            <span
+                              className="inline-flex items-center gap-2 rounded-full bg-slate-50 px-3 py-1.5 text-[12px] font-bold text-slate-500"
+                              title="حالة القاعة"
+                            >
+                              <Moon className="h-3.5 w-3.5" aria-hidden="true" />
+                              <span className="sr-only">حالة القاعة: </span>
+                              آمنة / خاملة
+                            </span>
                           )}
-                          <div className="rounded-xl border border-slate-100 bg-slate-50/50 px-3 py-1.5 text-right shrink-0">
-                            <span className="block text-[8px] font-bold text-slate-400">
-                              حمل الخادم
-                            </span>
-                            <span className="text-[10px] font-bold text-slate-600">
-                              8.4% (مستقر)
-                            </span>
-                          </div>
-                          <div className="rounded-xl border border-slate-100 bg-slate-50/50 px-3 py-1.5 text-right shrink-0">
-                            <span className="block text-[8px] font-bold text-slate-400">
-                              استقرار نفق SEB
-                            </span>
-                            <span className="text-[10px] font-bold text-slate-600">
-                              99.9%
-                            </span>
-                          </div>
                         </div>
                       </div>
 
                       {isLivePulseExpanded && (
                         <div className="mt-4 pt-4 border-t border-slate-100 space-y-5">
                           {/* Dynamic Course Header Information */}
-                          {examDayExams.length > 0 && (
-                            <div className="flex flex-col gap-2 text-right bg-slate-50 border border-slate-100 p-4 rounded-2xl">
-                              <span className="text-[10px] font-bold text-indigo-700 block">
-                                الاختبار
-                              </span>
-                              <span className="text-xs font-light tracking-tight text-indigo-700">
-                                {examDayExams.length === 1
-                                  ? examDayExams[0].title
-                                  : `متعدد الاختبارات النشطة (${examDayExams.length})`}
-                              </span>
-                            </div>
-                          )}
+                          {examDayExams.length > 0 && (() => {
+                            const pulseCount = (text: string) =>
+                              livePulseStudentRows.filter(
+                                (row: any) => String(row?.statusText || "") === text,
+                              ).length;
+                            const followUpCount = pulseCount("");
+                            const pulseNodes: DnaHubNode[] = [
+                              { key: "cheat", text: "محاولة غش", icon: <ShieldAlert />, tone: "danger" as const, alert: true },
+                              { key: "solving", text: "يحلّ بنشاط الآن", icon: <Activity />, tone: "accent" as const, alert: false },
+                              { key: "safe", text: "تسليم آمن مكتمل", icon: <CheckCircle2 />, tone: "mint" as const, alert: false },
+                              { key: "withdrawn", text: "منسحب", icon: <UserX />, tone: "warn" as const, alert: false },
+                              { key: "exit", text: "خروج قبل التسليم", icon: <LogOut />, tone: "coral" as const, alert: true },
+                              { key: "offline", text: "غير متصل حالياً", icon: <WifiOff />, tone: "slate" as const, alert: false },
+                            ].map((item) => {
+                              const value = pulseCount(item.text);
+                              return {
+                                key: item.key,
+                                icon: item.icon,
+                                tone: item.tone,
+                                label: item.text,
+                                value,
+                                state: value === 0 ? "off" : item.alert ? "attention" : "ok",
+                                title: `${item.text}: ${value}`,
+                                ariaLabel: `${item.text}: ${value}`,
+                              } as DnaHubNode;
+                            });
+                            if (followUpCount > 0)
+                              pulseNodes.push({
+                                key: "follow",
+                                icon: <AlertTriangle />,
+                                tone: "amber",
+                                label: "متابعة",
+                                value: followUpCount,
+                                state: "ok",
+                                title: `متابعة: ${followUpCount}`,
+                                ariaLabel: `متابعة: ${followUpCount}`,
+                              });
+                            return (
+                              <DnaHubMap
+                                className="miras-pulse-hub"
+                                center={{
+                                  value: livePulseStudentRows.length,
+                                  label: "طالب",
+                                  ariaLabel: `${livePulseStudentRows.length} طالب`,
+                                }}
+                                nodes={pulseNodes}
+                                live={{ on: true, label: "مباشر" }}
+                                overline="الاختبار"
+                                title={
+                                  examDayExams.length === 1
+                                    ? examDayExams[0].title
+                                    : `متعدد الاختبارات النشطة (${examDayExams.length})`
+                                }
+                                animate={false}
+                                ariaLabel="خريطة حالات الطلبة في الاختبار"
+                              />
+                            );
+                          })()}
 
                           {/* Interactive Exam Selector for double / multiple exams scheduled on same day inside the same course */}
                           {examDayExams.length > 1 && (
                             <div className="p-4 bg-indigo-50/40 border border-indigo-100 rounded-2xl space-y-3">
-                              <span className="text-xs font-bold text-slate-800 block">
-                                ⚠️ اختباران اليوم
+                              <span className="flex items-center gap-2 text-xs font-bold text-slate-800">
+                                <Layers className="h-4 w-4 text-indigo-600" aria-hidden="true" />
+                                اختباران اليوم
                               </span>
                               <div className="flex flex-wrap gap-2">
                                 {examDayExams.map((exam: any) => (
@@ -36322,7 +36346,16 @@ ${rows
                                     >
                                       <div className="flex w-full items-center justify-between gap-2">
                                         <div className="flex min-w-0 flex-1 items-center gap-1.5 pr-0">
-                                          <span className="block min-w-0 flex-1 truncate text-[10.5px] font-extrabold tracking-tight text-slate-700 leading-5">
+                                          <span
+                                            className="miras-pulse-avatar"
+                                            title={row.statusText || "متابعة"}
+                                            aria-label={row.statusText || "متابعة"}
+                                            role="img"
+                                          >
+                                            {String(st.name || studentIdStr || "؟").trim().charAt(0)}
+                                            <i className={`miras-pulse-badge ${statusColor}`} aria-hidden="true" />
+                                          </span>
+                                          <span className="block min-w-0 flex-1 truncate text-[12px] font-bold text-slate-700 leading-5">
                                             {st.name}
                                           </span>
                                           {(() => {
@@ -36430,15 +36463,6 @@ ${rows
                                             );
                                           })()}
                                         </div>
-                                        <span
-                                          className={`relative flex h-2.5 w-2.5 shrink-0 rounded-full !p-0 ${statusColor} ${pulseClass}`}
-                                        >
-                                          {pulseClass && (
-                                            <span
-                                              className={`absolute inline-flex h-full w-full rounded-full !p-0 ${statusColor} opacity-60 animate-ping`}
-                                            ></span>
-                                          )}
-                                        </span>
                                       </div>
                                       <div className="hidden" aria-hidden="true" />
                                     </div>

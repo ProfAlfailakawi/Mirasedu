@@ -120,3 +120,42 @@ html[data-theme] #root:has(.miras-pwa-row) .meras-auth-card {
 .miras-dna-row-sep {
   border-top: 1px dashed var(--miras-line) !important;
 }
+
+/* ═══ نبض الاختبار ═══ */
+.miras-pulse-live-dot {
+  inline-size: 8px;
+  block-size: 8px;
+  border-radius: 999px;
+  background: var(--miras-brand);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--miras-brand) 18%, transparent);
+  flex: 0 0 auto;
+}
+.miras-pulse-hub {
+  margin-block: 4px;
+}
+.miras-pulse-avatar {
+  position: relative;
+  display: inline-grid;
+  place-items: center;
+  inline-size: 30px !important;
+  block-size: 30px !important;
+  min-inline-size: 30px;
+  border-radius: 999px;
+  background: var(--miras-brand-tint);
+  color: var(--miras-brand-ink);
+  font-size: 13px;
+  font-weight: 800;
+  line-height: 1;
+  flex: 0 0 auto;
+}
+.miras-pulse-avatar > .miras-pulse-badge {
+  position: absolute;
+  inset-block-end: -1px;
+  inset-inline-start: -1px;
+  inline-size: 11px !important;
+  block-size: 11px !important;
+  padding: 0 !important;
+  border-radius: 999px;
+  border: 2px solid var(--miras-surface) !important;
+  animation: none !important;
+}
