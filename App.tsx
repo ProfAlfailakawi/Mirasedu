@@ -14,6 +14,7 @@ import LearningIntelligencePanel from "./src/features/learning-intelligence/Lear
 import LoginRevealOverlay from "./src/components/LoginRevealOverlay";
 import MirasLoader from "./src/components/MirasLoader";
 import { normalizeArabicIndicDigits, stripArabicIndicDigitsFromInput } from "./src/shared/arabic-text";
+import { DnaHubMap, DnaIconTile, DnaStepper, DnaTimeline, type DnaEvent, type DnaStep, type DnaHubNode } from "./src/design/DnaKit";
 import { mirasPhoneticWordMatch } from "./src/shared/phonetic-search";
 import {
   allowDemoTransportOrigin,
@@ -31864,12 +31865,8 @@ ${rows
         {currentView === "signup" && (
           <div
             dir="rtl"
-            className="meras-auth-shell min-h-[100dvh] flex flex-col items-center justify-center px-4 py-4 relative overflow-hidden bg-[#f4f5f8]"
+            className="meras-auth-shell miras-calm-auth min-h-[100dvh] flex flex-col items-center justify-center px-4 py-4 relative overflow-hidden bg-[#f4f5f8]"
           >
-            {/* Background elements */}
-            <div className="absolute top-0 right-1/4 w-96 h-96 hero-glow-1 -z-15" />
-            <div className="absolute bottom-0 left-1/4 w-96 h-96 hero-glow-2 -z-15" />
-
             <div className="meras-auth-card w-full max-w-xl h-auto max-h-[calc(100dvh-2rem)] overflow-y-auto flex flex-col justify-center glass-panel rounded-[var(--miras-r-xl)] shadow-premium-lg p-8 sm:p-10 border border-white/60 relative z-10 transition-all duration-300">
               <div className="absolute top-6 left-6 z-20 flex items-center gap-2">
                 <button
@@ -31890,7 +31887,7 @@ ${rows
                   <button
                     type="button"
                     onClick={triggerPwaInstallation}
-                    className="inline-flex h-11 w-11 items-center justify-center rounded-[var(--miras-r-md)] border border-indigo-200/50 bg-indigo-50 text-indigo-700 transition hover:scale-105 active:scale-95 pwa-glowing-btn cursor-pointer"
+                    className="inline-flex h-11 w-11 items-center justify-center rounded-[var(--miras-r-md)] border border-indigo-200/50 bg-indigo-50 text-indigo-700 transition active:scale-95 cursor-pointer"
                     title="تثبيت منصة مِراس على جهازك"
                     aria-label="تثبيت مِراس"
                   >
@@ -32226,23 +32223,27 @@ ${rows
                         </button>
                       )}
 
-                      <div className="flex items-center justify-center gap-3">
+                      <div className="miras-login-actions flex items-start justify-center gap-5">
+                        <div className="miras-login-action flex flex-col items-center gap-1.5">
                         <button
                           type="button"
                           title="تسجيل الدخول"
                           aria-label="تسجيل الدخول"
                           onClick={handleLogin}
-                          className="flex h-16 w-16 items-center justify-center rounded-3xl bg-slate-950 text-white transition-all duration-300 btn-spring-active shadow-premium-md hover:bg-indigo-700"
+                          className="miras-login-primary flex h-16 w-16 items-center justify-center rounded-3xl text-white transition-colors duration-200 btn-spring-active"
                         >
                           <Lock className="h-7 w-7" />
                         </button>
+                          <span className="miras-login-action-label text-[11px] font-bold text-slate-500" aria-hidden="true">تسجيل الدخول</span>
+                        </div>
+                        <div className="miras-login-action flex flex-col items-center gap-1.5">
                         <button
                           type="button"
                           title="الدخول بالبصمة"
                           aria-label="الدخول بالبصمة"
                           disabled={passkeyBusy}
                           onClick={() => loginWithPasskey()}
-                          className="flex h-16 w-16 items-center justify-center rounded-3xl border border-emerald-100 bg-emerald-50 text-emerald-700 transition-all duration-300 btn-spring-active shadow-premium-sm hover:bg-emerald-100 disabled:opacity-60"
+                          className="flex h-16 w-16 items-center justify-center rounded-3xl border border-emerald-100 bg-emerald-50 text-emerald-700 transition-all duration-300 btn-spring-active hover:bg-emerald-100 disabled:opacity-60"
                         >
                           {passkeyBusy ? (
                             <MirasLoader
@@ -32254,15 +32255,20 @@ ${rows
                             <Fingerprint className="h-7 w-7" />
                           )}
                         </button>
+                          <span className="miras-login-action-label text-[11px] font-bold text-slate-500" aria-hidden="true">الدخول بالبصمة</span>
+                        </div>
+                        <div className="miras-login-action flex flex-col items-center gap-1.5">
                         <button
                           type="button"
                           title="إنشاء حساب جديد"
                           aria-label="إنشاء حساب جديد"
                           onClick={() => setInstructorMode(false)}
-                          className="flex h-16 w-16 items-center justify-center rounded-3xl border border-indigo-100 bg-indigo-50 text-indigo-700 transition-all duration-300 btn-spring-active shadow-premium-sm hover:bg-indigo-100"
+                          className="flex h-16 w-16 items-center justify-center rounded-3xl border border-indigo-100 bg-indigo-50 text-indigo-700 transition-all duration-300 btn-spring-active hover:bg-indigo-100"
                         >
                           <Plus className="h-6 w-6" />
                         </button>
+                          <span className="miras-login-action-label text-[11px] font-bold text-slate-500" aria-hidden="true">إنشاء حساب جديد</span>
+                        </div>
                       </div>
                       {passkeyStatus && (
                         <div className="rounded-2xl border border-emerald-100 bg-emerald-50 px-4 py-3 text-center text-[11px] font-bold text-emerald-700">
@@ -45492,26 +45498,23 @@ ${rows
         </div>
       )}
 
-      {/* PWA Floating Alert Banner */}
+      {/* PWA Floating Alert Banner — صفّ هادئ أسفل الشاشة لا يغطي البطاقة */}
       {showPwaBanner && !isAppStandalone && (
         <div
           dir="rtl"
-          className="fixed bottom-6 left-6 right-6 md:left-auto md:max-w-md z-50 bg-white/95 rounded-[var(--miras-r-xl)] border border-indigo-100 miras-shadow-3 p-6 backdrop-blur-xl animate-fade-in text-right space-y-4"
+          className="miras-pwa-row fixed inset-x-0 bottom-0 z-50 animate-fade-in text-right"
+          title="تصفح سريع، مريح، ومثالي بلمسة واحدة من هاتفك!"
         >
-          <div className="flex items-start gap-3.5">
-            <span className="w-12 h-12 rounded-2xl bg-indigo-600 flex items-center justify-center text-white text-2xl shadow-md shrink-0">
-              ⭐
-            </span>
-            <div className="space-y-1 min-w-0">
-              <h4 className="text-sm font-bold text-slate-950">
+          <div className="mx-auto flex max-w-3xl items-center gap-3 px-4 py-2.5">
+            <DnaIconTile icon={<Smartphone />} tone="accent" size="sm" />
+            <div className="min-w-0 flex-1">
+              <h4 className="truncate text-[13px] font-bold text-slate-950">
                 إضافة مِراس للشاشة الرئيسية
               </h4>
-              <p className="text-[11.5px] font-bold leading-5 text-slate-500">
+              <p className="miras-pwa-row-sub truncate text-[11px] font-bold text-slate-500">
                 تصفح سريع، مريح، ومثالي بلمسة واحدة من هاتفك!
               </p>
             </div>
-          </div>
-          <div className="flex items-center justify-end gap-2.5 pt-1">
             <button
               onClick={() => {
                 localStorage.setItem(
@@ -45520,15 +45523,16 @@ ${rows
                 );
                 setShowPwaBanner(false);
               }}
-              className="px-4 py-2 text-xs font-bold text-slate-500 hover:text-slate-800 transition-colors cursor-pointer"
+              className="dna-btn shrink-0 cursor-pointer"
             >
               لاحقاً
             </button>
             <button
               onClick={triggerPwaInstallation}
-              className="px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold shadow-sm shadow-indigo-100 transition-all hover:-translate-y-0.5 cursor-pointer"
+              className="dna-btnp shrink-0 cursor-pointer"
             >
-              تثبيت الآن 🚀
+              <Download className="h-4 w-4" aria-hidden="true" />
+              تثبيت الآن
             </button>
           </div>
         </div>
