@@ -12225,12 +12225,25 @@ export default function App() {
       section?.courseName || courseNameForCode(lookup),
     );
     const code = sectionDisplayCode(section, lookup);
-    return code &&
+    const combined =
+      code &&
       label &&
       !hasArabicCourseLetters(code) &&
       !isDuplicateCourseDisplay(label, code)
-      ? `${label} — ${code}`
-      : label || code || "-";
+        ? `${label} — ${code}`
+        : label || code || "-";
+    // Course names may already carry the section ("… — شعبة A1"); drop any
+    // repeated " — " segment so the card never shows the same part twice.
+    const seen = new Set<string>();
+    return combined
+      .split(" — ")
+      .filter((part) => {
+        const key = normalizeCourseLabelText(part) || part.trim();
+        if (!key || seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      })
+      .join(" — ");
   };
   const isCourseOpenForStudent = (code: any) => {
     const lookup = normalizeCourseLookupCode(code);
