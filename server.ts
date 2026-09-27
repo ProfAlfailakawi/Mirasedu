@@ -21976,6 +21976,13 @@ app.get("/api/teacher/password-reset-requests", (req, res) => {
         (item: any) =>
           !teacherEmail || canAccessPasswordResetRequest(item, teacherEmail),
       )
+      /* طلبات البذرة التجريبية تُنشأ بلا طلب HTTP فلا مضيفَ يُبنى عليه رابطها،
+         فيُبنى هنا من رمزها كما يُبنى لأي طلب حقيقي — وإلا فشل «نسخ الرابط». */
+      .map((item: any) =>
+        !item.resetLink && item.resetToken && MirasDemo.isDemoRequest()
+          ? { ...item, resetLink: buildResetLink(req, item.resetToken) }
+          : item,
+      )
       .map(publicPasswordResetRequest),
   );
   return res.json({ success: true, requests });

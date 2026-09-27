@@ -51,6 +51,10 @@ test("محاولات التفعيل وطلبات الاسترجاع لطلبةٍ
   }
   for (const r of state.passwordResetRequests) assert.equal(byId.get(r.studentId)?.name, r.studentName);
   assert.ok(state.passwordResetRequests.some((r) => r.status === "new"));
+  /* الخادم يبني رابط «نسخ الرابط» من هذا الرمز عند العرض — فلا طلب جديد بلا رمز. */
+  for (const r of state.passwordResetRequests.filter((x) => x.status === "new"))
+    assert.match(String(r.resetToken || ""), /^demo-reset-token-\d+$/, `${r.id} بلا رمز`);
+  assert.equal(new Set(state.passwordResetRequests.map((r) => r.resetToken)).size, state.passwordResetRequests.length, "رموز مكررة");
 });
 
 test("لا شيء في البذرة يخرج عن نطاق العرض", () => {

@@ -192,6 +192,20 @@ check(
   `status=${teacherAgain.status}`,
 );
 
+// ── طلبات الاسترجاع المبذورة تحمل رابطاً يُنسخ ─────────────────────────────
+const resets = await hosted("GET", "/api/teacher/password-reset-requests", {
+  demo: demoId,
+  token: String(backToTeacher.data?.teacher?.authToken || ""),
+});
+const newResets = (resets.data?.requests || []).filter((r) => r.status === "new");
+check("طلبات استرجاع جديدة في البذرة", newResets.length > 0, `n=${newResets.length}`);
+check(
+  "كل طلب جديد يحمل رابط إعادة تعيين صالحاً",
+  newResets.length > 0 &&
+    newResets.every((r) => /^https?:\/\/[^/]+\/\?resetToken=demo-reset-token-\d+$/.test(String(r.resetLink || ""))),
+  JSON.stringify(newResets.map((r) => r.resetLink)),
+);
+
 // ── والهدم يحتاج الترويسة كذلك ──────────────────────────────────────────────
 const resetOut = await hosted("POST", "/api/demo/reset");
 check("إعادة التعيين بلا ترويسة تُرفض", resetOut.status === 410, `status=${resetOut.status}`);
