@@ -281,6 +281,12 @@ import {
   QrCode,
   FlaskConical,
   RefreshCw as MirasRefreshCw,
+  ShieldCheck,
+  LogIn,
+  RotateCcw,
+  Radio,
+  WifiOff,
+  DoorOpen,
 } from "lucide-react";
 
 type MirasLocalVisionMode =
@@ -27258,6 +27264,61 @@ ${rows
       ? "تم استلام الاختبار"
       : "تم استلام المشروع";
   };
+  // مراحل التسليم للطالب (عرض فقط): قيد الحل → سُلِّم → رُصدت → أُعلنت،
+  // مبنية على نفس الدوال التي تكتب نص الحالة أعلاه — لا منطق جديد.
+  const studentSubmissionLifecycleSteps = (sub: any): DnaStep[] => {
+    const inProgress =
+      sub?.status === EXAM_IN_PROGRESS_STATUS || isExamInProgressSubmission(sub);
+    const returned = isTeacherReturnedSubmission(sub);
+    const blocked =
+      !returned &&
+      !inProgress &&
+      (isCheatingAttemptSubmission(sub) ||
+        isWithdrawnSubmission(sub) ||
+        isTimeExpiredRecordedSubmission(sub));
+    const announced = !returned && !inProgress && !!studentSubmissionGradeForDisplay(sub);
+    const recorded =
+      !returned &&
+      !inProgress &&
+      (announced ||
+        !!sub?.teacherGradeOverride ||
+        isSubmissionGradeOfficiallyRecorded(sub) ||
+        studentSubmissionStatusForDisplay(sub) === "تم رصد الدرجة");
+    const statusText = studentSubmissionStatusForDisplay(sub);
+    const returns = submissionReturnCount(sub);
+    return [
+      {
+        key: "solving",
+        label: "قيد الحل",
+        state: inProgress ? "current" : "done",
+      },
+      returned
+        ? {
+            key: "submitted",
+            label: "معاد",
+            state: "returned",
+            title: studentSubmissionActionText(sub),
+            badge: returns > 1 ? returns : undefined,
+          }
+        : blocked
+          ? { key: "submitted", label: statusText, state: "blocked", title: studentSubmissionActionText(sub) }
+          : {
+              key: "submitted",
+              label: "سُلِّم",
+              state: inProgress ? "pending" : "done",
+            },
+      {
+        key: "recorded",
+        label: "رُصدت",
+        state: recorded ? "done" : inProgress || returned || blocked ? "pending" : "current",
+      },
+      {
+        key: "announced",
+        label: "أُعلنت",
+        state: announced ? "done" : recorded ? "current" : "pending",
+      },
+    ];
+  };
   const studentCourseDotTone = (rawCode: any, fallbackIndex = 0) => {
     const code = String(rawCode || "").trim();
     const foundIndex = studentCourseOptions.findIndex((course: any) =>
@@ -34274,71 +34335,62 @@ ${rows
                                             }}
                                             title="عرض السجل الكامل"
                                             aria-label="عرض السجل الكامل"
-                                            className="absolute left-3.5 top-3.5 z-20 group inline-flex h-11 w-11 items-center justify-center rounded-xl border border-indigo-100/95 bg-white/92 text-indigo-700 miras-shadow-glow ring-1 ring-white/95 transition duration-300 hover:scale-[1.05] hover:bg-indigo-50 hover:text-indigo-900 active:scale-95 cursor-pointer"
+                                            className="dna-ibtn absolute left-3.5 top-3.5 z-20 cursor-pointer"
                                           >
-                                            <ClipboardList className="h-5.5 w-5.5 transition duration-300 group-hover:rotate-6 group-hover:scale-105" />
+                                            <ClipboardList className="h-5 w-5" />
                                           </button>
 
-                                          <div className="relative z-10 space-y-2 pl-12">
-                                            <div className="flex flex-wrap items-center gap-1.5">
-                                              <span className="inline-flex items-center gap-1 rounded-full border border-indigo-100 bg-indigo-600/90 px-2.5 py-0.5 text-[8.5px] font-black text-white miras-shadow-glow">
-                                                <Sparkles className="h-2.5 w-2.5" />
-                                                آخر تسليم
-                                              </span>
-                                              <span
-                                                className={`rounded-full border px-2.5 py-0.5 text-[8.5px] font-black ${studentSubmissionKindTone(sub)}`}
-                                              >
-                                                {studentSubmissionKindText(sub)}
-                                              </span>
-                                            </div>
-                                            <span className="inline-flex w-fit rounded-full bg-slate-50/85 px-2.5 py-0.5 text-[9px] font-bold text-slate-500">
-                                              {formatKwDateTime(
-                                                sub.submittedAt,
-                                              )}
-                                            </span>
+                                          <div className="relative z-10 space-y-2.5 pl-12">
+                                            <p className="miras-dna-overline text-[11px] font-bold text-slate-500">
+                                              آخر تسليم · {studentSubmissionKindText(sub)} · {formatKwDateTime(sub.submittedAt)}
+                                            </p>
                                             <p className="truncate text-[15px] font-black leading-6 text-slate-950">
                                               {sub.activityTitle ||
                                                 sub.exerciseTitle ||
                                                 "تسليم"}
                                             </p>
                                             {shouldShowStudentCourseBadges && (
-                                              <div className="inline-flex max-w-full items-start gap-1.5 rounded-[var(--miras-r-md)] border border-white/80 bg-slate-50/55 px-2 py-0.5 text-[8px] font-bold leading-3.5 text-slate-500 shadow-sm">
+                                              <p
+                                                className="miras-dna-meta flex max-w-full items-center gap-1.5 text-[11px] font-bold text-slate-500"
+                                                title={courseMeta.courseName}
+                                              >
                                                 <span
-                                                  className={`mt-1 h-1.5 w-1.5 shrink-0 rounded-full shadow-sm ${studentCourseDotTone(courseMeta.courseCode, courseMeta.index)}`}
+                                                  className={`h-1.5 w-1.5 shrink-0 rounded-full ${studentCourseDotTone(courseMeta.courseCode, courseMeta.index)}`}
                                                 />
-                                                <span
-                                                  className="line-clamp-2 max-w-[12rem] text-right sm:max-w-[17rem]"
-                                                  title={courseMeta.courseName}
-                                                >
+                                                <span className="truncate">
                                                   {courseMeta.courseName}
                                                 </span>
-                                              </div>
+                                              </p>
                                             )}
-                                            <div className="flex flex-wrap items-center gap-2 pt-1">
+                                            <DnaStepper
+                                              size="sm"
+                                              steps={studentSubmissionLifecycleSteps(sub)}
+                                              ariaLabel={`مراحل التسليم: ${statusText}`}
+                                            />
+                                            <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1 pt-0.5">
                                               {gradeText ? (
-                                                <span className="inline-flex items-center rounded-2xl border border-indigo-100 bg-indigo-50/60 px-3 py-1.5 font-mono text-[11px] font-bold text-indigo-700">
+                                                <span className="font-mono text-[15px] font-bold text-indigo-700">
                                                   {gradeText}
                                                 </span>
                                               ) : smartResultText ? (
-                                                <span className="inline-flex items-center rounded-2xl border border-emerald-100 bg-emerald-50 px-3 py-1.5 text-[9.5px] font-black text-emerald-700">
+                                                <span className="text-[12px] font-bold text-slate-700">
                                                   {smartResultText}
                                                 </span>
                                               ) : (
-                                                <span className="inline-flex items-center rounded-2xl border border-slate-100 bg-slate-50 px-3 py-1.5 text-[9.5px] font-black text-slate-400">
+                                                <span className="text-[12px] font-bold text-slate-500">
                                                   لم تُرصد الدرجة
                                                 </span>
                                               )}
                                               {smartResultText ? null : (
-                                                <span
-                                                  className={`rounded-2xl border px-3 py-1.5 text-[9.5px] font-black ${studentSubmissionStatusTone(sub)}`}
-                                                >
+                                                <span className="text-[12px] font-bold text-slate-500">
                                                   {statusText}
                                                 </span>
                                               )}
                                               {shouldDisplaySubmittedLate(
                                                 sub,
                                               ) && (
-                                                <span className="rounded-2xl border border-amber-200/70 bg-amber-50/80 px-3 py-1.5 text-[9.5px] font-black text-amber-700">
+                                                <span className="inline-flex items-center gap-1 text-[12px] font-bold text-amber-700">
+                                                  <Clock className="h-3.5 w-3.5" aria-hidden="true" />
                                                   متأخر
                                                 </span>
                                               )}
@@ -34504,57 +34556,73 @@ ${rows
                           return (
                             <div
                               key={exam.id}
-                              className="group relative overflow-hidden rounded-[var(--miras-r-xl)] border border-indigo-100/70 bg-white/88 p-4 miras-shadow-glow backdrop-blur transition-all duration-300 hover:-translate-y-0.5 hover:border-indigo-200 hover:miras-shadow-glow"
+                              className="group relative overflow-hidden rounded-[var(--miras-r-xl)] border border-slate-100 bg-white p-4 miras-shadow-1 transition-shadow duration-300 hover:miras-shadow-2"
                             >
-                              <div className="pointer-events-none absolute -left-10 -bottom-10 h-28 w-28 rounded-full bg-indigo-200/25 blur-3xl" />
                               <div className="relative z-10 flex items-start justify-between gap-4">
                                 <div className="min-w-0 flex-1 space-y-2.5 text-right">
-                                  <div className="flex w-full flex-col items-end gap-2">
-                                    <span
-                                      className={`rounded-full border px-2 py-0.5 text-[8.5px] font-black ${examStateTone}`}
-                                    >
+                                  <p className="miras-student-time-detail flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px] font-bold text-slate-500">
+                                    <span className="inline-flex items-center gap-1.5 text-slate-700">
+                                      <span
+                                        aria-hidden="true"
+                                        className={`h-1.5 w-1.5 rounded-full ${isReturned ? "bg-amber-500" : canOpen ? "bg-indigo-600" : attemptLocked ? "bg-rose-500" : "bg-slate-300"}`}
+                                      />
                                       {examStateText}
                                     </span>
-                                    <span className="miras-student-time-detail rounded-full bg-slate-50/80 px-2.5 py-1 font-mono text-[9px] font-bold text-slate-400 text-right">
+                                    <span aria-hidden="true">·</span>
+                                    <span className="font-mono">
                                       إغلاق: {examCloseDateText}
                                     </span>
-                                  </div>
+                                  </p>
                                   <h3 className="line-clamp-2 text-[14px] font-bold leading-5 text-slate-950 sm:text-[15px]">
                                     {exam.title}
                                   </h3>
                                   {shouldShowStudentCourseBadges && (
-                                    <div className="inline-flex max-w-full items-start gap-1.5 rounded-[var(--miras-r-md)] border border-white/80 bg-slate-50/55 px-2 py-0.5 text-[8px] font-bold leading-3.5 text-slate-500 shadow-sm">
+                                    <p
+                                      className="flex max-w-full items-center gap-1.5 text-[11px] font-bold text-slate-500"
+                                      title={courseMeta.courseName}
+                                    >
                                       <span
-                                        className={`mt-1 h-1.5 w-1.5 shrink-0 rounded-full shadow-sm ${studentCourseDotTone(courseMeta.courseCode, courseMeta.index)}`}
+                                        className={`h-1.5 w-1.5 shrink-0 rounded-full ${studentCourseDotTone(courseMeta.courseCode, courseMeta.index)}`}
                                       />
-                                      <span
-                                        className="line-clamp-2 max-w-[12rem] text-right sm:max-w-[17rem]"
-                                        title={courseMeta.courseName}
-                                      >
+                                      <span className="truncate">
                                         {courseMeta.courseName}
                                       </span>
-                                    </div>
+                                    </p>
                                   )}
-                                  <div className="flex flex-wrap items-center gap-2 pt-1 text-[9px] font-bold">
-                                    <span className="rounded-2xl border border-slate-100 bg-slate-50 px-2.5 py-1.5 text-slate-500">
+                                  {priorExamSubmission ? (
+                                    <DnaStepper
+                                      size="sm"
+                                      steps={studentSubmissionLifecycleSteps(
+                                        priorExamSubmission,
+                                      )}
+                                      ariaLabel={`مراحل التسليم: ${studentSubmissionStatusForDisplay(priorExamSubmission)}`}
+                                    />
+                                  ) : null}
+                                  <div className="flex flex-wrap items-center gap-x-3 gap-y-1 pt-0.5 text-[12px] font-bold text-slate-500">
+                                    <span>
                                       الدرجة:{" "}
                                       {formatGradeFraction(exam.points, "")}
                                     </span>
+                                    {visibleExamGrade ? (
+                                      <span className="text-indigo-700">
+                                        درجتك:{" "}
+                                        <span className="font-mono">
+                                          {visibleExamGrade}
+                                        </span>
+                                      </span>
+                                    ) : null}
                                     {returnedExceptionOpen ? (
-                                      <span className="rounded-2xl border border-amber-100 bg-amber-50/80 px-2.5 py-1.5 text-amber-700">
+                                      <span className="inline-flex items-center gap-1 text-amber-700">
+                                        <Clock className="h-3.5 w-3.5" aria-hidden="true" />
                                         استثناء حتى{" "}
                                         {formatKwDateTime(
                                           priorExamSubmission?.returnExceptionUntil,
                                         )}
                                       </span>
                                     ) : null}
-                                    {visibleExamGrade ? (
-                                      <span className="rounded-2xl border border-indigo-100 bg-indigo-50/70 px-2.5 py-1.5 text-indigo-700">
-                                        درجتك: {visibleExamGrade}
-                                      </span>
-                                    ) : null}
                                     {requiresSeb ? (
-                                      <span className="rounded-2xl border border-slate-100 bg-white px-2.5 py-1.5 text-slate-500">
+                                      <span className="inline-flex items-center gap-1">
+                                        <ShieldCheck className="h-3.5 w-3.5" aria-hidden="true" />
                                         يتطلب SEB
                                       </span>
                                     ) : null}
@@ -34580,7 +34648,7 @@ ${rows
                                           "",
                                         );
                                     }}
-                                    className={`inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl transition duration-300 miras-shadow-glow btn-spring-active disabled:cursor-not-allowed disabled:opacity-55 ${canOpen ? "bg-indigo-600 hover:bg-indigo-700 text-white" : "bg-slate-950 hover:bg-indigo-700 text-white"}`}
+                                    className={`inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl transition duration-300 btn-spring-active disabled:cursor-not-allowed disabled:opacity-55 ${canOpen ? "bg-indigo-600 hover:bg-indigo-700 text-white" : "bg-slate-950 hover:bg-indigo-700 text-white"}`}
                                     title={
                                       quizStartGuardActive
                                         ? "جاري فحص ثبات الشاشة"
@@ -34595,8 +34663,16 @@ ${rows
                                     <Play className="h-4 w-4" />
                                   </button>
                                 ) : (
-                                  <span className="inline-flex shrink-0 rounded-2xl border border-emerald-100 bg-emerald-50 px-3 py-2 text-[10px] font-bold text-emerald-700 shadow-sm">
-                                    {examStateText}
+                                  <span
+                                    className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-indigo-50 text-indigo-700"
+                                    title={examStateText}
+                                    aria-label={examStateText}
+                                  >
+                                    {submittedExam || locked ? (
+                                      <CheckCircle2 className="h-5 w-5" />
+                                    ) : (
+                                      <Lock className="h-5 w-5" />
+                                    )}
                                   </span>
                                 )}
                               </div>
@@ -34702,39 +34778,50 @@ ${rows
                               return (
                                 <div
                                   key={`practice-project-${project.id}`}
-                                  className="group relative overflow-hidden rounded-[var(--miras-r-xl)] border border-indigo-100/70 bg-white/88 p-4 miras-shadow-glow backdrop-blur transition-all duration-300 hover:-translate-y-0.5 hover:border-indigo-200 hover:miras-shadow-glow"
+                                  className="group relative overflow-hidden rounded-[var(--miras-r-xl)] border border-slate-100 bg-white p-4 miras-shadow-1 transition-shadow duration-300 hover:miras-shadow-2"
                                 >
-                                  <div className="pointer-events-none absolute -left-10 -bottom-10 h-28 w-28 rounded-full bg-indigo-200/25 blur-3xl" />
                                   <div className="relative z-10 flex items-start justify-between gap-4">
                                     <div className="min-w-0 flex-1 space-y-2.5 text-right">
-                                      <div className="flex flex-wrap items-center gap-2">
-                                        <span
-                                          className={`rounded-full border px-2 py-0.5 text-[8.5px] font-black ${projectStateTone}`}
-                                        >
+                                      <p className="miras-student-time-detail flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px] font-bold text-slate-500">
+                                        <span className="inline-flex items-center gap-1.5 text-slate-700">
+                                          <span
+                                            aria-hidden="true"
+                                            className={`h-1.5 w-1.5 rounded-full ${isReturned ? "bg-amber-500" : isLocked ? "bg-slate-300" : "bg-indigo-600"}`}
+                                          />
                                           {projectStateText}
                                         </span>
-                                        <span className="miras-student-time-detail rounded-full bg-slate-50/80 px-2.5 py-1 font-mono text-[9px] font-bold text-slate-400">
+                                        <span aria-hidden="true">·</span>
+                                        <span className="font-mono">
                                           {projectDateText}
                                         </span>
-                                      </div>
+                                      </p>
                                       <h3 className="line-clamp-2 text-[14px] font-bold leading-5 text-slate-950 sm:text-[15px]">
                                         {project.title}
                                       </h3>
                                       {shouldShowStudentCourseBadges && (
-                                        <div className="inline-flex max-w-full items-start gap-1.5 rounded-[var(--miras-r-md)] border border-white/80 bg-slate-50/55 px-2 py-0.5 text-[8px] font-bold leading-3.5 text-slate-500 shadow-sm">
+                                        <p
+                                          className="flex max-w-full items-center gap-1.5 text-[11px] font-bold text-slate-500"
+                                          title={courseMeta.courseName}
+                                        >
                                           <span
-                                            className={`mt-1 h-1.5 w-1.5 shrink-0 rounded-full shadow-sm ${studentCourseDotTone(courseMeta.courseCode, courseMeta.index)}`}
+                                            className={`h-1.5 w-1.5 shrink-0 rounded-full ${studentCourseDotTone(courseMeta.courseCode, courseMeta.index)}`}
                                           />
-                                          <span
-                                            className="line-clamp-2 max-w-[12rem] text-right sm:max-w-[17rem]"
-                                            title={courseMeta.courseName}
-                                          >
+                                          <span className="truncate">
                                             {courseMeta.courseName}
                                           </span>
-                                        </div>
+                                        </p>
                                       )}
-                                      <div className="flex flex-wrap items-center gap-2 pt-1 text-[9px] font-bold">
-                                        <span className="rounded-2xl border border-slate-100 bg-slate-50 px-2.5 py-1.5 text-slate-500">
+                                      {priorSubmission ? (
+                                        <DnaStepper
+                                          size="sm"
+                                          steps={studentSubmissionLifecycleSteps(
+                                            priorSubmission,
+                                          )}
+                                          ariaLabel={`مراحل التسليم: ${studentSubmissionStatusForDisplay(priorSubmission)}`}
+                                        />
+                                      ) : null}
+                                      <div className="flex flex-wrap items-center gap-x-3 gap-y-1 pt-0.5 text-[12px] font-bold text-slate-500">
+                                        <span>
                                           الدرجة:{" "}
                                           {formatGradeFraction(
                                             project.points,
@@ -34742,7 +34829,8 @@ ${rows
                                           )}
                                         </span>
                                         {returnedExceptionOpen && (
-                                          <span className="rounded-2xl border border-amber-100 bg-amber-50/80 px-2.5 py-1.5 text-amber-700">
+                                          <span className="inline-flex items-center gap-1 text-amber-700">
+                                            <Clock className="h-3.5 w-3.5" aria-hidden="true" />
                                             استثناء حتى{" "}
                                             {formatKwDateTime(
                                               priorSubmission?.returnExceptionUntil,
@@ -34750,8 +34838,11 @@ ${rows
                                           </span>
                                         )}
                                         {visibleProjectGrade && (
-                                          <span className="rounded-2xl border border-indigo-100 bg-indigo-50/70 px-2.5 py-1.5 text-indigo-700">
-                                            درجتك: {visibleProjectGrade}
+                                          <span className="text-indigo-700">
+                                            درجتك:{" "}
+                                            <span className="font-mono">
+                                              {visibleProjectGrade}
+                                            </span>
                                           </span>
                                         )}
                                       </div>
@@ -34766,7 +34857,7 @@ ${rows
                                         }}
                                         title="فتح"
                                         aria-label="فتح"
-                                        className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-indigo-600 text-white transition duration-300 hover:bg-indigo-700 miras-shadow-glow btn-spring-active"
+                                        className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-indigo-600 text-white transition duration-300 hover:bg-indigo-700 btn-spring-active"
                                       >
                                         <Play className="h-4 w-4" />
                                       </button>
@@ -45279,7 +45370,7 @@ ${rows
                 <X className="h-4.5 w-4.5" />
               </button>
             </div>
-            <div className="max-h-[70vh] space-y-2.5 overflow-y-auto pr-0 text-right [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+            <div className="max-h-[70vh] overflow-y-auto pr-0 text-right [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
               {studentSubmissionTimeline.map((sub: any, idx) => {
                 const gradeText = studentSubmissionGradeForDisplay(sub);
                 const statusText = studentSubmissionStatusForDisplay(sub);
@@ -45304,83 +45395,58 @@ ${rows
                 return (
                   <div
                     key={sub.id || idx}
-                    className="miras-timeline-item relative pr-8"
+                    className={`miras-timeline-item miras-dna-row space-y-2.5 px-1 py-3.5 ${idx > 0 ? "miras-dna-row-sep" : ""}`}
                   >
-                    <span
-                      className={`miras-timeline-side-dot absolute right-0 top-[1.125rem] h-4 w-4 rounded-full border-[4px] border-white miras-shadow-1 ${isActionNeeded ? "bg-amber-400" : gradeText ? "bg-emerald-400" : "bg-indigo-400"}`}
-                    />
-                    {idx < studentSubmissionTimeline.length - 1 && (
-                      <span className="absolute right-[7px] top-9 h-[calc(100%+0.35rem)] w-px bg-gradient-to-b from-slate-200/75 to-transparent" />
+                    <p className="text-[11px] font-bold text-slate-500">
+                      {isLatestSubmission ? "آخر تسليم · " : ""}
+                      {studentSubmissionKindText(sub)} ·{" "}
+                      {formatKwDateTime(sub.submittedAt)}
+                    </p>
+                    <p className="line-clamp-2 text-[14px] font-bold leading-5 text-slate-950 sm:text-[15px]">
+                      {sub.activityTitle || sub.exerciseTitle || "تسليم"}
+                    </p>
+                    {shouldShowStudentCourseBadges && (
+                      <p
+                        className="flex max-w-full items-center gap-1.5 text-[11px] font-bold text-slate-500"
+                        title={courseMeta.courseName}
+                      >
+                        <span
+                          className={`h-1.5 w-1.5 shrink-0 rounded-full ${studentCourseDotTone(courseMeta.courseCode, courseMeta.index)}`}
+                        />
+                        <span className="truncate">{courseMeta.courseName}</span>
+                      </p>
                     )}
-                    <div
-                      className={`relative overflow-hidden rounded-[var(--miras-r-lg)] border px-3 py-3 transition hover:-translate-y-0.5 sm:px-3.5 ${isLatestSubmission ? "border-indigo-100/75 bg-gradient-to-br from-white via-indigo-50/18 to-white miras-shadow-glow" : "border-slate-100/90 bg-white/92 miras-shadow-1 hover:miras-shadow-2"}`}
-                    >
-                      {isLatestSubmission && (
-                        <div className="pointer-events-none absolute -left-10 -top-10 h-28 w-28 rounded-full bg-indigo-200/25 blur-3xl" />
-                      )}
-                      <div className="relative z-10 space-y-2.5">
-                        <div className="flex flex-wrap items-center gap-1.5">
-                          {isLatestSubmission && (
-                            <span className="inline-flex items-center gap-1 rounded-full border border-indigo-100 bg-indigo-600/95 px-2 py-0.5 text-[8.5px] font-black text-white miras-shadow-glow">
-                              <Sparkles className="h-2.5 w-2.5" />
-                              آخر تسليم
-                            </span>
-                          )}
-                          <span
-                            className={`rounded-full border px-2 py-0.5 text-[8.5px] font-black ${studentSubmissionKindTone(sub)}`}
-                          >
-                            {studentSubmissionKindText(sub)}
-                          </span>
-                        </div>
-                        <span className="inline-flex w-fit rounded-full bg-slate-50/85 px-2.5 py-0.5 text-[9px] font-bold text-slate-500">
-                          {formatKwDateTime(sub.submittedAt)}
+                    <DnaStepper
+                      size="sm"
+                      steps={studentSubmissionLifecycleSteps(sub)}
+                      ariaLabel={`مراحل التسليم: ${statusText}`}
+                    />
+                    <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+                      {gradeText ? (
+                        <span className="font-mono text-[15px] font-bold text-indigo-700">
+                          {gradeText}
                         </span>
-                        <p className="line-clamp-2 text-[14px] font-bold leading-5 text-slate-950 sm:text-[15px]">
-                          {sub.activityTitle || sub.exerciseTitle || "تسليم"}
-                        </p>
-                        {shouldShowStudentCourseBadges && (
-                          <div className="inline-flex max-w-full items-center gap-1.5 rounded-full border border-white/80 bg-slate-50/55 px-2 py-0.5 text-[8px] font-bold text-slate-500 shadow-sm">
-                            <span
-                              className={`h-1.5 w-1.5 shrink-0 rounded-full shadow-sm ${studentCourseDotTone(courseMeta.courseCode, courseMeta.index)}`}
-                            />
-                            <span
-                              className="max-w-[10rem] truncate sm:max-w-[14rem]"
-                              title={courseMeta.courseName}
-                            >
-                              {courseMeta.courseName}
-                            </span>
-                          </div>
-                        )}
-                        <div className="flex flex-wrap items-center gap-2 pt-1">
-                          {gradeText ? (
-                            <span className="inline-flex items-center rounded-2xl border border-indigo-100 bg-indigo-50/60 px-3 py-1.5 font-mono text-[11px] font-bold text-indigo-700">
-                              {gradeText}
-                            </span>
-                          ) : smartResultText ? (
-                            <span className="inline-flex items-center rounded-2xl border border-emerald-100 bg-emerald-50 px-3 py-1.5 text-[9.5px] font-black text-emerald-700">
-                              {smartResultText}
-                            </span>
-                          ) : (
-                            <span className="inline-flex items-center rounded-2xl border border-slate-100 bg-slate-50 px-3 py-1.5 text-[9.5px] font-black text-slate-400">
-                              لم تُرصد الدرجة
-                            </span>
-                          )}
-                          {smartResultText ? null : (
-                            <span
-                              className={`rounded-2xl border px-3 py-1.5 text-[9.5px] font-black ${studentSubmissionStatusTone(sub)}`}
-                            >
-                              {statusText}
-                            </span>
-                          )}
-                        </div>
-                        {smartResultText ? null : (
-                          <div
-                            className={`rounded-2xl border px-3 py-1.5 text-[9.5px] font-black ${isActionNeeded ? "border-amber-100 bg-amber-50 text-amber-700" : "border-slate-100 bg-slate-50/70 text-slate-500"}`}
-                          >
-                            {actionText}
-                          </div>
-                        )}
-                      </div>
+                      ) : smartResultText ? (
+                        <span className="text-[12px] font-bold text-slate-700">
+                          {smartResultText}
+                        </span>
+                      ) : (
+                        <span className="text-[12px] font-bold text-slate-500">
+                          لم تُرصد الدرجة
+                        </span>
+                      )}
+                      {smartResultText ? null : (
+                        <span className="text-[12px] font-bold text-slate-500">
+                          {statusText}
+                        </span>
+                      )}
+                      {smartResultText ? null : (
+                        <span
+                          className={`text-[12px] font-bold ${isActionNeeded ? "text-amber-700" : "text-slate-500"}`}
+                        >
+                          {actionText}
+                        </span>
+                      )}
                     </div>
                   </div>
                 );

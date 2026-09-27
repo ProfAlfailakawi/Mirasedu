@@ -111,3 +111,12 @@ html[data-theme] #root:has(.miras-pwa-row) .meras-auth-shell {
 html[data-theme] #root:has(.miras-pwa-row) .meras-auth-card {
   max-height: calc(100dvh - 68px - 1.5rem - env(safe-area-inset-bottom)) !important;
 }
+
+/* أهداف لمس ٤٤px كما في بقية مِراس */
+.dna-ibtn { inline-size: 44px; min-block-size: 44px; }
+.dna-btn, .dna-btnp { min-block-size: 44px; }
+
+/* صفوف سجل التسليمات: فاصل متقطع بدل البطاقات المتراكبة */
+.miras-dna-row-sep {
+  border-top: 1px dashed var(--miras-line) !important;
+}
