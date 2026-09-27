@@ -16,11 +16,13 @@
  * screens read naturally and match no real person.
  */
 import type {
+  ActivationAttempt,
   ActivityLog,
   AllowedStudent,
   DatabaseState,
   ExerciseSubmission,
   JoinCode,
+  PasswordResetRequest,
   Question,
   QuizSubmission,
   Section,
@@ -60,6 +62,8 @@ const FAMILY = [
 ];
 
 const SEMESTER = "الفصل الأول 2026/2027";
+const DEMO_TEACHER_EMAIL = "demo.teacher@miras.test";
+const DEMO_TEACHER_NAME = "د. سارة الخالد";
 
 const COURSES: ReadonlyArray<readonly [string, string, boolean]> = [
   ["EDU-TECH-A1", "تقنيات التعليم الحديثة — شعبة A1", true],
@@ -154,13 +158,15 @@ export function createDemoDatabaseState(liveTeachers: Teacher[]): DatabaseState 
     semester: SEMESTER,
     isOpen,
     ownerEmail: "demo.teacher@miras.test",
-  }));
+    /* بلا اسمٍ هنا تقرأ بطاقات الأكواد «اسم الدكتور غير محمّل». */
+    teacherName: DEMO_TEACHER_NAME,
+  }) as Section);
 
   const teachers: Teacher[] = [
     ...liveTeachers,
     {
       id: "demo_teacher_1",
-      name: "د. سارة الخالد (بيئة تجريبية)",
+      name: `${DEMO_TEACHER_NAME} (بيئة تجريبية)`,
       email: "demo.teacher@miras.test",
       // No usable credential: a demo instructor is reached by entering the
       // demo, never by signing in, so there is nothing here to guess.
@@ -171,11 +177,16 @@ export function createDemoDatabaseState(liveTeachers: Teacher[]): DatabaseState 
   ];
 
   const chapters: TextbookChapter[] = CHAPTERS.map(([title, subtitle, topics], index) => ({
-    id: `demo_ch_${index + 1}`,
+    /*
+     * `chap-N` لا `demo_ch_N`: هذه صيغة الخادم نفسها لفصول المصدر، وبنك الأسئلة
+     * في لوحة المعلّم يفتح مُرشَّحًا على `chap-1` افتراضيًا. بمعرّفٍ آخر كان البنك
+     * يفتح فارغًا تمامًا مع أن فيه ثمانيةً وأربعين سؤالًا.
+     */
+    id: `chap-${index + 1}`,
     title,
     subtitle,
     topics: topics.map(([topicTitle, pages, concepts], t) => ({
-      id: `demo_ch_${index + 1}_t${t + 1}`,
+      id: `chap-${index + 1}-t${t + 1}`,
       title: topicTitle,
       pages,
       concepts: [...concepts],
@@ -674,18 +685,171 @@ export function createDemoDatabaseState(liveTeachers: Teacher[]): DatabaseState 
     });
   });
 
-  const joinCodes: JoinCode[] = sections.map((section, index) => ({
-    code: `MIRAS-${section.code}-${String(1000 + index * 37)}`,
-    courseCode: section.code,
-    sectionCode: section.code,
-    courseName: section.courseName,
-    teacherEmail: "demo.teacher@miras.test",
-    status: index === 3 ? "revoked" : "active",
-    createdAt: ago(60 - index * 5),
-    expiresAt: ahead(30),
-    maxUses: 60,
-    usedCount: 12 + index * 6,
-  }) as unknown as JoinCode);
+  /*
+   * رموز الانضمام — كما يُصدرها الخادم فعلًا.
+   *
+   * كانت أربعة رموزٍ بصيغة `MIRAS-…` لا يعرفها التطبيق، بلا بريد مالك ولا
+   * طالب: فتظهر كلها «صيغة تحتاج إعادة إصدار» و«اسم الدكتور غير محمّل»، وقمع
+   * صحة الأكواد «فُعِّلت ٠ · أول دخول ٠ · أول اختبار ٠»، ولوحة أمان الأكواد
+   * وسجل المحاولات فارغين. الآن: رمزٌ شخصي لكل طالب في الكشف بصيغة
+   * `LAB-XXXX-XXXX-XXXX`، المفعَّل منها مربوطٌ بصاحبه وتاريخ تفعيله، وبعضها
+   * تحت المراقبة لمحاولات تسريب — وهو ما تعرضه لوحة الأمان.
+   *
+   * مولّدٌ مستقل عن `random` أعلاه عمدًا: استدعاءٌ إضافي هناك يغيّر كل الدرجات
+   * والتقدم المحسوب بعده.
+   */
+  const codeRandom = makeRandom(0x10ab);
+  const CODE_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+  const issued = new Set<string>();
+  const makeCode = () => {
+    for (;;) {
+      let body = "";
+      for (let i = 0; i < 12; i += 1) body += CODE_ALPHABET[Math.floor(codeRandom() * CODE_ALPHABET.length)];
+      const code = `LAB-${body.slice(0, 4)}-${body.slice(4, 8)}-${body.slice(8, 12)}`;
+      if (!issued.has(code)) { issued.add(code); return code; }
+    }
+  };
+  const sectionByCode = new Map(sections.map((section) => [section.code, section]));
+  const batchFor = (sectionCode: string) => `Batch-${ago(58).slice(0, 10)}-${sectionCode}-${DEMO_TEACHER_EMAIL}`;
+  const journey = (label: string, at: string, extra: Record<string, unknown> = {}) => ({
+    id: `cj-demo-${issued.size}-${label.length}`,
+    label,
+    at,
+    actorEmail: DEMO_TEACHER_EMAIL,
+    ...extra,
+  });
+
+  const joinCodes: JoinCode[] = [];
+  const codeByStudent = new Map<string, string>();
+  students.forEach((student, index) => {
+    const section = sectionByCode.get(student.sectionCode)!;
+    const createdAt = ago(58 - (index % 4));
+    const code = makeCode();
+    codeByStudent.set(student.id, code);
+    const base: any = {
+      code,
+      semester: SEMESTER,
+      sectionCode: section.code,
+      courseCode: section.code,
+      studentSection: section.code,
+      courseName: section.courseName,
+      createdAt,
+      ownerEmail: DEMO_TEACHER_EMAIL,
+      createdByEmail: DEMO_TEACHER_EMAIL,
+      batchId: batchFor(section.code),
+      batchLabel: batchFor(section.code),
+      assignedStudentId: student.id,
+      assignedStudentName: student.name,
+      codeReputation: "normal",
+      codeReputationLabel: "طبيعي",
+      codeReputationScore: 0,
+      printedAt: index % 3 === 0 ? ago(55) : undefined,
+      codeJourney: [journey("تم إنشاء الكود", createdAt, { sectionCode: section.code, studentId: student.id })],
+    };
+    if (student.isActivated) {
+      const activatedAt = student.signupDate || ago(40);
+      Object.assign(base, {
+        status: "used",
+        studentId: student.id,
+        studentName: student.name,
+        usedByStudentId: student.id,
+        activatedAt,
+        activationDeviceFingerprint: student.devices[0],
+        codeJourney: [...base.codeJourney, journey("تم تفعيل الكود", activatedAt, { studentId: student.id })],
+      });
+    } else {
+      base.status = "active";
+    }
+    /* رموزٌ حاول غيرُ أصحابها استخدامها: هي ملفات المراجعة في لوحة الأمان. */
+    if (index % 17 === 3) {
+      Object.assign(base, {
+        leakAttemptCount: 2 + (index % 3),
+        codeReputation: index % 2 ? "suspicious" : "watch",
+        codeReputationLabel: index % 2 ? "مشتبه" : "مراقبة",
+        codeReputationScore: index % 2 ? 62 : 44,
+        lastFailedAttemptAt: ago(index % 6),
+        lastFailedAttemptReason: "الرمز مخصّص لطالبٍ آخر في الكشف",
+      });
+    }
+    joinCodes.push(base as JoinCode);
+  });
+  /* ورموزٌ أُلغيت في المقرر المغلق — الأرشيف لا يعرض حالةً واحدة فقط. */
+  for (let i = 0; i < 3; i += 1) {
+    const section = sections[3];
+    joinCodes.push({
+      code: makeCode(),
+      semester: SEMESTER,
+      sectionCode: section.code,
+      courseCode: section.code,
+      studentSection: section.code,
+      courseName: section.courseName,
+      status: "revoked",
+      createdAt: ago(50),
+      updatedAt: ago(20 - i),
+      ownerEmail: DEMO_TEACHER_EMAIL,
+      createdByEmail: DEMO_TEACHER_EMAIL,
+      batchId: batchFor(section.code),
+      batchLabel: batchFor(section.code),
+      codeReputation: "normal",
+      codeReputationLabel: "طبيعي",
+      codeReputationScore: 0,
+    } as any as JoinCode);
+  }
+
+  /*
+   * محاولات التفعيل المرفوضة: سجل «المحاولات» ولوحة أمان الأكواد. كلها في
+   * الأيام الأخيرة حتى تقع داخل نطاق التاريخ الافتراضي للسجل (آخر ثلاثين يومًا).
+   */
+  const ATTEMPT_REASONS = [
+    "الرمز مخصّص لطالبٍ آخر في الكشف",
+    "رمز غير صحيح — لا يطابق أي رمز صادر",
+    "الرقم الجامعي غير موجود في كشف هذا المقرر",
+    "الرمز مستخدم سابقًا على جهازٍ آخر",
+    "الرمز ملغى من الأستاذ",
+  ];
+  const activationAttempts: ActivationAttempt[] = Array.from({ length: 18 }, (_, index) => {
+    const student = pick(students, index * 5 + 2);
+    const victim = pick(students, index * 5 + 9);
+    const reason = pick(ATTEMPT_REASONS, index);
+    const code = reason.includes("غير صحيح")
+      ? makeCode() // صيغةٌ صحيحة لم تُصدر لأحد: تخمين
+      : codeByStudent.get(victim.id) || "";
+    return {
+      id: `demo_attempt_${index + 1}`,
+      code,
+      normalizedCode: code,
+      studentId: student.id,
+      studentName: student.name,
+      sectionCode: student.sectionCode,
+      teacherEmail: DEMO_TEACHER_EMAIL,
+      status: index % 3 === 0 ? "warning" : "blocked",
+      reason,
+      deviceFingerprint: `dev_${index}_x`,
+      ip: `10.0.${(index * 3) % 255}.${(index * 11) % 255}`,
+      userAgent: "Mozilla/5.0 (demo)",
+      timestamp: ago(index % 12),
+    } as any as ActivationAttempt;
+  });
+
+  /* طلبات استرجاع كلمة المرور: «الحسابات والأجهزة» في المتابعة. */
+  const passwordResetRequests: PasswordResetRequest[] = [4, 12, 23].map((studentIndex, i) => {
+    const student = students[studentIndex];
+    return {
+      id: `demo_reset_${i + 1}`,
+      studentId: student.id,
+      studentName: student.name,
+      studentEmail: student.email,
+      sectionCode: student.sectionCode,
+      teacherEmail: DEMO_TEACHER_EMAIL,
+      resetToken: `demo-reset-token-${i + 1}`,
+      resetLink: "",
+      verificationCode: makeCode(),
+      status: i === 2 ? "handled" : "new",
+      requestedAt: ago(i),
+      expiresAt: ahead(1),
+      handledAt: i === 2 ? ago(1) : undefined,
+    };
+  });
 
   return {
     lastUpdated: Date.now(),
@@ -708,8 +872,8 @@ export function createDemoDatabaseState(liveTeachers: Teacher[]): DatabaseState 
     teacherSubmissions,
     sebAttempts: [],
     examSessions: [],
-    passwordResetRequests: [],
-    activationAttempts: [],
+    passwordResetRequests,
+    activationAttempts,
     notificationTokens: [],
     inAppNotifications: [],
     passkeyCredentials: [],
