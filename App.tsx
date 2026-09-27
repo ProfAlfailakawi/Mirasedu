@@ -3423,6 +3423,8 @@ export default function App() {
   const MIRAS_DEMO_ENTRY_VISIBLE = false;
   const [demoEnabled, setDemoEnabled] = useState(false);
   const [demoActive, setDemoActive] = useState(false);
+  // على الهاتف تُطوى أدوات البيئة التجريبية خلف زرّ واحد كي لا تغطي رأس الشاشة.
+  const [demoBarOpen, setDemoBarOpen] = useState(false);
   const [demoBusy, setDemoBusy] = useState(false);
   /* الدور المعروض داخل الصندوق. يُقرأ من التخزين لا من حالةٍ في الذاكرة: تبديل
      الدور يُعيد التحميل، فالمصدر الوحيد الباقي بعد الإقلاع هو الجلسة المكتوبة. */
@@ -20694,7 +20696,7 @@ ${rows
               </div>
               <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-[10px] font-bold text-slate-400">
                 <span className="font-mono text-slate-600">{req.studentId || "-"}</span>
-                <span className="truncate">{courseLabelForResetRequest(req)}</span>
+                <span className="miras-m-wrap2 truncate" title={courseLabelForResetRequest(req)}>{courseLabelForResetRequest(req)}</span>
                 <span className="font-mono">{formatKwDateTime(req.requestedAt || req.timestamp)}</span>
               </div>
             </div>
@@ -29659,13 +29661,23 @@ ${rows
           في أي عرض أمام جهة، لازم يكون واضحاً بنظرة واحدة أن ولا سجل على الشاشة
           يخصّ طالباً حقيقياً — ومعها زرّا إعادة التعيين والخروج. */}
       {demoActive && (
-        <div className="fixed inset-x-0 top-0 z-[200600] flex justify-center pointer-events-none">
+        <div className={`miras-demo-bar${demoBarOpen ? " is-open" : ""} fixed inset-x-0 top-0 z-[200600] flex justify-center pointer-events-none`}>
           <div className="pointer-events-auto mt-2 flex items-center gap-2 rounded-full border border-amber-300 bg-amber-100/95 px-3 py-1.5 text-[11px] font-black text-amber-900 shadow-lg backdrop-blur">
             {/* أيقونات بلا كلام: الشريط وسمٌ هادئ فوق شاشةٍ تُعرض على جهة، والنصّ
                 فيه يسرق النظر من المنتج نفسه. والمعنى يصل من الأيقونة، ويبقى
                 كاملاً لقارئ الشاشة في `aria-label` و`title`. */}
+            <button
+              type="button"
+              className="miras-demo-toggle"
+              aria-expanded={demoBarOpen}
+              aria-label="أدوات البيئة التجريبية"
+              title="أدوات البيئة التجريبية"
+              onClick={() => setDemoBarOpen((open) => !open)}
+            >
+              <FlaskConical className="h-4 w-4" />
+            </button>
             <FlaskConical
-              className="h-3.5 w-3.5"
+              className="miras-demo-flask h-3.5 w-3.5"
               role="img"
               aria-label="بيئة تجريبية — بيانات مصطنعة معزولة"
             />
@@ -45983,7 +45995,10 @@ ${rows
                       <FileText className="h-5 w-5" />
                     </span>
                     <span className="min-w-0 flex-1 text-right">
-                      <span className="block truncate text-[13.5px] font-black text-slate-900">
+                      <span
+                        className="miras-m-wrap2 block truncate text-[13.5px] font-black text-slate-900"
+                        title={sanitizeCourseIdentifiersForDisplay(item.title)}
+                      >
                         {sanitizeCourseIdentifiersForDisplay(item.title)}
                       </span>
                       <span className="mt-1 inline-flex items-center gap-1 text-[11px] font-bold text-amber-600">

@@ -83,6 +83,7 @@ run_group tests/flows.demo-hosting.mjs
 node node_modules/.bin/tsx tests/flows.arabic-text.mjs || overall=1
 node node_modules/.bin/tsx --test tests/flows.demo-orphan.mjs || overall=1
 node node_modules/.bin/tsx --test tests/flows.demo-coursework.mjs || overall=1
+node node_modules/.bin/tsx --test tests/flows.demo-screens.mjs || overall=1
 stop_server
 
 echo ""
