@@ -159,3 +159,43 @@ html[data-theme] #root:has(.miras-pwa-row) .meras-auth-card {
   border: 2px solid var(--miras-surface) !important;
   animation: none !important;
 }
+
+/* ═══ أسطر الوصف الجديدة: لا يطالها قصّ ‎760px‎ القديم ولا علامة التاريخ البنفسجية ═══ */
+.workspace-calm-shell .miras-dna-meta,
+.teacher-calm-shell .miras-dna-meta {
+  display: flex !important;
+  -webkit-line-clamp: unset !important;
+}
+.miras-dna-date::after {
+  content: none !important;
+  display: none !important;
+}
+
+/* ═══ لون هوية واحد: أزرار ممتلئة بلا تدرّج ولا توهّج ═══ */
+html[data-theme] #root button.miras-dna-solid,
+html[data-theme] #root .miras-calm-auth .meras-main-action:not(:disabled) {
+  background: var(--miras-brand) !important;
+  background-image: none !important;
+  color: var(--miras-brand-on) !important;
+  border: 1px solid transparent !important;
+  box-shadow: none !important;
+  filter: none !important;
+}
+html[data-theme] #root button.miras-dna-solid:hover:not(:disabled),
+html[data-theme] #root .miras-calm-auth .meras-main-action:hover:not(:disabled) {
+  background: var(--miras-brand-hover) !important;
+}
+html[data-theme] #root .miras-calm-auth .meras-main-action:disabled {
+  background: var(--miras-surface-3) !important;
+  background-image: none !important;
+  color: var(--miras-ink-3) !important;
+  border: 1px solid var(--miras-line) !important;
+  box-shadow: none !important;
+}
+
+/* شريط «المكتمل»: تعبئة بلون الهوية بلا توهّج */
+html[data-theme] #root .miras-study-path .miras-dna-progress {
+  background: var(--miras-brand) !important;
+  background-image: none !important;
+  box-shadow: none !important;
+}

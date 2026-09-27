@@ -32309,9 +32309,9 @@ ${rows
                         <button
                           type="button"
                           onClick={startPublicDeviceLogin}
-                          className="group flex w-full items-center gap-3 rounded-[var(--miras-r-lg)] border border-indigo-100 bg-gradient-to-l from-indigo-50/90 via-white to-emerald-50/70 px-4 py-3.5 text-right miras-shadow-glow transition hover:-translate-y-0.5 hover:border-indigo-200 hover:miras-shadow-glow active:translate-y-0"
+                          className="group flex w-full items-center gap-3 rounded-[var(--miras-r-lg)] border border-slate-200 bg-white px-4 py-3.5 text-right transition-colors hover:border-indigo-200 hover:bg-indigo-50/40"
                         >
-                          <span className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-white text-indigo-700 shadow-sm ring-1 ring-indigo-100 transition group-hover:scale-105">
+                          <span className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-indigo-50 text-indigo-700">
                             <Smartphone className="h-5 w-5" />
                           </span>
                           <span className="min-w-0 flex-1">
@@ -34297,7 +34297,7 @@ ${rows
                                   </div>
                                   <div className="h-2.5 overflow-hidden rounded-full bg-slate-200/70 shadow-inner">
                                     <div
-                                      className="h-full rounded-full bg-gradient-to-l from-emerald-400 via-indigo-500 to-slate-950 miras-shadow-glow"
+                                      className="miras-dna-progress h-full rounded-full bg-indigo-600"
                                       style={{
                                         width: `${studentCourseProgressDisplayPercent}%`,
                                       }}
@@ -34391,7 +34391,7 @@ ${rows
                                                 "تسليم"}
                                             </p>
                                             {shouldShowStudentCourseBadges && (
-                                              <p
+                                              <div
                                                 className="miras-dna-meta flex max-w-full items-center gap-1.5 text-[11px] font-bold text-slate-500"
                                                 title={courseMeta.courseName}
                                               >
@@ -34401,7 +34401,7 @@ ${rows
                                                 <span className="truncate">
                                                   {courseMeta.courseName}
                                                 </span>
-                                              </p>
+                                              </div>
                                             )}
                                             <DnaStepper
                                               size="sm"
@@ -34601,7 +34601,7 @@ ${rows
                             >
                               <div className="relative z-10 flex items-start justify-between gap-4">
                                 <div className="min-w-0 flex-1 space-y-2.5 text-right">
-                                  <p className="miras-student-time-detail flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px] font-bold text-slate-500">
+                                  <div className="miras-dna-meta flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px] font-bold text-slate-500">
                                     <span className="inline-flex items-center gap-1.5 text-slate-700">
                                       <span
                                         aria-hidden="true"
@@ -34613,13 +34613,13 @@ ${rows
                                     <span className="font-mono">
                                       إغلاق: {examCloseDateText}
                                     </span>
-                                  </p>
+                                  </div>
                                   <h3 className="line-clamp-2 text-[14px] font-bold leading-5 text-slate-950 sm:text-[15px]">
                                     {exam.title}
                                   </h3>
                                   {shouldShowStudentCourseBadges && (
-                                    <p
-                                      className="flex max-w-full items-center gap-1.5 text-[11px] font-bold text-slate-500"
+                                    <div
+                                      className="miras-dna-meta flex max-w-full items-center gap-1.5 text-[11px] font-bold text-slate-500"
                                       title={courseMeta.courseName}
                                     >
                                       <span
@@ -34628,7 +34628,7 @@ ${rows
                                       <span className="truncate">
                                         {courseMeta.courseName}
                                       </span>
-                                    </p>
+                                    </div>
                                   )}
                                   {priorExamSubmission ? (
                                     <DnaStepper
@@ -34689,7 +34689,7 @@ ${rows
                                           "",
                                         );
                                     }}
-                                    className={`inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl transition duration-300 btn-spring-active disabled:cursor-not-allowed disabled:opacity-55 ${canOpen ? "bg-indigo-600 hover:bg-indigo-700 text-white" : "bg-slate-950 hover:bg-indigo-700 text-white"}`}
+                                    className={`miras-dna-solid inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl transition duration-300 btn-spring-active disabled:cursor-not-allowed disabled:opacity-55 ${canOpen ? "bg-indigo-600 hover:bg-indigo-700 text-white" : "bg-slate-950 hover:bg-indigo-700 text-white"}`}
                                     title={
                                       quizStartGuardActive
                                         ? "جاري فحص ثبات الشاشة"
@@ -34823,7 +34823,7 @@ ${rows
                                 >
                                   <div className="relative z-10 flex items-start justify-between gap-4">
                                     <div className="min-w-0 flex-1 space-y-2.5 text-right">
-                                      <p className="miras-student-time-detail flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px] font-bold text-slate-500">
+                                      <div className="miras-dna-meta flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px] font-bold text-slate-500">
                                         <span className="inline-flex items-center gap-1.5 text-slate-700">
                                           <span
                                             aria-hidden="true"
@@ -34835,13 +34835,13 @@ ${rows
                                         <span className="font-mono">
                                           {projectDateText}
                                         </span>
-                                      </p>
+                                      </div>
                                       <h3 className="line-clamp-2 text-[14px] font-bold leading-5 text-slate-950 sm:text-[15px]">
                                         {project.title}
                                       </h3>
                                       {shouldShowStudentCourseBadges && (
-                                        <p
-                                          className="flex max-w-full items-center gap-1.5 text-[11px] font-bold text-slate-500"
+                                        <div
+                                          className="miras-dna-meta flex max-w-full items-center gap-1.5 text-[11px] font-bold text-slate-500"
                                           title={courseMeta.courseName}
                                         >
                                           <span
@@ -34850,7 +34850,7 @@ ${rows
                                           <span className="truncate">
                                             {courseMeta.courseName}
                                           </span>
-                                        </p>
+                                        </div>
                                       )}
                                       {priorSubmission ? (
                                         <DnaStepper
@@ -34898,7 +34898,7 @@ ${rows
                                         }}
                                         title="فتح"
                                         aria-label="فتح"
-                                        className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-indigo-600 text-white transition duration-300 hover:bg-indigo-700 btn-spring-active"
+                                        className="miras-dna-solid inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-indigo-600 text-white transition duration-300 hover:bg-indigo-700 btn-spring-active"
                                       >
                                         <Play className="h-4 w-4" />
                                       </button>
@@ -34946,7 +34946,7 @@ ${rows
                                             ? "تم الإرسال وتوثيق التسليم"
                                             : "مفتوح ومستحق الآن"}
                                       </span>
-                                      <span className="miras-student-time-detail inline-flex items-center gap-1 text-[11px] text-slate-500 font-mono">
+                                      <span className="miras-student-time-detail miras-dna-date inline-flex items-center gap-1 text-[11px] text-slate-500 font-mono">
                                         <CalendarDays className="h-3.5 w-3.5" aria-hidden="true" />
                                         تاريخ الاستحقاق الأكاديمي:{" "}
                                         {ex.dueDate}
@@ -45461,7 +45461,7 @@ ${rows
                 return (
                   <div
                     key={sub.id || idx}
-                    className={`miras-timeline-item miras-dna-row space-y-2.5 px-1 py-3.5 ${idx > 0 ? "miras-dna-row-sep" : ""}`}
+                    className={`miras-dna-row space-y-2.5 px-1 py-3.5 ${idx > 0 ? "miras-dna-row-sep" : ""}`}
                   >
                     <p className="text-[11px] font-bold text-slate-500">
                       {isLatestSubmission ? "آخر تسليم · " : ""}
@@ -45472,15 +45472,15 @@ ${rows
                       {sub.activityTitle || sub.exerciseTitle || "تسليم"}
                     </p>
                     {shouldShowStudentCourseBadges && (
-                      <p
-                        className="flex max-w-full items-center gap-1.5 text-[11px] font-bold text-slate-500"
+                      <div
+                        className="miras-dna-meta flex max-w-full items-center gap-1.5 text-[11px] font-bold text-slate-500"
                         title={courseMeta.courseName}
                       >
                         <span
                           className={`h-1.5 w-1.5 shrink-0 rounded-full ${studentCourseDotTone(courseMeta.courseCode, courseMeta.index)}`}
                         />
                         <span className="truncate">{courseMeta.courseName}</span>
-                      </p>
+                      </div>
                     )}
                     <DnaStepper
                       size="sm"
