@@ -290,6 +290,8 @@ import {
   DoorOpen,
   History,
   CircleDashed,
+  Lightbulb,
+  Share,
 } from "lucide-react";
 
 type MirasLocalVisionMode =
@@ -32423,7 +32425,7 @@ ${rows
                 <ChevronRight className="h-5 w-5" />
               </button>
               <span className="w-14 h-14 bg-indigo-50 border border-indigo-100 rounded-2xl flex items-center justify-center text-indigo-700 mx-auto mb-5 font-black text-xl">
-                🔑
+                <KeyRound className="h-6 w-6" aria-hidden="true" />
               </span>
               <h2 className="text-2xl font-bold text-slate-950 font-sans tracking-tight">
                 تفعيل الحساب
@@ -32504,7 +32506,7 @@ ${rows
           >
             <div className="w-full max-w-md glass-panel rounded-[var(--miras-r-xl)] shadow-premium-lg p-10 border border-white/60 text-center relative z-10">
               <span className="w-14 h-14 bg-indigo-50 border border-indigo-100 rounded-2xl flex items-center justify-center text-indigo-700 mx-auto mb-5 font-black text-xl">
-                🛡️
+                <ShieldCheck className="h-6 w-6" aria-hidden="true" />
               </span>
               <h2 className="text-2xl font-bold text-slate-950 font-sans">
                 تطابق الرمز الأكاديمي لشعبتك
@@ -32516,7 +32518,8 @@ ${rows
 
               <div className="bg-amber-50/50 border border-amber-100 p-4 rounded-2xl my-5 text-right">
                 <span className="text-[11px] font-bold text-amber-800 flex items-center gap-1.5 mb-1">
-                  💡 رموز الشعب النشطة حالياً بالاختبار:
+                  <Lightbulb className="h-3.5 w-3.5" aria-hidden="true" />
+                  رموز الشعب النشطة حالياً بالاختبار:
                 </span>
                 <p className="font-mono text-center text-xs font-bold text-slate-700 bg-white/70 py-1 rounded-lg border border-amber-200">
                   TECH-A1 • TECH-B2 • EDU-2026
@@ -32738,7 +32741,7 @@ ${rows
               {/* Verified Badge Header block */}
               <div className="gradient-academic-light p-5 rounded-2xl border border-blue-100/40 mb-5 font-sans shadow-sm flex items-start gap-4">
                 <div className="w-10 h-10 rounded-full bg-indigo-100/60 flex items-center justify-center text-indigo-700 shrink-0 mt-0.5 text-lg font-bold">
-                  👤
+                  <User className="h-5 w-5" aria-hidden="true" />
                 </div>
                 <div className="flex-grow text-right space-y-1">
                   <span className="text-[10px] text-slate-400 font-bold block">
@@ -34943,8 +34946,9 @@ ${rows
                                             ? "تم الإرسال وتوثيق التسليم"
                                             : "مفتوح ومستحق الآن"}
                                       </span>
-                                      <span className="miras-student-time-detail text-[10px] text-slate-400 font-mono">
-                                        📅 تاريخ الاستحقاق الأكاديمي:{" "}
+                                      <span className="miras-student-time-detail inline-flex items-center gap-1 text-[11px] text-slate-500 font-mono">
+                                        <CalendarDays className="h-3.5 w-3.5" aria-hidden="true" />
+                                        تاريخ الاستحقاق الأكاديمي:{" "}
                                         {ex.dueDate}
                                       </span>
                                     </div>
@@ -45687,7 +45691,7 @@ ${rows
 
             <div className="text-center space-y-2">
               <span className="w-14 h-14 bg-indigo-50 border border-indigo-100 rounded-3xl flex items-center justify-center text-indigo-600 mx-auto font-black text-2xl">
-                📱
+                <Smartphone className="h-6 w-6" aria-hidden="true" />
               </span>
               <h3 className="text-lg font-black text-slate-950">
                 تثبيت مِراس على جهازك
@@ -45708,8 +45712,8 @@ ${rows
                 <ol className="text-[11px] font-bold text-slate-600 list-decimal list-inside space-y-1.5 leading-5 pr-1">
                   <li>
                     اضغط على زر المشاركة{" "}
-                    <span className="inline-block bg-white px-1 py-0.5 border rounded font-mono">
-                      📤
+                    <span className="inline-flex items-center bg-white px-1 py-0.5 border rounded align-middle" aria-label="مشاركة">
+                      <Share className="h-3.5 w-3.5" aria-hidden="true" />
                     </span>{" "}
                     بأسفل متصفح السفاري.
                   </li>
@@ -45758,7 +45762,7 @@ ${rows
               onClick={() => setShowPwaGuideModal(false)}
               className="w-full py-3 bg-slate-900 hover:bg-indigo-600 text-white rounded-2xl text-xs font-bold transition-all cursor-pointer shadow-sm"
             >
-              حسناً، فهمت الطريقة 👍
+              حسناً، فهمت الطريقة
             </button>
           </div>
         </div>
