@@ -18,6 +18,8 @@ installFileDrop();
 // silently drift onto different copies of the interface.
 import App from '../App.tsx';
 import '../index.css';
+import './design/dna.css';
+import './design/miras-dna-theme.css';
 
 // ───────────────────────────────────────────────────────────────────────────
 // حاجز عرض الواجهة (Render Guard)
