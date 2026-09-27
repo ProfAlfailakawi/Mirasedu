@@ -45760,7 +45760,7 @@ ${rows
             <button
               type="button"
               onClick={() => setShowPwaGuideModal(false)}
-              className="w-full py-3 bg-slate-900 hover:bg-indigo-600 text-white rounded-2xl text-xs font-bold transition-all cursor-pointer shadow-sm"
+              className="miras-dna-solid w-full py-3 bg-slate-900 hover:bg-indigo-600 text-white rounded-2xl text-xs font-bold transition-all cursor-pointer shadow-sm"
             >
               حسناً، فهمت الطريقة
             </button>
