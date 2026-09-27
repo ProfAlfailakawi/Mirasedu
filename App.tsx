@@ -6,6 +6,7 @@ import {
   useRef,
   useMemo,
   useDeferredValue,
+  type ReactNode,
 } from "react";
 import { createPortal } from "react-dom";
 import { motion, AnimatePresence } from "motion/react";
@@ -287,6 +288,7 @@ import {
   Radio,
   WifiOff,
   DoorOpen,
+  History,
 } from "lucide-react";
 
 type MirasLocalVisionMode =
@@ -24419,6 +24421,40 @@ ${rows
         new Date(a.at || 0).getTime() - new Date(b.at || 0).getTime(),
     );
 
+  // عرض فقط: يحوّل أحداث submissionReviewEvents إلى عناصر DnaTimeline.
+  const submissionReviewEventsForDna = (sub: any): DnaEvent[] =>
+    submissionReviewEvents(sub).map((evt: any, idx: number) => {
+      const byLabel: Record<string, [ReactNode, DnaEvent["tone"]]> = {
+        "دخل": [<LogIn key="i" />, "accent"],
+        "حفظ تلقائي": [<Save key="i" />, "neutral"],
+        "غش": [<ShieldAlert key="i" />, "danger"],
+        "انسحاب": [<LogOut key="i" />, "warn"],
+        "تسليم": [<Send key="i" />, "accent"],
+        "إرجاع": [<RotateCcw key="i" />, "info"],
+        "رصد": [<CheckCircle2 key="i" />, "mint"],
+      };
+      const integrityTone: DnaEvent["tone"] = /rose|red/.test(String(evt.tone))
+        ? "danger"
+        : /amber/.test(String(evt.tone))
+          ? "warn"
+          : "neutral";
+      const [icon, tone] =
+        evt.detail !== "نزاهة" && byLabel[evt.label]
+          ? byLabel[evt.label]
+          : [
+              integrityTone === "neutral" ? <ShieldCheck key="i" /> : <ShieldAlert key="i" />,
+              integrityTone,
+            ];
+      return {
+        key: `${evt.type || evt.label}-${idx}`,
+        title: evt.label,
+        meta: evt.detail,
+        date: formatKwDateTime(evt.at),
+        icon,
+        tone,
+      };
+    });
+
   const gradeAuditTrailForSubmission = (sub: any) =>
     Array.isArray(sub?.gradeAuditTrail) ? sub.gradeAuditTrail : [];
 
@@ -31230,26 +31266,26 @@ ${rows
 
                   {/* Exam-specific detailed timeline */}
                   {selectedSubmissionDetail.kind === "exam" && (
-                    <details className="group rounded-2xl border border-slate-100 bg-slate-50/60">
-                      <summary className="flex cursor-pointer list-none items-center justify-between gap-2 px-4 py-3 text-[10.5px] font-medium text-slate-600 marker:hidden">
-                        <span>سجل المحاولة والنزاهة</span>
-                        <span className="font-mono text-[9px] font-normal text-slate-400">
+                    <details open className="miras-attempt-log group rounded-2xl border border-slate-100 bg-white">
+                      <summary className="flex cursor-pointer list-none items-center justify-between gap-2 px-4 py-3 text-[13px] font-bold text-slate-800 marker:hidden">
+                        <span className="inline-flex items-center gap-2">
+                          <History className="h-4 w-4 text-indigo-600" aria-hidden="true" />
+                          سجل المحاولة والنزاهة
+                        </span>
+                        <span className="font-mono text-[12px] font-bold text-slate-500">
                           {submissionReviewEvents(selectedSubmissionDetail).length}
                         </span>
                       </summary>
-                      <div className="space-y-2 border-t border-slate-100 px-4 py-3">
-                        {submissionReviewEvents(selectedSubmissionDetail).map((evt: any, idx: number) => {
-                          const dateLabel = formatKwDateTime(evt.at);
-                          return (
-                            <div key={`${evt.type || evt.label}-${idx}`} className="grid grid-cols-[auto_1fr_auto] items-start gap-2 border-r border-slate-200 pr-2">
-                              <span className={`mt-1.5 h-1.5 w-1.5 rounded-full ${evt.tone || "bg-slate-300"}`} />
-                              <span className="text-[9.5px] font-normal leading-5 text-slate-600">{evt.label}</span>
-                              <span className="font-mono text-[8.5px] font-normal text-slate-400">{dateLabel}</span>
-                            </div>
-                          );
-                        })}
+                      <div className="border-t border-dashed border-slate-100 px-4 py-3">
+                        {submissionReviewEvents(selectedSubmissionDetail).length > 0 && (
+                          <DnaTimeline
+                            items={submissionReviewEventsForDna(selectedSubmissionDetail)}
+                            ariaLabel="سجل المحاولة والنزاهة"
+                            wrapMeta
+                          />
+                        )}
                         {submissionReviewEvents(selectedSubmissionDetail).length === 0 && (
-                          <p className="py-2 text-center text-[9.5px] font-normal text-slate-400">
+                          <p className="py-2 text-center text-[12px] font-bold text-slate-500">
                             لا توجد أحداث مسجلة.
                           </p>
                         )}
