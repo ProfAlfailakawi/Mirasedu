@@ -25,6 +25,10 @@ check('custom-reset inventory supports first account activation', r.ok && r.data
 r = await api('GET', '/api/teacher/join-codes', null, { jar: admin, deviceToken: 'general-admin' });
 const before = r.data.joinCodes || [];
 check('recovered code persisted once as used', before.filter(c => c.code === 'LAB-TEST-2345-6789').length === 1 && before.find(c => c.code === 'LAB-TEST-2345-6789')?.status === 'used');
+r = await api('GET', '/api/teacher/join-codes?includeRetired=1', null, { jar: admin, deviceToken: 'general-admin' });
+const managementRows = (r.data.joinCodes || []).filter(c => c.code === 'LAB-TEST-2345-6789');
+check('management sees one current used record, not its old archive', managementRows.length === 1 && managementRows[0].status === 'used' && !managementRows[0].isArchived && !managementRows[0].retiredAt);
+check('unrecovered archive remains visible', (r.data.joinCodes || []).some(c => c.code === 'LAB-TEST-2345-678D' && c.isArchived));
 // Fresh device for each rejection prevents device/session rate limits masking failures.
 for (const [suffix, label] of [['B','used'], ['C','revoked'], ['D','manually deleted'], ['E','course-specific'], ['F','assigned'], ['G','bad signature'], ['H','current revocation overrides archive']]) {
   const deviceToken = `reject-${suffix}`;

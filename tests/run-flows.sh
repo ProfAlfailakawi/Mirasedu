@@ -70,6 +70,7 @@ run_group tests/flows.main.mjs
 run_group tests/flows.lifecycle.mjs
 run_group tests/flows.security.mjs
 run_group tests/flows.general-codes.mjs tests/seed-general-codes.cjs
+run_group tests/flows.code-lifecycle.mjs tests/seed-code-lifecycle.cjs
 run_group tests/flows.learning-intelligence.mjs
 run_group tests/flows.grading.mjs
 run_group tests/flows.student-submit.mjs

@@ -2812,8 +2812,16 @@ export class LocalDatabase {
     this.data.teacherProjects = mergeArray(this.getTeacherProjects(), data.teacherProjects, ["id"], "teacherProjects");
     this.data.teacherSubmissions = mergeArray(this.getTeacherSubmissions(), data.teacherSubmissions, ["id", "submissionId"], "teacherSubmissions");
     this.data.examSessions = mergeArray(this.getExamSessions(), data.examSessions, ["id", "sessionId"], "examSessions") as ExamSession[];
-    this.data.joinCodes = mergeArray(this.getJoinCodes(), data.joinCodesList || data.joinCodes, ["code"], "joinCodesList") as JoinCode[];
-    this.data.retiredJoinCodes = mergeArray(this.getRetiredJoinCodes(), data.retiredJoinCodes || data.archivedJoinCodes || data.codeArchive, ["code"], "retiredJoinCodes") as JoinCode[];
+    // An import may add missing codes, but the current live/archive ledger is
+    // authoritative for known codes. A backup must not undo use, revocation,
+    // replacement, assignment, or an intentional recovery performed since it.
+    const codeKey = (item: any) => String(item?.code || "").toUpperCase().replace(/[^A-Z0-9]/g, "");
+    const knownCodes = new Set([...this.getJoinCodes(), ...this.getRetiredJoinCodes()].map(codeKey).filter(Boolean));
+    const onlyMissingCodes = (rows: any) => Array.isArray(rows)
+      ? rows.filter((item: any) => codeKey(item) && !knownCodes.has(codeKey(item)))
+      : undefined;
+    this.data.joinCodes = mergeArray(this.getJoinCodes(), onlyMissingCodes(data.joinCodesList || data.joinCodes), ["code"], "joinCodesList") as JoinCode[];
+    this.data.retiredJoinCodes = mergeArray(this.getRetiredJoinCodes(), onlyMissingCodes(data.retiredJoinCodes || data.archivedJoinCodes || data.codeArchive), ["code"], "retiredJoinCodes") as JoinCode[];
     this.data.activityLogs = mergeArray(this.data.activityLogs, data.systemLogs || data.activityLogs, ["id", "timestamp"], "systemLogs") as ActivityLog[];
     this.data.passwordResetRequests = mergeArray(this.getPasswordResetRequests(), data.passwordResetRequestsState || data.passwordResetRequests, ["id"], "passwordResetRequestsState") as PasswordResetRequest[];
     this.persist();

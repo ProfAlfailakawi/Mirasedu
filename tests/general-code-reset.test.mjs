@@ -52,3 +52,44 @@ test('both database resets preserve only unused general inventory', async () => 
     fs.rmSync(isolated, { recursive: true, force: true });
   }
 });
+
+test('backup imports add missing codes without overwriting current live or archived decisions', async () => {
+  const original = process.cwd();
+  const isolated = fs.mkdtempSync(path.join(os.tmpdir(), 'miras-import-test-'));
+  process.chdir(isolated);
+  process.env.MIRAS_ALLOW_LOCAL_ONLY_MODE = 'true';
+  try {
+    const { LocalDatabase } = await import('../src/server/db.ts');
+    const live = [
+      { ...active, code: 'LAB-TEST-ABCD-EFGA', status: 'used', studentId: '1001', activationDeviceToken: 'device', codeSignature: 'current-signature' },
+      { ...active, code: 'LAB-TEST-ABCD-EFGB', status: 'revoked', replacedBy: 'replacement' },
+      { ...active, code: 'LAB-TEST-ABCD-EFGC', assignedStudentId: '1002' },
+      { ...active, code: 'LAB-TEST-ABCD-EFGD', recoveredFromResetAt: '2026-09-29' },
+    ];
+    const retired = [
+      { ...archived, code: 'LAB-TEST-ABCD-EFGE', status: 'used', studentId: '1003' },
+      { ...archived, code: 'LAB-TEST-ABCD-EFGF', status: 'revoked' },
+      { ...archived, code: live[3].code },
+    ];
+    const db = new LocalDatabase({ sections: [{ code: 'course', courseName: 'old' }], students: [], allowedStudents: [], questionBank: [], activityLogs: [], joinCodes: structuredClone(live), retiredJoinCodes: structuredClone(retired) });
+    const incoming = {
+      joinCodesList: [...live, ...retired].map(c => ({ ...active, code: c.code.toLowerCase().replace(/-/g, ''), codeSignature: 'stale-signature' })),
+      retiredJoinCodes: [...live, ...retired].map(c => ({ ...archived, code: c.code, status: 'active' })),
+      teacherSections: [{ code: 'course', courseName: 'new' }],
+    };
+    incoming.joinCodesList.push({ ...active, code: 'LAB-TEST-ABCD-EFGJ' });
+    incoming.retiredJoinCodes.push({ ...archived, code: 'LAB-TEST-ABCD-EFGK' });
+    db.mergeBackupData(incoming);
+    assert.deepEqual(db.getJoinCodes().slice(0, live.length), live);
+    assert.deepEqual(db.getRetiredJoinCodes().slice(0, retired.length), retired);
+    assert.equal(db.getJoinCodes().length, live.length + 1);
+    assert.equal(db.getRetiredJoinCodes().length, retired.length + 1);
+    assert.equal(db.exportStateSnapshot().sections[0].courseName, 'new');
+    const codesAfter = structuredClone({ live: db.getJoinCodes(), retired: db.getRetiredJoinCodes() });
+    db.mergeBackupData(incoming);
+    assert.deepEqual({ live: db.getJoinCodes(), retired: db.getRetiredJoinCodes() }, codesAfter);
+  } finally {
+    process.chdir(original);
+    fs.rmSync(isolated, { recursive: true, force: true });
+  }
+});

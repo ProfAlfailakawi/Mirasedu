@@ -12561,10 +12561,22 @@ function migrateTeacherCourseCodeReferences(oldCode: string, newCode: string) {
     }
   });
 
+  // Course IDs are signed. Re-sign only records whose original signature is
+  // valid (or legacy unsigned records); never repair a tampered signature.
+  [...dbInstance.getJoinCodes(), ...dbInstance.getRetiredJoinCodes()].forEach((code: any) => {
+    const originalPayload = joinCodeSignaturePayload(code);
+    const canResign = !code.codeSignature || verifyJoinCodeSignature(code).ok;
+    patchDirectCourseFields(code);
+    ["resolvedCourseCode", "activatedCourseCode"].forEach((key) => {
+      if (same(code[key], code)) code[key] = to;
+    });
+    if (canResign && joinCodeSignaturePayload(code) !== originalPayload) {
+      Object.assign(code, attachJoinCodeSignature(code));
+    }
+  });
+
   [
     dbInstance.getAllowedStudents(),
-    dbInstance.getJoinCodes(),
-    dbInstance.getRetiredJoinCodes(),
     dbInstance.getQuestionBank(),
     dbInstance.getExercises(),
     dbInstance.getExerciseSubmissions(),
@@ -19964,12 +19976,18 @@ app.get("/api/teacher/join-codes", (req, res) => {
     const created = Date.parse(String(jc?.createdAt || jc?.issuedAt || "")) || 0;
     return created > 0 && Date.now() - created < 10 * 60 * 1000;
   };
+  const currentCodes = dbInstance.getJoinCodes().filter((jc: any) =>
+    isOperationalJoinCodeRecord(jc) ||
+    (isUsableJoinCodeRecord(jc) && recentlyIssuedCodeVisible(jc)),
+  );
+  const currentCodeKeys = new Set(currentCodes.map((jc: any) => compactJoinCode(jc.code)));
   const sourceCodes = [
-    ...dbInstance.getJoinCodes().filter((jc: any) =>
-      isOperationalJoinCodeRecord(jc) ||
-      (isUsableJoinCodeRecord(jc) && recentlyIssuedCodeVisible(jc)),
+    ...currentCodes,
+    // Keep historical records stored, but never let a retired snapshot replace
+    // the current state of a recovered code in the management screen.
+    ...retired.filter((item: any) =>
+      isArchivedJoinCodeRecord(item) && !currentCodeKeys.has(compactJoinCode(item.code)),
     ),
-    ...retired.filter((item: any) => isArchivedJoinCodeRecord(item)),
   ];
   const joinCodes = sourceCodes
     .filter((jc: any) => String(jc?.code || "").trim())
@@ -20494,6 +20512,11 @@ app.post("/api/teacher/join-codes/reissue", (req, res) => {
     createdByEmail: teacherEmail,
     createdAt: nowIso,
     reissuedFrom: old.code,
+    ...(old.assignedStudentId ? {
+      assignedStudentId: old.assignedStudentId,
+      assignedStudentName: old.assignedStudentName,
+      isFreeCode: old.isFreeCode,
+    } : {}),
     codeJourney: createCodeJourneyEvent("أُعيد إصدار الكود", teacherEmail, { reissuedFrom: old.code, sectionCode: old.sectionCode }),
   } as any;
 
