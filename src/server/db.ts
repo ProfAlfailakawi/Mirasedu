@@ -1,3 +1,4 @@
+import { preserveGeneralCodeOnReset } from "./generalJoinCodes";
 import { AsyncLocalStorage } from "node:async_hooks";
 import fs from "fs";
 import os from "os";
@@ -3587,7 +3588,9 @@ export class LocalDatabase {
   }
 
   public customReset(actorEmail = "system") {
-    this.archiveJoinCodes("course_closed_custom_reset", actorEmail);
+    const preservedCodes = this.getJoinCodes().filter(preserveGeneralCodeOnReset);
+    this.getJoinCodes().filter((code) => !preserveGeneralCodeOnReset(code))
+      .forEach((code) => this.archiveJoinCodeRecord(code, "course_closed_custom_reset", actorEmail));
     this.data.students = [];
     this.data.exerciseSubmissions = [];
     this.data.quizSubmissions = [];
@@ -3599,7 +3602,7 @@ export class LocalDatabase {
     this.data.notificationTokens = [];
     this.data.examSessions = [];
     
-    this.data.joinCodes = [];
+    this.data.joinCodes = preservedCodes;
     
     this.allowEmptyDatabaseWriteOnce = true;
     this.persist();
@@ -3607,7 +3610,9 @@ export class LocalDatabase {
 
   public fullReset(actorEmail = "system") {
     this.allowEmptyDatabaseWriteOnce = true;
-    this.archiveJoinCodes("course_closed_full_reset", actorEmail);
+    const preservedCodes = this.getJoinCodes().filter(preserveGeneralCodeOnReset);
+    this.getJoinCodes().filter((code) => !preserveGeneralCodeOnReset(code))
+      .forEach((code) => this.archiveJoinCodeRecord(code, "course_closed_full_reset", actorEmail));
     const preservedRetiredJoinCodes = this.getRetiredJoinCodes();
     this.data.students = [];
     this.data.teachers = JSON.parse(JSON.stringify(initialTeachers));
@@ -3621,7 +3626,7 @@ export class LocalDatabase {
     this.data.activityLogs = [];
     this.data.allowedStudents = [];
     this.data.otps = [];
-    this.data.joinCodes = [];
+    this.data.joinCodes = preservedCodes;
     this.data.retiredJoinCodes = preservedRetiredJoinCodes;
     this.data.teacherExams = [];
     this.data.teacherProjects = [];

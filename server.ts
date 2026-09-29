@@ -1,3 +1,4 @@
+import { recoverResetGeneralCode } from "./src/server/generalJoinCodes";
 import express from "express";
 import rateLimit from "express-rate-limit";
 import cors from "cors";
@@ -4162,11 +4163,13 @@ function consumedJoinCodeMatchesCourse(jc: any, courseCode: any, teacherEmail?: 
   if (!joinCodeIsConsumedRecord(jc) || !course || course.toLowerCase() === "all") return false;
   const lockedCourse = joinCodeLockedActivationCourse(jc);
   if (!lockedCourse) return false;
-  return courseMatchesRemovalTarget(
-    lockedCourse,
-    course,
-    teacherEmail || joinCodeOwnerEmail(jc),
-  );
+  const issuer = teacherEmail || joinCodeOwnerEmail(jc);
+  // General codes retain the admin issuer after binding to a teacher's course.
+  // Compare against the locked course owner, not the inventory issuer.
+  const lockedOwner = isAdminEmail(issuer)
+    ? extractEmailFromSectionCode(lockedCourse) || sectionOwnerEmail(lockedCourse) || issuer
+    : issuer;
+  return courseMatchesRemovalTarget(lockedCourse, course, lockedOwner);
 }
 
 function joinCodeIsStaleForStudentCourse(jc: any, student: any, courseCode: any, teacherEmail?: any): boolean {
@@ -18735,12 +18738,27 @@ function processStudentCourseActivation(
 
   // 1. Find the Join Code in database
   const allCodes = dbInstance.getJoinCodes();
-  const foundCode = allCodes.find(
+  let foundCode = allCodes.find(
     (jc) =>
       isUnifiedJoinCode(jc.code) &&
       (normalizeJoinCode(jc.code) === normJoinCode ||
         compactJoinCode(jc.code) === compactCode),
   );
+
+  // Sold general codes were previously retired by full/custom reset. Recover
+  // only that inventory, retaining the archived record and verifying its HMAC.
+  // A current record (including revoked/used) always takes precedence.
+  if (!foundCode) {
+    const retired = dbInstance.getRetiredJoinCodes().find((jc) =>
+      isUnifiedJoinCode(jc.code) && compactJoinCode(jc.code) === compactCode,
+    );
+    const recovered = recoverResetGeneralCode(retired);
+    if (recovered && isAdminEmail(joinCodeOwnerEmail(recovered)) &&
+        recovered.codeSignature && verifyJoinCodeSignature(recovered).ok) {
+      foundCode = recovered;
+      dbInstance.addJoinCode(recovered);
+    }
+  }
 
   if (!foundCode) {
     recordActivationAttempt(req, {

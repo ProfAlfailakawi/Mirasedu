@@ -61,7 +61,7 @@ stop_server() {
 overall=0
 run_group() { # <label> <test-file>
   stop_server
-  node tests/seed.cjs >/dev/null
+  node "${2:-tests/seed.cjs}" >/dev/null
   start_server || { overall=1; return; }
   node "$1" || overall=1
 }
@@ -69,6 +69,7 @@ run_group() { # <label> <test-file>
 run_group tests/flows.main.mjs
 run_group tests/flows.lifecycle.mjs
 run_group tests/flows.security.mjs
+run_group tests/flows.general-codes.mjs tests/seed-general-codes.cjs
 run_group tests/flows.learning-intelligence.mjs
 run_group tests/flows.grading.mjs
 run_group tests/flows.student-submit.mjs
@@ -80,6 +81,7 @@ run_group tests/flows.device-lock.mjs
 run_group tests/flows.public-device-login.mjs
 run_group tests/flows.authz-audit.mjs
 run_group tests/flows.demo-hosting.mjs
+node node_modules/.bin/tsx --test tests/general-code-reset.test.mjs || overall=1
 node node_modules/.bin/tsx tests/flows.arabic-text.mjs || overall=1
 node node_modules/.bin/tsx --test tests/flows.demo-orphan.mjs || overall=1
 node node_modules/.bin/tsx --test tests/flows.demo-coursework.mjs || overall=1
