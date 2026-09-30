@@ -9376,7 +9376,9 @@ app.use(async (req, res, next) => {
         return originalJson(body);
       }
       cloudGuardedJson = true;
+      // محاولة ثانية واحدة قبل إرجاع 503: أغلب الإخفاقات تأخّر عابر في الكتابة.
       Promise.resolve(dbInstance.waitForSync())
+        .catch(() => dbInstance.waitForSync())
         .then(() => {
           try {
             if (!res.headersSent) originalJson(body);
@@ -9416,11 +9418,16 @@ app.use(async (req, res, next) => {
 
 function cloudDurabilityErrorBody() {
   const status = dbInstance.getDatabaseGuardStatus();
+  // رسالة «وضع الصيانة» تُعرض فقط عند قفل الحارس فعلاً أو نفاد حصة Firestore.
+  // كانت تُعاد لأي تأخّر عابر في المزامنة (مثل تفعيل كود أو دخول طالب على حاوية
+  // باردة)، فيظن الطلبة أن النظام متوقف بينما المطلوب مجرد إعادة المحاولة.
+  if (status?.locked || status?.firestoreQuotaExceeded) {
+    return { error: status.message, code: status.code };
+  }
   return {
     error:
-      status?.message ||
       "تعذر تأكيد حفظ التغيير في السحابة. لم نؤكد نجاح العملية؛ حاول مرة أخرى بعد قليل.",
-    code: status?.code || "CLOUD_SYNC_UNAVAILABLE",
+    code: "CLOUD_SYNC_UNAVAILABLE",
   };
 }
 

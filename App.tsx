@@ -7498,7 +7498,7 @@ export default function App() {
     voucher: "",
   });
   const [joinCodeInput, setJoinCodeInput] = useState("");
-  // نافذة QR للتفعيل المباشر (مشرف فقط): تعرض رمزاً يمسحه الطالب بكاميرا جواله
+  // نافذة QR للتفعيل المباشر (لكل أستاذ على أكواده): تعرض رمزاً يمسحه الطالب بكاميرا جواله
   // فيفتح التطبيق وكود الانضمام معبّأ جاهزاً بدل كتابته يدوياً.
   const [joinQrModalCode, setJoinQrModalCode] = useState<string>("");
   const [joinQrSvg, setJoinQrSvg] = useState<string>("");
@@ -11771,6 +11771,11 @@ export default function App() {
     );
     const enrollmentName = cleanName(fromEnrollment?.teacherName);
     if (enrollmentName) return enrollmentName;
+    const fromAccounts = (
+      Array.isArray(teacherAccounts) ? teacherAccounts : []
+    ).find((t: any) => String(t?.email || "").toLowerCase() === normalized);
+    const accountName = cleanName(fromAccounts?.name);
+    if (accountName) return accountName;
     // الاسم يُقرأ من بيانات الشعبة أو التسجيل أعلاه. لا تُضمَّن أسماء أو
     // بُرد حقيقية في حزمة العميل لأنها تُشحن إلى كل زائر.
     return "اسم الدكتور غير محمّل";
@@ -20218,7 +20223,8 @@ ${rows
   };
   const isAdminTeacher = isMirasAdminEmail(teacherSession?.email);
   useEffect(() => {
-    if (isAdminTeacher && analyticsSubTab === "admin") {
+    // نحمّل قائمة الأساتذة للمشرف دائماً حتى تظهر أسماؤهم في فلتر الحسابات.
+    if (isAdminTeacher) {
       loadTeacherAccounts();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -20445,8 +20451,13 @@ ${rows
   ).filter((email) => String(email).includes("@") && !isMirasAdminEmail(email));
   const teacherAccountLabel = (email: string) => {
     const e = String(email || "").toLowerCase();
-    // كما أعلاه: بلا أسماء مضمّنة في حزمة العميل.
-    return "اسم الدكتور غير محمّل";
+    // كما أعلاه: بلا أسماء مضمّنة في حزمة العميل — الاسم يأتي من الخادم.
+    const account = teacherAccounts.find(
+      (t: any) => String(t?.email || "").toLowerCase() === e,
+    );
+    const accountName = String(account?.name || "").trim();
+    if (accountName && !accountName.includes("@")) return accountName;
+    return teacherDisplayNameForMessage(e);
   };
   const scopedOwnerEmail = isAdminTeacher
     ? auditScopeEmail === "self"
@@ -24496,6 +24507,108 @@ ${rows
   const latestDisplayedActiveCourseSubmissions = latestSubmissionRows(
     displayedActiveCourseSubmissions,
   );
+
+  // تصدير كشف الدرجات للمقرر الحالي: صف لكل طالب (الرقم والاسم) وعمود لكل
+  // مشروع واختبار. يُقرأ من كل تسليمات المقرر (مشاريع + اختبارات) بغض النظر عن
+  // التبويب المفتوح، وتؤخذ آخر محاولة لكل طالب في كل نشاط.
+  const exportCourseGradesToCSV = () => {
+    const inCourse = (code: any) =>
+      !!activeCourseCode &&
+      sectionCodeEquivalent(String(code || ""), activeCourseCode);
+    const courseSubs = latestSubmissionRows(
+      teacherSubmissions.filter(
+        (sub: any) =>
+          (sub?.kind === "project" || sub?.kind === "exam") &&
+          inCourse(sub.courseCode || sub.studentSection || sub.sectionCode),
+      ),
+    );
+    const activities: { id: string; kind: string; title: string }[] = [];
+    const seenActivity = new Set<string>();
+    const addActivity = (id: any, kind: string, title: any) => {
+      const key = String(id || "");
+      if (!key || seenActivity.has(key)) return;
+      seenActivity.add(key);
+      activities.push({ id: key, kind, title: String(title || key) });
+    };
+    teacherProjects
+      .filter((p: any) => inCourse(p.courseCode || p.sectionCode))
+      .forEach((p: any) => addActivity(p.id, "project", p.title));
+    teacherCreatedExams
+      .filter((e: any) => inCourse(e.courseCode))
+      .forEach((e: any) => addActivity(e.id, "exam", e.title));
+    courseSubs.forEach((sub: any) =>
+      addActivity(sub.activityId, sub.kind, sub.activityTitle),
+    );
+    if (!activities.length) {
+      setErrorMsg("لا توجد مشاريع أو اختبارات في المقرر المحدد لتصديرها.");
+      return;
+    }
+    const students = new Map<string, string>();
+    teacherStudents.forEach((st: any) => {
+      const codes = [
+        st?.sectionCode,
+        ...(Array.isArray(st?.activatedCourseCodes)
+          ? st.activatedCourseCodes
+          : []),
+        ...(Array.isArray(st?.enrollments)
+          ? st.enrollments.map((en: any) => en?.courseCode)
+          : []),
+      ];
+      if (st?.id && codes.some(inCourse)) {
+        students.set(String(st.id), String(st.name || ""));
+      }
+    });
+    const gradeByKey = new Map<string, string>();
+    courseSubs.forEach((sub: any) => {
+      const sid = String(sub.studentId || sub.studentIdNumber || "");
+      if (!sid) return;
+      if (!students.has(sid) || !students.get(sid)) {
+        students.set(sid, String(sub.studentName || students.get(sid) || ""));
+      }
+      gradeByKey.set(
+        `${sid}::${String(sub.activityId || "")}`,
+        String(teacherGradeInputValue(sub) ?? ""),
+      );
+    });
+    if (!students.size) {
+      setErrorMsg("لا يوجد طلبة في المقرر المحدد لتصدير درجاتهم.");
+      return;
+    }
+    const escapeCsv = (value: any) =>
+      `"${String(value ?? "").replace(/"/g, '""')}"`;
+    const headers = [
+      "الرقم الجامعي",
+      "اسم الطالب",
+      ...activities.map(
+        (a) => `${a.kind === "exam" ? "اختبار" : "مشروع"}: ${a.title}`,
+      ),
+    ];
+    const rows = Array.from(students.entries())
+      .sort((a, b) => a[1].localeCompare(b[1], "ar"))
+      .map(([sid, name]) => [
+        sid,
+        name,
+        ...activities.map((a) => gradeByKey.get(`${sid}::${a.id}`) || ""),
+      ]);
+    const csvContent =
+      "\uFEFF" +
+      [
+        headers.map(escapeCsv).join(","),
+        ...rows.map((r) => r.map(escapeCsv).join(",")),
+      ].join("\n");
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `Miras_Grades_${stripOwnerEmailFromCourseCode(activeCourseCode) || "course"}_${new Date().toISOString().slice(0, 10)}.csv`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    window.setTimeout(() => URL.revokeObjectURL(url), 1200);
+    setSuccessMsg(
+      `تم تصدير كشف الدرجات (${rows.length} طالب، ${activities.length} نشاط).`,
+    );
+  };
 
   const visibleSubmissionIds = latestDisplayedActiveCourseSubmissions.map(
     (sub: any) => String(sub.id),
@@ -36562,6 +36675,20 @@ ${rows
                       </div>
                     </div>
                   </div>
+                  {!selectedSubmissionActivityId && (
+                    <div className="mb-3 flex justify-end" dir="rtl">
+                      <button
+                        type="button"
+                        onClick={exportCourseGradesToCSV}
+                        title="تصدير كشف الدرجات (الرقم، الاسم، درجة كل مشروع واختبار)"
+                        aria-label="تصدير كشف الدرجات"
+                        className="inline-flex items-center gap-2 rounded-xl bg-emerald-50 px-4 py-2 text-xs font-bold text-emerald-700 ring-1 ring-emerald-100 transition-all hover:bg-emerald-600 hover:text-white"
+                      >
+                        <FileSpreadsheet className="h-4 w-4" />
+                        تصدير الدرجات
+                      </button>
+                    </div>
+                  )}
                   {!selectedSubmissionActivityId ? (
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                       {submissionActivityCards.length === 0 && (
@@ -44336,8 +44463,7 @@ ${rows
                                             : "ملغي"}
                                       </span>
                                       <div className="flex shrink-0 items-center gap-2">
-                                        {isAdminTeacher &&
-                                          c.status === "active" &&
+                                        {c.status === "active" &&
                                           isFullJoinCode(c.code) && (
                                             <button
                                               type="button"
