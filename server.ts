@@ -782,10 +782,10 @@ function responseForPasskeyUser(req: express.Request, saved: any, user: any) {
       browser: "Passkey",
       isViolationWarning: true,
     });
-    notifyTeachersForSection(
-      student.sectionCode,
+    notifyStudent(
+      student.id,
       "محاولة دخول بالبصمة مرفوضة",
-      `${student.name}: ${sessionValidation.error || "مخالفة أجهزة"}`,
+      sessionValidation.error || "تم رفض محاولة دخول إلى حسابك من جهاز غير مصرح به.",
       { type: "login_blocked", studentId: student.id, link: "/" },
     );
     const err: any = new Error(
@@ -6470,7 +6470,7 @@ function shouldSuppressRoutineStudentNotification(
     "submission_accepted", "submission_rejected",
     "request_accepted", "request_rejected",
     "password_reset", "password_reset_approved", "account_security",
-    "security_action", "device_approved", "device_change",
+    "security_action", "device_approved", "device_change", "login_blocked",
     "teacher_announcement", "important_alert", "action_required",
     "calendar_event", "reminder",
   ]);
@@ -15327,10 +15327,10 @@ app.post("/api/auth/login", loginIpRateLimit, (req, res) => {
       browser: "مجهول",
       isViolationWarning: true,
     });
-    notifyTeachersForSection(
-      student.sectionCode,
+    notifyStudent(
+      student.id,
       "محاولة دخول مرفوضة",
-      `${student.name}: ${sessionValidation.error || "مخالفة أجهزة"}`,
+      sessionValidation.error || "تم رفض محاولة دخول إلى حسابك من جهاز غير مصرح به.",
       { type: "login_blocked", studentId: student.id, link: "/" },
     );
     return res

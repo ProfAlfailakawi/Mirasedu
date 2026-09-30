@@ -7864,6 +7864,7 @@ export default function App() {
   const [codesFilterSearch, setCodesFilterSearch] = useState("");
   const [codeTruthQuery, setCodeTruthQuery] = useState("");
   const [studentDirectorySearch, setStudentDirectorySearch] = useState("");
+  const [studentDirectoryStatus, setStudentDirectoryStatus] = useState("all");
   const [codesPage, setCodesPage] = useState(1);
   const codesPageSize = 50;
   // عدد كروت التفعيل المطلوب طباعتها من المتبقّي غير المستخدم.
@@ -20625,14 +20626,14 @@ ${rows
   )
     .trim()
     .toLowerCase();
-  const filteredCourseStudentDirectory = normalizedStudentDirectorySearch
-    ? courseStudentDirectory.filter((row: any) => {
-        const haystack = [row.name, row.id, row.idNumber, row.sectionCode]
-          .map((value) => normalizeArabicDigits(value).toLowerCase())
-          .join(" ");
-        return haystack.includes(normalizedStudentDirectorySearch);
-      })
-    : courseStudentDirectory;
+  const filteredCourseStudentDirectory = courseStudentDirectory.filter((row: any) => {
+    if (studentDirectoryStatus === "registered" && !row.registered) return false;
+    if (studentDirectoryStatus === "roster" && row.registered) return false;
+    const haystack = [row.name, row.id, row.idNumber, row.sectionCode]
+      .map((value) => normalizeArabicDigits(value).toLowerCase())
+      .join(" ");
+    return haystack.includes(normalizedStudentDirectorySearch);
+  });
   const allowedExcelImportPreview =
     excelMappingOpen && excelPendingRows.length
       ? parseAllowedExcelRows()
@@ -28641,10 +28642,20 @@ ${rows
           )}
 
           <div className="rounded-3xl border border-slate-100 bg-slate-50 p-4">
-            <div className="mb-3 flex items-center justify-between gap-3">
+            <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
               <span className="text-[11px] font-bold text-slate-700">
                 أسماء الطلبة
               </span>
+              <select
+                aria-label="تصفية الأسماء حسب التسجيل"
+                value={studentDirectoryStatus}
+                onChange={(e) => setStudentDirectoryStatus(e.target.value)}
+                className="rounded-2xl border border-slate-200 bg-white px-3 py-2 text-[11px] font-bold"
+              >
+                <option value="all">الكل</option>
+                <option value="roster">الكشف</option>
+                <option value="registered">مسجل</option>
+              </select>
               <div className="relative w-full max-w-xs">
                 <Search className="absolute right-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400" />
                 <input

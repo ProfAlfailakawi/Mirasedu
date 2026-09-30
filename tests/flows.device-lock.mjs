@@ -41,4 +41,16 @@ await (async () => {
   check("D5b) same student on device B is BLOCKED", !b.ok, `got ${b.status} ${JSON.stringify(b.data).slice(0, 160)}`);
 })();
 
+// Rejected login alerts belong to the student, never their course teacher.
+const studentJar = makeJar();
+await api("POST", "/api/auth/login", { idNumber: S, password: PW }, { jar: studentJar, deviceToken: "tok-1001", ua: SAFARI_UA });
+const teacherJar = makeJar();
+await api("POST", "/api/auth/login", { idNumber: "aa@test.kw", password: process.env.TEST_TEACHER_PASSWORD || "change-me-in-ci" }, { jar: teacherJar, deviceToken: "t-notice" });
+const inbox = (r) => Array.isArray(r.data) ? r.data : (r.data.notifications || r.data.items || []);
+const isBlocked = (n) => (n.type || n.data?.type) === "login_blocked";
+const studentInbox = await api("GET", `/api/notifications/inbox?userId=${S}&role=student`, null, { jar: studentJar, deviceToken: "tok-1001", ua: SAFARI_UA });
+check("D6) rejected login notice reaches the student", studentInbox.ok && inbox(studentInbox).some(isBlocked));
+const teacherInbox = await api("GET", "/api/notifications/inbox?userId=aa@test.kw&role=teacher", null, { jar: teacherJar, deviceToken: "t-notice" });
+check("D7) rejected student login does not notify the teacher", teacherInbox.ok && !inbox(teacherInbox).some(isBlocked));
+
 done();
