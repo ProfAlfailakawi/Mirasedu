@@ -20634,6 +20634,8 @@ ${rows
       .join(" ");
     return haystack.includes(normalizedStudentDirectorySearch);
   });
+  const editingCourseCodeLocked = !!editingSectionCode &&
+    teacherSections.find((section: any) => section.code === editingSectionCode)?.canEditCode === false;
   const allowedExcelImportPreview =
     excelMappingOpen && excelPendingRows.length
       ? parseAllowedExcelRows()
@@ -39820,6 +39822,8 @@ ${rows
                       <div className="grid grid-cols-1 gap-3 rounded-[var(--miras-r-xl)] border border-slate-100 bg-slate-50/70 p-3 sm:p-4 md:grid-cols-12">
                         <input
                           value={sectionDraft.code}
+                          disabled={editingCourseCodeLocked}
+                          title={editingCourseCodeLocked ? "رقم المقرر ثابت لوجود طلبة فيه" : "رقم المقرر"}
                           onChange={(e) =>
                             setSectionDraft({
                               ...sectionDraft,
@@ -39827,8 +39831,13 @@ ${rows
                             })
                           }
                           placeholder="رمز المقرر"
-                          className="bg-white border border-slate-200 rounded-2xl px-4 py-3 text-xs outline-none focus:ring-2 focus:ring-indigo-100 md:col-span-3"
+                          className="bg-white border border-slate-200 rounded-2xl px-4 py-3 text-xs outline-none focus:ring-2 focus:ring-indigo-100 disabled:bg-slate-100 disabled:text-slate-500 md:col-span-3"
                         />
+                        {editingCourseCodeLocked && (
+                          <p className="text-xs text-slate-500 md:col-span-12">
+                            رقم المقرر ثابت لوجود طلبة فيه. يمكنك تعديل اسم المقرر.
+                          </p>
+                        )}
                         <input
                           value={sectionDraft.courseName}
                           onChange={(e) =>

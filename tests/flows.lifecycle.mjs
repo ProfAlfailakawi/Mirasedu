@@ -25,14 +25,14 @@ await (async () => {
   check("L0f) no course name is a raw email", !anyEmailName(r.data.student), JSON.stringify((r.data.student || {}).enrollments?.map(e => e.courseName)));
 })();
 
-// L1: rename course number 222 -> 224 ; old code must not linger as a ghost; new shows new name.
+// L1: a course with roster students cannot be renumbered; no ghost course is introduced.
 await (async () => {
   const r = await api("PUT", `/api/teacher/sections/${encodeURIComponent(S_A2)}`, { code: "224", courseName: "متقدم (أ) المحدّث" }, { jar: tjar, deviceToken: "teacher-A-dev" });
-  check("L1a) rename 222 -> 224 ok", r.ok && r.data.success !== false, `${r.status} ${JSON.stringify(r.data).slice(0, 140)}`);
+  check("L1a) populated course rejects renumbering", r.status === 409 && r.data.code === "COURSE_CODE_LOCKED", `${r.status} ${JSON.stringify(r.data).slice(0, 140)}`);
   const live = await api("GET", "/api/live/student-state?studentId=1001", null, { jar: tjar, deviceToken: "teacher-A-dev" });
   const c = codesOf(live.data.student || {});
-  check("L1b) old code 222 gone (no ghost)", !c.includes(S_A2), JSON.stringify(c));
-  check("L1c) renamed roster_only 224 stays hidden until code/activation", !c.includes(`224-${AA}`), JSON.stringify(c));
+  check("L1b) roster-only 222 remains hidden until activation", !c.includes(S_A2), JSON.stringify(c));
+  check("L1c) rejected number 224 never appears", !c.includes(`224-${AA}`), JSON.stringify(c));
   check("L1d) still no bare-number/email names", !anyBareNumberName(live.data.student) && !anyEmailName(live.data.student), JSON.stringify(live.data.student?.enrollments?.map(e => e.courseName)));
 })();
 

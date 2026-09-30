@@ -21141,6 +21141,18 @@ app.post("/api/teacher/students/:id/reset-access", (req, res) => {
 });
 
 // ================= SECTIONS MANAGEMENT =================
+function courseHasStudents(courseCode: string): boolean {
+  const owner = sectionOwnerEmail(courseCode);
+  return dbInstance.getAllowedStudents().some((row: any) =>
+    !isSoftDeletedRecord(row) &&
+    courseMatchesRemovalTarget(row.sectionCode || row.studentSection || row.courseCode, courseCode, owner),
+  ) || dbInstance.getStudents().some((student: any) =>
+    !isSoftDeletedRecord(student) && getStudentDiscoveredCourseCodes(student).some(
+      (code) => courseMatchesRemovalTarget(code, courseCode, owner),
+    ),
+  );
+}
+
 app.get("/api/teacher/sections", (req, res) => {
   setNoCache(res);
   const teacherEmail = teacherEmailFromRequest(req);
@@ -21153,7 +21165,7 @@ app.get("/api/teacher/sections", (req, res) => {
         !teacherEmail ||
         sectionOwnerEmail(sec.code) === teacherEmail,
     );
-  return res.json({ success: true, sections });
+  return res.json({ success: true, sections: sections.map((section) => ({ ...section, canEditCode: !courseHasStudents(section.code) })) });
 });
 
 app.post("/api/teacher/sections", (req, res) => {
@@ -21207,6 +21219,13 @@ app.put("/api/teacher/sections/:code", (req, res) => {
   const nextCode = buildTeacherScopedSectionCode(requestedDisplayCode, teacherEmail);
   if (!nextCode) {
     return res.status(400).json({ error: "يرجى إدخال رمز المقرر." });
+  }
+
+  if (!sectionCodeEquivalent(currentCode, nextCode) && courseHasStudents(currentCode)) {
+    return res.status(409).json({
+      code: "COURSE_CODE_LOCKED",
+      error: "لا يمكن تغيير رقم المقرر لوجود طلبة فيه. يمكنك تعديل اسم المقرر.",
+    });
   }
 
   const nextCourseName = String(req.body?.courseName ?? section.courseName ?? "").trim();
