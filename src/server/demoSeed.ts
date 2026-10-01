@@ -68,10 +68,10 @@ const DEMO_TEACHER_EMAIL = "demo.teacher@miras.test";
 const DEMO_TEACHER_NAME = "د. سارة الخالد";
 
 const COURSES: ReadonlyArray<readonly [string, string, boolean]> = [
-  ["EDU-TECH-A1", "تقنيات التعليم الحديثة — شعبة A1", true],
-  ["EDU-TECH-B2", "تقنيات التعليم الحديثة — شعبة B2", true],
-  ["AI-EDU-KW-C1", "الذكاء الاصطناعي في التعليم — شعبة C1", true],
-  ["CUR-DSGN-D1", "تصميم المناهج الرقمية — شعبة D1", false],
+  ["ET101", "تقنيات التعليم الحديثة — شعبة A1", true],
+  ["ET202", "تقنيات التعليم الحديثة — شعبة B2", true],
+  ["AI301", "الذكاء الاصطناعي في التعليم — شعبة C1", true],
+  ["CD401", "تصميم المناهج الرقمية — شعبة D1", false],
 ];
 
 const CHAPTERS: ReadonlyArray<readonly [string, string, ReadonlyArray<readonly [string, string, string[]]>]> = [
@@ -162,6 +162,14 @@ const CHAPTER_QUESTION_TEMPLATES: ReadonlyArray<ReadonlyArray<QuestionTemplate>>
     ["multiple-choice", "ما الذي يحدّه تقييد بيئة الاختبار؟", ["قدرة الطالب على الحل", "فرص الاستعانة بمصادر غير مسموحة أثناء الاختبار", "عدد الأسئلة", "زمن الاختبار الرسمي"], "فرص الاستعانة بمصادر غير مسموحة أثناء الاختبار", "intermediate"],
     ["true-false", "تكرار السؤال نفسه ضمن الاختبار الواحد لا يؤثر في صدقه.", ["صح", "خطأ"], "خطأ", "beginner"],
   ],
+];
+
+const DEMO_USER_AGENTS: readonly string[] = [
+  "Mozilla/5.0 (iPhone; CPU iPhone OS 17_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.5 Mobile/15E148 Safari/604.1",
+  "Mozilla/5.0 (Linux; Android 14; Phone) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Mobile Safari/537.36",
+  "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36 Edg/126.0.0.0",
+  "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.5 Safari/605.1.15",
+  "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36",
 ];
 
 const EXERCISE_TEMPLATES: ReadonlyArray<readonly [WeeklyExercise["type"], string, string]> = [
@@ -283,9 +291,11 @@ export function createDemoDatabaseState(liveTeachers: Teacher[]): DatabaseState 
         chapterId: chapter.id,
         title: `${title} — ${chapter.title.split(":")[0]}`,
         type,
-        promptText,
+        /* النص نفسه على الفصول الأربعة كان يظهر أربع مرات متطابقة؛ يُربط بموضوع الفصل. */
+        promptText: chapterIndex === 0 ? promptText : `${promptText} اربط إجابتك بموضوع «${chapter.subtitle}».`,
         // A mix of past and upcoming deadlines, so late submissions are real.
-        dueDate: index % 2 === 0 ? dayStamp(-(14 - index)) : dayStamp(3 + index),
+        /* قليلٌ منها متأخر والباقي قادم: عشرون بطاقة «مستحق الآن» دفعةً واحدة تُشبه قائمة مهملة. */
+        dueDate: index % 5 === 0 ? dayStamp(-(2 + index)) : dayStamp(2 + index),
         isPersonalized: index % 4 === 0,
       });
     });
@@ -318,7 +328,7 @@ export function createDemoDatabaseState(liveTeachers: Teacher[]): DatabaseState 
       isPaid: index % 8 !== 0,
       isActivated: index % 11 !== 0,
       devices: index % 5 === 0 ? [`dev_${index}_a`, `dev_${index}_b`] : [`dev_${index}_a`],
-      pathwayCode: pick(["AI-EDU-KW-B2", "EDU-TECH-A1", "CUR-DSGN-D1"], index),
+      pathwayCode: pick(["AI302", "ET101", "CD401"], index),
       progress,
       /* درجةٌ مئوية: الغالبية بين ٧٥ و٩٨٪ وعُشر الشعبة فقط متعثّر. كانت تنزل إلى
          الأربعينات فيُعدّ أغلب الشعبة متعثرًا في «إنذار التعثر المبكر». */
@@ -421,7 +431,7 @@ export function createDemoDatabaseState(liveTeachers: Teacher[]): DatabaseState 
       action,
       details,
       ip: `10.0.${index % 255}.${(index * 13) % 255}`,
-      userAgent: "Mozilla/5.0 (demo)",
+      userAgent: DEMO_USER_AGENTS[index % DEMO_USER_AGENTS.length],
       os: pick(["Windows 11", "macOS 15", "iOS 19", "Android 16"], index),
       browser: pick(["Chrome", "Safari", "Edge", "Firefox"], index),
       timestamp: ago(Math.floor(index / 12)),
@@ -436,14 +446,14 @@ export function createDemoDatabaseState(liveTeachers: Teacher[]): DatabaseState 
    * فيظهر المنتج بنصفه: لوحةٌ فيها طلبة ودرجات، ولا شيء يُسلَّم ولا شيء يُصحَّح.
    * وشاشة الطالب تقول «مطلوب: ٠» — وهي أول ما ينظر إليه من يُعرض عليه النظام.
    *
-   * والتوزيع مقصود لا عشوائي، وكله في شعبة الطالب المعروض (`EDU-TECH-B2`):
+   * والتوزيع مقصود لا عشوائي، وكله في شعبة الطالب المعروض (`ET202`):
    *   • اختبارٌ مفتوح الآن ولم يدخله      → «مطلوب» على شاشته
    *   • مشروعان لم يُسلَّما بعد ومهلتهما قادمة → «مطلوب» كذلك
    *   • اختبارٌ أُغلق وسلّمه وينتظر الرصد   → صفٌّ في طابور الأستاذ
    *   • مشروعٌ سلّمه هو وأربعون غيره        → طابورُ تصحيحٍ حقيقي لا صفٌّ واحد
    *   • اختبارٌ أُغلق ورُصد وأُعلنت درجته    → تاريخٌ مكتمل لا شاشةٌ بلا ماضٍ
    */
-  const DEMO_SECTION = "EDU-TECH-B2";
+  const DEMO_SECTION = "ET202";
   /*
    * والشعبة الأولى تُملأ كذلك، ولها سببٌ دقيق: لوحة الأستاذ تختار مقررها
    * افتراضيًا بأول شعبة في القائمة (`visibleTeacherSections[0]`) لا بشعبة
@@ -451,7 +461,7 @@ export function createDemoDatabaseState(liveTeachers: Teacher[]): DatabaseState 
    * على «الاختبارات ٠ · المشاريع ٠» — وهي أول شاشة تُعرض على جهة. رُئي فعلًا
    * في المتصفح قبل أن تُملأ.
    */
-  const LANDING_SECTION = "EDU-TECH-A1";
+  const LANDING_SECTION = "ET101";
   const demoSectionStudents = students.filter((st) => st.sectionCode === DEMO_SECTION);
   const landingSectionStudents = students.filter((st) => st.sectionCode === LANDING_SECTION);
 
@@ -531,7 +541,7 @@ export function createDemoDatabaseState(liveTeachers: Teacher[]): DatabaseState 
       /* لم يُفتح بعد: يظهر على شاشة الطالب كقادمٍ لا كمطلوبٍ الآن. */
       open: ahead(5),
       close: ahead(8),
-      courseCode: "AI-EDU-KW-C1",
+      courseCode: "AI301",
       antiCheat: { randomizeQuestions: true, timerMinutes: 30, autosave: true },
       review: { mode: "after_close" as const, scope: "mistakes" as const, showGrade: true, gradesReleased: false },
       createdBy: "demo.teacher@miras.test",
@@ -928,7 +938,9 @@ export function createDemoDatabaseState(liveTeachers: Teacher[]): DatabaseState 
       reason,
       deviceFingerprint: `dev_${index}_x`,
       ip: `10.0.${(index * 3) % 255}.${(index * 11) % 255}`,
-      userAgent: "Mozilla/5.0 (demo)",
+      /* وكلاء مستخدم متنوّعون: سجل المحاولات يستخرج منه الجهاز والمتصفح، وكان يعرض
+         «جهاز غير محدد / متصفح الويب» لكل صف. */
+      userAgent: DEMO_USER_AGENTS[index % DEMO_USER_AGENTS.length],
       timestamp: ago(index % 12),
     } as any as ActivationAttempt;
   });
