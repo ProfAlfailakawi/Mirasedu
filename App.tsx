@@ -38230,7 +38230,7 @@ ${rows
                                     <td className="p-2">{q.questionText}</td>
                                     <td className="p-2">
                                       {questionTypeOptions.find((o) => o.value === q.type)?.label ||
-                                        ({ "short-answer": "مقالي" } as Record<string, string>)[String(q.type)] ||
+                                        ({ "short-answer": "مقالي", "scenario-analysis": "تحليل موقف", ordering: "ترتيب" } as Record<string, string>)[String(q.type)] ||
                                         q.type}
                                     </td>
                                     <td className="p-2">
@@ -39902,7 +39902,7 @@ ${rows
                                       <div className="mt-2 flex flex-wrap gap-2">
                                         <span className="text-[10px] bg-indigo-50 text-indigo-700 px-2.5 py-1 rounded-full font-bold">
                                           {questionTypeOptions.find((o) => o.value === q.type)?.label ||
-                                            ({ "short-answer": "مقالي" } as Record<string, string>)[String(q.type)] ||
+                                            ({ "short-answer": "مقالي", "scenario-analysis": "تحليل موقف", ordering: "ترتيب" } as Record<string, string>)[String(q.type)] ||
                                             q.type}
                                         </span>
                                         <span className="text-[10px] bg-amber-50 text-amber-700 px-2.5 py-1 rounded-full font-bold">
