@@ -802,7 +802,7 @@ input, textarea { cursor: text; }
   --meras-line: rgba(203, 213, 225, 0.72);
   --meras-card: rgba(255, 255, 255, 0.84);
   --meras-card-solid: #ffffff;
-  --meras-indigo: #4f46e5;
+  --meras-indigo: var(--miras-brand, #4338CA);
   --meras-blue: #0ea5e9;
   --meras-green: #10b981;
   --meras-gold: #f59e0b;

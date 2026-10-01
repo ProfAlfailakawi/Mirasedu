@@ -224,6 +224,7 @@ import {
   TrendingUp,
   CheckCircle,
   AlertTriangle,
+  Star,
   Play,
   Send,
   Award,
@@ -2218,9 +2219,9 @@ function TourRow({
       transition={{ delay, duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
       className="flex items-center gap-2.5 rounded-[var(--miras-r-md)] bg-white/8 px-2.5 py-2"
     >
-      <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${dot} ${tone === "live" ? "animate-pulse" : ""}`} />
+      <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${dot}`} />
       <span className="min-w-0 flex-1 truncate text-[11px] font-bold text-white/90">{label}</span>
-      <span className="shrink-0 text-[9px] font-bold text-white/50">{meta}</span>
+      <span className="shrink-0 text-[10px] font-bold tabular-nums text-white/70">{meta}</span>
     </motion.div>
   );
 }
@@ -2240,7 +2241,7 @@ function TourChip({ code, state, delay = 0 }: { code: string; state: "on" | "off
       {state === "on" ? (
         <Check className="h-3.5 w-3.5 shrink-0 text-emerald-300" />
       ) : (
-        <span className="text-[9px] font-bold text-white/45">جاهز</span>
+        <span className="text-[10px] font-bold text-white/70">جاهز</span>
       )}
     </motion.div>
   );
@@ -2280,8 +2281,8 @@ const tourVisuals = {
     <TourCard>
       <div className="mb-2.5 flex items-center justify-between px-0.5">
         <span className="text-[10px] font-bold text-white/60">حركة الاختبار</span>
-        <span className="inline-flex items-center gap-1 text-[9px] font-bold text-amber-300">
-          <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-amber-300" /> مباشر
+        <span className="inline-flex items-center gap-1 rounded-full border border-amber-300/30 px-1.5 py-0.5 text-[10px] font-bold text-amber-200">
+          <span className="h-1.5 w-1.5 rounded-full bg-amber-300" /> مباشر
         </span>
       </div>
       <div className="space-y-1.5">
@@ -31623,7 +31624,7 @@ ${rows
 
               {/* Directly input grade and return submission when document preview is open above document */}
               {selectedSubmissionDetail && (
-                <div className="flex items-center gap-1.5 border-r border-slate-100 pr-2 mr-2">
+                <div className="flex items-center gap-1.5 border-s border-slate-100 ps-2 ms-2">
                   <div className="flex items-center gap-1 bg-slate-50 border border-slate-100 rounded-xl px-2 py-1">
                     <input
                       value={teacherGradeInputValue(selectedSubmissionDetail)}
@@ -31817,8 +31818,8 @@ ${rows
                   return officeDocPreview?.kind === "text" ? (
                     <div className="miras-document-simple-shell">
                       <pre
-                        dir="ltr"
-                        className="min-h-0 flex-1 overflow-auto whitespace-pre-wrap break-words rounded-2xl border border-slate-200 bg-white p-4 text-left text-[12.5px] leading-6 text-slate-700"
+                        dir="auto"
+                        className="min-h-0 flex-1 overflow-auto whitespace-pre-wrap break-words rounded-2xl border border-slate-200 bg-white p-4 text-start text-[12.5px] leading-6 text-slate-700"
                       >
                         {officeDocPreview.text}
                       </pre>
@@ -31896,8 +31897,8 @@ ${rows
                   return officeDocPreview?.kind === "html" ? (
                     <div className="miras-document-simple-shell">
                       <div
-                        dir="ltr"
-                        className="miras-word-doc-content min-h-0 flex-1 overflow-auto rounded-2xl border border-slate-200 bg-white p-5 text-left text-[13px] leading-7 text-slate-800"
+                        dir="auto"
+                        className="miras-word-doc-content min-h-0 flex-1 overflow-auto rounded-2xl border border-slate-200 bg-white p-5 text-start text-[13px] leading-7 text-slate-800"
                         // إعادة ضبط القوائم/الجداول بـ!important داخل نفس الـHTML: تنسيقات
                         // preflight العامة للتطبيق (list-style:none إلخ) تكسب على أي utility
                         // عادية هنا لأنها في طبقة CSS لاحقة، فلا تظهر نقاط/أرقام القوائم
@@ -35577,7 +35578,8 @@ ${rows
                                   key={idx}
                                   className="bg-emerald-50 text-emerald-700 border border-emerald-100 text-[10px] font-bold px-2.5 py-1 rounded-full"
                                 >
-                                  ⭐ {s}
+                                  <Star className="me-1 inline h-3 w-3 align-[-2px]" strokeWidth={2} aria-hidden="true" />
+                                  {s}
                                 </span>
                               ),
                             )}
@@ -35593,7 +35595,8 @@ ${rows
                                   key={idx}
                                   className="bg-amber-50 text-amber-700 border border-amber-100 text-[10px] font-bold px-2.5 py-1 rounded-full"
                                 >
-                                  ⚠️ {w}
+                                  <AlertTriangle className="me-1 inline h-3 w-3 align-[-2px]" strokeWidth={2} aria-hidden="true" />
+                                  {w}
                                 </span>
                               ),
                             )}
@@ -40157,7 +40160,7 @@ ${rows
                               >
                                 <tab.Icon
                                   className="miras-inner-tab-icon"
-                                  strokeWidth={1.65}
+                                  strokeWidth={1.75}
                                 />
                               </button>
                             ))}
@@ -43504,7 +43507,7 @@ ${rows
                               >
                                 <tab.Icon
                                   className="miras-inner-tab-icon"
-                                  strokeWidth={1.65}
+                                  strokeWidth={1.75}
                                 />
                               </button>
                             ))}
