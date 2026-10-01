@@ -19032,3 +19032,26 @@ html[data-theme="dark"] #root .miras-exam-header-bar.bg-slate-950 {
     -webkit-line-clamp: 3;
   }
 }
+
+/* ── لوحة تسليم المشروع (الطالب): سطح هادئ بنص صريح القراءة في الوضعين ── */
+html[data-theme="dark"] #root .miras-project-submit-panel {
+  background-color: rgba(30, 27, 75, 0.38) !important;
+  border-color: rgba(129, 140, 248, 0.22) !important;
+  color: #e2e8f0 !important;
+  background-image: none !important;
+}
+html[data-theme="dark"] #root .miras-project-submit-panel h4 { color: #f1f5f9 !important; }
+html[data-theme="dark"] #root .miras-project-submit-panel .miras-project-submit-field {
+  background-color: rgba(15, 23, 42, 0.72) !important;
+  background-image: none !important;
+  border-color: rgba(148, 163, 184, 0.25) !important;
+  color: #f1f5f9 !important;
+}
+html[data-theme="dark"] #root .miras-project-submit-panel .miras-project-submit-drop {
+  background-color: rgba(15, 23, 42, 0.5) !important;
+  border-color: rgba(129, 140, 248, 0.35) !important;
+}
+html[data-theme="dark"] #root .miras-project-submit-panel .miras-project-submit-drop p { color: #cbd5e1 !important; }
+#root .miras-project-submit-panel .miras-project-submit-field:not(:disabled) {
+  background-image: none !important;
+}
