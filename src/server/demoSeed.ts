@@ -35,6 +35,8 @@ import type {
 const day = 86_400_000;
 const ago = (days: number) => new Date(Date.now() - days * day).toISOString();
 const ahead = (days: number) => new Date(Date.now() + days * day).toISOString();
+/* Weekly exercises store a plain calendar day (as live data does), not a timestamp. */
+const dayStamp = (offsetDays: number) => new Date(Date.now() + offsetDays * day).toISOString().slice(0, 10);
 
 /* Seeded, not random: the same cohort every time, so a screenshot taken for a
  * deck still matches the product next month. */
@@ -228,7 +230,7 @@ export function createDemoDatabaseState(liveTeachers: Teacher[]): DatabaseState 
         type,
         promptText,
         // A mix of past and upcoming deadlines, so late submissions are real.
-        dueDate: index % 2 === 0 ? ago(14 - index) : ahead(3 + index),
+        dueDate: index % 2 === 0 ? dayStamp(-(14 - index)) : dayStamp(3 + index),
         isPersonalized: index % 4 === 0,
       });
     });
