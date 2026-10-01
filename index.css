@@ -981,15 +981,15 @@ button:active:not(:disabled) {
 button.bg-slate-950,
 button.bg-indigo-600,
 button.bg-slate-900 {
-  background: linear-gradient(135deg, #0f172a 0%, #3730a3 55%, #2563eb 100%) !important;
-  box-shadow: 0 18px 38px rgba(37, 99, 235, .20), inset 0 1px 0 rgba(255,255,255,.20) !important;
-  border: 1px solid rgba(255,255,255,.16) !important;
+  background: linear-gradient(135deg, #4338CA 0%, #312E81 100%) !important;
+  box-shadow: 0 6px 16px rgba(49, 46, 129, .16), inset 0 1px 0 rgba(255,255,255,.14) !important;
+  border: 1px solid rgba(255,255,255,.12) !important;
 }
 button.bg-indigo-600:hover,
 button.bg-slate-950:hover,
 button.bg-slate-900:hover {
-  filter: saturate(1.08) brightness(1.03);
-  box-shadow: 0 24px 50px rgba(37, 99, 235, .28), inset 0 1px 0 rgba(255,255,255,.24) !important;
+  filter: brightness(1.06);
+  box-shadow: 0 8px 20px rgba(49, 46, 129, .2), inset 0 1px 0 rgba(255,255,255,.16) !important;
 }
 
 .clean-tab,
@@ -19054,4 +19054,16 @@ html[data-theme="dark"] #root .miras-project-submit-panel .miras-project-submit-
 html[data-theme="dark"] #root .miras-project-submit-panel .miras-project-submit-drop p { color: #cbd5e1 !important; }
 #root .miras-project-submit-panel .miras-project-submit-field:not(:disabled) {
   background-image: none !important;
+}
+
+/* ── الوضع الداكن: شريحة حساب المعلم بنص صريح ── */
+html[data-theme="dark"] #root .miras-teacher-account-pill {
+  background-color: rgba(16, 185, 129, 0.12) !important;
+  background-image: none !important;
+  color: #6ee7b7 !important;
+}
+
+/* ── الوضع الداكن: شريط تاريخ تنبيهات المعلم بلا كتلة سوداء على البطاقة الفاتحة ── */
+html[data-theme="dark"] body .miras-teacher-alert-popover .miras-teacher-alert-date-row {
+  background-color: transparent !important;
 }
