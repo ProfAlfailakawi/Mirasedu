@@ -30957,10 +30957,11 @@ ${rows
             display: flex !important;
             align-items: center !important;
             justify-content: center !important;
-            width: 42px !important;
-            height: 42px !important;
-            margin-top: -20px !important;
-            border-radius: 15px !important;
+            width: 38px !important;
+            height: 38px !important;
+            margin-top: -22px !important;
+            margin-bottom: 3px !important;
+            border-radius: 14px !important;
             background: linear-gradient(145deg, #4f46e5, #3b82f6) !important;
             color: #fff !important;
             box-shadow:
@@ -39884,7 +39885,7 @@ ${rows
                                       )}
                                       <div className="mt-2 flex flex-wrap gap-2">
                                         <span className="text-[10px] bg-indigo-50 text-indigo-700 px-2.5 py-1 rounded-full font-bold">
-                                          {q.type}
+                                          {questionTypeOptions.find((o) => o.value === q.type)?.label || q.type}
                                         </span>
                                         <span className="text-[10px] bg-amber-50 text-amber-700 px-2.5 py-1 rounded-full font-bold">
                                           {q.points || 1} درجة
@@ -40235,7 +40236,7 @@ ${rows
                                   <ShieldAlert className="h-3.5 w-3.5" />
                                   لوحة قرار مختصرة
                                 </div>
-                                <h2 className="text-lg font-black sm:text-xl">
+                                <h2 className="miras-on-dark-title text-lg font-black text-white sm:text-xl">
                                   مركز المتابعة
                                 </h2>
                               </div>
