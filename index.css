@@ -18986,6 +18986,26 @@ html[data-theme="dark"] #root .miras-exam-header-bar.bg-slate-950 {
     place-items: center;
     border-radius: 9999px;
   }
+  /* مطويّةً: وسمٌ صغير شبه شفّاف (28px) داخل هدف لمسٍ كامل (44px)، فلا تحجب
+     زاوية نافذة الجولة ولا رأس الاختبار. تعود كبسولتها كاملةً عند الفتح. */
+  .miras-demo-bar:not(.is-open):not(#_):not(#_) > div {
+    background: transparent !important;
+    border-color: transparent !important;
+    box-shadow: none !important;
+    backdrop-filter: none !important;
+  }
+  .miras-demo-bar:not(.is-open):not(#_):not(#_) .miras-demo-toggle {
+    background: radial-gradient(circle, rgb(254 243 199 / 0.78) 13.5px, rgb(252 211 77 / 0.55) 14px, transparent 14.5px);
+    opacity: 0.85;
+    transition: opacity 0.15s ease;
+  }
+  .miras-demo-bar:not(.is-open):not(#_):not(#_) .miras-demo-toggle:is(:hover, :focus-visible) {
+    opacity: 1;
+  }
+  .miras-demo-bar:not(.is-open):not(#_):not(#_) .miras-demo-toggle svg {
+    width: 14px;
+    height: 14px;
+  }
   .miras-app-teacher-root .miras-zero-action-btn:not(#_):not(#_),
   .miras-inner-tab:not(#_):not(#_) {
     min-width: 44px !important;
