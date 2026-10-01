@@ -53,4 +53,64 @@ check("D6) rejected login notice reaches the student", studentInbox.ok && inbox(
 const teacherInbox = await api("GET", "/api/notifications/inbox?userId=aa@test.kw&role=teacher", null, { jar: teacherJar, deviceToken: "t-notice" });
 check("D7) rejected student login does not notify the teacher", teacherInbox.ok && !inbox(teacherInbox).some(isBlocked));
 
+// Code-integrity alerts must not fire for students who registered successfully
+// and only switch browser/app on their own phone.
+const ANDROID_UA = "Mozilla/5.0 (Linux; Android 14; SM-S918B) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/129.0.0.0 Mobile Safari/537.36";
+const asBrowser = { "x-miras-display-mode": "browser" };
+const asApp = { "x-miras-display-mode": "pwa" };
+const integrityAlertsFor = async (name) => {
+  const r = await api("GET", "/api/notifications/inbox?userId=aa@test.kw&role=teacher", null, { jar: teacherJar, deviceToken: "t-notice" });
+  return inbox(r)
+    .map((n) => `${n.title || ""} | ${n.body || n.message || ""}`)
+    .filter((t) => /نزاهة|مصيدة/.test(t) && t.includes(`للطالب ${name}:`));
+};
+const activateFresh = async (id, name, deviceToken, ua, headers) => {
+  await api("POST", "/api/teacher/upload-allowed", { sectionCode: "111", studentsList: [{ idNumber: id, name, sectionCode: "111" }] }, { jar: teacherJar, deviceToken: "t-notice" });
+  const issued = await api("POST", "/api/teacher/join-codes/create", { sectionCode: "111", count: 1, assignedStudentId: id, isFreeCode: true }, { jar: teacherJar, deviceToken: "t-notice" });
+  const jar = makeJar();
+  await api("POST", "/api/auth/register", { idNumber: id, password: "GoodPass9", email: `${id}@paaet.edu.kw` }, { jar, deviceToken, ua, headers });
+  const act = await api("POST", "/api/auth/verify-otp", { idNumber: id, password: "GoodPass9", email: `${id}@paaet.edu.kw`, otp: issued.data?.created?.[0]?.code, deviceToken }, { jar, deviceToken, ua, headers });
+  return { act, jar };
+};
+
+// D8–D11: Android — registered in Chrome, then opens the installed app (same storage => same token).
+await (async () => {
+  const name = "طالب أندرويد";
+  const { act, jar } = await activateFresh("5601", name, "dev-android", ANDROID_UA, asBrowser);
+  check("D8a) student activates in the Android browser", act.ok && act.data.success === true, `${act.status} ${JSON.stringify(act.data).slice(0, 150)}`);
+  const app = await api("GET", "/api/live/student-state?studentId=5601", null, { jar, deviceToken: "dev-android", ua: ANDROID_UA, headers: asApp });
+  const appLogin = await api("POST", "/api/auth/login", { idNumber: "5601", password: "GoodPass9" }, { deviceToken: "dev-android", ua: ANDROID_UA, headers: asApp });
+  check("D8b) the installed app on the same phone is still blocked (lock unchanged)", app.status === 409 && appLogin.status === 409, `${app.status} / ${appLogin.status}`);
+  const alerts = await integrityAlertsFor(name);
+  check("D9) same-phone browser/app switch sends the teacher no code-integrity alert", alerts.length === 0, JSON.stringify(alerts));
+  const back = await api("GET", "/api/live/student-state?studentId=5601", null, { jar, deviceToken: "dev-android", ua: ANDROID_UA, headers: asBrowser });
+  check("D10) the original browser keeps working", back.ok, `${back.status} ${JSON.stringify(back.data).slice(0, 120)}`);
+  const other = await api("POST", "/api/auth/login", { idNumber: "5601", password: "GoodPass9" }, { deviceToken: "dev-android-other", ua: ANDROID_UA, headers: asBrowser });
+  const otherAlerts = await integrityAlertsFor(name);
+  check("D11) a genuinely different device is blocked AND still alerts the teacher", !other.ok && otherAlerts.length === 1, `${other.status} ${JSON.stringify(otherAlerts)}`);
+})();
+
+// D12: a student on a phone bound to another student — real code, so never a "code trap".
+await (async () => {
+  const name = "طالب مستعير";
+  const { act } = await activateFresh("5602", name, "dev-own-5602", SAFARI_UA, asBrowser);
+  check("D12a) student activates on own phone", act.ok && act.data.success === true, `${act.status} ${JSON.stringify(act.data).slice(0, 150)}`);
+  const borrowed = await api("POST", "/api/auth/login", { idNumber: "5602", password: "GoodPass9" }, { deviceToken: "tok-1001", ua: SAFARI_UA, headers: asBrowser });
+  const alerts = await integrityAlertsFor(name);
+  check("D12b) borrowed phone is blocked", !borrowed.ok, `${borrowed.status}`);
+  check("D12c) teacher alert names the real reason, not an unissued-code trap",
+    alerts.length === 1 && !alerts[0].includes("مصيدة") && alerts[0].includes("جهاز مرتبط بطالب آخر"), JSON.stringify(alerts));
+})();
+
+// D13: legacy activation record (token never stored, fingerprint from an older IP).
+const spw = (id) => `pass${id}`; // students seed as sha256pw(`pass${id}`)
+await (async () => {
+  const first = await api("POST", "/api/auth/login", { idNumber: "2002", password: spw("2002") }, { deviceToken: "tok-2002", ua: SAFARI_UA, headers: asBrowser });
+  const second = await api("POST", "/api/auth/login", { idNumber: "2002", password: spw("2002") }, { deviceToken: "tok-2002", ua: SAFARI_UA, headers: asBrowser });
+  check("D13a) own device logs in on a legacy record after an IP change", first.ok && first.data.success === true, `${first.status} ${JSON.stringify(first.data).slice(0, 150)}`);
+  check("D13b) and keeps working on the next login (no self-inflicted lock)", second.ok && second.data.success === true, `${second.status} ${JSON.stringify(second.data).slice(0, 150)}`);
+  const alerts = await integrityAlertsFor("طالب آخر");
+  check("D13c) no false 'different device fingerprint' alert to the teacher", alerts.length === 0, JSON.stringify(alerts));
+})();
+
 done();
