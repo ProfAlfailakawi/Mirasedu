@@ -932,6 +932,12 @@ body {
   color: var(--meras-ink) !important;
 }
 
+/* عنوانٌ على لوحة داكنة: القاعدة أعلاه تفرض لون الحبر فيختفي العنوان في الوضع الفاتح. */
+.teacher-calm-shell h2.miras-on-dark-title,
+.workspace-calm-shell h2.miras-on-dark-title {
+  color: #fff !important;
+}
+
 .meras-auth-card label,
 .workspace-calm-shell label,
 .teacher-calm-shell label {
