@@ -89,6 +89,15 @@ html[data-theme] #root .miras-calm-auth .miras-login-action-label {
   line-height: 1.2;
   white-space: nowrap;
 }
+/* هواتف ≤380px: تسميات أزرار الدخول الثلاثة كانت تتجاوز عرض البطاقة وتلامس حافتها. */
+@media (max-width: 380px) {
+  html[data-theme] #root .miras-calm-auth .miras-login-actions { gap: 0.5rem; }
+  html[data-theme] #root .miras-calm-auth .miras-login-action-label {
+    white-space: normal;
+    max-width: 5.5rem;
+    text-align: center;
+  }
+}
 
 /* ═══ شريط التثبيت: صفّ هادئ ملاصق لأسفل الشاشة ═══ */
 .miras-pwa-row {
