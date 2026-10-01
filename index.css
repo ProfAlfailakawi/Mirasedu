@@ -18953,9 +18953,9 @@ html[data-theme="dark"] #root .miras-exam-header-bar.bg-slate-950 {
     font-size: 12px !important;
   }
   /* سبع خانات في عرض الهاتف: أكبر مقاسٍ تتسع له «التسليمات» كاملةً دون «…»
-     (كان 8.4px). يبلغ 12px من عرض 436px فأعلى. */
+     (كان 8.4px). يبلغ 12px من عرض 500px فأعلى (2.75vw كان يقصّ «التسليمات» على 430px). */
   .miras-dock-v2 button.miras-dock-item .miras-dock-label:not(#_):not(#_) {
-    font-size: clamp(10px, 2.75vw, 12px) !important;
+    font-size: clamp(9.5px, 2.4vw, 12px) !important;
     letter-spacing: -0.03em !important;
     text-overflow: clip !important;
   }
