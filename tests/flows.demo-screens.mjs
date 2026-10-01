@@ -61,3 +61,27 @@ test("لا شيء في البذرة يخرج عن نطاق العرض", () => {
   for (const s of state.students) assert.ok(s.email.endsWith("@demo.miras.test"));
   for (const c of state.joinCodes) assert.equal(c.createdByEmail, OWNER);
 });
+
+test("أسئلة الاختبار لا تتكرر، وعدد أسئلة كل اختبار يساوي درجته، ولا سؤال بلا حقل إدخال", () => {
+  const texts = state.questionBank.map((q) => q.questionText);
+  assert.equal(new Set(texts).size, texts.length, "سؤال مكرَّر في البنك");
+  for (const q of state.questionBank) {
+    assert.notEqual(q.type, "ordering", `سؤال ترتيب ${q.id}: واجهة الطالب لا تعرض له حقل إدخال`);
+    assert.equal(q.points, 1, `${q.id}: درجة السؤال تخالف قاعدة سؤال = درجة`);
+  }
+  for (const exam of state.teacherExams) assert.equal(exam.questionsCount, exam.points, `${exam.id}: عدد الأسئلة لا يساوي الدرجة`);
+});
+
+test("أسماء الطلبة فريدة، والطالب المعروض بلا جهازٍ مربوط، وفي الأرشيف رموزٌ جاهزة للتصدير", () => {
+  assert.equal(new Set(state.students.map((s) => s.name)).size, state.students.length, "اسم طالب مكرر");
+  const shown = state.students.find((s) => s.id === "2026100007");
+  assert.deepEqual(shown?.devices, [], "الطالب المعروض مربوط بجهازٍ مصطنع فيُقفل خارج حسابه بعد إعادة التعيين");
+  const printable = state.joinCodes.filter((c) => c.status === "active" && !c.assignedStudentId && !c.printedAt);
+  assert.ok(printable.length >= 5, "لا رموز جاهزة للتصدير للمطبعة");
+});
+
+test("إنذار التعثر المبكر لا يشمل أغلب الشعبة: غير المرصود بلا درجة صفرية", () => {
+  for (const sub of state.teacherSubmissions) {
+    if (!sub.visibleGrade) assert.equal(sub.grade, undefined, `${sub.id}: درجة فارغة تُقرأ صفرًا`);
+  }
+});

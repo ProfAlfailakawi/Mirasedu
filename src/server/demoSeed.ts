@@ -103,10 +103,65 @@ const QUESTION_TEMPLATES: ReadonlyArray<readonly [Question["type"], string, stri
   ["scenario-analysis", "معلمة لاحظت أن نصف الطلاب سلّموا إجابات متطابقة في نشاط مفتوح. ما الإجراء المنهجي الصحيح؟", [], "توثيق الحالة، مقابلة الطلاب، تطبيق سياسة النزاهة المعتمدة قبل أي قرار", "advanced"],
   ["true-false", "التقويم التكويني هدفه إصدار حكم نهائي على أداء المتعلم.", ["صح", "خطأ"], "خطأ", "beginner"],
   ["multiple-choice", "النظرية البنائية ترى أن المتعلم:", ["متلقٍ سلبي للمعلومة", "يبني معرفته من خبراته", "يحفظ ثم يسترجع", "يقلّد نموذج المعلم"], "يبني معرفته من خبراته", "intermediate"],
-  ["ordering", "رتّب مراحل نموذج ADDIE ترتيباً صحيحاً.", ["التحليل", "التصميم", "التطوير", "التنفيذ", "التقويم"], ["التحليل", "التصميم", "التطوير", "التنفيذ", "التقويم"] as unknown as string, "intermediate"],
+  ["multiple-choice", "أي ترتيب يمثل مراحل نموذج ADDIE ترتيباً صحيحاً؟", ["التصميم ثم التحليل ثم التطوير ثم التنفيذ ثم التقويم", "التحليل ثم التصميم ثم التطوير ثم التنفيذ ثم التقويم", "التطوير ثم التحليل ثم التصميم ثم التقويم ثم التنفيذ", "التنفيذ ثم التحليل ثم التصميم ثم التطوير ثم التقويم"], "التحليل ثم التصميم ثم التطوير ثم التنفيذ ثم التقويم", "intermediate"],
   ["multiple-choice", "أهم معيار عند اختيار أداة رقمية لنشاط صفي هو:", ["شهرة الأداة", "ملاءمتها للهدف التعليمي", "كلفتها فقط", "حداثة واجهتها"], "ملاءمتها للهدف التعليمي", "beginner"],
   ["short-answer", "ما الفرق بين الوسيلة التعليمية ومنظومة تقنيات التعليم؟", [], "الوسيلة أداة مفردة، والمنظومة تشمل العمليات والموارد والتصميم والتقويم", "intermediate"],
   ["multiple-choice", "الإفصاح عن استخدام الذكاء الاصطناعي في التسليم يُعد:", ["اختيارياً دائماً", "مطلباً للنزاهة الأكاديمية", "دليل ضعف الطالب", "إجراءً إدارياً فقط"], "مطلباً للنزاهة الأكاديمية", "advanced"],
+];
+
+
+type QuestionTemplate = readonly [Question["type"], string, string[], string, Question["difficulty"]];
+
+/*
+ * لكل فصلٍ أسئلته: كان القالب نفسه (اثنا عشر سؤالًا) يُكرَّر على الفصول الأربعة،
+ * فيخرج اختبارٌ من خمسة عشر سؤالًا وفيه «نموذج ADDIE يبدأ بالتصميم…» ثلاث مرات.
+ * وعدد أسئلة كل اختبار يساوي درجته (لكل سؤالٍ درجة واحدة)، فيُطابق مجموع
+ * درجات ما يراه الطالب ما كُتب على بطاقة الاختبار.
+ */
+const CHAPTER_QUESTION_TEMPLATES: ReadonlyArray<ReadonlyArray<QuestionTemplate>> = [
+  QUESTION_TEMPLATES as ReadonlyArray<QuestionTemplate>,
+  [
+    ["multiple-choice", "أول خطوة في تصميم وحدة تعليمية رقمية هي:", ["اختيار الأداة", "تحليل المتعلمين والاحتياج التعليمي", "إعداد الاختبار النهائي", "تصوير المحتوى"], "تحليل المتعلمين والاحتياج التعليمي", "beginner"],
+    ["true-false", "الأهداف السلوكية الجيدة قابلة للقياس والملاحظة.", ["صح", "خطأ"], "صح", "beginner"],
+    ["multiple-choice", "أي صياغة تمثل هدفًا سلوكيًا سليمًا؟", ["أن يفهم الطالب الدرس", "أن يعدّد الطالب ثلاثة معايير لاختيار الوسيلة", "أن يتعلم الطالب بمتعة", "أن يهتم الطالب بالمادة"], "أن يعدّد الطالب ثلاثة معايير لاختيار الوسيلة", "intermediate"],
+    ["short-answer", "اذكر عنصرين من عناصر تحليل السياق التعليمي قبل التصميم.", [], "بيئة التعلم المتاحة، والأجهزة والاتصال المتوفران للمتعلمين", "intermediate"],
+    ["multiple-choice", "تُستخدم التغذية الراجعة في التقويم التكويني من أجل:", ["حجب الدرجة", "توجيه المتعلم نحو التحسين أثناء التعلم", "ترتيب الطلاب", "إنهاء الوحدة"], "توجيه المتعلم نحو التحسين أثناء التعلم", "beginner"],
+    ["true-false", "تحديد الوسائط المناسبة يسبق تحديد الأهداف في نموذج ADDIE.", ["صح", "خطأ"], "خطأ", "intermediate"],
+    ["scenario-analysis", "وحدة رقمية أُنجزت بإتقان فشل طلابها في اختبارها الختامي. كيف تحلّل السبب منهجيًا؟", [], "مراجعة مواءمة الأهداف مع الأنشطة والاختبار، ثم تحليل بيانات الأداء لتحديد موضع الفجوة", "advanced"],
+    ["multiple-choice", "التقويم الختامي يُجرى عادةً:", ["قبل بدء الوحدة", "أثناء كل نشاط", "في نهاية الوحدة أو المقرر", "دون درجات"], "في نهاية الوحدة أو المقرر", "beginner"],
+    ["multiple-choice", "أي ترتيب يمثل خطوات إعداد نشاط تعليمي رقمي؟", ["التجريب ثم تحديد الهدف ثم التصميم ثم التحسين", "تحديد الهدف ثم اختيار المحتوى ثم تصميم النشاط ثم التجريب ثم التحسين", "تصميم النشاط ثم تحديد الهدف ثم التحسين ثم التجريب", "اختيار المحتوى ثم التحسين ثم تحديد الهدف ثم التجريب"], "تحديد الهدف ثم اختيار المحتوى ثم تصميم النشاط ثم التجريب ثم التحسين", "intermediate"],
+    ["multiple-choice", "أي نشاط يحقق مستوى التطبيق في تصنيف بلوم؟", ["نسخ تعريف", "حل مسألة جديدة بتوظيف قاعدة مدروسة", "تذكّر تاريخ حدث", "ترديد مصطلح"], "حل مسألة جديدة بتوظيف قاعدة مدروسة", "intermediate"],
+    ["short-answer", "لماذا يُفضَّل تجريب النشاط على عيّنة صغيرة قبل التعميم؟", [], "لكشف مشكلات الوضوح والزمن والأدوات وتعديلها قبل التطبيق الواسع", "intermediate"],
+    ["true-false", "تجميع المحتوى في شريحة واحدة طويلة يقلل العبء المعرفي.", ["صح", "خطأ"], "خطأ", "beginner"],
+  ],
+  [
+    ["multiple-choice", "أي مما يلي استخدام مناسب لأدوات الذكاء التوليدي في التحضير؟", ["تسليم مخرجاتها كما هي دون مراجعة", "توليد مسوّدة أمثلة ثم مراجعتها وتعديلها", "تقديم إجابات الطلاب بدلًا عنهم", "إخفاء مصدر المحتوى"], "توليد مسوّدة أمثلة ثم مراجعتها وتعديلها", "beginner"],
+    ["true-false", "مخرجات الذكاء التوليدي صحيحة دائمًا ولا تحتاج تحققًا.", ["صح", "خطأ"], "خطأ", "beginner"],
+    ["short-answer", "اذكر خطرين محتملين عند الاعتماد على الذكاء التوليدي في إعداد المحتوى.", [], "معلومات غير دقيقة أو مختلقة، وانحياز في المخرجات", "intermediate"],
+    ["multiple-choice", "الانتحال الأكاديمي يعني:", ["الاستعانة بمصدر مع توثيقه", "نسب عمل الغير إلى النفس دون إشارة إليه", "تلخيص النص بأسلوب الطالب مع المصدر", "مراجعة عمل زميل بإذنه"], "نسب عمل الغير إلى النفس دون إشارة إليه", "beginner"],
+    ["multiple-choice", "أفضل صيغة للإفصاح عن استخدام أداة ذكاء اصطناعي في تسليم هي:", ["عدم ذكرها", "ذكر الأداة وغرض استخدامها وحدود الاعتماد عليها", "ذكرها في آخر سطر بلا تفصيل", "إخفاؤها داخل الملف"], "ذكر الأداة وغرض استخدامها وحدود الاعتماد عليها", "intermediate"],
+    ["scenario-analysis", "طالب سلّم تحليلًا متقنًا لا يشبه مستواه السابق ولم يفصح عن أي أداة. ما التصرف المنهجي؟", [], "مناقشته في مضمون العمل أولًا، وطلب مسودّاته، ثم تطبيق سياسة النزاهة المعتمدة", "advanced"],
+    ["true-false", "وجود سياسة مكتوبة لاستخدام الأدوات الذكية يساعد في توحيد توقعات الطلاب.", ["صح", "خطأ"], "صح", "beginner"],
+    ["multiple-choice", "ما الترتيب السليم للتحقق من معلومة ولّدتها أداة ذكاء اصطناعي؟", ["نشرها ثم مطابقتها بالمصادر", "تحديد الادعاءات القابلة للتحقق ثم مطابقتها بمصادر موثوقة ثم تعديل النص وتوثيق المصادر", "توثيق المصادر ثم قراءة المخرج", "الاكتفاء بقراءة المخرج وتسليمه"], "تحديد الادعاءات القابلة للتحقق ثم مطابقتها بمصادر موثوقة ثم تعديل النص وتوثيق المصادر", "intermediate"],
+    ["multiple-choice", "أي ضابط يحمي خصوصية الطلاب عند استخدام أداة سحابية؟", ["رفع قوائم الأسماء الكاملة", "عدم إدخال بيانات تعريفية للطلاب في الأداة", "مشاركة كلمات المرور", "تعطيل سياسة الخصوصية"], "عدم إدخال بيانات تعريفية للطلاب في الأداة", "intermediate"],
+    ["short-answer", "عرّف الإفصاح عن الاستخدام في سياق النزاهة الأكاديمية.", [], "إعلان صريح بأدوات المساعدة المستخدمة وكيفية توظيفها في العمل المسلَّم", "intermediate"],
+    ["multiple-choice", "المعلم الذي يطلب نسخ المسودات مع التسليم يهدف إلى:", ["إرهاق الطلاب", "إثبات مسار الإنجاز وتعزيز الشفافية", "رفع الدرجات", "تقليل الواجبات"], "إثبات مسار الإنجاز وتعزيز الشفافية", "intermediate"],
+    ["true-false", "الاقتباس المباشر يحتاج توثيقًا حتى لو كان قصيرًا.", ["صح", "خطأ"], "صح", "beginner"],
+  ],
+  [
+    ["multiple-choice", "السؤال الجيد في بنك الأسئلة يتميز بأنه:", ["غامض الصياغة", "واضح ويقيس هدفًا محددًا", "يحتمل أكثر من إجابة صحيحة", "طويل بلا حاجة"], "واضح ويقيس هدفًا محددًا", "beginner"],
+    ["true-false", "توزيع الأسئلة على مستويات صعوبة مختلفة يحسّن قدرة الاختبار على التمييز.", ["صح", "خطأ"], "صح", "beginner"],
+    ["multiple-choice", "المموّهات في أسئلة الاختيار من متعدد ينبغي أن تكون:", ["خاطئة بوضوح ساخر", "معقولة وجذّابة لمن لم يتقن الفكرة", "صحيحة جزئيًا دائمًا", "أقصر من الإجابة الصحيحة"], "معقولة وجذّابة لمن لم يتقن الفكرة", "intermediate"],
+    ["short-answer", "اذكر ميزتين لتعشية ترتيب أسئلة الاختبار الإلكتروني.", [], "تقليل التنسيق بين الطلاب، وصعوبة نقل الإجابات بالترتيب", "intermediate"],
+    ["multiple-choice", "سجل المحاولات في الاختبار المؤمَّن يفيد في:", ["تجميل الواجهة", "توثيق زمن الدخول والتسليم وأي إخلال بالقواعد", "رفع الدرجات", "إخفاء الأخطاء"], "توثيق زمن الدخول والتسليم وأي إخلال بالقواعد", "intermediate"],
+    ["scenario-analysis", "اختبار إلكتروني تجاوز نصف طلابه الدرجة الكاملة في عشر دقائق. كيف تفحص جودته؟", [], "مراجعة صعوبة الأسئلة وتمييزها وتسرّب النموذج، ثم تحليل أزمنة الحل وسجل المحاولات", "advanced"],
+    ["true-false", "رصد الدرجات قبل مراجعة الإجابات المقالية يضمن العدالة.", ["صح", "خطأ"], "خطأ", "intermediate"],
+    ["multiple-choice", "ما الترتيب الصحيح لدورة الاختبار الإلكتروني؟", ["التسليم ثم إعداد الأسئلة ثم النشر ثم الرصد", "إعداد الأسئلة ثم نشر الاختبار ثم التسليم ثم الرصد ثم اعتماد الدرجات", "نشر الاختبار ثم اعتماد الدرجات ثم إعداد الأسئلة", "الرصد ثم النشر ثم التسليم ثم إعداد الأسئلة"], "إعداد الأسئلة ثم نشر الاختبار ثم التسليم ثم الرصد ثم اعتماد الدرجات", "intermediate"],
+    ["multiple-choice", "أفضل توقيت لإتاحة مراجعة الإجابات للطلاب في الاختبارات الرسمية:", ["أثناء الاختبار", "بعد إغلاق الاختبار واعتماد الدرجات", "قبل فتحه", "لا تُتاح أبدًا"], "بعد إغلاق الاختبار واعتماد الدرجات", "intermediate"],
+    ["short-answer", "ما الغرض من الدليل التقييمي (Rubric) في تصحيح الأسئلة المقالية؟", [], "توحيد معايير الحكم وتوضيح مستويات الأداء للطالب والمصحّح", "intermediate"],
+    ["multiple-choice", "ما الذي يحدّه تقييد بيئة الاختبار؟", ["قدرة الطالب على الحل", "فرص الاستعانة بمصادر غير مسموحة أثناء الاختبار", "عدد الأسئلة", "زمن الاختبار الرسمي"], "فرص الاستعانة بمصادر غير مسموحة أثناء الاختبار", "intermediate"],
+    ["true-false", "تكرار السؤال نفسه ضمن الاختبار الواحد لا يؤثر في صدقه.", ["صح", "خطأ"], "خطأ", "beginner"],
+  ],
 ];
 
 const EXERCISE_TEMPLATES: ReadonlyArray<readonly [WeeklyExercise["type"], string, string]> = [
@@ -200,8 +255,8 @@ export function createDemoDatabaseState(liveTeachers: Teacher[]): DatabaseState 
   // from, with a few still pending approval so the review queue is not empty.
   const questionBank: Question[] = [];
   chapters.forEach((chapter, chapterIndex) => {
-    QUESTION_TEMPLATES.forEach(([type, questionText, options, correctAnswer, difficulty], q) => {
-      const index = chapterIndex * QUESTION_TEMPLATES.length + q;
+    CHAPTER_QUESTION_TEMPLATES[chapterIndex].forEach(([type, questionText, options, correctAnswer, difficulty], q) => {
+      const index = chapterIndex * CHAPTER_QUESTION_TEMPLATES[0].length + q;
       questionBank.push({
         id: `demo_q_${index + 1}`,
         chapterId: chapter.id,
@@ -210,7 +265,7 @@ export function createDemoDatabaseState(liveTeachers: Teacher[]): DatabaseState 
         questionText,
         options: options.length ? [...options] : undefined,
         correctAnswer: correctAnswer as Question["correctAnswer"],
-        points: difficulty === "advanced" ? 5 : difficulty === "intermediate" ? 3 : 2,
+        points: 1,
         difficulty,
         isApproved: index % 9 !== 0,
         isGenerated: index % 3 === 0,
@@ -239,8 +294,17 @@ export function createDemoDatabaseState(liveTeachers: Teacher[]): DatabaseState 
   const students: Student[] = [];
   const allowedStudents: AllowedStudent[] = [];
   const count = 100;
+  const usedStudentNames = new Set<string>();
   for (let index = 0; index < count; index += 1) {
-    const name = `${pick(FIRST, index)} ${pick(FAMILY, index * 3)}`;
+    /* لا اسمان متطابقان: ثلاثون اسمًا أول وثمانية عشر لقبًا كانت تُكرّر الاسم
+       الكامل نفسه لأكثر من طالب، فيظهر في كشف الدرجات والتصدير صفّان متطابقان. */
+    let nameShift = 0;
+    let name = `${pick(FIRST, index)} ${pick(FAMILY, index * 3)}`;
+    while (usedStudentNames.has(name)) {
+      nameShift += 1;
+      name = `${pick(FIRST, index)} ${pick(FAMILY, index * 3 + nameShift)}`;
+    }
+    usedStudentNames.add(name);
     const idNumber = String(2026100000 + index * 7);
     const section = pick(sections, index);
     const progress = Math.floor(random() * 101);
@@ -256,12 +320,16 @@ export function createDemoDatabaseState(liveTeachers: Teacher[]): DatabaseState 
       devices: index % 5 === 0 ? [`dev_${index}_a`, `dev_${index}_b`] : [`dev_${index}_a`],
       pathwayCode: pick(["AI-EDU-KW-B2", "EDU-TECH-A1", "CUR-DSGN-D1"], index),
       progress,
-      score: Math.floor(progress * (0.6 + random() * 0.5)),
+      /* درجةٌ مئوية: الغالبية بين ٧٥ و٩٨٪ وعُشر الشعبة فقط متعثّر. كانت تنزل إلى
+         الأربعينات فيُعدّ أغلب الشعبة متعثرًا في «إنذار التعثر المبكر». */
+      score: index % 10 === 3 ? 48 + Math.floor(random() * 22) : Math.min(98, 75 + Math.floor(progress * 0.2 + random() * 4)),
       strengths: [pick(["التحليل", "التصميم التعليمي", "العرض والتقديم", "العمل الجماعي"], index)],
       weaknesses: [pick(["التوثيق", "إدارة الوقت", "الربط بالنظرية", "الدقة في المصطلحات"], index + 1)],
       recommendations: ["راجع الفصل الثاني", "أكمل النشاط الأسبوعي المتأخر"],
       signupDate: ago(120 - (index % 100)),
-      lastLoginDate: ago(index % 14),
+      /* معظم الطلبة دخلوا خلال الأيام الخمسة الماضية، وقلّةٌ فقط غابت أسبوعًا
+         فأكثر — فيخرج «إنذار التعثر المبكر» بحالاتٍ قليلة لا بكل الشعبة. */
+      lastLoginDate: index % 9 === 4 ? ago(8 + (index % 6)) : ago(index % 5),
       activatedCourseCodes: [section.code],
       enrollments: [
         { courseCode: section.code, sectionCode: section.code, courseName: section.courseName, teacherEmail: "demo.teacher@miras.test", isActive: index % 13 !== 0, status: index % 13 === 0 ? "suspended" : "active", isOpen: section.isOpen, isSuspended: index % 13 === 0 },
@@ -392,7 +460,7 @@ export function createDemoDatabaseState(liveTeachers: Teacher[]): DatabaseState 
       id: "demo_exam_open",
       title: "اختبار الفصل الثاني — أنماط التعلّم والوسائط",
       points: 20,
-      questionsCount: 15,
+      questionsCount: 20,
       /* مفتوحٌ الآن: فُتح أمس ويُغلق بعد أربعة أيام. */
       open: ago(1),
       close: ahead(4),
@@ -406,7 +474,7 @@ export function createDemoDatabaseState(liveTeachers: Teacher[]): DatabaseState 
       id: "demo_exam_grading",
       title: "اختبار قصير — تصميم الأنشطة الرقمية",
       points: 10,
-      questionsCount: 8,
+      questionsCount: 10,
       /* أُغلق قبل ثلاثة أيام، وتسليماته تنتظر الرصد. */
       open: ago(10),
       close: ago(3),
@@ -420,7 +488,7 @@ export function createDemoDatabaseState(liveTeachers: Teacher[]): DatabaseState 
       id: "demo_exam_released",
       title: "اختبار الفصل الأول — أسس تقنيات التعليم",
       points: 25,
-      questionsCount: 20,
+      questionsCount: 25,
       open: ago(34),
       close: ago(28),
       courseCode: DEMO_SECTION,
@@ -433,7 +501,7 @@ export function createDemoDatabaseState(liveTeachers: Teacher[]): DatabaseState 
       id: "demo_exam_a1_grading",
       title: "اختبار منتصف الفصل — الوسائط وأثرها التعليمي",
       points: 20,
-      questionsCount: 16,
+      questionsCount: 20,
       open: ago(9),
       close: ago(2),
       courseCode: LANDING_SECTION,
@@ -446,7 +514,7 @@ export function createDemoDatabaseState(liveTeachers: Teacher[]): DatabaseState 
       id: "demo_exam_a1_open",
       title: "اختبار قصير — معايير اختيار الوسيلة",
       points: 10,
-      questionsCount: 8,
+      questionsCount: 10,
       open: ago(1),
       close: ahead(3),
       courseCode: LANDING_SECTION,
@@ -459,7 +527,7 @@ export function createDemoDatabaseState(liveTeachers: Teacher[]): DatabaseState 
       id: "demo_exam_upcoming",
       title: "اختبار تطبيقات الذكاء الاصطناعي في الصف",
       points: 15,
-      questionsCount: 12,
+      questionsCount: 15,
       /* لم يُفتح بعد: يظهر على شاشة الطالب كقادمٍ لا كمطلوبٍ الآن. */
       open: ahead(5),
       close: ahead(8),
@@ -576,7 +644,7 @@ export function createDemoDatabaseState(liveTeachers: Teacher[]): DatabaseState 
     options: { graded?: boolean; returned?: boolean; submittedAt: string },
   ) => {
     const grade = options.graded
-      ? Math.max(4, Math.round(activity.points * (0.55 + (index % 9) * 0.05)))
+      ? Math.max(4, Math.round(activity.points * (0.72 + (index % 9) * 0.03)))
       : "";
     teacherSubmissions.push({
       id: `${kind}-${activity.id}-${student.id}`,
@@ -593,7 +661,9 @@ export function createDemoDatabaseState(liveTeachers: Teacher[]): DatabaseState 
           : "أُجيبت أسئلة الاختبار داخل المنصّة.",
       attachments: [],
       status: options.returned ? "معاد للطالب" : SUBMITTED_STATUS,
-      grade: String(grade),
+      /* غير المرصود بلا حقل درجة: السلسلة الفارغة تُقرأ صفرًا في «إنذار التعثر
+         المبكر» فيُعدّ كل مسلِّمٍ ينتظر الرصد متعثرًا بدرجة ٠٪. */
+      grade: options.graded ? String(grade) : undefined,
       visibleGrade: options.graded ? String(grade) : "",
       points: activity.points,
       submittedAt: options.submittedAt,
@@ -775,6 +845,36 @@ export function createDemoDatabaseState(liveTeachers: Teacher[]): DatabaseState 
     }
     joinCodes.push(base as JoinCode);
   });
+  /*
+   * رموزٌ جاهزة غير مربوطة بطالبٍ ولم تُطبع بعد.
+   *
+   * زرّ «تصدير رموز جاهزة للطباعة» يأخذ هذه الرموز تحديدًا: الجاهزة بلا طالبٍ
+   * وبلا ختم طباعة. وبدونها يقرأ الأرشيف «جاهز للتصدير: ٠» ويُرجع الزرّ رسالة
+   * «لا توجد أكواد جديدة للتصدير» أمام الزائر.
+   */
+  [sections[0], sections[0], sections[0], sections[0], sections[1], sections[1], sections[1], sections[1]].forEach(
+    (section, i) => {
+      const createdAt = ago(6 - (i % 3));
+      joinCodes.push({
+        code: makeCode(),
+        semester: SEMESTER,
+        sectionCode: section.code,
+        courseCode: section.code,
+        studentSection: section.code,
+        courseName: section.courseName,
+        status: "active",
+        createdAt,
+        ownerEmail: DEMO_TEACHER_EMAIL,
+        createdByEmail: DEMO_TEACHER_EMAIL,
+        batchId: batchFor(section.code),
+        batchLabel: batchFor(section.code),
+        codeReputation: "normal",
+        codeReputationLabel: "طبيعي",
+        codeReputationScore: 0,
+        codeJourney: [journey("تم إنشاء الكود", createdAt, { sectionCode: section.code })],
+      } as any as JoinCode);
+    },
+  );
   /* ورموزٌ أُلغيت في المقرر المغلق — الأرشيف لا يعرض حالةً واحدة فقط. */
   for (let i = 0; i < 3; i += 1) {
     const section = sections[3];
@@ -852,6 +952,21 @@ export function createDemoDatabaseState(liveTeachers: Teacher[]): DatabaseState 
       handledAt: i === 2 ? ago(1) : undefined,
     };
   });
+
+  /*
+   * الطالب المعروض يُبذر بلا جهازٍ مربوط.
+   *
+   * كل طالبٍ في البذرة مربوطٌ بجهازٍ مصطنع (`dev_N_a`)، وقاعدة «جهاز واحد لكل
+   * حساب» ترفض متصفّح الزائر بعدها: «هذا الحساب مفتوح على جهاز آخر». وتبديل
+   * الدور يفكّ الربط، لكن «إعادة تعيين البيانات» وإعادة بناء الصندوق بعد
+   * انتهاء مدته كانتا تُعيدان البذرة فتُقفلان الطالب خارج حسابه. وبلا جهازٍ هنا
+   * يرتبط جهاز الزائر ارتباطاً أول، وهو المسار الطبيعي لأي طالبٍ جديد.
+   * (محاولات التفعيل وأكواد البذرة أُخذ جهازها من الطالب قبل هذه النقطة.)
+   */
+  const DEMO_STUDENT_ID = "2026100007";
+  for (const st of students) {
+    if (st.id === DEMO_STUDENT_ID) st.devices = [];
+  }
 
   return {
     lastUpdated: Date.now(),
