@@ -4452,6 +4452,35 @@ export default function App() {
       !!(window.navigator as any).standalone);
   const [showPwaBanner, setShowPwaBanner] = useState(false);
   const [showPwaGuideModal, setShowPwaGuideModal] = useState(false);
+  // «ثبّت ثم فعّل»: الحساب يُقفل على المتصفح/الوضع الذي فُعّل منه، فالطالب الذي يفعّل
+  // من سفاري ثم يثبّت التطبيق يُمنع منه حتى يبدّل الأستاذ الجهاز. نعرض التثبيت قبل
+  // إنشاء الحساب (زر «+» أو QR كرت الكود) على الجوال من المتصفح، مع خيار المتابعة
+  // من المتصفح بعد تنبيه صريح.
+  const [installGate, setInstallGate] = useState<null | "signup" | "card">(null);
+  const shouldOfferInstallFirst = () => {
+    if (typeof window === "undefined" || isAppStandalone) return false;
+    if (isSafeExamBrowserSession()) return false;
+    try {
+      if (sessionStorage.getItem("miras_install_gate_skipped") === "1") return false;
+    } catch {}
+    const ua = String(navigator.userAgent || "");
+    return (
+      /iPhone|iPad|iPod|Android/i.test(ua) ||
+      (/Macintosh/.test(ua) && (navigator as any).maxTouchPoints > 1)
+    );
+  };
+  const openSignupWithInstallGate = () => {
+    if (shouldOfferInstallFirst()) {
+      // طالب وصل بمسح QR كرت الكود: الكود محفوظ في هذا المتصفح ولن ينتقل للتطبيق.
+      let scannedCode = "";
+      try {
+        scannedCode = sessionStorage.getItem("miras_pending_join_code") || "";
+      } catch {}
+      setInstallGate(scannedCode ? "card" : "signup");
+      return;
+    }
+    setInstructorMode(false);
+  };
   // ⌘K — لوحة الأوامر والبحث الذكي (مخفية حتى تُستدعى؛ بلا تلوّث بصري).
   const [cmdkOpen, setCmdkOpen] = useState(false);
   const [cmdkQuery, setCmdkQuery] = useState("");
@@ -32535,7 +32564,7 @@ ${rows
                           type="button"
                           title="إنشاء حساب جديد"
                           aria-label="إنشاء حساب جديد"
-                          onClick={() => setInstructorMode(false)}
+                          onClick={openSignupWithInstallGate}
                           className="flex h-16 w-16 items-center justify-center rounded-3xl border border-indigo-100 bg-indigo-50 text-indigo-700 transition-all duration-300 btn-spring-active hover:bg-indigo-100"
                         >
                           <Plus className="h-6 w-6" />
@@ -45898,7 +45927,8 @@ ${rows
       )}
 
       {/* PWA Floating Alert Banner — صفّ هادئ أسفل الشاشة لا يغطي البطاقة */}
-      {showPwaBanner && !isAppStandalone && (
+      {/* بعد التفعيل من المتصفح لا ندعو للتثبيت: التطبيق المثبّت سيُمنع بقفل الجهاز. */}
+      {showPwaBanner && !isAppStandalone && !studentSession && (
         <div
           dir="rtl"
           className="miras-pwa-row fixed inset-x-0 bottom-0 z-50 animate-fade-in text-right"
@@ -45933,6 +45963,68 @@ ${rows
               <Download className="h-4 w-4" aria-hidden="true" />
               تثبيت الآن
             </button>
+          </div>
+        </div>
+      )}
+
+      {installGate && (
+        <div
+          dir="rtl"
+          className="fixed inset-0 z-50 flex items-end justify-center bg-slate-950/50 p-4 backdrop-blur-sm animate-fade-in sm:items-center"
+          role="dialog"
+          aria-modal="true"
+          aria-label="ثبّت مِراس قبل إنشاء الحساب"
+        >
+          <div className="w-full max-w-md space-y-5 rounded-[var(--miras-r-xl)] border border-slate-200 bg-white p-6 text-right shadow-premium-lg animate-scale-up">
+            <div className="space-y-2 text-center">
+              <span className="mx-auto flex h-14 w-14 items-center justify-center rounded-3xl border border-indigo-100 bg-indigo-50 text-indigo-600">
+                <Smartphone className="h-6 w-6" aria-hidden="true" />
+              </span>
+              <h3 className="text-lg font-black text-slate-950">
+                ثبّت مِراس أولاً
+              </h3>
+              <p className="text-xs font-bold leading-6 text-slate-600">
+                حسابك يُربط بالمكان الذي تفعّله منه. ثبّت التطبيق، ثم افتح مِراس
+                من الشاشة الرئيسية وأنشئ حسابك هناك.
+              </p>
+              {installGate === "card" && (
+                <p className="text-xs font-bold leading-6 text-indigo-700">
+                  بعد التثبيت امسح الكود من زر الكاميرا داخل التطبيق؛ الكود
+                  الممسوح هنا لا ينتقل إليه.
+                </p>
+              )}
+            </div>
+            <button
+              type="button"
+              onClick={() => {
+                setInstallGate(null);
+                void triggerPwaInstallation();
+              }}
+              className="dna-btnp flex w-full cursor-pointer items-center justify-center gap-2 py-3"
+            >
+              <Download className="h-4 w-4" aria-hidden="true" />
+              ثبّت مِراس
+            </button>
+            <div className="space-y-2 border-t border-slate-100 pt-4">
+              <button
+                type="button"
+                onClick={() => {
+                  try {
+                    sessionStorage.setItem("miras_install_gate_skipped", "1");
+                  } catch {}
+                  const context = installGate;
+                  setInstallGate(null);
+                  if (context) setInstructorMode(false);
+                }}
+                className="dna-btn flex w-full cursor-pointer items-center justify-center py-3"
+              >
+                أكمل من المتصفح
+              </button>
+              <p className="text-center text-[11px] font-bold leading-5 text-amber-700">
+                حسابك سيُربط بهذا المتصفح، ولن تفتحه من التطبيق لاحقاً إلا
+                بموافقة الأستاذ.
+              </p>
+            </div>
           </div>
         </div>
       )}
