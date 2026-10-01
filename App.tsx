@@ -7852,6 +7852,15 @@ export default function App() {
 
   // Join code builder states
   const [joinCodesList, setJoinCodesList] = useState<any[]>([]);
+  // الخادم يقرأ القاعدة كاملة من السحابة عند إقلاعه (بعد نشر أو خمول)، فقد يتأخر
+  // أول رد طويلاً. كانت القوائم تظهر فارغة («0 من أصل 0») أثناء الانتظار فتوحي بأن
+  // البيانات انمسحت؛ نتتبع التحميل لنعرض حالته صراحة بدل القوائم الفارغة.
+  const [teacherCloudLoads, setTeacherCloudLoads] = useState(0);
+  const [teacherCloudLoadSlow, setTeacherCloudLoadSlow] = useState(false);
+  const [joinCodesLoadState, setJoinCodesLoadState] = useState<
+    "loading" | "ready" | "failed"
+  >("loading");
+  const joinCodesLoadedEmailRef = useRef("");
   const [newCodesCount, setNewCodesCount] = useState(2000);
   const [newCodesSemester, setNewCodesSemester] = useState(
     "الفصل الدراسي الثاني 2026",
@@ -8526,15 +8535,7 @@ export default function App() {
         if (active && cachedQ) setTeacherQuestions(JSON.parse(cachedQ));
       } catch {}
       try {
-        await Promise.allSettled([
-          fetchSections(teacherEmail),
-          fetchTeacherExams(teacherEmail),
-          fetchTeacherProjects(teacherEmail),
-          fetchPasswordResetRequests(teacherEmail),
-          fetchJoinCodes(teacherEmail),
-          fetchCodeIntegrity(teacherEmail),
-          reloadTeacherDashboard(teacherEmail),
-        ]);
+        await loadTeacherCloudData(teacherEmail);
         if (active) syncTeacherStudentBridge(teacherEmail);
       } catch (err) {
         console.error("Error loading teacher persistent details:", err);
@@ -8547,6 +8548,17 @@ export default function App() {
       active = false;
     };
   }, [teacherSession?.email, currentView]);
+
+  // بعد ٥ ثوانٍ من الانتظار نشرح السبب: الخادم يستيقظ ويقرأ القاعدة كاملة.
+  const teacherCloudSyncing = teacherCloudLoads > 0;
+  useEffect(() => {
+    if (!teacherCloudSyncing) {
+      setTeacherCloudLoadSlow(false);
+      return;
+    }
+    const timer = window.setTimeout(() => setTeacherCloudLoadSlow(true), 5000);
+    return () => window.clearTimeout(timer);
+  }, [teacherCloudSyncing]);
 
   useEffect(() => {
     if (!quizScoreResult || !isSafeExamBrowserSession()) return;
@@ -13623,6 +13635,11 @@ export default function App() {
   const fetchJoinCodes = async (emailOverride?: string) => {
     const email = activeTeacherEmail(emailOverride);
     const storageKey = teacherScopedStorageKey("academicLabJoinCodes", email);
+    const loadedFromCloudBefore = joinCodesLoadedEmailRef.current === email;
+    if (!loadedFromCloudBefore) setJoinCodesLoadState("loading");
+    const markCloudLoadFailed = () => {
+      if (!loadedFromCloudBefore) setJoinCodesLoadState("failed");
+    };
     let cachedCodes: any[] = [];
     try {
       const rawCached = localStorage.getItem(storageKey);
@@ -13643,6 +13660,7 @@ export default function App() {
         if (cachedCodes.length) {
           setJoinCodesList((prev) => mergeJoinCodeRecords(prev, cachedCodes));
         }
+        markCloudLoadFailed();
         return;
       }
       const scopedCodes = d.joinCodes.filter((item: any) =>
@@ -13659,6 +13677,8 @@ export default function App() {
         recentOptimisticCodes,
       );
       setJoinCodesList(nextCodes);
+      joinCodesLoadedEmailRef.current = email;
+      setJoinCodesLoadState("ready");
       try {
         localStorage.setItem(storageKey, JSON.stringify(nextCodes));
       } catch {}
@@ -13667,7 +13687,22 @@ export default function App() {
       if (liveCachedCodes.length) {
         setJoinCodesList((prev) => mergeJoinCodeRecords(prev, liveCachedCodes));
       }
+      markCloudLoadFailed();
     }
+  };
+
+  // تحميل بيانات لوحة المعلم كاملة مع تتبّع حالته لشريط «جارٍ التحميل من السحابة».
+  const loadTeacherCloudData = (teacherEmail: string) => {
+    setTeacherCloudLoads((n) => n + 1);
+    return Promise.allSettled([
+      fetchSections(teacherEmail),
+      fetchTeacherExams(teacherEmail),
+      fetchTeacherProjects(teacherEmail),
+      fetchPasswordResetRequests(teacherEmail),
+      fetchJoinCodes(teacherEmail),
+      fetchCodeIntegrity(teacherEmail),
+      reloadTeacherDashboard(teacherEmail),
+    ]).finally(() => setTeacherCloudLoads((n) => Math.max(0, n - 1)));
   };
 
   const fetchCodeIntegrity = async (emailOverride?: string) => {
@@ -16810,15 +16845,9 @@ ${rows
       triggerLoginReveal("teacher");
       setCurrentView("teacher_workspace");
 
-      Promise.allSettled([
-        fetchSections(teacherEmail),
-        fetchTeacherExams(teacherEmail),
-        fetchTeacherProjects(teacherEmail),
-        fetchPasswordResetRequests(teacherEmail),
-        fetchJoinCodes(teacherEmail),
-        fetchCodeIntegrity(teacherEmail),
-        reloadTeacherDashboard(teacherEmail),
-      ]).then(() => syncTeacherStudentBridge(teacherEmail));
+      loadTeacherCloudData(teacherEmail).then(() =>
+        syncTeacherStudentBridge(teacherEmail),
+      );
       return;
     }
 
@@ -20865,6 +20894,10 @@ ${rows
     (safeCodesPage - 1) * codesPageSize,
     safeCodesPage * codesPageSize,
   );
+  // قائمة فارغة لأن الأكواد لم تصل من السحابة بعد (أو تعذّر جلبها)، لا لأنها غير موجودة.
+  const joinCodesAwaitingCloud =
+    joinCodesLoadState === "loading" && joinCodesList.length === 0;
+  const joinCodesCloudFailed = joinCodesLoadState === "failed";
   const scopedOverallReports = {
     totalAllowed:
       allowedStudentsText
@@ -35729,8 +35762,8 @@ ${rows
                   ) : (
                     <Cloud
                       aria-hidden="true"
-                      className={liveConnectionTrouble ? "animate-pulse" : ""}
-                      style={{ width: "0.95rem", height: "0.95rem", flex: "0 0 auto", color: liveConnectionTrouble ? "#f59e0b" : "#059669" }}
+                      className={liveConnectionTrouble || teacherCloudSyncing ? "animate-pulse" : ""}
+                      style={{ width: "0.95rem", height: "0.95rem", flex: "0 0 auto", color: liveConnectionTrouble || teacherCloudSyncing ? "#f59e0b" : "#059669" }}
                     />
                   )}
                   {teacherSession?.name || "حساب المعلم"}
@@ -35749,7 +35782,9 @@ ${rows
                         ? "غير متصل — سنكمل عند عودة الشبكة"
                         : liveConnectionTrouble
                           ? "جارٍ إعادة المزامنة…"
-                          : "متصل بالسحابة ✓"}
+                          : teacherCloudSyncing
+                            ? "جارٍ تحميل بياناتك من السحابة…"
+                            : "متصل بالسحابة ✓"}
                     </div>
                   )}
                 </div>
@@ -35957,7 +35992,7 @@ ${rows
                         ) : (
                           <Cloud
                             className={`h-4 w-4 shrink-0 ${
-                              liveConnectionTrouble
+                              liveConnectionTrouble || teacherCloudSyncing
                                 ? "animate-pulse text-amber-500"
                                 : "text-emerald-600"
                             }`}
@@ -35971,7 +36006,9 @@ ${rows
                               ? "غير متصل — سنكمل عند عودة الشبكة"
                               : liveConnectionTrouble
                                 ? "جارٍ إعادة المزامنة…"
-                                : "متصل بالسحابة ✓"}
+                                : teacherCloudSyncing
+                                  ? "جارٍ تحميل بياناتك من السحابة…"
+                                  : "متصل بالسحابة ✓"}
                           </span>
                         )}
                       </div>
@@ -36182,6 +36219,29 @@ ${rows
                       )}
                     </select>
                     <ChevronDown className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 pointer-events-none" />
+                  </div>
+                </div>
+              )}
+
+              {teacherCloudSyncing && (
+                <div
+                  role="status"
+                  aria-live="polite"
+                  dir="rtl"
+                  className="mx-3 mt-3 flex items-start gap-3 rounded-[var(--miras-r-lg)] border border-indigo-100 bg-indigo-50/90 px-4 py-3 text-right sm:mx-6 lg:mx-8"
+                >
+                  <RefreshCw
+                    className="mt-0.5 h-4 w-4 shrink-0 animate-spin text-indigo-600"
+                    aria-hidden="true"
+                  />
+                  <div className="text-xs font-bold leading-5 text-indigo-900">
+                    جارٍ تحميل بياناتك من السحابة…
+                    {teacherCloudLoadSlow && (
+                      <span className="block font-semibold text-indigo-700">
+                        الخادم يستيقظ بعد تحديث أو فترة خمول، وقد يستغرق ذلك دقيقة.
+                        بياناتك محفوظة ولم يُحذف شيء.
+                      </span>
+                    )}
                   </div>
                 </div>
               )}
@@ -44182,7 +44242,7 @@ ${rows
                                 <Key className="h-3.5 w-3.5" />
                                 جاهز للتصدير:
                                 <span className="font-mono tabular-nums">
-                                  {readyToPrintCodesCount}
+                                  {joinCodesAwaitingCloud ? "…" : readyToPrintCodesCount}
                                 </span>
                               </span>
                               <span
@@ -44192,7 +44252,7 @@ ${rows
                                 <FileText className="h-3.5 w-3.5" />
                                 سبق تصديره:
                                 <span className="font-mono tabular-nums">
-                                  {printedJoinCodesCount}
+                                  {joinCodesAwaitingCloud ? "…" : printedJoinCodesCount}
                                 </span>
                               </span>
                               <span
@@ -44202,7 +44262,7 @@ ${rows
                                 <CheckCircle className="h-3.5 w-3.5" />
                                 تم استخدامه:
                                 <span className="font-mono tabular-nums">
-                                  {usedJoinCodesCount}
+                                  {joinCodesAwaitingCloud ? "…" : usedJoinCodesCount}
                                 </span>
                               </span>
                             </div>
@@ -44335,9 +44395,18 @@ ${rows
                                 </div>
                                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-[11px] font-bold text-slate-500">
                                   <span>
-                                    يعرض {pagedJoinCodes.length} من أصل{" "}
-                                    {filteredJoinCodes.length} رمز —{" "}
-                                    {codesPageSize} في الصفحة.
+                                    {joinCodesAwaitingCloud ? (
+                                      "جارٍ تحميل الأكواد من السحابة…"
+                                    ) : (
+                                      <>
+                                        يعرض {pagedJoinCodes.length} من أصل{" "}
+                                        {filteredJoinCodes.length} رمز —{" "}
+                                        {codesPageSize} في الصفحة.
+                                        {joinCodesCloudFailed &&
+                                          joinCodesList.length > 0 &&
+                                          " (نسخة محفوظة على جهازك — تعذّر التحديث من السحابة)"}
+                                      </>
+                                    )}
                                   </span>
                                   <div className="grid w-full grid-cols-3 gap-2 sm:flex sm:w-auto sm:items-center">
                                     <button
@@ -44563,9 +44632,36 @@ ${rows
                               </div>
                               {filteredJoinCodes.length === 0 && (
                                 <div className="p-10 text-center text-slate-400 text-xs font-semibold rounded-3xl border border-dashed border-slate-200 bg-slate-50">
-                                  {isAdminTeacher
-                                    ? "لا توجد رموز مطابقة حالياً. جرّب تغيير البحث أو الفلتر أو ولّد دفعة جديدة."
-                                    : "لا توجد رموز مستخدمة من طلبتك حتى الآن."}
+                                  {joinCodesAwaitingCloud ? (
+                                    <span className="inline-flex items-center gap-2 text-indigo-700">
+                                      <RefreshCw
+                                        className="h-4 w-4 animate-spin"
+                                        aria-hidden="true"
+                                      />
+                                      جارٍ تحميل الأكواد من السحابة… بياناتك محفوظة.
+                                    </span>
+                                  ) : joinCodesCloudFailed &&
+                                    joinCodesList.length === 0 ? (
+                                    <span className="flex flex-col items-center gap-3 text-amber-700">
+                                      تعذّر تحميل الأكواد من السحابة الآن. بياناتك
+                                      محفوظة ولم تُحذف.
+                                      <button
+                                        type="button"
+                                        onClick={() => void fetchJoinCodes()}
+                                        className="inline-flex items-center gap-2 rounded-xl border border-amber-200 bg-white px-3 py-2 text-[11px] font-black text-amber-800 hover:bg-amber-50"
+                                      >
+                                        <RefreshCw
+                                          className="h-3.5 w-3.5"
+                                          aria-hidden="true"
+                                        />
+                                        إعادة المحاولة
+                                      </button>
+                                    </span>
+                                  ) : isAdminTeacher ? (
+                                    "لا توجد رموز مطابقة حالياً. جرّب تغيير البحث أو الفلتر أو ولّد دفعة جديدة."
+                                  ) : (
+                                    "لا توجد رموز مستخدمة من طلبتك حتى الآن."
+                                  )}
                                 </div>
                               )}
                             </>
