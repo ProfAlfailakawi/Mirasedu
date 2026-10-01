@@ -85,3 +85,10 @@ test("إنذار التعثر المبكر لا يشمل أغلب الشعبة: 
     if (!sub.visibleGrade) assert.equal(sub.grade, undefined, `${sub.id}: درجة فارغة تُقرأ صفرًا`);
   }
 });
+
+test("رموز المقررات لا تشترك في أي جزء بين الشرطات: الواجهة تدمج المقررات المتشاركة في الأجزاء", () => {
+  const parts = state.sections.map((s) => String(s.code).split("-").map((p) => p.trim().toLowerCase()));
+  for (let i = 0; i < parts.length; i += 1)
+    for (let j = i + 1; j < parts.length; j += 1)
+      assert.equal(parts[i].some((p) => parts[j].includes(p)), false, `${state.sections[i].code} و${state.sections[j].code} تُعدّان مقررًا واحدًا في الواجهة`);
+});

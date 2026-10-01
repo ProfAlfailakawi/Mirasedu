@@ -12289,6 +12289,9 @@ export default function App() {
       code &&
       label &&
       !hasArabicCourseLetters(code) &&
+      // الاسم العربي يكفي: الشاشة تستبدل الرمز باسم المقرر عند العرض، فكان
+      // «الاسم — الرمز» يظهر «الاسم — الاسم» مرتين على بطاقة الاسترجاع.
+      !hasArabicCourseLetters(label) &&
       !isDuplicateCourseDisplay(label, code)
         ? `${label} — ${code}`
         : label || code || "-";
@@ -40377,7 +40380,9 @@ ${rows
                                     دفعات
                                   </span>
                                   <b className="mt-1 block font-mono text-xl text-emerald-700 sm:text-2xl">
-                                    {isAdminTeacher
+                                    {/* العدّاد للمشرف فقط؛ وفي الصندوق التجريبي تُحسب القيمة من بياناته
+                                        المعزولة وحدها (لا حساب حقيقي يصلها) فتُعرض للعارض أيضًا. */}
+                                    {isAdminTeacher || demoActive
                                       ? Number(
                                           academicIntegritySummary.batchWatch ||
                                             0,
