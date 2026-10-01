@@ -78,7 +78,7 @@ run_group tests/flows.quiz-grading.mjs
 run_group tests/flows.exam-create.mjs
 run_group tests/flows.notifications.mjs
 run_group tests/flows.grade-release.mjs
-run_group tests/flows.device-lock.mjs
+run_group tests/flows.device-lock.mjs tests/seed-device-lock.cjs
 run_group tests/flows.public-device-login.mjs
 run_group tests/flows.authz-audit.mjs
 run_group tests/flows.demo-hosting.mjs

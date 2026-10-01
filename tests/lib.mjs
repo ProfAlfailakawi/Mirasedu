@@ -13,8 +13,8 @@ function applySetCookie(jar, res) {
 }
 const cookieHeader = (jar) => Object.entries(jar).map(([k, v]) => `${k}=${v}`).join("; ");
 
-export async function api(method, path, body, { deviceToken, jar, ua } = {}) {
-  const headers = { "content-type": "application/json", "user-agent": ua || UA };
+export async function api(method, path, body, { deviceToken, jar, ua, headers: extraHeaders } = {}) {
+  const headers = { "content-type": "application/json", "user-agent": ua || UA, ...(extraHeaders || {}) };
   if (deviceToken !== undefined && deviceToken !== null) headers["x-miras-device-id"] = deviceToken;
   if (jar) { const ch = cookieHeader(jar); if (ch) headers["cookie"] = ch; }
   const res = await fetch(BASE + path, { method, headers, body: body ? JSON.stringify(body) : undefined });

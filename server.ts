@@ -5731,8 +5731,14 @@ function deviceFingerprintsMatch(a: any, b: any): boolean {
   const ah = deviceTokenHashSegment(aa);
   const bh = deviceTokenHashSegment(bb);
   if (!ah || !bh || ah !== bh) return false;
-  const af = deviceFingerprintBrowserSegment(aa);
-  const bf = deviceFingerprintBrowserSegment(bb);
+  return browserFamiliesCompatible(aa, bb);
+}
+
+// نفس عائلة المتصفح مع تجاهل وضع العرض (browser/pwa)؛ العائلة القديمة/غير
+// المعروفة تُقبل لأننا لا نستطيع تمييزها.
+function browserFamiliesCompatible(a: any, b: any): boolean {
+  const af = deviceFingerprintBrowserSegment(a);
+  const bf = deviceFingerprintBrowserSegment(b);
   if (!af || !bf || af === "legacy" || bf === "legacy") return true;
   if (af === bf) return true;
   const withoutDisplayMode = (value: string) =>
@@ -8268,6 +8274,16 @@ function recordActivationAttempt(
   // مختلفة (جهاز/كود/سبب آخر) تُنبّه فوراً دون تأثّر بهذه النافذة.
   const dedupWindowMs = 6 * 60 * 60 * 1000;
   const dedupNow = Date.now();
+  // «مصيدة الكود» للرموز التي لم تُصدر أصلاً فقط. مسارات فحص الجهاز تمرّر كود
+  // تفعيل الطالب الحقيقي دون سجلّه (foundCode)، فكان كوده الصادر فعلاً يُوسم
+  // «مصيدة كود غير مُصدر» ويصل للأستاذ تنبيه مضلِّل عن طالب سليم.
+  const honeyCode =
+    isUnifiedJoinCode(params.code) &&
+    !params.foundCode &&
+    !issuedJoinCodeCompacts().has(compactJoinCode(params.code));
+  const storedReason = honeyCode
+    ? "مصيدة كود غير مُصدر أو محاولة تخمين كود"
+    : params.reason;
   // نحسب الضربة الأمنية حتى لو كان نفس التنبيه مكرراً؛ الكبح هنا يمنع إزعاج
   // الأستاذ فقط، ولا يسمح لنفس الجهاز بتكرار نفس الكود آلاف المرات بلا حد.
   rememberActivationRateStrike(req, {
@@ -8277,7 +8293,9 @@ function recordActivationAttempt(
   const hasRecentIdenticalAttempt = dbInstance
     .getActivationAttempts()
     .some((attempt: any) => {
-      if (String(attempt.reason || "") !== String(params.reason || "")) return false;
+      // نقارن بالسبب كما خُزِّن؛ سبب المصيدة المخزَّن يختلف عن params.reason فلم
+      // يكن الكبح يطابقه أبداً فيتكرر التنبيه نفسه مع كل طلب.
+      if (String(attempt.reason || "") !== String(storedReason || "")) return false;
       if (String(attempt.studentId || "") !== String(params.student?.id || ""))
         return false;
       if (
@@ -8311,7 +8329,6 @@ function recordActivationAttempt(
       "",
   ).trim();
   const reputation = updateJoinCodeReputation(req, { ...params, telemetry });
-  const honeyCode = isUnifiedJoinCode(params.code) && !params.foundCode;
   const currentAttemptsForCode = dbInstance
     .getActivationAttempts()
     .filter(
@@ -8346,9 +8363,7 @@ function recordActivationAttempt(
     courseCode: attemptSectionCode,
     targetSectionCode: attemptSectionCode,
     status: params.status || "blocked",
-    reason: honeyCode
-      ? "مصيدة كود غير مُصدر أو محاولة تخمين كود"
-      : params.reason,
+    reason: storedReason,
     deviceFingerprint,
     deviceToken,
     ip: req.ip || "127.0.0.1",
@@ -13048,6 +13063,44 @@ function isExplicitStudentDeviceTransferClaimRequest(req: express.Request): bool
   );
 }
 
+// تبديل المتصفح/وضع العرض على نفس الجهاز (نفس توكن الجهاز، مثل فتح التطبيق
+// المثبّت بعد التسجيل من المتصفح على أندرويد حيث يتشاركان التخزين) ليس تسريب كود.
+// الرفض يبقى كما طلب المالك، لكن لا يصل للأستاذ «تنبيه نزاهة كود» عن طالب مسجَّل
+// بنجاح، ولا يُحسب محاولةً على كوده (عداد التسريب/السمعة/حدّ المحاولات) فيُجمَّد
+// ظلماً. نكتفي بسجل نشاط غير مخالف، مرة واحدة لكل سطح خلال نافذة الكبح.
+function recordSameDeviceSurfaceBlock(
+  req: express.Request,
+  student: Student,
+  reason: string,
+) {
+  const action = "رفض متصفح/وضع عرض آخر على نفس الجهاز";
+  const details = `${reason} — السطح: ${strictRequestSurfaceSegment(req) || "غير معروف"}`;
+  const windowMs = 6 * 60 * 60 * 1000;
+  const now = Date.now();
+  const alreadyLogged = dbInstance
+    .getActivityLogs()
+    .slice(0, 300)
+    .some(
+      (log: any) =>
+        String(log.studentId || "") === String(student.id) &&
+        log.action === action &&
+        log.details === details &&
+        now - new Date(log.timestamp || 0).getTime() < windowMs,
+    );
+  if (alreadyLogged) return;
+  dbInstance.addActivityLog({
+    studentId: student.id,
+    studentName: student.name,
+    action,
+    details,
+    ip: req.ip || "127.0.0.1",
+    userAgent: String(req.headers["user-agent"] || "Unknown"),
+    os: "قفل الجهاز",
+    browser: "نفس الجهاز",
+    isViolationWarning: false,
+  });
+}
+
 function validateSessionFingerprint(
   req: express.Request,
   student: Student,
@@ -13295,21 +13348,40 @@ function validateSessionFingerprint(
           ls !== cs
         );
       })();
-    if (
+    const sameTokenAsLockedDevice =
       activationRecord?.status === "used" &&
-      lockedDeviceToken &&
-      currentDeviceToken &&
+      !!lockedDeviceToken &&
+      !!currentDeviceToken &&
       lockedDeviceToken === currentDeviceToken &&
-      lockedFingerprint &&
-      (!deviceFingerprintsMatch(lockedFingerprint, currentFingerprint) ||
-        loginSurfaceMismatch)
+      !!lockedFingerprint;
+    // بصمة سجل بلا مقطع توكن (ربط قديم) لا تحمل هوية جهاز، ومقارنتها الحرفية
+    // تتضمن الـ IP فلا تتطابق أبداً. مع تطابق توكن السجل والطلب يكون التوكن هو
+    // الهوية، فنقارن عائلة المتصفح فقط كما تفعل deviceFingerprintsMatch.
+    const lockedFingerprintMatchesCurrent = deviceTokenHashSegment(lockedFingerprint)
+      ? deviceFingerprintsMatch(lockedFingerprint, currentFingerprint)
+      : browserFamiliesCompatible(lockedFingerprint, currentFingerprint);
+    if (
+      sameTokenAsLockedDevice &&
+      (!lockedFingerprintMatchesCurrent || loginSurfaceMismatch)
     ) {
-      recordActivationAttempt(req, {
-        code: activationCode,
-        student,
-        reason: "محاولة دخول بنفس توكن الجهاز من متصفح/وضع عرض مختلف",
-        foundCode: activationRecord,
-      });
+      const reason = "محاولة دخول بنفس توكن الجهاز من متصفح/وضع عرض مختلف";
+      // نفس الجهاز فعلاً: لا يختلف إلا وضع العرض لنفس المتصفح، أو يثبت سرّ المتصفح
+      // المربوط بالخادم أنه التخزين نفسه. غير ذلك (التوكن نفسه في متصفح آخر) لا
+      // يحدث إلا بنسخ التوكن، فيبقى تنبيه نزاهة للأستاذ.
+      const provenSameDevice =
+        lockedFingerprintMatchesCurrent ||
+        (!!lockedDeviceServerHash &&
+          lockedDeviceServerHash === currentDeviceServerHash);
+      if (provenSameDevice) {
+        recordSameDeviceSurfaceBlock(req, student, reason);
+      } else {
+        recordActivationAttempt(req, {
+          code: activationCode,
+          student,
+          reason,
+          foundCode: activationRecord,
+        });
+      }
       return {
         isValid: false,
         statusCode: 409,
@@ -13317,34 +13389,20 @@ function validateSessionFingerprint(
           "أنت مسجّل على متصفح آخر في هذا الجهاز. لا يمكن فتح الحساب من متصفح أو وضع مختلف (سفاري/PWA) — تواصل مع الأستاذ لتبديل الجهاز.",
       };
     }
-    if (
-      activationRecord?.status === "used" &&
-      lockedDeviceToken &&
-      currentDeviceToken &&
-      lockedDeviceToken === currentDeviceToken &&
-      lockedFingerprint &&
-      lockedFingerprint !== currentFingerprint &&
-      deviceFingerprintsMatch(lockedFingerprint, currentFingerprint)
-    ) {
+    if (sameTokenAsLockedDevice && lockedFingerprint !== currentFingerprint) {
       dbInstance.updateJoinCode(activationRecord.code, {
         activationDeviceFingerprint: currentFingerprint,
       } as any);
     }
-    if (
-      activationRecord?.status === "used" &&
-      !lockedDeviceToken &&
-      currentDeviceToken
-    ) {
-      dbInstance.updateJoinCode(activationRecord.code, {
-        activationDeviceToken: currentDeviceToken,
-        activationDeviceServerHash: serverBoundDeviceHash(req, currentDeviceToken),
-      } as any);
-    }
+    // نحسم الرفض قبل اعتماد التوكن: اعتماده ثم الرفض في الطلب نفسه كان يقفل الطالب
+    // نهائياً (الطلب التالي يطابق التوكن ويخالف البصمة القديمة فيُرفض «بنفس توكن
+    // الجهاز» إلى الأبد). والمقارنة بالمقطع الثابت لا حرفياً، فتغيّر الـ IP وحده لا
+    // يُعدّ جهازاً مختلفاً.
     if (
       activationRecord?.status === "used" &&
       !lockedDeviceToken &&
       lockedFingerprint &&
-      lockedFingerprint !== currentFingerprint
+      !deviceFingerprintsMatch(lockedFingerprint, currentFingerprint)
     ) {
       recordActivationAttempt(req, {
         code: activationCode,
@@ -13358,7 +13416,26 @@ function validateSessionFingerprint(
           "هذا الحساب مسجل في جهاز آخر. للتبديل لهذا الجهاز اطلب من الأستاذ (تبديل الجهاز) ثم سجل دخولك هنا.",
       };
     }
-    if (activationRecord?.status === "used" && !lockedFingerprint) {
+    if (
+      activationRecord?.status === "used" &&
+      !lockedDeviceToken &&
+      currentDeviceToken
+    ) {
+      // نعيد ربط البصمة مع التوكن حتى تحمل هويته؛ بصمة قديمة بلا توكن تبقى
+      // مخالفة للبصمة الجديدة في كل طلب تالٍ.
+      dbInstance.updateJoinCode(activationRecord.code, {
+        activationDeviceToken: currentDeviceToken,
+        activationDeviceFingerprint: currentFingerprint,
+        activationDeviceServerHash: serverBoundDeviceHash(req, currentDeviceToken),
+      } as any);
+    }
+    // البصمة تُربط مع توكن معتمد فقط (هنا يساوي توكن الطلب حتماً). طلب بلا توكن
+    // لا يربط السجل: بصمة كهذه لا تطابق جهاز الطالب نفسه حين يرسل توكنه لاحقاً.
+    if (
+      activationRecord?.status === "used" &&
+      lockedDeviceToken &&
+      !lockedFingerprint
+    ) {
       dbInstance.updateJoinCode(activationRecord.code, {
         activationDeviceFingerprint: currentFingerprint,
       } as any);
@@ -13380,12 +13457,13 @@ function validateSessionFingerprint(
         return !!ds && ds !== "legacy" && ds !== cs; // لكن سطح/متصفح مختلف
       });
       if (conflictingBoundDevice) {
-        recordActivationAttempt(req, {
-          code: (student as any).activationCode || "LOGIN",
+        // المطابقة أعلاه تشترط نفس توكن الجهاز ونفس عائلة المتصفح، فهذا دائماً
+        // نفس الجهاز بوضع عرض آخر: يُرفض دون تنبيه نزاهة للأستاذ.
+        recordSameDeviceSurfaceBlock(
+          req,
           student,
-          reason:
-            "محاولة دخول من متصفح/وضع عرض مختلف على نفس الجهاز (جلسة متزامنة)",
-        });
+          "محاولة دخول من متصفح/وضع عرض مختلف على نفس الجهاز (جلسة متزامنة)",
+        );
         return {
           isValid: false,
           statusCode: 409,
