@@ -1,0 +1,678 @@
+/* ═══════════════════════════════════════════════════════════════════════════
+   مِراس — طبقة الهدوء والمعلومة البصرية (آخر طبقة تُحمَّل)
+   بصري فقط: لا تغيير في السلوك أو البيانات أو نصوص الواجهة.
+   تعتمد رموز الهوية في index.css (‎--miras-*‎) فتعمل في النهاري والليلي معاً.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+:root {
+  --calm-urgent: #d6455d;
+  --calm-warn: #c27b0a;
+  --calm-ok: #14956b;
+  --calm-info: var(--miras-brand);
+}
+:root[data-theme="dark"] {
+  --calm-urgent: #f0788c;
+  --calm-warn: #e0a640;
+  --calm-ok: #46c79c;
+}
+
+/* ── ١) عائلة أيقونات واحدة رفيعة ── */
+svg.lucide {
+  stroke-width: 1.75;
+}
+
+/* ── ٢) الإطار المزدوج: إطار الشاشة الزخرفي كان يتراكب مع بطاقة الرأس ── */
+.meras-auth-shell::after,
+.workspace-calm-shell::after,
+.teacher-calm-shell::after {
+  display: none !important;
+}
+
+/* ═══════════════ ٣) رأس المعلم على سطح المكتب: صف واحد + شريط التنقل ═══════════════ */
+@media (min-width: 921px) {
+  html body .miras-app-teacher-root .teacher-command-header.miras-teacher-v5-header:not(#_) {
+    padding: 0.6rem 1rem !important;
+    margin-bottom: 1rem !important;
+    border-radius: var(--miras-r-lg) !important;
+    box-shadow: var(--miras-e1) !important;
+  }
+  html body .miras-app-teacher-root .teacher-command-header.miras-teacher-v5-header > div.flex.flex-col:not(#_) {
+    gap: 0.55rem !important;
+  }
+  html body .miras-app-teacher-root .teacher-command-header.miras-teacher-v5-header > div > div.flex:first-child:not(#_) {
+    flex-direction: row !important;
+    align-items: center !important;
+    gap: 0.75rem !important;
+  }
+  html body .miras-app-teacher-root .teacher-command-header .miras-teacher-heading-block:not(#_) {
+    order: 0 !important;
+    flex: 1 1 auto !important;
+    width: auto !important;
+    flex-direction: row-reverse !important;
+    flex-wrap: wrap !important;
+    align-items: center !important;
+    justify-content: flex-end !important;
+    gap: 0.75rem !important;
+  }
+  html body .meras-teacher-shell.teacher-calm-shell .teacher-command-header .miras-teacher-heading-block > div.miras-teacher-account-pill:first-child:not(#_):not(#_) {
+    margin: 0 !important;
+    padding: 0.3rem 0.75rem !important;
+  }
+  html body .miras-app-teacher-root .teacher-command-header div.flex.w-full.shrink-0.flex-wrap:not(#_) {
+    order: 1 !important;
+    margin: 0 !important;
+    width: auto !important;
+  }
+  html body .miras-app-teacher-root .teacher-command-header .student-icon-btn:not(#_) {
+    width: 2.6rem !important;
+    height: 2.6rem !important;
+    min-width: 2.6rem !important;
+    border-radius: 0.9rem !important;
+  }
+  html body .miras-app-teacher-root .teacher-command-header .miras-teacher-heading-block > h1:not(#_) {
+    width: auto !important;
+    margin: 0 !important;
+    font-size: 1.55rem !important;
+    line-height: 1.2 !important;
+  }
+  html body .miras-app-teacher-root .teacher-command-header .miras-teacher-heading-block > p:not(#_) {
+    flex: 0 0 100%;
+    order: 9;
+    margin: 0 !important;
+  }
+  /* شريط التنقل يفقد إطاره الخاص داخل بطاقة الرأس */
+  html body .miras-app-teacher-root .teacher-command-header .teacher-nav-desktop:not(#_) {
+    border: 0 !important;
+    box-shadow: none !important;
+    background: transparent !important;
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+    padding: 0 !important;
+  }
+}
+
+@media (min-width: 921px) {
+  html body .miras-teacher-alert-popover.miras-student-alert-popover:not(#_) {
+    top: 8.9rem !important;
+    max-height: calc(100dvh - 10rem) !important;
+  }
+  html body .miras-app-teacher-root .teacher-command-header .teacher-nav-desktop .teacher-orbit-dock-track:not(#_) {
+    background: transparent !important;
+    box-shadow: none !important;
+    border: 0 !important;
+  }
+}
+
+/* ═══════════════ ٤) رأس المعلم على الجوال: صفان بدل أربعة ═══════════════ */
+@media (max-width: 920px), (pointer: coarse) and (hover: none) {
+  html body .miras-app-teacher-root.miras-teacher-viewport-v5 .miras-mobile-teacher-zero-header:not(#_) {
+    min-height: 0 !important;
+    gap: 0.15rem !important;
+    padding: 0.5rem 0.7rem !important;
+    border-radius: var(--miras-r-lg) !important;
+    box-shadow: var(--miras-e1) !important;
+  }
+  html body .miras-app-teacher-root.miras-teacher-viewport-v5 .miras-mobile-teacher-zero-header::before,
+  html body .miras-app-teacher-root.miras-teacher-viewport-v5 .miras-mobile-teacher-zero-header::after {
+    display: none !important;
+  }
+  html body .miras-app-teacher-root.miras-teacher-viewport-v5 .miras-zero-title-block:not(#_) {
+    flex-direction: row-reverse !important;
+    align-items: center !important;
+    justify-content: flex-end !important;
+    gap: 0.6rem !important;
+  }
+  html body .miras-app-teacher-root.miras-teacher-viewport-v5 .miras-zero-title-block h1:not(#_) {
+    margin: 0 !important;
+    width: auto !important;
+    flex: 0 0 auto;
+    font-size: 1.3rem !important;
+  }
+  html body .miras-app-teacher-root.miras-teacher-viewport-v5 .miras-zero-name-pill:not(#_) {
+    align-self: center !important;
+    min-width: 0;
+    max-width: 56% !important;
+    padding: 0.18rem 0.55rem !important;
+    font-size: 0.64rem !important;
+  }
+  html body .miras-app-teacher-root.miras-teacher-viewport-v5 .miras-zero-actions-row:not(#_) {
+    align-self: stretch !important;
+    justify-content: space-between !important;
+    gap: 0.2rem !important;
+  }
+  html body .miras-app-teacher-root.miras-teacher-viewport-v5 .miras-zero-action-btn:not(#_) {
+    width: 2.5rem !important;
+    height: 2.5rem !important;
+    min-width: 2.5rem !important;
+    border-radius: 0.85rem !important;
+    border-color: transparent !important;
+    background: transparent !important;
+    box-shadow: none !important;
+    color: var(--miras-ink-2) !important;
+  }
+  html body .miras-app-teacher-root.miras-teacher-viewport-v5 .miras-zero-action-btn.miras-zero-action-notifications:not(#_) {
+    border-color: var(--miras-brand-line) !important;
+    background: var(--miras-brand-tint) !important;
+    color: var(--miras-brand) !important;
+  }
+  html body .miras-app-teacher-root.miras-teacher-viewport-v5 .miras-zero-action-btn .miras-notification-badge {
+    top: 0 !important;
+  }
+}
+
+/* ═══════════════ ٥) شارات الشريط السفلي: لون واحد، أحمر للعاجل فقط ═══════════════ */
+html body .teacher-orbit-dock-track button span.absolute.z-10:not(#_) {
+  height: 0.95rem !important;
+  min-width: 0.95rem !important;
+  padding: 0 0.22rem !important;
+  font-size: 8px !important;
+  box-shadow: none !important;
+  --tw-ring-shadow: 0 0 #0000 !important;
+  outline: 2px solid var(--miras-surface);
+}
+html body .teacher-orbit-dock-track button span.absolute.z-10 > span.animate-pulse:not(#_) {
+  animation: none !important;
+  display: none !important;
+}
+html body .teacher-orbit-dock-track .miras-dock-label:not(#_) {
+  font-weight: 600 !important;
+}
+
+/* ═══════════════ ٦) عناوين التبويبات الفرعية: العنوان عند البداية والأيقونات في الصف ذاته ═══════════════ */
+html body .miras-section-hero:not(#_) {
+  padding: 0.5rem 0.9rem !important;
+  min-height: 0 !important;
+}
+html body .miras-section-hero > div:not(#_) {
+  flex-direction: row !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  gap: 0.75rem !important;
+}
+html body .miras-section-hero .text-right:not(#_) {
+  align-self: center !important;
+}
+html body .miras-section-hero .miras-inner-tabs:not(#_) {
+  margin: 0 !important;
+}
+
+/* ═══════════════ ٧) نافذة التنبيهات: داكنة في الليلي، هادئة، بلا إغلاق مكرر ═══════════════ */
+html body .miras-student-alert-popover.miras-student-popover:not(#_) {
+  background: var(--miras-surface) !important;
+  background-image: none !important;
+  color: var(--miras-ink) !important;
+  border: 1px solid var(--miras-line) !important;
+  box-shadow: var(--miras-e3) !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+/* شريط الرأس: صف واحد بلا إطار */
+html body .miras-student-alert-popover > div:first-child:not(#_) {
+  background: transparent !important;
+  background-image: none !important;
+  border: 0 !important;
+  border-bottom: 1px solid var(--miras-line) !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+  padding: 0.2rem 0.25rem 0.6rem !important;
+  margin-bottom: 0.5rem !important;
+}
+html body .miras-student-alert-popover > div:first-child > span:not(#_) {
+  background: transparent !important;
+  color: var(--miras-brand) !important;
+  font-weight: 800 !important;
+  box-shadow: none !important;
+  border: 0 !important;
+}
+html body .miras-student-alert-popover > div:first-child button:not(#_),
+html body .miras-student-alert-popover .miras-notification-gate button:not(#_) {
+  width: 2rem !important;
+  height: 2rem !important;
+  background: transparent !important;
+  background-image: none !important;
+  border: 1px solid var(--miras-line) !important;
+  color: var(--miras-ink-2) !important;
+  box-shadow: none !important;
+  border-radius: 0.7rem !important;
+}
+html body .miras-student-alert-popover > div:first-child button:hover:not(#_),
+html body .miras-student-alert-popover .miras-notification-gate button:hover:not(#_) {
+  background: var(--miras-surface-3) !important;
+  color: var(--miras-ink) !important;
+}
+html body .miras-student-alert-popover > div:first-child button svg,
+html body .miras-student-alert-popover .miras-notification-gate button svg {
+  width: 1rem !important;
+  height: 1rem !important;
+}
+/* بوابة تفعيل التنبيهات + الرسالة العلوية: سطح محايد */
+html body .miras-student-alert-popover .miras-notification-gate:not(#_),
+html body .miras-student-alert-popover > div.rounded-2xl[class*="emerald"]:not(#_) {
+  background: var(--miras-surface-3) !important;
+  background-image: none !important;
+  border: 1px solid var(--miras-line) !important;
+  color: var(--miras-ink) !important;
+  box-shadow: none !important;
+}
+html body .miras-student-alert-popover .miras-notification-gate span:not(#_) {
+  color: var(--miras-ink) !important;
+}
+html body .miras-student-alert-popover .miras-notification-gate > div > span.inline-flex:not(#_) {
+  background: var(--miras-surface) !important;
+  border-color: var(--miras-line) !important;
+  color: var(--miras-brand) !important;
+  box-shadow: none !important;
+}
+html body .miras-student-alert-popover > div.rounded-2xl[class*="emerald"] span:not(#_) {
+  color: var(--miras-ink) !important;
+}
+
+/* حلقات الأنواع */
+.miras-notif-types {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.35rem 0.8rem;
+  padding: 0.1rem 0.25rem 0.55rem;
+}
+.miras-notif-type {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  --ring-c: var(--calm-info);
+}
+.miras-notif-type[data-sev="urgent"] { --ring-c: var(--calm-urgent); }
+.miras-notif-type[data-sev="warn"] { --ring-c: var(--calm-warn); }
+.miras-notif-type b {
+  font-size: 0.75rem;
+  font-weight: 800;
+  color: var(--miras-ink-2);
+  font-variant-numeric: tabular-nums;
+}
+.miras-notif-ring {
+  position: relative;
+  display: inline-grid;
+  place-items: center;
+  width: 1.9rem;
+  height: 1.9rem;
+  border-radius: 999px;
+  background: conic-gradient(var(--ring-c) calc(var(--p, 0) * 1%), var(--miras-line) 0);
+  color: var(--ring-c);
+}
+.miras-notif-ring::before {
+  content: "";
+  position: absolute;
+  inset: 2.5px;
+  border-radius: 999px;
+  background: var(--miras-surface);
+}
+.miras-notif-ring > svg {
+  position: relative;
+  z-index: 1;
+}
+
+/* خط زمني: عقدة أيقونة لكل تنبيه */
+html body .miras-student-alert-popover .miras-student-notice-list:not(#_) {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  padding: 0 !important;
+  overflow-x: hidden !important;
+}
+html body .miras-student-alert-popover .miras-student-notice-list:not(#_) > * {
+  margin: 0 !important;
+}
+html body .miras-student-alert-popover .miras-student-notice-list:not(#_)::before {
+  content: "";
+  position: absolute;
+  top: 1.2rem;
+  bottom: 1.2rem;
+  right: calc(0.55rem + 0.875rem - 0.5px);
+  width: 1px;
+  background: var(--miras-line);
+  pointer-events: none;
+}
+html body .miras-student-alert-popover .miras-notice-timeline-card:not(#_) {
+  flex: 0 0 auto !important;
+  position: relative;
+  display: block !important;
+  width: 100% !important;
+  height: auto !important;
+  min-height: 0 !important;
+  overflow: visible !important;
+  padding: 0.65rem 3rem 0.65rem 0.7rem !important;
+  background: transparent !important;
+  background-image: none !important;
+  border: 0 !important;
+  border-radius: var(--miras-r-md) !important;
+  box-shadow: none !important;
+  transform: none !important;
+  color: var(--miras-ink) !important;
+  text-align: right !important;
+}
+html body .miras-student-alert-popover .miras-notice-timeline-card:not(#_)::before,
+html body .miras-student-alert-popover .miras-notice-timeline-card:not(#_)::after {
+  display: none !important;
+}
+html body .miras-student-alert-popover .miras-notice-timeline-card:hover:not(#_) {
+  background: var(--miras-surface-3) !important;
+  transform: none !important;
+}
+html body .miras-student-alert-popover .miras-notice-timeline-card > .miras-notice-node:not(#_) {
+  position: absolute !important;
+}
+.miras-notice-node {
+  position: absolute;
+  top: 0.65rem;
+  right: 0.55rem;
+  z-index: 1;
+  display: grid;
+  place-items: center;
+  width: 1.75rem;
+  height: 1.75rem;
+  border-radius: 999px;
+  background: var(--miras-surface);
+  border: 1px solid var(--calm-info);
+  color: var(--calm-info);
+}
+.miras-notice-node[data-sev="urgent"] { border-color: var(--calm-urgent); color: var(--calm-urgent); }
+.miras-notice-node[data-sev="warn"] { border-color: var(--calm-warn); color: var(--calm-warn); }
+html body .miras-student-alert-popover .miras-notice-timeline-card .miras-teacher-alert-title:not(#_),
+html body .miras-student-alert-popover .miras-notice-timeline-card .miras-student-notice-title:not(#_) {
+  color: var(--miras-ink) !important;
+  font-size: 0.82rem !important;
+  line-height: 1.5 !important;
+  background: transparent !important;
+  padding: 0 !important;
+  border: 0 !important;
+}
+html body .miras-student-alert-popover .miras-notice-timeline-card .miras-teacher-alert-body:not(#_),
+html body .miras-student-alert-popover .miras-notice-timeline-card .miras-student-notice-body:not(#_) {
+  color: var(--miras-ink-2) !important;
+  font-size: 0.74rem !important;
+  line-height: 1.65 !important;
+  margin-top: 0.15rem !important;
+}
+html body .miras-student-alert-popover .miras-notice-timeline-card .miras-teacher-alert-date-row:not(#_) {
+  background: transparent !important;
+  border: 0 !important;
+  border-top: 0 !important;
+  box-shadow: none !important;
+  padding: 0.25rem 0 0 !important;
+  margin: 0 !important;
+  justify-content: flex-start !important;
+}
+html body .miras-student-alert-popover .miras-notice-timeline-card .miras-teacher-alert-date:not(#_),
+html body .miras-student-alert-popover .miras-notice-timeline-card .miras-student-notice-date-badge:not(#_) {
+  background: transparent !important;
+  border: 0 !important;
+  box-shadow: none !important;
+  --tw-ring-shadow: 0 0 #0000 !important;
+  padding: 0 !important;
+  color: var(--miras-ink-3) !important;
+  font-size: 0.66rem !important;
+  font-weight: 600 !important;
+}
+html body .miras-student-alert-popover .miras-notice-timeline-card .miras-student-return-chip:not(#_) {
+  background: var(--miras-brand-tint) !important;
+  color: var(--miras-brand) !important;
+  border-color: var(--miras-brand-line) !important;
+}
+html body .miras-student-alert-popover .miras-teacher-alert-actions button:not(#_) {
+  background: transparent !important;
+  border: 1px solid var(--miras-line) !important;
+  box-shadow: none !important;
+  transform: none !important;
+  width: 2rem !important;
+  height: 2rem !important;
+  border-radius: 0.7rem !important;
+}
+
+/* ═══════════════ ٨) قمع الأكواد المتناقص ═══════════════ */
+.miras-funnel {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding: 0.25rem 0;
+}
+.miras-funnel-row {
+  display: grid;
+  grid-template-columns: 5.5rem minmax(0, 1fr) 3.25rem;
+  align-items: center;
+  gap: 0.6rem;
+}
+.miras-funnel-label {
+  text-align: right;
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: var(--miras-ink-2);
+}
+.miras-funnel-pct {
+  text-align: left;
+  font-size: 0.68rem;
+  font-weight: 700;
+  color: var(--miras-ink-3);
+  font-variant-numeric: tabular-nums;
+}
+.miras-funnel-shape {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 2.5rem;
+  background: var(--f-bg);
+  color: var(--f-ink, var(--miras-ink));
+  font-size: 0.95rem;
+}
+.miras-funnel-shape b {
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+.miras-funnel-row[data-stage="0"] { --f-bg: color-mix(in srgb, var(--miras-ink-3) 38%, transparent); }
+.miras-funnel-row[data-stage="1"] { --f-bg: color-mix(in srgb, var(--miras-brand) 38%, transparent); }
+.miras-funnel-row[data-stage="2"] { --f-bg: color-mix(in srgb, var(--miras-brand) 62%, transparent); }
+.miras-funnel-row[data-stage="3"] { --f-bg: var(--miras-brand); --f-ink: var(--miras-brand-on); }
+
+/* شريط مقسَّم + وسيلة إيضاح */
+.miras-segbar {
+  display: flex;
+  align-items: stretch;
+  gap: 2px;
+  height: 0.6rem;
+  min-height: 0.6rem;
+  padding: 0 !important;
+  border-radius: 999px;
+  overflow: hidden;
+  background: var(--miras-line);
+}
+html body .miras-segbar:not(#_) {
+  padding: 0 !important;
+  height: 0.6rem !important;
+  min-height: 0.6rem !important;
+  box-sizing: border-box;
+}
+.miras-segbar > span {
+  flex: 1 1 0;
+  min-width: 0;
+  align-self: stretch;
+  display: block;
+}
+.miras-segbar > span[data-k="total"] { background: var(--miras-ink-3); }
+.miras-segbar > span[data-k="active"] { background: color-mix(in srgb, var(--miras-brand) 45%, transparent); }
+.miras-segbar > span[data-k="used"] { background: var(--miras-brand); }
+.miras-segbar > span[data-k="revoked"] { background: var(--calm-urgent); }
+.miras-segbar > span[data-k="rest"] { background: transparent; }
+.miras-segbar-student > span[data-k="needs"] { background: var(--miras-brand); }
+.miras-segbar-student > span[data-k="graded"] { background: var(--calm-ok); }
+.miras-segbar-student > span[data-k="rest"] { background: var(--miras-line); }
+
+.miras-code-legend {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.75rem;
+  margin-top: 0.85rem;
+}
+@media (max-width: 720px) {
+  .miras-code-legend { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+.miras-code-legend-cell {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  grid-template-areas: "dot n" "label label" "note note";
+  column-gap: 0.45rem;
+  align-items: center;
+  text-align: right;
+}
+.miras-code-legend-dot {
+  grid-area: dot;
+  width: 0.55rem;
+  height: 0.55rem;
+  border-radius: 999px;
+  background: var(--miras-ink-3);
+}
+.miras-code-legend-cell[data-k="active"] .miras-code-legend-dot { background: color-mix(in srgb, var(--miras-brand) 45%, transparent); }
+.miras-code-legend-cell[data-k="used"] .miras-code-legend-dot { background: var(--miras-brand); }
+.miras-code-legend-cell[data-k="revoked"] .miras-code-legend-dot { background: var(--calm-urgent); }
+.miras-code-legend-n {
+  grid-area: n;
+  font-size: 1.15rem;
+  font-weight: 800;
+  color: var(--miras-ink);
+  font-variant-numeric: tabular-nums;
+}
+.miras-code-legend-n small {
+  font-size: 0.68rem;
+  font-weight: 700;
+  color: var(--miras-ink-3);
+}
+.miras-code-legend-label {
+  grid-area: label;
+  font-size: 0.68rem;
+  font-weight: 700;
+  color: var(--miras-ink-2);
+  margin-top: 0.15rem;
+}
+.miras-code-legend-note {
+  grid-area: note;
+  font-size: 0.62rem;
+  font-weight: 600;
+  color: var(--miras-ink-3);
+}
+
+/* أرقام الطالب 6/2/3 كشريط مقسَّم */
+.miras-segbar-legend [data-k="needs"] .miras-segbar-dot { background: var(--miras-brand); }
+.miras-segbar-legend [data-k="graded"] .miras-segbar-dot { background: var(--calm-ok); }
+.miras-segbar-legend [data-k="rest"] .miras-segbar-dot { background: transparent; border: 1.5px solid var(--miras-ink-3); }
+.miras-segbar-dot {
+  display: inline-block;
+  width: 0.5rem;
+  height: 0.5rem;
+  border-radius: 999px;
+  align-self: center;
+}
+html body .miras-segbar-legend span {
+  color: var(--miras-ink-2) !important;
+}
+html body .miras-segbar-legend span span.tabular-nums,
+html body .miras-segbar-legend span span.font-sans {
+  color: var(--miras-ink) !important;
+}
+
+/* حلقة مصحح/إجمالي */
+.miras-ratio-ring {
+  position: relative;
+  flex: 0 0 auto;
+  display: inline-grid;
+  place-items: center;
+  width: 2.6rem;
+  height: 2.6rem;
+  border-radius: 999px;
+  background: conic-gradient(var(--calm-ok) calc(var(--p, 0) * 1%), var(--miras-line) 0);
+}
+.miras-ratio-ring::before {
+  content: "";
+  position: absolute;
+  inset: 3px;
+  border-radius: 999px;
+  background: var(--miras-surface);
+}
+.miras-ratio-ring > span {
+  position: relative;
+  font-size: 0.6rem;
+  font-weight: 800;
+  color: var(--miras-ink-2);
+  font-variant-numeric: tabular-nums;
+}
+
+/* بطاقات «المتاح الآن»: بلا فراغ متدرّج، والعدّاد في الطرف الآخر */
+.miras-now-available .miras-now-count {
+  margin-inline-start: auto;
+  display: inline-grid;
+  place-items: center;
+  min-width: 2rem;
+  height: 2rem;
+  padding: 0 0.4rem;
+  border-radius: 999px;
+  border: 1px solid var(--miras-brand-line);
+  color: var(--miras-brand);
+  font-size: 0.95rem;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+.miras-now-available button > .relative.flex {
+  width: 100%;
+}
+
+/* ═══════════════ ٩) الرسائل العائمة: أسفل الشاشة، لا فوق الرأس ═══════════════ */
+html body .miras-floating-toast:not(#_) {
+  top: auto !important;
+  bottom: calc(env(safe-area-inset-bottom, 0px) + 1.25rem) !important;
+  min-height: 0 !important;
+  padding: 0.55rem 0.75rem !important;
+  border-radius: var(--miras-r-md) !important;
+  gap: 0.6rem !important;
+  align-items: center !important;
+  width: min(30rem, calc(100vw - 1.5rem)) !important;
+  max-width: min(30rem, calc(100vw - 1.5rem)) !important;
+}
+html body .miras-floating-toast > span:first-child:not(#_) {
+  width: 2rem !important;
+  height: 2rem !important;
+  border-radius: 0.7rem !important;
+}
+html body .miras-floating-toast > span:nth-of-type(2):not(#_) {
+  font-size: 0.8rem !important;
+  line-height: 1.6 !important;
+}
+@media (max-width: 920px) {
+  html body .miras-app-teacher-root ~ .miras-floating-toast:not(#_),
+  html body .miras-floating-toast:not(#_) {
+    bottom: calc(env(safe-area-inset-bottom, 0px) + 5.4rem) !important;
+  }
+}
+
+/* ═══════════════ ١٠) بطاقة التسليمات: العنوان والبحث والتبويبات في صف واحد ═══════════════ */
+html body .miras-submissions-panel > div:first-child:not(#_) {
+  display: flex !important;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.6rem 0.9rem !important;
+  padding: 0.7rem 0.9rem !important;
+}
+html body .miras-submissions-panel > div:first-child > div:not(#_) {
+  margin: 0 !important;
+}
+html body .miras-submissions-panel > div:first-child > div:first-child:not(#_) {
+  flex: 1 1 22rem;
+  min-width: 0;
+}
+html body .miras-submissions-panel > div:first-child > div:last-child:not(#_) {
+  flex: 0 0 auto;
+}
+html body .miras-funnel-shape b:not(#_) {
+  color: var(--f-ink, var(--miras-ink)) !important;
+}
+html body .miras-student-alert-popover .miras-notice-timeline-card > div.mt-3:not(#_) {
+  margin-top: 0.2rem !important;
+  justify-content: flex-start !important;
+}

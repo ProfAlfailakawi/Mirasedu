@@ -1589,6 +1589,83 @@ const STUDENT_NOTICE_TONE_CLASSES: Record<
   },
 };
 
+// حلقة نسبة منجَز/إجمالي (مصحح/تسليمات) من أرقام موجودة أصلاً على الشاشة.
+const MirasRatioRing = ({ done, total }: { done: number; total: number }) => {
+  const t = Math.max(0, Number(total) || 0);
+  const d = Math.max(0, Math.min(t, Number(done) || 0));
+  const pct = t ? Math.round((d / t) * 100) : 0;
+  return (
+    <span
+      className="miras-ratio-ring"
+      style={{ ["--p" as any]: pct }}
+      role="img"
+      aria-label={`${d} / ${t}`}
+    >
+      <span dir="ltr">
+        {d}/{t}
+      </span>
+    </span>
+  );
+};
+
+// خريطة النغمة → أيقونة رفيعة + درجة الخطورة. اللون يتبع الخطورة فقط:
+// أحمر للعاجل، كهرماني للتحذير، وكل ما عداه بلون العلامة الهادئ.
+const NOTICE_TONE_ICON: Record<string, any> = {
+  rose: ShieldAlert,
+  amber: AlertTriangle,
+  indigo: Award,
+  violet: Key,
+  emerald: CheckCircle2,
+  sky: Bell,
+};
+const NOTICE_TONE_SEVERITY: Record<string, "urgent" | "warn" | "info"> = {
+  rose: "urgent",
+  amber: "warn",
+  indigo: "info",
+  violet: "info",
+  emerald: "info",
+  sky: "info",
+};
+// حلقة صغيرة بعدد كل نوع من التنبيهات الظاهرة (من البيانات الحاضرة على الشاشة).
+const renderNoticeTypeRings = (items: any[]) => {
+  const total = items.length;
+  if (!total) return null;
+  const groups: Record<string, any[]> = {};
+  items.forEach((it) => {
+    const k = NOTICE_TONE_ICON[it?.tone] ? it.tone : "indigo";
+    (groups[k] = groups[k] || []).push(it);
+  });
+  return (
+    <div className="miras-notif-types" role="list">
+      {Object.keys(groups).map((k) => {
+        const Icon = NOTICE_TONE_ICON[k];
+        const n = groups[k].length;
+        return (
+          <span
+            key={k}
+            role="listitem"
+            className="miras-notif-type"
+            data-sev={NOTICE_TONE_SEVERITY[k]}
+            title={groups[k]
+              .map((g: any) => String(g?.title || ""))
+              .filter(Boolean)
+              .join(" • ")}
+          >
+            <span
+              className="miras-notif-ring"
+              style={{ ["--p" as any]: Math.round((n / total) * 100) }}
+              aria-hidden="true"
+            >
+              <Icon className="h-3.5 w-3.5" strokeWidth={1.75} />
+            </span>
+            <b>{n}</b>
+          </span>
+        );
+      })}
+    </div>
+  );
+};
+
 // يختصر نص التنبيه الطويل إلى صيغة بسيطة ومريحة: العنوان + التاريخ فقط،
 // مع إسقاط الأجزاء الوصفية المكررة (الفئة/الرمز/الحالة) لأن الحالة تظهر
 // أصلاً من لون البطاقة. بدون تعقيد وبلا قصّ في منتصف الكلمة.
@@ -4987,7 +5064,7 @@ export default function App() {
         className={`absolute -left-1.5 -top-1.5 z-10 flex h-[1.15rem] min-w-[1.15rem] items-center justify-center rounded-full px-1 text-[8.5px] font-black text-white shadow-md ring-2 ring-white ${tone}`}
       >
         <span className={`absolute inline-flex h-full w-full animate-pulse rounded-full ${tone} opacity-40`}></span>
-        <span className="relative tabular-nums">{fresh > 9 ? "9+" : fresh}</span>
+        <span className="relative tabular-nums" dir="ltr">{fresh > 9 ? "9+" : fresh}</span>
       </span>
     );
   };
@@ -26116,7 +26193,7 @@ ${rows
           Icon: User,
           reveal: "teacher-students",
           onClick: () => openTeacherDockTab("students"),
-          badgeTone: "bg-emerald-500",
+          badgeTone: "bg-indigo-500",
         })}
         {navItem({
           tab: "questions",
@@ -26124,7 +26201,7 @@ ${rows
           title: "بنك الأسئلة والاختبارات والمشاريع",
           Icon: Layers,
           onClick: () => openTeacherDockTab("questions"),
-          badgeTone: "bg-violet-500",
+          badgeTone: "bg-indigo-500",
         })}
         <button
           type="button"
@@ -26145,7 +26222,7 @@ ${rows
           Icon: Award,
           reveal: "teacher-assessment",
           onClick: () => openTeacherDockTab("submissions"),
-          badgeTone: "bg-amber-500",
+          badgeTone: "bg-indigo-500",
         })}
         {navItem({
           tab: "codes",
@@ -29902,10 +29979,6 @@ ${rows
   const renderNotificationGate = (surface: "student" | "teacher") => {
     const mode = browserNotifPermission;
     if (mode === "granted") return null;
-    const closeSurface = () =>
-      surface === "teacher"
-        ? setTeacherImportantNotificationsOpen(false)
-        : setStudentNotificationsOpen(false);
 
     if (mode === "unsupported") {
       return null;
@@ -29952,18 +30025,9 @@ ${rows
             title="تفعيل الإشعارات"
             aria-label="تفعيل الإشعارات"
             onClick={handleEnableBrowserNotifications}
-            className="inline-flex h-9 w-9 items-center justify-center rounded-xl bg-indigo-600 text-white shadow-md transition-all hover:bg-indigo-700 hover:shadow-lg hover:scale-[1.02] active:scale-95"
+            className="miras-notification-gate-enable inline-flex h-9 w-9 items-center justify-center rounded-xl border border-indigo-200 bg-white text-indigo-700 transition-all hover:bg-indigo-50 active:scale-95"
           >
-            <Check className="h-4 w-4" />
-          </button>
-          <button
-            type="button"
-            title="ليس الآن"
-            aria-label="ليس الآن"
-            onClick={closeSurface}
-            className="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-400 shadow-sm transition-all hover:bg-slate-50 hover:text-slate-600 hover:scale-[1.02] active:scale-95"
-          >
-            <X className="h-4 w-4" />
+            <Check className="h-4 w-4" strokeWidth={1.75} />
           </button>
         </div>
       </div>
@@ -33757,6 +33821,30 @@ ${rows
                                 </button>
                               </div>
                             </div>
+                            {renderNoticeTypeRings([
+                              ...compactStudentSchedule
+                                .filter(
+                                  (item: any) =>
+                                    !studentSeenKeysState.has(
+                                      `schedule:${item.type || "activity"}:${item.id || item.title}`,
+                                    ),
+                                )
+                                .map((item: any) => ({
+                                  tone: studentNoticeTone(
+                                    `${item.status || ""} ${item.title || ""}`,
+                                  ),
+                                  title: item.title,
+                                })),
+                              ...compactConciseStudentNotifications
+                                .filter(
+                                  (n: any) =>
+                                    !studentSeenKeysState.has(`concise:${n}`),
+                                )
+                                .map((n: any) => ({
+                                  tone: studentNoticeTone(String(n || "")),
+                                  title: String(n || "").split(" — ")[0],
+                                })),
+                            ])}
                             {renderNotificationGate("student")}
                             {visibleNotificationMessage && (
                               <div className="rounded-2xl border border-emerald-200/60 bg-gradient-to-br from-emerald-50 to-teal-50/50 text-emerald-900 p-3.5 mb-2 shadow-sm">
@@ -33793,10 +33881,6 @@ ${rows
                                     const scheduleToneKey = studentNoticeTone(
                                       `${item.status || ""} ${item.title || ""}`,
                                     );
-                                    const scheduleTone =
-                                      STUDENT_NOTICE_TONE_CLASSES[
-                                        scheduleToneKey
-                                      ];
                                     const scheduleDate = [item.open, item.close]
                                       .filter(Boolean)
                                       .join(" – ");
@@ -33814,12 +33898,27 @@ ${rows
                                             notificationKey,
                                           )
                                         }
-                                        className={`miras-student-notice-card miras-teacher-alert-card ${isReturnNotice ? "miras-student-notice-card-return" : ""} block w-full cursor-pointer rounded-2xl border p-4 text-right transition-all hover:-translate-y-0.5 shadow-sm hover:shadow-md ${
-                                          isRead
-                                            ? "opacity-60 border-slate-200/60 bg-slate-50/60 hover:bg-slate-50"
-                                            : scheduleTone.card
-                                        }`}
+                                        className={`miras-student-notice-card miras-teacher-alert-card miras-notice-timeline-card ${isReturnNotice ? "miras-student-notice-card-return" : ""} block w-full cursor-pointer rounded-2xl border p-4 text-right transition-all`}
                                       >
+                                        {(() => {
+                                          const NodeIcon =
+                                            NOTICE_TONE_ICON[scheduleToneKey] || Bell;
+                                          return (
+                                            <span
+                                              className="miras-notice-node"
+                                              data-sev={
+                                                NOTICE_TONE_SEVERITY[scheduleToneKey] ||
+                                                "info"
+                                              }
+                                              aria-hidden="true"
+                                            >
+                                              <NodeIcon
+                                                className="h-4 w-4"
+                                                strokeWidth={1.75}
+                                              />
+                                            </span>
+                                          );
+                                        })()}
                                         {isReturnNotice && (
                                           <div
                                             className="miras-student-return-chip"
@@ -33869,10 +33968,6 @@ ${rows
                                     const conciseToneKey = studentNoticeTone(
                                       String(n || ""),
                                     );
-                                    const conciseTone =
-                                      STUDENT_NOTICE_TONE_CLASSES[
-                                        conciseToneKey
-                                      ];
                                     // فصل التاريخ (إن وُجد) ليظهر في badge أسفل
                                     // البطاقة بنفس أسلوب المعلم.
                                     const detailParts = String(
@@ -33905,12 +34000,27 @@ ${rows
                                             notificationKey,
                                           )
                                         }
-                                        className={`miras-student-notice-card miras-teacher-alert-card ${isReturnNotice ? "miras-student-notice-card-return" : ""} block w-full cursor-pointer rounded-2xl border p-4 text-right transition-all hover:-translate-y-0.5 shadow-sm hover:shadow-md ${
-                                          isRead
-                                            ? "opacity-60 border-slate-200/60 bg-slate-50/60 hover:bg-slate-50"
-                                            : conciseTone.card
-                                        }`}
+                                        className={`miras-student-notice-card miras-teacher-alert-card miras-notice-timeline-card ${isReturnNotice ? "miras-student-notice-card-return" : ""} block w-full cursor-pointer rounded-2xl border p-4 text-right transition-all`}
                                       >
+                                        {(() => {
+                                          const NodeIcon =
+                                            NOTICE_TONE_ICON[conciseToneKey] || Bell;
+                                          return (
+                                            <span
+                                              className="miras-notice-node"
+                                              data-sev={
+                                                NOTICE_TONE_SEVERITY[conciseToneKey] ||
+                                                "info"
+                                              }
+                                              aria-hidden="true"
+                                            >
+                                              <NodeIcon
+                                                className="h-4 w-4"
+                                                strokeWidth={1.75}
+                                              />
+                                            </span>
+                                          );
+                                        })()}
                                         {isReturnNotice && (
                                           <div
                                             className="miras-student-return-chip"
@@ -34340,7 +34450,6 @@ ${rows
                                       }}
                                       className="group relative overflow-hidden rounded-[var(--miras-r-lg)] border border-indigo-100/80 bg-white/86 p-2.5 miras-shadow-glow backdrop-blur transition hover:-translate-y-0.5 hover:bg-white hover:miras-shadow-glow text-right"
                                     >
-                                      <span className="pointer-events-none absolute -bottom-8 -left-8 h-24 w-24 rounded-full bg-indigo-200/25 blur-2xl" />
                                       <span className="relative flex items-center gap-3">
                                         <span className="inline-flex shrink-0 h-10 w-10 items-center justify-center rounded-[var(--miras-r-md)] border border-indigo-100 bg-indigo-50/60 text-indigo-700 shadow-sm transition group-hover:scale-105">
                                           <FileText className="h-5 w-5" />
@@ -34352,6 +34461,9 @@ ${rows
                                           <span className="mt-1 block text-[10px] font-bold text-indigo-600">
                                             جاهزة للاطلاع
                                           </span>
+                                        </span>
+                                        <span className="miras-now-count" aria-hidden="true">
+                                          {studentVisibleExamCards.length}
                                         </span>
                                       </span>
                                     </button>
@@ -34369,7 +34481,6 @@ ${rows
                                       }}
                                       className="group relative overflow-hidden rounded-[var(--miras-r-lg)] border border-indigo-100/80 bg-white/86 p-2.5 miras-shadow-glow backdrop-blur transition hover:-translate-y-0.5 hover:bg-white hover:miras-shadow-glow text-right"
                                     >
-                                      <span className="pointer-events-none absolute -bottom-8 -left-8 h-24 w-24 rounded-full bg-indigo-200/25 blur-2xl" />
                                       <span className="relative flex items-center gap-3">
                                         <span className="inline-flex shrink-0 h-10 w-10 items-center justify-center rounded-[var(--miras-r-md)] border border-indigo-100 bg-indigo-50/60 text-indigo-700 shadow-sm transition group-hover:scale-105">
                                           <Send className="h-5 w-5" />
@@ -34381,6 +34492,9 @@ ${rows
                                           <span className="mt-1 block text-[10px] font-bold text-indigo-600">
                                             جاهزة للتسليم
                                           </span>
+                                        </span>
+                                        <span className="miras-now-count" aria-hidden="true">
+                                          {studentVisibleProjectCards.length}
                                         </span>
                                       </span>
                                     </button>
@@ -34508,25 +34622,45 @@ ${rows
                                       }}
                                     />
                                   </div>
+                                  {(() => {
+                                    const nTotal = Number(studentSubmissionTimeline.length) || 0;
+                                    const nGraded = Number(studentSubmissionGradedCount) || 0;
+                                    const nNeeds = Number(studentSubmissionNeedsActionCount) || 0;
+                                    const nRest = Math.max(0, nTotal - nGraded - nNeeds);
+                                    return (
+                                      <div
+                                        className="miras-segbar miras-segbar-student mt-2.5"
+                                        role="img"
+                                        aria-label={`${nNeeds} / ${nGraded} / ${nTotal}`}
+                                      >
+                                        <span data-k="needs" style={{ flexGrow: nNeeds }} />
+                                        <span data-k="graded" style={{ flexGrow: nGraded }} />
+                                        <span data-k="rest" style={{ flexGrow: nRest }} />
+                                      </div>
+                                    );
+                                  })()}
                                   <div
-                                    className="mt-2.5 flex flex-wrap items-center justify-center gap-x-4 gap-y-1.5 rounded-[var(--miras-r-md)] border border-slate-100/80 bg-slate-50/45 px-3 py-2 text-center text-[10px] font-semibold text-slate-500"
+                                    className="miras-segbar-legend mt-2 flex flex-wrap items-center justify-center gap-x-4 gap-y-1.5 px-1 py-0.5 text-center text-[10px] font-semibold text-slate-500"
                                     dir="rtl"
                                   >
-                                    <span className="inline-flex items-baseline justify-center gap-1.5 whitespace-nowrap">
+                                    <span className="inline-flex items-baseline justify-center gap-1.5 whitespace-nowrap" data-k="needs">
+                                      <i className="miras-segbar-dot" aria-hidden="true" />
                                       <span>مطلوب</span>
                                       <span className="font-sans text-[12px] font-bold tabular-nums text-slate-950">
                                         {studentSubmissionNeedsActionCount}
                                       </span>
                                     </span>
                                     <span className="text-slate-300">·</span>
-                                    <span className="inline-flex items-baseline justify-center gap-1.5 whitespace-nowrap">
+                                    <span className="inline-flex items-baseline justify-center gap-1.5 whitespace-nowrap" data-k="graded">
+                                      <i className="miras-segbar-dot" aria-hidden="true" />
                                       <span>مرصود</span>
                                       <span className="font-sans text-[12px] font-bold tabular-nums text-emerald-700">
                                         {studentSubmissionGradedCount}
                                       </span>
                                     </span>
                                     <span className="text-slate-300">·</span>
-                                    <span className="inline-flex items-baseline justify-center gap-1.5 whitespace-nowrap">
+                                    <span className="inline-flex items-baseline justify-center gap-1.5 whitespace-nowrap" data-k="rest">
+                                      <i className="miras-segbar-dot" aria-hidden="true" />
                                       <span>تسليم</span>
                                       <span className="font-sans text-[12px] font-bold tabular-nums text-indigo-700">
                                         {studentSubmissionTimeline.length}
@@ -36826,6 +36960,7 @@ ${rows
                                 {card.total} تسليم
                               </p>
                             </div>
+                            <MirasRatioRing done={card.graded} total={card.total} />
                             <ChevronLeft className="mt-1 h-4 w-4 shrink-0 text-slate-300 transition-transform group-hover:-translate-x-1 group-hover:text-indigo-500" />
                           </div>
                           <div className="mt-3 flex flex-wrap gap-1.5">
@@ -36889,6 +37024,16 @@ ${rows
                             {filteredDrilledSubmissions.length} تسليم
                           </p>
                         </div>
+                        {(() => {
+                          const cur = submissionActivityCards.find(
+                            (c) => c.id === selectedSubmissionActivityId,
+                          );
+                          return cur ? (
+                            <span className="ms-auto">
+                              <MirasRatioRing done={cur.graded} total={cur.total} />
+                            </span>
+                          ) : null;
+                        })()}
                       </div>
                       {submissionSubTab === "exams" && (
                         <div className="miras-exam-radar rounded-[var(--miras-r-lg)] border border-white/80 bg-white/88 p-3 miras-shadow-2 backdrop-blur-xl sm:rounded-[var(--miras-r-xl)] sm:p-4">
@@ -43712,43 +43857,51 @@ ${rows
                                 من الإصدار إلى أول اختبار
                               </span>
                             </div>
-                            <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-                              {stages.map((s, i) => (
-                                <div
-                                  key={i}
-                                  className={`rounded-2xl ${s.tone} p-3`}
-                                >
-                                  <span className="block text-[11px] font-bold opacity-80">
-                                    {s.label}
-                                  </span>
-                                  <span className="block text-2xl font-black leading-tight">
-                                    {s.value}
-                                  </span>
-                                  <div
-                                    className="mt-2.5 h-2.5 w-full overflow-hidden bg-white/75 relative"
-                                    style={{
-                                      borderRadius: "9999px",
-                                      padding: 0,
-                                    }}
-                                    dir="rtl"
-                                  >
-                                    <div
-                                      className={`h-full absolute right-0 top-0 transition-all duration-300 ${s.bar}`}
-                                      style={{
-                                        width: `${Math.max(1, Math.min(100, s.pct))}%`,
-                                        borderRadius: "9999px",
-                                        padding: 0,
-                                      }}
-                                    />
-                                  </div>
-                                  {i > 0 && (
-                                    <span className="mt-1 block text-[10px] font-bold opacity-70">
-                                      {s.pct}%
-                                    </span>
-                                  )}
+                            {(() => {
+                              const top = Math.max(
+                                1,
+                                ...stages.map((x) => x.value),
+                              );
+                              const widths = stages.map((x) =>
+                                Math.max(16, Math.round((x.value / top) * 100)),
+                              );
+                              return (
+                                <div className="miras-funnel" role="list">
+                                  {stages.map((st, i) => {
+                                    const w = widths[i];
+                                    const w2 =
+                                      i < stages.length - 1
+                                        ? widths[i + 1]
+                                        : Math.max(10, Math.round(w * 0.88));
+                                    const l1 = (100 - w) / 2;
+                                    const l2 = (100 - w2) / 2;
+                                    return (
+                                      <div
+                                        key={i}
+                                        role="listitem"
+                                        className="miras-funnel-row"
+                                        data-stage={i}
+                                      >
+                                        <span className="miras-funnel-label">
+                                          {st.label}
+                                        </span>
+                                        <span
+                                          className="miras-funnel-shape"
+                                          style={{
+                                            clipPath: `polygon(${l1}% 0, ${100 - l1}% 0, ${100 - l2}% 100%, ${l2}% 100%)`,
+                                          }}
+                                        >
+                                          <b>{st.value}</b>
+                                        </span>
+                                        <span className="miras-funnel-pct">
+                                          {i > 0 ? `${st.pct}%` : ""}
+                                        </span>
+                                      </div>
+                                    );
+                                  })}
                                 </div>
-                              ))}
-                            </div>
+                              );
+                            })()}
                             {clusters.length > 0 && (
                               <div className="space-y-2 rounded-2xl border border-rose-100 bg-rose-50/60 p-3">
                                 <div className="flex items-center gap-2">
@@ -43784,68 +43937,89 @@ ${rows
                   )}
                   {codesSubTab === "health" && (
                     <>
-                      {/* Overview Stats Cards */}
-                      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                        <div className="miras-edge-stable-card bg-white p-3 rounded-2xl border border-slate-200 shadow-sm min-h-[92px] flex flex-col justify-between">
-                          <span className="text-[10px] text-slate-600 font-bold block mb-1">
-                            الرموز المصدرة الكليّة:
-                          </span>
-                          <span className="text-2xl font-black text-indigo-600 font-mono">
-                            {visibleJoinCodes.length} رمز
-                          </span>
-                          <span className="mt-3 block text-center rounded-full bg-indigo-50 px-3 py-1 text-[10px] font-bold text-indigo-700">
-                            مجموع الكودات
-                          </span>
-                        </div>
-                        <div className="miras-edge-stable-card bg-white p-3 rounded-2xl border border-emerald-100 shadow-sm min-h-[92px] flex flex-col justify-between">
-                          <span className="text-[10px] text-slate-600 font-bold block mb-1">
-                            رموز فعالة وغير مستخدمة:
-                          </span>
-                          <span className="text-2xl font-black text-emerald-600 font-mono">
-                            {
-                              visibleJoinCodes.filter(
-                                (c) => c.status === "active",
-                              ).length
-                            }{" "}
-                            رمز
-                          </span>
-                          <span className="mt-3 block text-center rounded-full bg-emerald-50 px-3 py-1 text-[10px] font-bold text-emerald-700">
-                            جاهزة للتوزيع
-                          </span>
-                        </div>
-                        <div className="miras-edge-stable-card bg-white p-3 rounded-2xl border border-indigo-100 shadow-sm min-h-[92px] text-slate-900 flex flex-col justify-between">
-                          <span className="text-[10px] text-slate-600 font-bold block mb-1">
-                            رموز مستخدمة بالفعل:
-                          </span>
-                          <span className="text-2xl font-black text-indigo-700 font-mono">
-                            {
-                              visibleJoinCodes.filter(
-                                (c) => c.status === "used",
-                              ).length
-                            }{" "}
-                            مستخدم
-                          </span>
-                          <span className="mt-3 block text-center rounded-full bg-indigo-50 px-3 py-1 text-[10px] font-bold text-indigo-700">
-                            مقفل على طالب وجهاز
-                          </span>
-                        </div>
-                        <div className="miras-edge-stable-card bg-white p-3 rounded-2xl border border-red-100 shadow-sm min-h-[92px] flex flex-col justify-between">
-                          <span className="text-[10px] text-slate-600 font-bold block mb-1">
-                            رموز ملغاة/موقوفة مسبقاً:
-                          </span>
-                          <span className="text-2xl font-black text-red-500 font-mono">
-                            {
-                              visibleJoinCodes.filter(
-                                (c) => c.status === "revoked",
-                              ).length
-                            }{" "}
-                            ملغى
-                          </span>
-                          <span className="mt-3 block text-center rounded-full bg-red-50 px-3 py-1 text-[10px] font-bold text-red-600">
-                            لا تقبل التفعيل
-                          </span>
-                        </div>
-                      </div>
+                      {/* حالات الرموز: شريط مقسَّم + وسيلة إيضاح بدل بطاقات مكررة للأرقام نفسها */}
+                      {(() => {
+                        const total = visibleJoinCodes.length;
+                        const nActive = visibleJoinCodes.filter(
+                          (c) => c.status === "active",
+                        ).length;
+                        const nUsed = visibleJoinCodes.filter(
+                          (c) => c.status === "used",
+                        ).length;
+                        const nRevoked = visibleJoinCodes.filter(
+                          (c) => c.status === "revoked",
+                        ).length;
+                        const rest = Math.max(
+                          0,
+                          total - nActive - nUsed - nRevoked,
+                        );
+                        const cells = [
+                          {
+                            k: "total",
+                            label: "الرموز المصدرة الكليّة",
+                            n: total,
+                            unit: "رمز",
+                            note: "مجموع الكودات",
+                          },
+                          {
+                            k: "active",
+                            label: "رموز فعالة وغير مستخدمة",
+                            n: nActive,
+                            unit: "رمز",
+                            note: "جاهزة للتوزيع",
+                          },
+                          {
+                            k: "used",
+                            label: "رموز مستخدمة بالفعل",
+                            n: nUsed,
+                            unit: "مستخدم",
+                            note: "مقفل على طالب وجهاز",
+                          },
+                          {
+                            k: "revoked",
+                            label: "رموز ملغاة/موقوفة مسبقاً",
+                            n: nRevoked,
+                            unit: "ملغى",
+                            note: "لا تقبل التفعيل",
+                          },
+                        ];
+                        return (
+                          <div className="miras-edge-stable-card miras-code-status rounded-3xl border border-slate-200/80 bg-white p-4 shadow-sm">
+                            <div
+                              className="miras-segbar"
+                              role="img"
+                              aria-label={`${nActive} / ${nUsed} / ${nRevoked}`}
+                            >
+                              <span data-k="active" style={{ flexGrow: nActive }} />
+                              <span data-k="used" style={{ flexGrow: nUsed }} />
+                              <span data-k="revoked" style={{ flexGrow: nRevoked }} />
+                              <span data-k="rest" style={{ flexGrow: rest }} />
+                            </div>
+                            <div className="miras-code-legend" role="list">
+                              {cells.map((c) => (
+                                <div
+                                  key={c.k}
+                                  role="listitem"
+                                  className="miras-code-legend-cell"
+                                  data-k={c.k}
+                                  title={c.note}
+                                >
+                                  <span className="miras-code-legend-dot" aria-hidden="true" />
+                                  <span className="miras-code-legend-n">
+                                    {c.n} <small>{c.unit}</small>
+                                  </span>
+                                  <span className="miras-code-legend-label">
+                                    {c.label}
+                                  </span>
+                                  <span className="miras-code-legend-note">
+                                    {c.note}
+                                  </span>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        );
+                      })()}
 
                       <div className="miras-edge-stable-card rounded-[var(--miras-r-xl)] border border-white/80 bg-white/90 p-4 shadow-sm">
                         <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
@@ -45520,6 +45694,7 @@ ${rows
                                     </button>
                                   </div>
                                 </div>
+                                {renderNoticeTypeRings(criticalTeacherNotifications)}
                                 {renderNotificationGate("teacher")}
                                 {notificationState.message && (
                                   <div className="rounded-2xl border border-emerald-200/60 bg-gradient-to-br from-emerald-50 to-teal-50/50 text-emerald-900 p-3.5 mb-2 shadow-sm">
@@ -45563,19 +45738,7 @@ ${rows
                                               setSelectedTeacherImportantNotification(item);
                                             }
                                           }}
-                                          className={`miras-teacher-alert-card miras-teacher-alert-card-clean block w-full cursor-pointer rounded-2xl border text-right transition-all hover:-translate-y-0.5 shadow-sm hover:shadow-md ${
-                                            item.tone === "rose"
-                                              ? "border-rose-200/70 bg-gradient-to-br from-rose-50/80 to-pink-50/50 text-rose-950 hover:border-rose-300/80"
-                                              : item.tone === "violet"
-                                                ? "border-violet-200/70 bg-gradient-to-br from-violet-50/80 to-purple-50/50 text-violet-950 hover:border-violet-300/80"
-                                                : item.tone === "emerald"
-                                                  ? "border-emerald-200/70 bg-gradient-to-br from-emerald-50/80 to-teal-50/50 text-emerald-950 hover:border-emerald-300/80"
-                                                  : item.tone === "sky"
-                                                    ? "border-sky-200/70 bg-gradient-to-br from-sky-50/80 to-blue-50/50 text-sky-950 hover:border-sky-300/80"
-                                                    : item.tone === "indigo"
-                                                      ? "border-indigo-200/70 bg-gradient-to-br from-indigo-50/80 to-blue-50/50 text-indigo-950 hover:border-indigo-300/80"
-                                                      : "border-amber-200/70 bg-gradient-to-br from-amber-50/80 to-orange-50/50 text-amber-950 hover:border-amber-300/80"
-                                          }`}
+                                          className="miras-teacher-alert-card miras-teacher-alert-card-clean miras-notice-timeline-card block w-full cursor-pointer rounded-2xl border text-right transition-all"
                                           style={{
                                             paddingBottom: "1.75rem",
                                             paddingTop: "1.25rem",
@@ -45584,6 +45747,25 @@ ${rows
                                             overflow: "visible",
                                           }}
                                         >
+                                          {(() => {
+                                            const NodeIcon =
+                                              NOTICE_TONE_ICON[item.tone] || Bell;
+                                            return (
+                                              <span
+                                                className="miras-notice-node"
+                                                data-sev={
+                                                  NOTICE_TONE_SEVERITY[item.tone] ||
+                                                  "info"
+                                                }
+                                                aria-hidden="true"
+                                              >
+                                                <NodeIcon
+                                                  className="h-4 w-4"
+                                                  strokeWidth={1.75}
+                                                />
+                                              </span>
+                                            );
+                                          })()}
                                           <div className="miras-teacher-alert-content">
                                             <b className="miras-teacher-alert-title block text-[13.5px] font-extrabold leading-snug tracking-[-0.015em] text-slate-900 text-right break-words">
                                               {sanitizeCourseIdentifiersForDisplay(
