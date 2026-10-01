@@ -47,6 +47,8 @@ The `/api/**` and `/seb/**` Hosting rewrites point at the Cloud Run service `mir
     gcloud run services update miras-api --region us-central1 --max-instances=1
     ```
 
+    Keep **`--min-instances=1`** as well. Without it the instance stops when idle, and the first request afterwards waits while the whole database is re-read from Firestore, so the teacher dashboard looks empty for a while. One always-on instance has a monthly cost. The deploy workflow passes it together with `--cpu-boost`.
+
 2.  **`MIRAS_SESSION_SECRET` is mandatory.** The container refuses to boot without it (see `.env.example`). Set it as a secret, never as a committed value:
 
     ```sh
