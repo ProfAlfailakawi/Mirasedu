@@ -28926,6 +28926,13 @@ ${rows
                 <option value="roster">الكشف</option>
                 <option value="registered">مسجل</option>
               </select>
+              <span
+                className="min-w-6 text-center font-mono text-[10px] font-light tracking-wide text-slate-400 tabular-nums"
+                aria-live="polite"
+                aria-label={`${filteredCourseStudentDirectory.length} طالب`}
+              >
+                {filteredCourseStudentDirectory.length}
+              </span>
               <div className="relative w-full max-w-xs">
                 <Search className="absolute right-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400" />
                 <input
@@ -45355,7 +45362,7 @@ ${rows
                               </p>
                             </div>
                             <span className="inline-flex items-center justify-center gap-2 rounded-2xl bg-indigo-50 px-4 py-2 text-[11px] font-bold text-indigo-700">
-                              {scopedTeacherStudents.length} طالب
+                              {teacherStudents.length} طالب
                               <ChevronRight
                                 className={`h-3.5 w-3.5 transition-transform ${codesAccordion.manualActivation ? "-rotate-90" : "rotate-90"}`}
                               />
@@ -45390,7 +45397,7 @@ ${rows
                                 )}
                               </div>
                               <div className="grid grid-cols-1 xl:grid-cols-2 gap-3">
-                                {scopedTeacherStudents
+                                {teacherStudents
                                   .filter((student) => {
                                     const q = manualActivationSearch
                                       .trim()
@@ -45409,48 +45416,43 @@ ${rows
                                     );
                                   })
                                   .map((student) => {
-                                    const sectionDisplay = cleanCodeForDisplay(
-                                      student.sectionCode,
+                                    const studentCourseCodes = Array.from(
+                                      new Set(
+                                        [
+                                          student.sectionCode,
+                                          student.studentSection,
+                                          ...(Array.isArray(student.enrollments)
+                                            ? student.enrollments.map(
+                                                (enrollment: any) =>
+                                                  enrollment.courseCode || enrollment.sectionCode,
+                                              )
+                                            : []),
+                                        ]
+                                          .filter(Boolean)
+                                          .map((code: any) => String(code).trim())
+                                          .filter((code) =>
+                                            studentBelongsToCourse(student, code),
+                                          ),
+                                      ),
                                     );
-                                    const courseDisplay = courseNameForCode(
-                                      student.sectionCode,
-                                    );
-                                    const cleanCourseDisplay =
-                                      cleanStudentCourseName(
-                                        courseDisplay,
-                                        student.sectionCode,
-                                      );
-                                    const displayCourseText =
-                                      cleanCourseDisplay ||
-                                      sectionDisplay ||
-                                      "مقرر غير محدد";
-                                    const showSectionCode =
-                                      !!sectionDisplay &&
-                                      sectionDisplay !== "-" &&
-                                      !hasArabicCourseLetters(sectionDisplay) &&
-                                      isCourseCodeLikeDisplay(sectionDisplay) &&
-                                      !isDuplicateCourseDisplay(
-                                        sectionDisplay,
-                                        displayCourseText,
-                                      ) &&
-                                      sectionDisplay.trim().toLowerCase() !==
-                                        displayCourseText
-                                          .trim()
-                                          .toLowerCase() &&
-                                      !displayCourseText
-                                        .trim()
-                                        .toLowerCase()
-                                        .includes(
-                                          sectionDisplay.trim().toLowerCase(),
-                                        ) &&
-                                      !sectionDisplay
-                                        .trim()
-                                        .toLowerCase()
-                                        .includes(
-                                          displayCourseText
-                                            .trim()
-                                            .toLowerCase(),
-                                        );
+                                    const studentCourses = studentCourseCodes.map((code) => {
+                                        const sectionDisplay = cleanCodeForDisplay(code);
+                                        const courseDisplay = courseNameForCode(code);
+                                        const displayName =
+                                          cleanStudentCourseName(courseDisplay, code) ||
+                                          sectionDisplay ||
+                                          "مقرر غير محدد";
+                                        const showCode =
+                                          !!sectionDisplay &&
+                                          sectionDisplay !== "-" &&
+                                          !hasArabicCourseLetters(sectionDisplay) &&
+                                          isCourseCodeLikeDisplay(sectionDisplay) &&
+                                          !isDuplicateCourseDisplay(sectionDisplay, displayName) &&
+                                          sectionDisplay.trim().toLowerCase() !== displayName.trim().toLowerCase() &&
+                                          !displayName.trim().toLowerCase().includes(sectionDisplay.trim().toLowerCase()) &&
+                                          !sectionDisplay.trim().toLowerCase().includes(displayName.trim().toLowerCase());
+                                        return { code, sectionDisplay, displayName, showCode };
+                                    });
                                     return (
                                       <div
                                         key={student.id}
@@ -45469,20 +45471,23 @@ ${rows
                                             </p>
                                           </div>
                                           <div className="min-w-0 rounded-2xl border border-slate-200 bg-white px-3 py-2 text-right miras-shadow-1 sm:max-w-[16rem]">
-                                            {showSectionCode && (
-                                              <p
-                                                className="font-mono text-[10px] font-bold leading-4 text-indigo-700"
-                                                dir="ltr"
-                                              >
-                                                {sectionDisplay}
+                                            <p className="mb-1 text-[9px] font-semibold text-slate-400">المقررات</p>
+                                            {studentCourses.length ? studentCourses.map((course) => (
+                                              <div key={course.code} className="border-t border-slate-100 py-1 first:border-0 first:pt-0 last:pb-0">
+                                                {course.showCode && (
+                                                  <p className="font-mono text-[9px] font-medium leading-4 text-indigo-500" dir="ltr">
+                                                    {course.sectionDisplay}
+                                                  </p>
+                                                )}
+                                                <p className="break-words text-[10px] font-medium leading-5 text-slate-600" title={course.displayName}>
+                                                  {course.displayName}
+                                                </p>
+                                              </div>
+                                            )) : (
+                                              <p className="text-[10px] font-medium leading-5 text-slate-400">
+                                                لا يوجد مقرر مرتبط
                                               </p>
                                             )}
-                                            <p
-                                              className={`${showSectionCode ? "mt-1" : ""} line-clamp-2 break-words text-[10px] font-bold leading-5 text-slate-600`}
-                                              title={displayCourseText}
-                                            >
-                                              {displayCourseText}
-                                            </p>
                                           </div>
                                         </div>
 
