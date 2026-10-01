@@ -32136,7 +32136,7 @@ ${rows
                 )}
               </div>
 
-              <div className="text-center mb-6">
+              <div className="text-center mb-6 max-sm:pt-12">
                 <span className="mb-3 inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-1.5 text-[11px] font-bold text-slate-600">
                   <MirasMark className="h-3.5 w-3.5" />
                   مِراس
