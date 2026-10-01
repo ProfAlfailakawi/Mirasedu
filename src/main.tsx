@@ -20,6 +20,7 @@ import App from '../App.tsx';
 import '../index.css';
 import './design/dna.css';
 import './design/miras-dna-theme.css';
+import './design/miras-calm.css';
 
 // ───────────────────────────────────────────────────────────────────────────
 // حاجز عرض الواجهة (Render Guard)
