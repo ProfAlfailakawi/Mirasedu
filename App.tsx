@@ -36701,7 +36701,7 @@ ${rows
                                   placeholder="ابحث عن طالب في النبض…"
                                   dir="rtl"
                                   spellCheck={false}
-                                  className="w-full border-0 bg-transparent p-0 text-[11px] font-bold text-slate-700 outline-none placeholder:text-slate-400"
+                                  className="miras-flat-input w-full border-0 bg-transparent p-0 text-[11px] font-bold text-slate-700 outline-none placeholder:text-slate-400"
                                 />
                                 {pulseStudentSearch && (
                                   <button
@@ -36919,7 +36919,7 @@ ${rows
                           placeholder="ابحث عن طالب أو ملف…"
                           dir="rtl"
                           spellCheck={false}
-                          className="w-full min-w-0 bg-transparent text-[13px] font-normal text-slate-700 outline-none placeholder:font-normal placeholder:text-slate-400"
+                          className="miras-flat-input w-full min-w-0 bg-transparent text-[13px] font-normal text-slate-700 outline-none placeholder:font-normal placeholder:text-slate-400"
                         />
                         {submissionSearch && (
                           <button
@@ -39955,7 +39955,7 @@ ${rows
                               </div>
                             )}
                           </div>
-                          <div className="flex items-center gap-2 rounded-2xl border border-slate-200 bg-white px-4 py-2">
+                          <div className="flex items-center gap-2 rounded-2xl border border-slate-200 bg-white px-4 py-2 transition focus-within:border-indigo-300 focus-within:ring-2 focus-within:ring-indigo-100">
                             <Search className="h-4 w-4 text-slate-400" />
                             <input
                               value={questionSearch}
@@ -39963,7 +39963,7 @@ ${rows
                                 setQuestionSearch(e.target.value)
                               }
                               placeholder="بحث في الأسئلة..."
-                              className="w-full bg-transparent text-xs outline-none"
+                              className="miras-flat-input w-full bg-transparent text-xs outline-none"
                             />
                           </div>
                           <div className="space-y-2 max-h-[560px] overflow-y-auto">

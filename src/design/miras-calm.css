@@ -1116,3 +1116,17 @@ html[data-theme="dark"] .miras-app-teacher-root button[aria-label="تطهير ك
     margin-inline-end: 0.3rem;
   }
 }
+
+/* ═══════════════ ١٩) حقل بحث داخل حاوية: حاوية واحدة فقط (بلا كبسولة داخل كبسولة) ═══════════════
+   القاعدة العامة تعطي كل input حدًّا وخلفية؛ هنا يصبح الحقل شفافًا داخل صندوق البحث الذي يحمل الحد وحلقة التركيز. */
+html body input.miras-flat-input:not(#_):not(#_):not(#_),
+html body input.miras-flat-input:not(#_):not(#_):not(#_):focus,
+html[data-theme="dark"] #root input.miras-flat-input:not(#_):not(#_),
+html[data-theme="dark"] #root input.miras-flat-input:not(#_):not(#_):focus {
+  border: 0 !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  background-color: transparent !important;
+  box-shadow: none !important;
+  min-height: 0;
+}
