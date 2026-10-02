@@ -923,6 +923,7 @@ html[data-theme="dark"] .miras-app-teacher-root button[aria-label="تطهير ك
     width: auto !important;
   }
   html body .miras-integrity-switch-btn:not(#_) {
+    flex-direction: row !important;
     width: auto !important;
     padding-inline: 0.75rem !important;
     gap: 0.4rem;
