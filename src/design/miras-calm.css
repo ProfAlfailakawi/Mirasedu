@@ -110,7 +110,9 @@ svg.lucide {
     flex-direction: row !important;
     align-items: center !important;
     justify-content: space-between !important;
-    gap: 0.6rem !important;
+    /* على الشاشات الضيقة جداً ينزل شريط الأزرار لسطر ثانٍ بدل ضغط العنوان */
+    flex-wrap: wrap !important;
+    gap: 0.4rem 0.6rem !important;
     padding: 0.55rem 0.8rem 0.55rem 0.55rem !important;
     border-radius: var(--miras-r-lg) !important;
     box-shadow: var(--miras-e1) !important;
@@ -121,7 +123,8 @@ svg.lucide {
   }
   /* العنوان فوق، واسم المعلم تحته كسطر هادئ (الضغط عليه يعرض حالة الاتصال كما كان) */
   html body .miras-app-teacher-root.miras-teacher-viewport-v5 .miras-zero-title-block:not(#_) {
-    flex: 1 1 auto !important;
+    flex: 1 1 7.5rem !important;
+    min-width: 7.5rem !important;
     width: auto !important;
     flex-direction: column-reverse !important;
     align-items: flex-start !important;
@@ -131,8 +134,12 @@ svg.lucide {
   html body .miras-app-teacher-root.miras-teacher-viewport-v5 .miras-zero-title-block h1:not(#_) {
     margin: 0 !important;
     width: auto !important;
+    max-width: 100% !important;
     font-size: 1.3rem !important;
     line-height: 1.1 !important;
+    white-space: nowrap !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
   }
   html body .miras-app-teacher-root.miras-teacher-viewport-v5 .miras-zero-name-pill:not(#_) {
     align-self: flex-start !important;
@@ -143,12 +150,13 @@ svg.lucide {
     background: transparent !important;
     color: var(--miras-ink-2) !important;
     font-weight: 700 !important;
-    overflow: visible !important;
+    overflow: hidden !important;
   }
   /* شريط أزرار واحد متصل بدل أزرار متناثرة */
   html body .miras-app-teacher-root.miras-teacher-viewport-v5 .miras-zero-actions-row:not(#_) {
     flex: 0 0 auto !important;
     align-self: center !important;
+    margin-inline-start: auto !important;
     justify-content: flex-start !important;
     gap: 0 !important;
     padding: 0.15rem !important;
