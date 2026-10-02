@@ -937,3 +937,77 @@ html[data-theme="dark"] .miras-app-teacher-root button[aria-label="تطهير ك
     white-space: nowrap;
   }
 }
+
+/* ═══════════════ ١٨) أسئلة البنك: شريحتا النوع والدرجة في كبسولة رفيعة واحدة ═══════════════ */
+.miras-q-meta.miras-q-meta {
+  display: inline-flex !important;
+  flex-wrap: nowrap !important;
+  align-items: center;
+  gap: 0 !important;
+  margin-top: 0.7rem !important;
+  border-radius: 999px;
+  border: 1px solid var(--miras-line, rgba(148, 163, 184, 0.35));
+  background: var(--miras-surface, transparent);
+  overflow: hidden;
+}
+.miras-q-meta > span {
+  background: transparent !important;
+  border-radius: 0 !important;
+  padding: 0.18rem 0.7rem !important;
+  font-size: 0.72rem !important;
+}
+.miras-q-meta > span + span { border-inline-start: 1px solid var(--miras-line, rgba(148, 163, 184, 0.35)); }
+
+/* ═══════════════ ١٩) دليل التثبيت: خطوات مرقّمة بدوائر (النص نفسه) ═══════════════ */
+.miras-guide-steps.miras-guide-steps {
+  list-style: none !important;
+  counter-reset: miras-step;
+  padding-inline: 0 !important;
+  margin: 0;
+}
+.miras-guide-steps > li {
+  counter-increment: miras-step;
+  position: relative;
+  padding-inline-start: 2.1rem;
+  min-height: 1.6rem;
+  line-height: 1.7;
+}
+.miras-guide-steps > li::before {
+  content: counter(miras-step);
+  position: absolute;
+  inset-inline-start: 0;
+  top: 0.05rem;
+  width: 1.45rem;
+  height: 1.45rem;
+  border-radius: 999px;
+  display: grid;
+  place-items: center;
+  font-size: 0.72rem;
+  font-weight: 800;
+  color: #fff;
+  background: var(--miras-brand, #4f46e5);
+}
+.miras-guide-step-p {
+  position: relative;
+  padding-inline-start: 2.1rem;
+  line-height: 1.7;
+}
+.miras-guide-step-p::before {
+  content: "1";
+  position: absolute;
+  inset-inline-start: 0;
+  top: 0.05rem;
+  width: 1.45rem;
+  height: 1.45rem;
+  border-radius: 999px;
+  display: grid;
+  place-items: center;
+  font-size: 0.72rem;
+  font-weight: 800;
+  color: #fff;
+  background: var(--miras-brand, #4f46e5);
+}
+
+/* ═══════════════ ٢٠) قوائم الطالب: شريط مرور الوقت بين الفتح والإغلاق ═══════════════ */
+.miras-window-bar { height: 0.25rem; border-radius: 999px; overflow: hidden; background: var(--miras-line, rgba(148, 163, 184, 0.25)); }
+.miras-window-bar > span { display: block; height: 100%; border-radius: 999px; background: var(--miras-brand, #4f46e5); opacity: 0.85; }

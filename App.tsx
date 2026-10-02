@@ -1610,6 +1610,19 @@ const MirasRatioRing = ({ done, total }: { done: number; total: number }) => {
   );
 };
 
+// شريط رفيع لمرور الوقت بين فتح النشاط وإغلاقه (من تاريخي الفتح والإغلاق الظاهرين أصلاً).
+const MirasWindowBar = ({ open, close }: { open?: any; close?: any }) => {
+  const o = open ? new Date(open).getTime() : NaN;
+  const c = close ? new Date(close).getTime() : NaN;
+  if (!Number.isFinite(o) || !Number.isFinite(c) || c <= o) return null;
+  const pct = Math.max(0, Math.min(100, Math.round(((Date.now() - o) / (c - o)) * 100)));
+  return (
+    <div className="miras-window-bar" role="img" aria-label={`${pct}%`}>
+      <span style={{ width: `${pct}%` }} />
+    </div>
+  );
+};
+
 // خريطة النغمة → أيقونة رفيعة + درجة الخطورة. اللون يتبع الخطورة فقط:
 // أحمر للعاجل، كهرماني للتحذير، وكل ما عداه بلون العلامة الهادئ.
 const NOTICE_TONE_ICON: Record<string, any> = {
@@ -34994,6 +35007,9 @@ ${rows
                                       </span>
                                     </div>
                                   )}
+                                  {!priorExamSubmission ? (
+                                    <MirasWindowBar open={exam.open} close={exam.close} />
+                                  ) : null}
                                   {priorExamSubmission ? (
                                     <DnaStepper
                                       size="sm"
@@ -40194,7 +40210,7 @@ ${rows
                                           {q.questionText}
                                         </p>
                                       )}
-                                      <div className="mt-2 flex flex-wrap gap-2">
+                                      <div className="miras-q-meta mt-2 flex flex-wrap gap-2">
                                         <span className="text-[10px] bg-indigo-50 text-indigo-700 px-2.5 py-1 rounded-full font-bold">
                                           {questionTypeOptions.find((o) => o.value === q.type)?.label ||
                                             ({ "short-answer": "مقالي", "scenario-analysis": "تحليل موقف", ordering: "ترتيب" } as Record<string, string>)[String(q.type)] ||
@@ -46290,7 +46306,7 @@ ${rows
                     أجهزة آبل (Safari على iOS/iPadOS):
                   </h4>
                 </div>
-                <ol className="text-[11px] font-bold text-slate-600 list-decimal list-inside space-y-1.5 leading-5 pr-1">
+                <ol className="miras-guide-steps text-[11px] font-bold text-slate-600 list-decimal list-inside space-y-1.5 leading-5 pr-1">
                   <li>
                     اضغط على زر المشاركة{" "}
                     <span className="inline-flex items-center bg-white px-1 py-0.5 border rounded align-middle" aria-label="مشاركة">
@@ -46325,7 +46341,7 @@ ${rows
                     أجهزة أندرويد والحاسوب (Chrome / Edge):
                   </h4>
                 </div>
-                <p className="text-[11px] font-bold text-slate-600 leading-5">
+                <p className="miras-guide-step-p text-[11px] font-bold text-slate-600 leading-5">
                   اضغط على رمز النقاط الثلاث{" "}
                   <span className="text-slate-900">⁝</span> في الزاوية العلوية
                   للمتصفح، ثم اختر{" "}
