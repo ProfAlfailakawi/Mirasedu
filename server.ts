@@ -2369,20 +2369,20 @@ function renderSebLaunchPage(req: express.Request, pass: SebPass) {
   .hint{margin-top:14px;color:#64748b;font-size:12px;line-height:1.8}.warn{margin-top:12px;border-radius:16px;background:#fff7ed;border:1px solid #fed7aa;color:#9a3412;padding:12px;font-size:12px;line-height:1.8;text-align:right;display:none}
   .lockNotice{margin-bottom:16px;border-radius:16px;background:#eef2ff;border:1px solid #c7d2fe;color:#312e81;padding:14px;font-size:13px;line-height:2;text-align:right}
   .lockNotice b{display:block;margin-bottom:6px;font-size:14px}
-  .lockNotice .yes{color:#15803d;font-weight:900}.lockNotice .no{color:#b91c1c;font-weight:900}
+  .lockNotice .yes{color:#15803d;font-weight:900}.lockNotice .no{color:#b91c1c;font-weight:900}.lockNotice .ic{display:inline-block;vertical-align:-2px;margin-inline-end:3px}
 </style>
 </head>
 <body>
 <main class="card">
-  <div class="shield">🛡️</div>
+  <div class="shield"><svg width="38" height="38" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/><path d="m9 12 2 2 4-4"/></svg></div>
   <h1>فتح الاختبار عبر Safe Exam Browser</h1>
   <div class="lockNotice">
     <b>تنبيه قبل فتح الاختبار</b>
     عند الضغط على الزر الأزرق سيتم فتح تطبيق SEB المثبت على جهازك مباشرة وربطه بهذه المحاولة فقط.
     <br><br>
-    ستظهر لك رسالة من النظام بعنوان "Confirm App Self-Lock" — اضغط <span class="yes">"Yes"</span> لبدء الاختبار. سيُقفل جهازك بالكامل ولن تستطيع الخروج لأي تطبيق حتى تسلّم الاختبار.
+    ستظهر لك رسالة من النظام بعنوان "Confirm App Self-Lock" — اضغط <span class="yes"><svg class="ic" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>"Yes"</span> لبدء الاختبار. سيُقفل جهازك بالكامل ولن تستطيع الخروج لأي تطبيق حتى تسلّم الاختبار.
     <br><br>
-	    إذا ضغطت <span class="no">"No"</span> بالخطأ: لا تقلق، الاختبار لم يبدأ. ارجع للرئيسية وافتح الاختبار مرة أخرى.
+	    إذا ضغطت <span class="no"><svg class="ic" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg>"No"</span> بالخطأ: لا تقلق، الاختبار لم يبدأ. ارجع للرئيسية وافتح الاختبار مرة أخرى.
   </div>
   <p class="muted">اضغط الزر الأزرق لفتح Safe Exam Browser مباشرة. إذا كان التطبيق مثبتاً سيبدأ الاختبار داخل SEB دون تنزيل ملف يدوي.</p>
   <a class="btn primary" id="openSeb" href="${xmlEscape(launchUrl)}">فتح الاختبار داخل SEB</a>
@@ -2635,7 +2635,7 @@ ${sebBlazeInlineModelTag()}
 <body>
 <div class="box">
   <section id="intro">
-    <div class="shield">🛡️</div>
+    <div class="shield"><svg width="38" height="38" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/><path d="m9 12 2 2 4-4"/></svg></div>
     <h1>جاهز لبدء الاختبار الآمن</h1>
     <div class="desc">
     قبل أن تضغط "بدء الاختبار"، اقرأ هذا التنبيه جيداً:
