@@ -1085,3 +1085,34 @@ html[data-theme="dark"] .miras-app-teacher-root button[aria-label="تطهير ك
     margin-top: 0.35rem !important;
   }
 }
+
+/* ═══════════════ ٢١) اسم المعلم في الرأس: يلتف على أسطر ولا يُقصّ أو يُقسَّم كلمة كلمة ═══════════════
+   النص كما تعطيه البيانات؛ يبقى تحت العنوان بحجم 12px على الأقل. */
+@media (max-width: 920px), (pointer: coarse) and (hover: none) {
+  html body .miras-app-teacher-root.miras-teacher-viewport-v5 .miras-zero-name-pill:not(#_) {
+    white-space: normal !important;
+    /* حدّ أقصى سطران للأسماء الشاذة فقط؛ النص كاملاً يبقى في DOM */
+    display: block !important;
+    min-height: 0 !important;
+    max-height: 3.1em !important;
+    padding-block: 0.1em !important;
+    overflow: hidden !important;
+    text-overflow: clip !important;
+    overflow-wrap: break-word !important;
+    word-break: normal !important;
+    line-height: 1.4 !important;
+    font-size: 12px !important;
+    text-align: start;
+    min-width: 0;
+  }
+}
+
+/* الإزاحة المحجوزة تحت الرأس الثابت تغطي أقصى ارتفاع له (اسم بسطرين) */
+@media (max-width: 920px), (pointer: coarse) and (hover: none) {
+  .miras-app-teacher-root.miras-teacher-viewport-v5 { --miras-teacher-header-space: 5.35rem; }
+  html body .miras-app-teacher-root.miras-teacher-viewport-v5 .miras-zero-name-pill:not(#_) > svg {
+    display: inline-block;
+    vertical-align: -0.2em;
+    margin-inline-end: 0.3rem;
+  }
+}
