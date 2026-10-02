@@ -43143,6 +43143,7 @@ ${rows
                                         log.studentName,
                                         log.studentId,
                                         log.action,
+                                        logActionLabel(log.action),
                                         log.details,
                                         log.ip,
                                         log.browser,
