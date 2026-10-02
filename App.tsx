@@ -3273,12 +3273,12 @@ export default function App() {
   const [loginRevealRole, setLoginRevealRole] = useState<
     "student" | "teacher" | null
   >(null);
-  // آخر مرة بدأت فيها الشاشة الافتتاحية (بأي مسار): تمنع تشغيلها مرتين متتاليتين
-  // مثل استعادة الجلسة ثم دخول البصمة التلقائي بعدها بثوانٍ.
-  const lastRevealAtRef = useRef(0);
+  // هل بدأت الشاشة الافتتاحية (بأي مسار) منذ آخر خروج؟ تمنع تشغيلها مرتين مثل
+  // استعادة الجلسة ثم دخول البصمة التلقائي بعدها مهما طال الفاصل. يُصفَّر عند الخروج.
+  const revealStartedRef = useRef(false);
   const triggerLoginReveal = (role: "student" | "teacher") => {
-    if (Date.now() - lastRevealAtRef.current < 20000) return;
-    lastRevealAtRef.current = Date.now();
+    if (revealStartedRef.current) return;
+    revealStartedRef.current = true;
     try {
       if (sessionStorage.getItem("miras_login_reveal_played") === "1") return;
       sessionStorage.setItem("miras_login_reveal_played", "1");
@@ -8728,7 +8728,7 @@ export default function App() {
   useEffect(() => {
     if (teacherSession || studentSession) return;
     cloudSessionGenRef.current += 1;
-    lastRevealAtRef.current = 0;
+    revealStartedRef.current = false;
     try {
       sessionStorage.removeItem("miras_login_reveal_played");
     } catch {}
@@ -8770,7 +8770,7 @@ export default function App() {
       !teacherCloudReady[String(teacherSession.email).trim().toLowerCase()]
     ) {
       restoreGateFiredRef.current = true;
-      lastRevealAtRef.current = Date.now();
+      revealStartedRef.current = true;
       setLoginRevealRole("teacher");
     } else if (
       currentView === "student_workspace" &&
@@ -8778,7 +8778,7 @@ export default function App() {
       !studentCloudReady[String(studentSession.id)]
     ) {
       restoreGateFiredRef.current = true;
-      lastRevealAtRef.current = Date.now();
+      revealStartedRef.current = true;
       setLoginRevealRole("student");
     }
   }, [
