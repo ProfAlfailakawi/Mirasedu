@@ -40874,10 +40874,10 @@ ${rows
                             </h3>
                           </div>
                           <div className="flex flex-wrap items-center justify-end gap-2 text-[10px] font-bold">
-                            <span className="rounded-full bg-rose-50 px-3 py-1 text-rose-700">
+                            <span className={`rounded-full px-3 py-1 ${(codeIntegrity.summary?.totalAttempts || 0) > 0 ? "bg-indigo-50 text-indigo-700" : "bg-slate-50 text-slate-400"}`}>
                               {codeIntegrity.summary?.totalAttempts || 0} محاولة
                             </span>
-                            <span className="rounded-full bg-amber-50 px-3 py-1 text-amber-700">
+                            <span className={`rounded-full px-3 py-1 ${(codeIntegrity.summary?.repeatedCodes || 0) > 0 ? "bg-indigo-50 text-indigo-700" : "bg-slate-50 text-slate-400"}`}>
                               {codeIntegrity.summary?.repeatedCodes || 0} تحتاج
                               متابعة
                             </span>
@@ -41255,7 +41255,7 @@ ${rows
                                     <div className="flex items-center justify-between gap-4">
                                       <div className="flex items-center gap-3">
                                         <span
-                                          className={`grid h-12 w-12 place-items-center rounded-2xl shadow-inner ${issues > 0 ? "bg-amber-50 text-amber-600" : "bg-emerald-50 text-emerald-600"}`}
+                                          className={`grid h-12 w-12 place-items-center rounded-2xl shadow-inner ${issues > 0 ? "bg-indigo-50 text-indigo-600" : "bg-slate-100 text-slate-400"}`}
                                         >
                                           {issues > 0 ? (
                                             <AlertTriangle className="h-6 w-6" />
@@ -41268,7 +41268,7 @@ ${rows
                                             صحة البيانات
                                           </span>
                                           <span
-                                            className={`block text-3xl font-black leading-none ${issues > 0 ? "text-amber-600" : "text-emerald-600"}`}
+                                            className={`block text-3xl font-black leading-none ${issues > 0 ? "text-indigo-600" : "text-slate-400"}`}
                                           >
                                             {issues}
                                           </span>
@@ -41284,7 +41284,7 @@ ${rows
                                         aria-label="شفاء ذاتي للبيانات"
                                         onClick={handleDataHeal}
                                         disabled={dataHealBusy || issues === 0}
-                                        className={`grid h-12 w-12 place-items-center rounded-2xl text-white shadow-premium-md transition btn-spring-active disabled:opacity-50 ${issues > 0 ? "bg-indigo-600 hover:bg-indigo-700 animate-pulse" : "bg-emerald-500"}`}
+                                        className={`grid h-12 w-12 place-items-center rounded-2xl shadow-premium-md transition btn-spring-active disabled:opacity-50 ${issues > 0 ? "bg-indigo-600 text-white hover:bg-indigo-700 animate-pulse" : "bg-slate-100 text-slate-400"}`}
                                       >
                                         {dataHealBusy ? (
                                           <MirasLoader size={20} role="current" label="جارٍ التنفيذ…" />
@@ -41300,7 +41300,7 @@ ${rows
                                         <div
                                           key={`dh-tile-${i}`}
                                           title={it.t}
-                                          className={`${it.n > 0 ? "" : "miras-zero-tile "}flex flex-col items-center gap-1 rounded-2xl border px-2 py-3 ${it.n > 0 ? "border-amber-100 bg-amber-50/70 text-amber-700" : "border-slate-100 bg-white/70 text-slate-400"}`}
+                                          className={`${it.n > 0 ? "" : "miras-zero-tile "}flex flex-col items-center gap-1 rounded-2xl border px-2 py-3 ${it.n > 0 ? "border-indigo-100 bg-indigo-50/70 text-indigo-700" : "border-slate-100 bg-white/70 text-slate-400"}`}
                                         >
                                           <it.Icon className="h-4.5 w-4.5" />
                                           <span className="text-lg font-black leading-none">
@@ -41329,7 +41329,7 @@ ${rows
                                       </span>
                                       <span
                                         title="أكواد فعّالة"
-                                        className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2.5 py-1 text-emerald-600"
+                                        className="inline-flex items-center gap-1 rounded-full bg-indigo-50 px-2.5 py-1 text-indigo-600"
                                       >
                                         <CheckCircle className="h-3 w-3" />
                                         {Number(tot.active || 0)}
@@ -41358,16 +41358,16 @@ ${rows
                                     Icon: CheckCircle2,
                                     n: Number(radar.safe || 0),
                                     label: "سليم",
-                                    cls: "border-emerald-100 bg-emerald-50/70 text-emerald-700",
-                                    orb: "bg-emerald-500 text-white",
+                                    cls: "border-indigo-100 bg-indigo-50/70 text-indigo-700",
+                                    orb: "bg-indigo-500 text-white",
                                   },
                                   {
                                     key: "late",
                                     Icon: Clock,
                                     n: Number(radar.late || 0),
                                     label: "متأخر",
-                                    cls: "border-amber-100 bg-amber-50/70 text-amber-700",
-                                    orb: "bg-amber-500 text-white",
+                                    cls: "border-indigo-100 bg-indigo-50/70 text-indigo-700",
+                                    orb: "bg-indigo-400 text-white",
                                   },
                                   {
                                     key: "suspicious",
@@ -41382,8 +41382,8 @@ ${rows
                                     Icon: Fingerprint,
                                     n: Number(radar.sharing || 0),
                                     label: "مشاركة",
-                                    cls: "border-violet-100 bg-violet-50/70 text-violet-700",
-                                    orb: "bg-violet-500 text-white",
+                                    cls: "border-indigo-100 bg-indigo-50/70 text-indigo-700",
+                                    orb: "bg-indigo-600 text-white",
                                   },
                                 ];
                                 const hot = Array.isArray(radar.hot)
@@ -41392,7 +41392,7 @@ ${rows
                                 return (
                                   <div className="miras-integrity-pane miras-integrity-health lg:col-span-6 overflow-hidden rounded-[var(--miras-r-xl)] border border-slate-200/70 bg-white/85 p-4 shadow-premium-sm backdrop-blur">
                                     <div className="mb-4 flex items-center justify-between gap-3">
-                                      <span className="inline-flex h-10 w-10 items-center justify-center rounded-2xl bg-slate-950 text-white shadow-sm">
+                                      <span className="inline-flex h-10 w-10 items-center justify-center rounded-2xl bg-indigo-600 text-white shadow-sm">
                                         <Compass className="h-5 w-5" />
                                       </span>
                                       <span className="rounded-full bg-slate-50 px-3 py-1 text-[10px] font-bold text-slate-500">
@@ -41409,10 +41409,10 @@ ${rows
                                           <div
                                             key={item.key}
                                             title={item.label}
-                                            className={`${item.n > 0 ? "" : "miras-dim-tile "}flex min-h-[92px] flex-col items-center justify-center gap-2 rounded-3xl border px-2 py-3 shadow-sm ${item.cls}`}
+                                            className={`${item.n > 0 ? item.cls : "border-slate-100 bg-slate-50/60 text-slate-400"} flex min-h-[92px] flex-col items-center justify-center gap-2 rounded-3xl border px-2 py-3 shadow-sm`}
                                           >
                                             <span
-                                              className={`relative grid h-11 w-11 place-items-center overflow-hidden rounded-2xl shadow-sm ${item.orb}`}
+                                              className={`relative grid h-11 w-11 place-items-center overflow-hidden rounded-2xl shadow-sm ${item.n > 0 ? item.orb : "bg-slate-100 text-slate-400"}`}
                                             >
                                               <span
                                                 className="absolute inset-x-0 bottom-0 bg-white/20"
@@ -41438,7 +41438,7 @@ ${rows
                                             <span
                                               key={`radar-hot-${idx}`}
                                               title={`${item.code || ""} ${item.studentName || item.studentId || ""}`}
-                                              className={`h-2 flex-1 rounded-full ${item.risk === "sharing" ? "bg-violet-400" : "bg-rose-400"}`}
+                                              className={`h-2 flex-1 rounded-full ${item.risk === "sharing" ? "bg-indigo-400" : "bg-rose-400"}`}
                                             />
                                           ))}
                                       </div>
@@ -41732,51 +41732,51 @@ ${rows
                             )}
                             {isAdminTeacher && (
                               <>
-                                <div className="miras-integrity-pane miras-integrity-health miras-risk-tile rounded-2xl border border-emerald-100 bg-emerald-50 p-3 text-center">
-                                  <span className="text-[10px] font-bold text-emerald-700">
+                                <div className={`miras-integrity-pane miras-integrity-health miras-risk-tile rounded-2xl border p-3 text-center ${academicIntegritySummary.natural > 0 ? "border-indigo-100 bg-indigo-50 text-indigo-700" : "border-slate-100 bg-slate-50/60 text-slate-400"}`}>
+                                  <span className="text-[10px] font-bold">
                                     طبيعي
                                   </span>
-                                  <p className="mt-1 text-2xl font-black text-emerald-700">
+                                  <p className="mt-1 text-2xl font-black">
                                     {academicIntegritySummary.natural}
                                   </p>
                                 </div>
-                                <div className="miras-integrity-pane miras-integrity-health miras-risk-tile rounded-2xl border border-amber-100 bg-amber-50 p-3 text-center">
-                                  <span className="text-[10px] font-bold text-amber-700">
+                                <div className={`miras-integrity-pane miras-integrity-health miras-risk-tile rounded-2xl border p-3 text-center ${academicIntegritySummary.watch > 0 ? "border-indigo-100 bg-indigo-50 text-indigo-700" : "border-slate-100 bg-slate-50/60 text-slate-400"}`}>
+                                  <span className="text-[10px] font-bold">
                                     مراقبة
                                   </span>
-                                  <p className="mt-1 text-2xl font-black text-amber-700">
+                                  <p className="mt-1 text-2xl font-black">
                                     {academicIntegritySummary.watch}
                                   </p>
                                 </div>
-                                <div className="miras-integrity-pane miras-integrity-health miras-risk-tile rounded-2xl border border-orange-100 bg-orange-50 p-3 text-center">
-                                  <span className="text-[10px] font-bold text-orange-700">
+                                <div className={`miras-integrity-pane miras-integrity-health miras-risk-tile rounded-2xl border p-3 text-center ${academicIntegritySummary.suspicious > 0 ? "border-indigo-100 bg-indigo-50 text-indigo-700" : "border-slate-100 bg-slate-50/60 text-slate-400"}`}>
+                                  <span className="text-[10px] font-bold">
                                     مشتبه
                                   </span>
-                                  <p className="mt-1 text-2xl font-black text-orange-700">
+                                  <p className="mt-1 text-2xl font-black">
                                     {academicIntegritySummary.suspicious}
                                   </p>
                                 </div>
-                                <div className="miras-integrity-pane miras-integrity-health miras-risk-tile rounded-2xl border border-rose-100 bg-rose-50 p-3 text-center">
-                                  <span className="text-[10px] font-bold text-rose-700">
+                                <div className={`miras-integrity-pane miras-integrity-health miras-risk-tile rounded-2xl border p-3 text-center ${academicIntegritySummary.danger > 0 ? "border-rose-100 bg-rose-50 text-rose-700" : "border-slate-100 bg-slate-50/60 text-slate-400"}`}>
+                                  <span className="text-[10px] font-bold">
                                     خطر
                                   </span>
-                                  <p className="mt-1 text-2xl font-black text-rose-700">
+                                  <p className="mt-1 text-2xl font-black">
                                     {academicIntegritySummary.danger}
                                   </p>
                                 </div>
-                                <div className="miras-integrity-pane miras-integrity-health miras-risk-tile rounded-2xl border border-slate-200 bg-slate-950 p-3 text-center text-white">
-                                  <span className="text-[10px] font-bold text-slate-300">
+                                <div className={`miras-integrity-pane miras-integrity-health miras-risk-tile rounded-2xl border p-3 text-center ${academicIntegritySummary.blocked > 0 ? "border-indigo-200 bg-indigo-100 text-indigo-800" : "border-slate-100 bg-slate-50/60 text-slate-400"}`}>
+                                  <span className="text-[10px] font-bold">
                                     مجمّد مؤقتًا
                                   </span>
-                                  <p className="mt-1 text-2xl font-black text-white">
+                                  <p className="mt-1 text-2xl font-black">
                                     {academicIntegritySummary.blocked}
                                   </p>
                                 </div>
-                                <div className="miras-integrity-pane miras-integrity-health miras-risk-tile rounded-2xl border border-indigo-100 bg-indigo-50 p-3 text-center">
-                                  <span className="text-[10px] font-bold text-indigo-700">
+                                <div className={`miras-integrity-pane miras-integrity-health miras-risk-tile rounded-2xl border p-3 text-center ${academicIntegritySummary.honey + academicIntegritySummary.trading > 0 ? "border-indigo-100 bg-indigo-50 text-indigo-700" : "border-slate-100 bg-slate-50/60 text-slate-400"}`}>
+                                  <span className="text-[10px] font-bold">
                                     مصائد / تداول
                                   </span>
-                                  <p className="mt-1 text-2xl font-black text-indigo-700">
+                                  <p className="mt-1 text-2xl font-black">
                                     {academicIntegritySummary.honey}/
                                     {academicIntegritySummary.trading}
                                   </p>
