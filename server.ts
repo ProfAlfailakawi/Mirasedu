@@ -9380,8 +9380,10 @@ app.use(async (req, res, next) => {
     // Firestore الفوري. كان تأخّر المزامنة يحوّل نجاحها إلى 503 — كما ظهر في
     // «نسيت كلمة المرور» (رصده الرادار). الآن نردّ نجاحها كما هو ونترك المزامنة
     // تكتمل خلفياً (flushCloudSoon على finish).
+    // مسارات الدخول والتفعيل (/api/auth/*) متساهلة كذلك: كان تأخّر المزامنة أو
+    // قفل الحارس يحوّل دخول الطالب أو تفعيل حسابه الناجح إلى رسالة «وضع الصيانة».
     const durabilityLenient =
-      /^\/api\/auth\/forgot-password|^\/api\/monitor|^\/api\/notifications\/register-token/.test(
+      /^\/api\/auth\/|^\/api\/monitor|^\/api\/notifications\/register-token/.test(
         req.path || "",
       );
     let cloudGuardedJson = false;
