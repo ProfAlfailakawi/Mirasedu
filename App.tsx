@@ -40633,10 +40633,10 @@ ${rows
                                   >
                                     <div className="grid w-full grid-cols-[1fr_auto] items-center gap-3 text-right">
                                       <div className="min-w-0">
-                                        <p className="truncate font-black text-slate-900">
+                                        <p className="[overflow-wrap:anywhere] font-black text-slate-900">
                                           {student.name}
                                         </p>
-                                        <p className="mt-1 truncate text-[10px] font-bold text-slate-500">
+                                        <p className="mt-1 [overflow-wrap:anywhere] text-[10px] font-bold text-slate-500">
                                           {student.riskReasons.join(" • ") ||
                                             "متابعة هادئة"}
                                         </p>

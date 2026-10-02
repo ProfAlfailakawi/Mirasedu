@@ -869,3 +869,71 @@ html[data-theme="dark"] .miras-course-ring b { color: #e2e8f0; }
 .miras-app-teacher-root button[aria-label="تطهير كامل"]:not(#_):hover { background: rgba(220, 38, 38, 0.08) !important; }
 .miras-app-teacher-root button[aria-label="تطهير كامل"] svg { stroke-width: 1.5; }
 html[data-theme="dark"] .miras-app-teacher-root button[aria-label="تطهير كامل"]:not(#_) { color: #fca5a5 !important; box-shadow: inset 0 0 0 1.5px rgba(252, 165, 165, 0.5) !important; }
+
+/* ═══════════════ ١٦) أزرار الأيقونات: مقاس ونصف قطر وسماكة خط موحّدة (لون أساسي واحد) ═══════════════
+   تُستثنى أزرار التصدير والحذف/الإغلاق الحمراء. */
+.miras-app-teacher-root button.h-12.w-12.rounded-2xl:is(.bg-slate-950, .bg-emerald-600, .bg-indigo-600, .bg-slate-900):not([aria-label*="تصدير"]):not(:disabled):not(#_) {
+  width: 2.75rem !important;
+  height: 2.75rem !important;
+  border-radius: 0.95rem !important;
+  background: var(--miras-brand, #4f46e5) !important;
+  color: #fff !important;
+}
+.miras-app-teacher-root button.h-12.w-12.rounded-2xl:is(.bg-slate-950, .bg-emerald-600, .bg-indigo-600, .bg-slate-900):not([aria-label*="تصدير"]) svg {
+  stroke-width: 1.75;
+}
+
+/* ═══════════════ ١٧) عنوان صغير لكل تبويب فرعي أيقوني على سطح المكتب (النص من aria-label نفسه) ═══════════════ */
+@media (min-width: 1024px) {
+  html body .miras-inner-tabs:not(#_) {
+    max-width: none !important;
+    grid-auto-flow: column !important;
+    grid-auto-columns: auto !important;
+  }
+  html body .miras-inner-tab:not(#_) {
+    width: auto !important;
+    min-width: 2.4rem;
+    padding-inline: 0.75rem !important;
+    gap: 0.4rem;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+  html body .miras-inner-tab.miras-inner-tab:not(#_)::after {
+    content: attr(aria-label) !important;
+    display: inline !important;
+    position: static !important;
+    inset: auto !important;
+    transform: none !important;
+    max-width: none !important;
+    background: none !important;
+    box-shadow: none !important;
+    padding: 0 !important;
+    font-size: 11px !important;
+    font-weight: 700 !important;
+    color: inherit !important;
+    white-space: nowrap;
+    text-overflow: clip !important;
+    height: auto !important;
+    width: auto !important;
+    opacity: 1 !important;
+    border: 0 !important;
+  }
+  html body .miras-integrity-switch:not(#_) {
+    width: auto !important;
+  }
+  html body .miras-integrity-switch-btn:not(#_) {
+    width: auto !important;
+    padding-inline: 0.75rem !important;
+    gap: 0.4rem;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+  html body .miras-integrity-switch-btn:not(#_)::after {
+    content: attr(aria-label);
+    font-size: 11px;
+    font-weight: 700;
+    white-space: nowrap;
+  }
+}
