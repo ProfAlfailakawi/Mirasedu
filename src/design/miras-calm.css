@@ -213,10 +213,10 @@ svg.lucide {
 
 /* ═══════════════ ٥) شارات الشريط السفلي: لون واحد، أحمر للعاجل فقط ═══════════════ */
 html body .teacher-orbit-dock-track button span.absolute.z-10:not(#_) {
-  height: 0.95rem !important;
-  min-width: 0.95rem !important;
+  height: 1.1rem !important;
+  min-width: 1.1rem !important;
   padding: 0 0.22rem !important;
-  font-size: 8px !important;
+  font-size: 11px !important;
   box-shadow: none !important;
   --tw-ring-shadow: 0 0 #0000 !important;
   outline: 2px solid var(--miras-surface);
@@ -649,7 +649,7 @@ html body .miras-segbar-legend span span.font-sans {
 }
 .miras-ratio-ring > span {
   position: relative;
-  font-size: 0.6rem;
+  font-size: 0.6875rem;
   font-weight: 800;
   color: var(--miras-ink-2);
   font-variant-numeric: tabular-nums;
@@ -1114,5 +1114,33 @@ html[data-theme="dark"] .miras-app-teacher-root button[aria-label="تطهير ك
     display: inline-block;
     vertical-align: -0.2em;
     margin-inline-end: 0.3rem;
+  }
+}
+
+/* ═══════════════ ١٩) حقل بحث داخل حاوية: حاوية واحدة فقط (بلا كبسولة داخل كبسولة) ═══════════════
+   القاعدة العامة تعطي كل input حدًّا وخلفية؛ هنا يصبح الحقل شفافًا داخل صندوق البحث الذي يحمل الحد وحلقة التركيز. */
+html body input.miras-flat-input:not(#_):not(#_):not(#_),
+html body input.miras-flat-input:not(#_):not(#_):not(#_):focus,
+html[data-theme="dark"] #root input.miras-flat-input:not(#_):not(#_),
+html[data-theme="dark"] #root input.miras-flat-input:not(#_):not(#_):focus {
+  border: 0 !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  background-color: transparent !important;
+  box-shadow: none !important;
+  min-height: 0;
+}
+
+/* ═══════════════ ٢٠) حد أدنى ١١px للنص الحقيقي على سطح المكتب (الهاتف يرفعه index.css إلى ١٢px) ═══════════════
+   بتخصيص صفري (:where) عمدًا: يغلب أدوات Tailwind (المرتّبة في طبقة) فقط، وأي قاعدة أخرى أكبر تبقى قائمة (لا يُصغَّر نص أبدًا).
+   لا يُمسّ شريط التجربة (.miras-demo-bar). متغيّرات sm: فعّالة من 640px فتدخل ضمن هذا الحد (≥768px)؛ متغيّرات lg: لا تُضاف لأن الحد قد يصغّر نصًّا أكبر بين 768 و1023. */
+@media (min-width: 768px) {
+  :where(:is(.text-\[8\.5px\], .text-\[9px\], .text-\[9\.5px\], .text-\[10px\], .text-\[10\.5px\], .text-\[0\.55rem\], .text-\[0\.66rem\], .sm\:text-\[9\.5px\], .sm\:text-\[10px\]):not(.miras-demo-bar *)) {
+    font-size: 11px;
+  }
+  /* تسميات بلاطات الخطر وسطر لوحة أمان الكود كانت تُصغَّر بقاعدة !important أقدم */
+  .miras-integrity-body[data-integrity-focus="health"] .miras-risk-tile > span:not(#_):not(#_),
+  .miras-integrity-pane p.text-\[11px\]:not(#_):not(#_) {
+    font-size: 11px !important;
   }
 }
