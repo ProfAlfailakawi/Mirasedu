@@ -41279,12 +41279,12 @@ ${rows
                                         )}
                                       </button>
                                     </div>
-                                    <div className="mt-4 grid grid-cols-4 gap-2 md:grid-cols-8">
+                                    <div className="miras-dh-tiles mt-4 grid grid-cols-4 gap-2 md:grid-cols-8">
                                       {tiles.map((it, i) => (
                                         <div
                                           key={`dh-tile-${i}`}
                                           title={it.t}
-                                          className={`flex flex-col items-center gap-1 rounded-2xl border px-2 py-3 ${it.n > 0 ? "border-amber-100 bg-amber-50/70 text-amber-700" : "border-slate-100 bg-white/70 text-slate-400"}`}
+                                          className={`${it.n > 0 ? "" : "miras-zero-tile "}flex flex-col items-center gap-1 rounded-2xl border px-2 py-3 ${it.n > 0 ? "border-amber-100 bg-amber-50/70 text-amber-700" : "border-slate-100 bg-white/70 text-slate-400"}`}
                                         >
                                           <it.Icon className="h-4.5 w-4.5" />
                                           <span className="text-lg font-black leading-none">
@@ -41393,7 +41393,7 @@ ${rows
                                           <div
                                             key={item.key}
                                             title={item.label}
-                                            className={`flex min-h-[92px] flex-col items-center justify-center gap-2 rounded-3xl border px-2 py-3 shadow-sm ${item.cls}`}
+                                            className={`${item.n > 0 ? "" : "miras-dim-tile "}flex min-h-[92px] flex-col items-center justify-center gap-2 rounded-3xl border px-2 py-3 shadow-sm ${item.cls}`}
                                           >
                                             <span
                                               className={`relative grid h-11 w-11 place-items-center overflow-hidden rounded-2xl shadow-sm ${item.orb}`}
@@ -42552,7 +42552,7 @@ ${rows
                   {teacherSession &&
                     isAdminTeacher &&
                     analyticsSubTab === "admin" && (
-                      <div className="rounded-[var(--miras-r-xl)] border border-violet-100 bg-gradient-to-br from-violet-50/40 to-white/90 p-6 backdrop-blur shadow-sm space-y-4">
+                      <div className="miras-calm-form rounded-[var(--miras-r-xl)] border border-violet-100 bg-gradient-to-br from-violet-50/40 to-white/90 p-6 backdrop-blur shadow-sm space-y-4">
                         <div className="flex flex-col gap-1 border-b border-slate-100 pb-4">
                           <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">
                             <KeyRound className="h-4 w-4 text-violet-600" />
@@ -42640,7 +42640,7 @@ ${rows
                   {teacherSession &&
                     (analyticsSubTab === "admin" ||
                       analyticsSubTab === "dataTools") && (
-                      <div className="rounded-[var(--miras-r-xl)] border border-indigo-100 bg-white p-6 shadow-sm space-y-4">
+                      <div className="miras-calm-form rounded-[var(--miras-r-xl)] border border-indigo-100 bg-white p-6 shadow-sm space-y-4">
                         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-100 pb-4">
                           <div>
                             <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">
@@ -42808,7 +42808,7 @@ ${rows
 
                   {/* Teacher self-service password change */}
                   {teacherSession && analyticsSubTab === "accounts" && (
-                    <div className="rounded-[var(--miras-r-xl)] border border-indigo-100 bg-white p-6 shadow-sm space-y-4">
+                    <div className="miras-calm-form rounded-[var(--miras-r-xl)] border border-indigo-100 bg-white p-6 shadow-sm space-y-4">
                       <div className="flex flex-col gap-1 border-b border-slate-100 pb-4">
                         <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">
                           <KeyRound className="h-4 w-4 text-indigo-600" strokeWidth={1.75} />

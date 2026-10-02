@@ -830,3 +830,42 @@ html[data-theme="dark"] .miras-course-ring b { color: #e2e8f0; }
 /* ═══════════════ ١٤) المحاولات: شريط رفيع تحت كل رقم (نسبته إلى عدد المحاولات الظاهر) ═══════════════ */
 .miras-tile-bar { display: block; height: 0.25rem; margin-top: 0.55rem; border-radius: 999px; overflow: hidden; background: var(--miras-line, rgba(148, 163, 184, 0.25)); }
 .miras-tile-bar > i { display: block; height: 100%; border-radius: 999px; background: var(--miras-brand, #4f46e5); }
+
+/* ═══════════════ ١٥) الصحة والأجهزة والإدارة: بلا بلاطات صفرية، نماذج هادئة، لغة أزرار واحدة ═══════════════ */
+/* البلاطات الصفرية تبقى في DOM لقارئات الشاشة وتُخفى بصرياً؛ الأرقام غير الصفرية فقط تظهر */
+.miras-dh-tiles > .miras-zero-tile {
+  position: absolute !important;
+  width: 1px; height: 1px; margin: -1px; padding: 0 !important; overflow: hidden;
+  clip: rect(0 0 0 0); white-space: nowrap; border: 0 !important;
+}
+.miras-dh-tiles:not(:has(> :not(.miras-zero-tile))) { margin-top: 0 !important; }
+.miras-dim-tile { opacity: 0.5; filter: saturate(0.55); }
+
+/* نموذج هادئ لكل بطاقة: حقول بمقاس موحد وحلقة تركيز واحدة */
+.miras-calm-form { background-image: none !important; }
+.miras-calm-form :is(input, select) {
+  min-height: 2.75rem;
+  border-radius: 0.85rem;
+  border-color: var(--miras-line, rgba(148, 163, 184, 0.4));
+  box-shadow: none;
+}
+.miras-calm-form :is(input, select):focus {
+  outline: none;
+  border-color: var(--miras-brand, #4f46e5);
+  box-shadow: 0 0 0 3px var(--miras-brand-tint, rgba(79, 70, 229, 0.15));
+}
+/* زر أساسي واحد (indigo)؛ الأحمر للتدمير فقط وبصيغة محيطية خفيفة */
+.miras-app-teacher-root button.bg-violet-600:not(#_) {
+  background: var(--miras-brand, #4f46e5) !important;
+  color: #fff !important;
+  min-height: 2.5rem;
+}
+.miras-app-teacher-root button.bg-violet-600:not(#_):hover { filter: brightness(0.92); }
+.miras-app-teacher-root button[aria-label="تطهير كامل"]:not(#_) {
+  background: transparent !important;
+  color: #dc2626 !important;
+  box-shadow: inset 0 0 0 1.5px rgba(220, 38, 38, 0.45) !important;
+}
+.miras-app-teacher-root button[aria-label="تطهير كامل"]:not(#_):hover { background: rgba(220, 38, 38, 0.08) !important; }
+.miras-app-teacher-root button[aria-label="تطهير كامل"] svg { stroke-width: 1.5; }
+html[data-theme="dark"] .miras-app-teacher-root button[aria-label="تطهير كامل"]:not(#_) { color: #fca5a5 !important; box-shadow: inset 0 0 0 1.5px rgba(252, 165, 165, 0.5) !important; }
