@@ -11931,6 +11931,22 @@ export default function App() {
       (_match, prefix) => `${prefix}${label}`,
     );
   };
+  // عرض فقط: رموز أحداث السجل الخام (UPPER_SNAKE) بعربية موجزة؛ غير المعروف يبقى كما هو.
+  const MIRAS_LOG_ACTION_LABELS: Record<string, string> = {
+    LOGIN: "تسجيل دخول",
+    QUIZ_START: "بدء اختبار",
+    QUIZ_SUBMIT: "تسليم اختبار",
+    EXERCISE_SUBMIT: "تسليم نشاط",
+    DEVICE_REGISTERED: "تسجيل جهاز جديد",
+    TAB_SWITCH: "خروج من نافذة الاختبار",
+    PASTE_BLOCKED: "منع لصق نص",
+    THIRD_DEVICE_BLOCKED: "جهاز ثالث مرفوض",
+    JOIN_CODE_REDEEMED: "استخدام رمز انضمام",
+    ENROLLMENT_SUSPENDED: "تعليق التسجيل",
+    GRADE_RELEASED: "اعتماد الدرجة",
+  };
+  const logActionLabel = (action: any) =>
+    MIRAS_LOG_ACTION_LABELS[String(action ?? "")] ?? action;
   const sanitizeCourseIdentifiersForDisplay = (value: any) => {
     let text = String(value || "");
     if (!text) return "";
@@ -26808,7 +26824,7 @@ ${rows
             key: `admin-log-${log.id || log.timestamp || log.createdAt}`,
             title: isCheating ? "نزاهة عالية الخطورة" : "تنبيه أمني / صلاحيات",
             body: sanitizeCourseIdentifiersForDisplay(
-              `${log.studentName || "مستخدم"} • ${log.action || "حدث أمني"} • ${log.details || ""}`,
+              `${log.studentName || "مستخدم"} • ${logActionLabel(log.action) || "حدث أمني"} • ${log.details || ""}`,
             ),
             when: log.timestamp || log.createdAt,
             tone: "rose",
@@ -42911,8 +42927,8 @@ ${rows
                                   dataVaultImportRef.current?.click()
                                 }
                                 className="inline-flex h-11 w-11 items-center justify-center rounded-2xl bg-emerald-600 text-white shadow-sm hover:bg-emerald-700"
-                                title="Import"
-                                aria-label="Import"
+                                title="استيراد نسخة احتياطية"
+                                aria-label="استيراد نسخة احتياطية"
                               >
                                 <Upload className="h-5 w-5" />
                               </button>
@@ -43659,7 +43675,7 @@ ${rows
                                                                                   className={`font-black px-1.5 py-0.5 rounded text-[9px] bg-white border border-slate-200 shadow-sm ${style.text}`}
                                                                                 >
                                                                                   {sanitizeCourseIdentifiersForDisplay(
-                                                                                    log.action,
+                                                                                    logActionLabel(log.action),
                                                                                   )}
                                                                                 </span>
                                                                                 <span className="text-[10px] text-slate-400 font-mono font-bold">
@@ -46284,9 +46300,8 @@ ${rows
                     اسحب لأعلى قليلاً واختر{" "}
                     <span className="text-slate-900 font-extrabold">
                       "إضافة إلى الشاشة الرئيسية"
-                    </span>{" "}
-                    (<span className="text-slate-950">Add to Home Screen</span>
-                    ).
+                    </span>
+                    .
                   </li>
                   <li>
                     اضغط{" "}
@@ -46315,7 +46330,7 @@ ${rows
                   <span className="text-indigo-700 font-extrabold">
                     "تثبيت التطبيق"
                   </span>{" "}
-                  (Install App) ليتم تحويل وتثبيت الملف فوراً في ثوانٍ.
+                  ليتم تحويل وتثبيت الملف فوراً في ثوانٍ.
                 </p>
               </div>
             </div>

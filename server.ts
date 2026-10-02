@@ -13528,7 +13528,7 @@ const teacherCredentialRateLimit = rateLimit({
   max: 10,
   standardHeaders: true,
   legacyHeaders: false,
-  message: { error: "محاولات كثيرة على إعدادات كلمة المرور. حاول بعد ١٥ دقيقة." },
+  message: { error: "محاولات كثيرة على إعدادات كلمة المرور. حاول بعد 15 دقيقة." },
 });
 // مسارات السوبر أدمن محصورة أصلاً بجلسة أدمن موثقة، وقائمتها تُحمَّل عند كل فتح
 // للتبويب وبعد كل حفظ، فسقفها أوسع من مسار تغيير كلمة المرور الذاتي.
@@ -15239,7 +15239,7 @@ const loginIpRateLimit = rateLimit({
   skipSuccessfulRequests: true,
   standardHeaders: true,
   legacyHeaders: false,
-  message: { error: "محاولات دخول فاشلة كثيرة من هذه الشبكة. حاول بعد ١٥ دقيقة." },
+  message: { error: "محاولات دخول فاشلة كثيرة من هذه الشبكة. حاول بعد 15 دقيقة." },
 });
 
 app.post("/api/auth/login", loginIpRateLimit, (req, res) => {
@@ -17622,7 +17622,7 @@ app.post("/api/submissions/upload-session", async (req: any, res: any) => {
     });
   }
   if (!Number.isFinite(size) || size <= 0 || size > 50 * 1024 * 1024) {
-    return res.status(400).json({ error: "حجم الملف غير صالح أو يتجاوز ٥٠ ميجابايت." });
+    return res.status(400).json({ error: "حجم الملف غير صالح أو يتجاوز 50 ميجابايت." });
   }
   if (!isMirasSubmissionFileTypeAllowed(originalName)) {
     return res
@@ -17737,7 +17737,7 @@ app.post("/api/submissions/upload", (req: any, res: any) => {
   const maxSizeBytes = 50 * 1024 * 1024;
   if (targetFile.truncated || targetFile.size > maxSizeBytes) {
     return res.status(400).json({
-      error: "حجم الملف كبير جدًا (الحد الأقصى ٥٠ ميجابايت). اضغط الملف أو قسّمه ثم أعد الرفع.",
+      error: "حجم الملف كبير جدًا (الحد الأقصى 50 ميجابايت). اضغط الملف أو قسّمه ثم أعد الرفع.",
     });
   }
 
