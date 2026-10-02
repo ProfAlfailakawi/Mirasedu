@@ -58,9 +58,12 @@ type Flight = { dx: number; dy: number; scale: number } | null;
 export default function LoginRevealOverlay({
   role,
   onDone,
+  ready = true,
 }: {
   role: RevealRole;
   onDone: () => void;
+  /** تبقى الشاشة ظاهرة حتى تصير true (اكتمال تحميل بيانات الحساب من السحابة). */
+  ready?: boolean;
 }) {
   const [leaving, setLeaving] = useState(false);
   // مسارات سفر الشارات إلى عناصر اللوحة الحقيقية — تُقاس لحظة المغادرة فقط.
@@ -70,7 +73,12 @@ export default function LoginRevealOverlay({
   const isTeacher = role === "teacher";
   const pieces = isTeacher ? TEACHER_PIECES : STUDENT_PIECES;
 
+  const mountedAtRef = useRef(Date.now());
+
   useEffect(() => {
+    if (!ready) return;
+    // أقل مدة عرض ١٫٢٥ ثانية، ثم نغادر فور جاهزية البيانات.
+    const wait = Math.max(0, 1250 - (Date.now() - mountedAtRef.current));
     // مغادرة عند ~1.25 ثانية: تُقاس مواقع عناصر اللوحة الحقيقية (المرسومة أسفل
     // الستارة) فتسافر إليها الشارات نفسها — «العنصر يتحوّل إلى مكانه» بدل
     // الاختفاء. إزالة كاملة عند ~1.86 ثانية؛ لا تعليق أطول من ذلك.
@@ -104,14 +112,14 @@ export default function LoginRevealOverlay({
       });
       setFlights(next);
       setLeaving(true);
-    }, 1250);
-    const t2 = window.setTimeout(onDone, 1960);
+    }, wait);
+    const t2 = window.setTimeout(onDone, wait + 710);
     return () => {
       window.clearTimeout(t1);
       window.clearTimeout(t2);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [onDone, role]);
+  }, [onDone, role, ready]);
   const title = isTeacher ? "لوحة المعلم" : "مسارك الأكاديمي";
   const subtitle = isTeacher ? "تجهيز فصولك وأدواتك…" : "تجهيز رحلتك التعليمية…";
 

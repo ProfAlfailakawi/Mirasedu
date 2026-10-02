@@ -8017,6 +8017,10 @@ export default function App() {
   // البيانات انمسحت؛ نتتبع التحميل لنعرض حالته صراحة بدل القوائم الفارغة.
   const [teacherCloudLoads, setTeacherCloudLoads] = useState(0);
   const [teacherCloudLoadSlow, setTeacherCloudLoadSlow] = useState(false);
+  // جاهزية بيانات كل حساب (تُغلق بها شاشة الدخول الافتتاحية): لكل حساب على حدة.
+  const [teacherCloudReady, setTeacherCloudReady] = useState<Record<string, true>>({});
+  const [studentCloudReady, setStudentCloudReady] = useState<Record<string, true>>({});
+  const [studentLoadRetry, setStudentLoadRetry] = useState(0);
   const [joinCodesLoadState, setJoinCodesLoadState] = useState<
     "loading" | "ready" | "failed"
   >("loading");
@@ -8664,6 +8668,7 @@ export default function App() {
           setPersonalProject(details.projects[0]);
         else if (detailsResp.ok) setPersonalProject(null);
         setStudentSubmissions(details.exerciseSubmissions || []);
+        setStudentCloudReady((m) => ({ ...m, [String(studentSession.id)]: true }));
       } catch (err) {
         // Keep the last known project during a transient Safari/Hosting outage.
         // The live poll retries and replaces this data after the connection returns.
@@ -8676,7 +8681,7 @@ export default function App() {
     return () => {
       active = false;
     };
-  }, [studentSession?.id]);
+  }, [studentSession?.id, studentLoadRetry]);
 
   useEffect(() => {
     if (!teacherSession?.email || currentView !== "teacher_workspace") return;
@@ -8711,6 +8716,31 @@ export default function App() {
 
   // بعد ٥ ثوانٍ من الانتظار نشرح السبب: الخادم يستيقظ ويقرأ القاعدة كاملة.
   const teacherCloudSyncing = teacherCloudLoads > 0;
+  // شاشة الدخول الافتتاحية تبقى حتى تكتمل بيانات الحساب فعلاً.
+  const loginRevealDataReady =
+    loginRevealRole === "teacher"
+      ? !!teacherCloudReady[String(teacherSession?.email || "").trim().toLowerCase()]
+      : loginRevealRole === "student"
+        ? !!studentCloudReady[String(studentSession?.id || "")]
+        : true;
+  // إن تعثّر التحميل نعيد المحاولة كل ٦ ثوانٍ وعند عودة الشبكة بدل التعليق.
+  useEffect(() => {
+    if (!loginRevealRole || loginRevealDataReady) return;
+    const retry = () => {
+      if (loginRevealRole === "teacher") {
+        const em = String(teacherSession?.email || "").trim().toLowerCase();
+        if (em && !teacherCloudSyncing) void loadTeacherCloudData(em);
+      } else {
+        setStudentLoadRetry((n) => n + 1);
+      }
+    };
+    const timer = window.setInterval(retry, 6000);
+    window.addEventListener("online", retry);
+    return () => {
+      window.clearInterval(timer);
+      window.removeEventListener("online", retry);
+    };
+  }, [loginRevealRole, loginRevealDataReady, teacherCloudSyncing, teacherSession?.email]);
   useEffect(() => {
     if (!teacherCloudSyncing) {
       setTeacherCloudLoadSlow(false);
@@ -13873,6 +13903,7 @@ export default function App() {
   // تحميل بيانات لوحة المعلم كاملة مع تتبّع حالته لشريط «جارٍ التحميل من السحابة».
   const loadTeacherCloudData = (teacherEmail: string) => {
     setTeacherCloudLoads((n) => n + 1);
+    const readyKey = String(teacherEmail || "").trim().toLowerCase();
     return Promise.allSettled([
       fetchSections(teacherEmail),
       fetchTeacherExams(teacherEmail),
@@ -13881,7 +13912,12 @@ export default function App() {
       fetchJoinCodes(teacherEmail),
       fetchCodeIntegrity(teacherEmail),
       reloadTeacherDashboard(teacherEmail),
-    ]).finally(() => setTeacherCloudLoads((n) => Math.max(0, n - 1)));
+    ]).then((results) => {
+      setTeacherCloudLoads((n) => Math.max(0, n - 1));
+      if (results[0].status === "fulfilled" && results[0].value === true)
+        setTeacherCloudReady((m) => ({ ...m, [readyKey]: true }));
+      return results;
+    });
   };
 
   const fetchCodeIntegrity = async (emailOverride?: string) => {
@@ -15187,6 +15223,7 @@ ${rows
         headers: teacherHeaders(email),
       });
       const d = await resp.json();
+      if (!resp.ok) return false;
       if (d.sections) {
         const sections = Array.isArray(d.sections) ? d.sections : [];
         setTeacherSections(sections);
@@ -15204,9 +15241,12 @@ ${rows
           sections[0]
         )
           setSelectedTeacherCourseCode(sections[0].code);
+        return true;
       }
+      return false;
     } catch (e) {
       console.error(e);
+      return false;
     }
   };
 
@@ -46791,6 +46831,7 @@ ${rows
       {loginRevealRole && (
         <LoginRevealOverlay
           role={loginRevealRole}
+          ready={loginRevealDataReady}
           onDone={() => setLoginRevealRole(null)}
         />
       )}
