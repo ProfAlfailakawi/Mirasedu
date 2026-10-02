@@ -28972,15 +28972,25 @@ ${rows
                   return (
                     <div
                       key={row.idNumber}
-                      className={`rounded-2xl border bg-white p-4 miras-shadow-1 transition-all duration-250 ${
+                      data-status={
+                        row.isSuspended
+                          ? "suspended"
+                          : row.registered
+                            ? "registered"
+                            : "roster"
+                      }
+                      className={`miras-roster-card${isEditing ? " is-editing" : ""} rounded-2xl border bg-white p-4 miras-shadow-1 transition-all duration-250 ${
                         isEditing
                           ? "border-indigo-300 ring-2 ring-indigo-50"
                           : "border-slate-100 hover:border-slate-200/80 hover:miras-shadow-1"
                       }`}
                     >
-                      <div className="grid grid-cols-1 gap-3.5">
-                        <div>
-                          <label className="text-[10px] font-bold text-indigo-500 block mb-1">
+                      <div className="miras-roster-grid grid grid-cols-1 gap-3.5">
+                        <span className="miras-roster-avatar" aria-hidden="true">
+                          {String(row.name || "").trim().charAt(0) || "•"}
+                        </span>
+                        <div className="miras-roster-id">
+                          <label className="miras-roster-label text-[10px] font-bold text-indigo-500 block mb-1">
                             الرقم الجامعي
                           </label>
                           <div className="font-mono text-base font-black text-indigo-700">
@@ -29004,8 +29014,8 @@ ${rows
                           </div>
                         </div>
 
-                        <div>
-                          <label className="text-[10px] font-bold text-slate-400 block mb-1">
+                        <div className="miras-roster-name">
+                          <label className="miras-roster-label text-[10px] font-bold text-slate-400 block mb-1">
                             اسم الطالب
                           </label>
                           <div className="text-[15px] font-black text-slate-800 break-words [overflow-wrap:anywhere]">
@@ -29023,7 +29033,7 @@ ${rows
                           </div>
                         </div>
 
-                        <div className="flex items-center justify-between border-t border-slate-100 pt-3 mt-1">
+                        <div className="miras-roster-foot flex items-center justify-between border-t border-slate-100 pt-3 mt-1">
                           <div>
                             {!isEditing && (
                               <span

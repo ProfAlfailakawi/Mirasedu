@@ -743,3 +743,72 @@ html body .miras-section-hero .miras-section-current-title.miras-section-title-d
 .miras-course-ring b { font-size: 0.8rem; font-weight: 800; line-height: 1; color: var(--miras-ink, #0f172a); }
 html[data-theme="dark"] .miras-course-ring.is-open .miras-course-ring-arc { stroke: #34d399; }
 html[data-theme="dark"] .miras-course-ring b { color: #e2e8f0; }
+
+/* ═══════════════ ١٢) قائمة الطلبة: صف مدمج بحلقة حرف أولي ونقطة حالة ═══════════════
+   الحقول «الرقم الجامعي/اسم الطالب» تبقى في DOM لقارئات الشاشة وتُخفى بصرياً؛ وضع التعديل لا يتغير. */
+.miras-roster-card:not(.is-editing) {
+  padding: 0.6rem 0.8rem !important;
+}
+.miras-roster-card:not(.is-editing) .miras-roster-grid {
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  grid-template-areas: "av name foot" "av id foot";
+  column-gap: 0.7rem;
+  row-gap: 0.05rem;
+  align-items: center;
+}
+.miras-roster-card:not(.is-editing) .miras-roster-label {
+  position: absolute !important;
+  width: 1px; height: 1px; margin: -1px !important; padding: 0;
+  overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0;
+}
+.miras-roster-card.is-editing .miras-roster-avatar { display: none; }
+.miras-roster-avatar {
+  grid-area: av;
+  position: relative;
+  display: inline-grid;
+  place-items: center;
+  width: 2.5rem;
+  height: 2.5rem;
+  border-radius: 999px;
+  font-size: 0.95rem;
+  font-weight: 800;
+  color: var(--miras-brand, #4f46e5);
+  background: var(--miras-brand-tint, rgba(79, 70, 229, 0.08));
+  box-shadow: inset 0 0 0 2px var(--miras-roster-ring, #94a3b8);
+}
+.miras-roster-avatar::after {
+  content: "";
+  position: absolute;
+  inset-block-end: -1px;
+  inset-inline-start: -1px;
+  width: 0.62rem;
+  height: 0.62rem;
+  border-radius: 999px;
+  background: var(--miras-roster-ring, #94a3b8);
+  box-shadow: 0 0 0 2px var(--miras-surface, #fff);
+}
+.miras-roster-card[data-status="registered"] { --miras-roster-ring: #10b981; }
+.miras-roster-card[data-status="suspended"] { --miras-roster-ring: #f59e0b; }
+.miras-roster-card[data-status="roster"] { --miras-roster-ring: #94a3b8; }
+.miras-roster-card:not(.is-editing) .miras-roster-name { grid-area: name; min-width: 0; }
+.miras-roster-card:not(.is-editing) .miras-roster-id { grid-area: id; min-width: 0; }
+.miras-roster-card:not(.is-editing) .miras-roster-name > div { font-size: 0.95rem; line-height: 1.35; }
+.miras-roster-card:not(.is-editing) .miras-roster-id > div { font-size: 0.78rem; font-weight: 700; line-height: 1.3; opacity: 0.8; }
+.miras-roster-card:not(.is-editing) .miras-roster-foot {
+  grid-area: foot;
+  border: 0 !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  gap: 0.35rem;
+}
+/* نص الحالة يبقى للقراءة الصوتية؛ النقطة على الحلقة تغني عنه بصرياً */
+.miras-roster-card:not(.is-editing) .miras-roster-foot > div:first-child {
+  position: absolute; width: 1px; height: 1px; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap;
+}
+.miras-roster-card:not(.is-editing) .miras-roster-foot button {
+  width: 2rem !important;
+  height: 2rem !important;
+  border-radius: 0.7rem !important;
+}
+.miras-roster-card:not(.is-editing) .miras-roster-foot button svg { width: 1rem; height: 1rem; stroke-width: 1.5; }
+.miras-roster-card { position: relative; }
