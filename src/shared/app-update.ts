@@ -83,6 +83,13 @@ function hasVisible(selector: string): boolean {
 }
 
 /** هل على الصفحة عمل جارٍ يضيع لو أُعيد تحميلها الآن؟ */
+/** يُكتب قبل أي إعادة تحميل سببها التحديث الذاتي؛ تقرؤه الواجهة لتتجنب إعادة الشاشة الافتتاحية. */
+export function markUpdateReload(): void {
+  try {
+    window.sessionStorage.setItem('miras_update_reload_at', String(Date.now()));
+  } catch { /* التخزين محجوب */ }
+}
+
 export function pageIsBusy(): boolean {
   if (dragging > 0) return true;
   // كتابة جارية خلال آخر عشر ثوانٍ: لا نقطع على المستخدم إدخاله.
@@ -199,6 +206,7 @@ async function applyUpdate(target: string): Promise<void> {
   }
 
   writeLocal(TARGET_KEY, target);
+  markUpdateReload();
   window.location.reload();
 }
 
@@ -228,6 +236,7 @@ function reconcileAfterReload(): boolean {
   writeLocal(HARD_KEY, '1');
   void (async () => {
     await purgeShell();
+    markUpdateReload();
     window.location.reload();
   })();
   return true;
@@ -254,6 +263,7 @@ async function recoverFromStaleChunk(): Promise<void> {
     window.sessionStorage.setItem(CHUNK_KEY, '1');
   } catch { /* التخزين محجوب — نُكمل بحذر */ }
   await purgeShell();
+  markUpdateReload();
   window.location.reload();
 }
 
