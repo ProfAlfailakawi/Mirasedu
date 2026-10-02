@@ -1011,3 +1011,16 @@ html[data-theme="dark"] .miras-app-teacher-root button[aria-label="تطهير ك
 /* ═══════════════ ٢٠) قوائم الطالب: شريط مرور الوقت بين الفتح والإغلاق ═══════════════ */
 .miras-window-bar { height: 0.25rem; border-radius: 999px; overflow: hidden; background: var(--miras-line, rgba(148, 163, 184, 0.25)); }
 .miras-window-bar > span { display: block; height: 100%; border-radius: 999px; background: var(--miras-brand, #4f46e5); opacity: 0.85; }
+
+/* الجوال: أهداف اللمس 44px تتطلب صفاً مستقلاً للأزرار تحت الاسم كي لا يُعصَر الاسم */
+@media (max-width: 767px) {
+  .miras-roster-card:not(.is-editing) .miras-roster-grid {
+    grid-template-columns: auto minmax(0, 1fr);
+    grid-template-areas: "av name" "av id" "foot foot";
+    row-gap: 0.1rem;
+  }
+  .miras-roster-card:not(.is-editing) .miras-roster-foot {
+    justify-content: flex-end;
+    margin-top: 0.35rem !important;
+  }
+}
