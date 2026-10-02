@@ -74,9 +74,21 @@ export default function LoginRevealOverlay({
   const pieces = isTeacher ? TEACHER_PIECES : STUDENT_PIECES;
 
   const mountedAtRef = useRef(Date.now());
+  // تقليل الحركة: شاشة ثابتة بلا حركة أو سفر شارات، وتغادر فور جاهزية البيانات.
+  const [reduced] = useState(() => {
+    try {
+      return !!window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
+    } catch {
+      return false;
+    }
+  });
 
   useEffect(() => {
     if (!ready) return;
+    if (reduced) {
+      onDone();
+      return;
+    }
     // أقل مدة عرض ١٫٢٥ ثانية، ثم نغادر فور جاهزية البيانات.
     const wait = Math.max(0, 1250 - (Date.now() - mountedAtRef.current));
     // مغادرة عند ~1.25 ثانية: تُقاس مواقع عناصر اللوحة الحقيقية (المرسومة أسفل
@@ -119,7 +131,7 @@ export default function LoginRevealOverlay({
       window.clearTimeout(t2);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [onDone, role, ready]);
+  }, [onDone, role, ready, reduced]);
   const title = isTeacher ? "لوحة المعلم" : "مسارك الأكاديمي";
   const subtitle = isTeacher ? "تجهيز فصولك وأدواتك…" : "تجهيز رحلتك التعليمية…";
 
@@ -131,6 +143,28 @@ export default function LoginRevealOverlay({
   const chipBorder = isTeacher ? "border-emerald-100" : "border-indigo-100";
   const frameBorder = isTeacher ? "border-emerald-200/70" : "border-indigo-200/70";
   const hairline = isTeacher ? "via-emerald-300" : "via-indigo-300";
+
+  if (reduced) {
+    return (
+      <div
+        dir="rtl"
+        className="fixed inset-0 z-[220] grid place-items-center bg-gradient-to-b from-slate-50 via-white to-slate-100"
+        role="status"
+        aria-live="polite"
+      >
+        <div
+          className={`flex w-[196px] flex-col items-center rounded-[22px] border ${frameBorder} bg-white/85 px-5 py-5`}
+        >
+          <p className="text-center text-[19px] font-black tracking-tight text-slate-900">
+            {title}
+          </p>
+          <p className={`mt-1.5 text-center text-[12px] font-bold ${accentText}`}>
+            {subtitle}
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   const easeOut: [number, number, number, number] = [0.22, 1, 0.36, 1];
   const easeLift: [number, number, number, number] = [0.32, 0.72, 0, 1];

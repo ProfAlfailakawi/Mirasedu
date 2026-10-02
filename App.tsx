@@ -8750,7 +8750,8 @@ export default function App() {
     }
   }
   const restoreGateFiredRef = useRef(false);
-  useEffect(() => {
+  // قبل أول رسم: لا تظهر اللوحة بأصفار لحظةً قبل الشاشة الافتتاحية.
+  useLayoutEffect(() => {
     if (
       loginRevealRole ||
       !restoredSessionAtLoadRef.current ||
@@ -8780,6 +8781,14 @@ export default function App() {
     teacherCloudReady,
     studentCloudReady,
   ]);
+  // إن اختفت الجلسة (انتهاء الصلاحية، قفل الجهاز، خروج) نُزيل الشاشة الافتتاحية
+  // كي لا تحجب شاشة الدخول/الخطأ إلى الأبد.
+  useEffect(() => {
+    if (loginRevealRole === "teacher" && !teacherSession?.email)
+      setLoginRevealRole(null);
+    else if (loginRevealRole === "student" && !studentSession?.id)
+      setLoginRevealRole(null);
+  }, [loginRevealRole, teacherSession?.email, studentSession?.id]);
   // إن تعثّر التحميل نعيد المحاولة كل ٦ ثوانٍ وعند عودة الشبكة بدل التعليق.
   useEffect(() => {
     if (!loginRevealRole || loginRevealDataReady) return;
