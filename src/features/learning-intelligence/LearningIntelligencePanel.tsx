@@ -1,4 +1,5 @@
 import {useMemo, useState} from "react";
+import {AlertTriangle, BookOpenCheck, Brain, GraduationCap, MessageCircleQuestion, Mic, ShieldCheck} from "lucide-react";
 import {MIRAS_LEARNING_DECISION_BOUNDARY_AR} from "./core";
 
 type PanelMode = "student" | "teacher";
@@ -22,26 +23,26 @@ function CompactResult({result}: {result: any}) {
   const reviewQueue = asList(result.reviewQueue);
   const flags = asList(result.misconceptionScan?.flags);
   return (
-    <div className="mt-3 space-y-2 rounded-[1.35rem] border border-indigo-100 bg-white/92 p-3 text-right shadow-sm">
+    <div className="mt-3 space-y-2 rounded-[1.35rem] border border-[color:var(--dna-line-2)] bg-[var(--dna-surface)] p-3 text-right shadow-sm">
       {result.reply && (
-        <p className="text-[12px] font-bold leading-6 text-slate-700">
+        <p className="text-[12px] font-bold leading-6 text-[color:var(--dna-ink)]">
           {result.reply}
         </p>
       )}
       {result.studentFriendlyBrief && (
-        <p className="text-[12px] font-bold leading-6 text-slate-700">
+        <p className="text-[12px] font-bold leading-6 text-[color:var(--dna-ink)]">
           {result.studentFriendlyBrief}
         </p>
       )}
       {result.transcriptReview && (
-        <p className="text-[12px] font-bold leading-6 text-slate-700">
+        <p className="text-[12px] font-bold leading-6 text-[color:var(--dna-ink)]">
           {result.transcriptReview}
         </p>
       )}
       {[...microPlan, ...usefulSignals, ...questions].slice(0, 6).map((item, index) => (
         <div
           key={`li-line-${index}`}
-          className="rounded-2xl border border-slate-100 bg-slate-50 px-3 py-2 text-[11px] font-bold leading-5 text-slate-600"
+          className="rounded-2xl border border-[color:var(--dna-line)] bg-[var(--dna-surface-2)] px-3 py-2 text-[11px] font-bold leading-5 text-[color:var(--dna-muted)]"
         >
           {String(item)}
         </div>
@@ -49,29 +50,29 @@ function CompactResult({result}: {result: any}) {
       {criteria.slice(0, 4).map((item, index) => (
         <div
           key={`li-criterion-${index}`}
-          className="rounded-2xl border border-emerald-100 bg-emerald-50/60 px-3 py-2 text-[11px] font-bold leading-5 text-emerald-800"
+          className="rounded-2xl border border-[color:var(--dna-line)] bg-[var(--dna-accent-soft)] px-3 py-2 text-[11px] font-bold leading-5 text-[color:var(--dna-accent)]"
         >
-          <b className="block text-[11px] text-emerald-950">{item.criterion}</b>
+          <b className="block text-[11px] text-[color:var(--dna-ink)]">{item.criterion}</b>
           {item.feedback}
         </div>
       ))}
       {reviewQueue.slice(0, 4).map((item, index) => (
         <div
           key={`li-review-${item.id || index}`}
-          className="rounded-2xl border border-amber-100 bg-amber-50/70 px-3 py-2 text-[11px] font-bold leading-5 text-amber-800"
+          className="rounded-2xl border border-[color:var(--dna-line)] bg-[var(--dna-warn-soft)] px-3 py-2 text-[11px] font-bold leading-5 text-[color:var(--dna-warn)]"
         >
           {item.studentName || item.studentId} — {item.activityTitle || item.kind}
         </div>
       ))}
       {flags.length > 0 && (
-        <div className="rounded-2xl border border-rose-100 bg-rose-50/70 px-3 py-2 text-[11px] font-bold leading-5 text-rose-800">
+        <div className="rounded-2xl border border-[color:var(--dna-line)] bg-[var(--dna-danger-soft)] px-3 py-2 text-[11px] font-bold leading-5 text-[color:var(--dna-danger)]">
           {flags
             .slice(0, 3)
             .map((flag: any) => flag.label || flag.type)
             .join("، ")}
         </div>
       )}
-      <p className="text-[10px] font-black leading-5 text-slate-400">
+      <p className="text-[11px] font-black leading-5 text-[color:var(--dna-muted)]">
         {result.decisionBoundary || MIRAS_LEARNING_DECISION_BOUNDARY_AR}
       </p>
     </div>
@@ -91,7 +92,7 @@ export default function LearningIntelligencePanel({
   const [busy, setBusy] = useState<"" | "tutor" | "summary" | "viva" | "course">("");
   const [error, setError] = useState("");
 
-  const title = mode === "teacher" ? "Learning Intelligence" : "مساعد التعلم";
+  const title = mode === "teacher" ? "ذكاء التعلم" : "مساعد التعلم";
   const subtitle = useMemo(
     () =>
       mode === "teacher"
@@ -141,17 +142,26 @@ export default function LearningIntelligencePanel({
 
   return (
     <section
-      className="miras-learning-intelligence rounded-[1.7rem] border border-indigo-100/75 bg-gradient-to-br from-white via-indigo-50/35 to-emerald-50/25 p-3 text-right shadow-[0_16px_46px_rgba(79,70,229,0.07)] sm:p-4"
+      className="miras-learning-intelligence rounded-[1.7rem] border border-[color:var(--dna-line-2)] bg-[var(--dna-surface)] p-3 text-right shadow-[var(--dna-shadow)] sm:p-4"
       dir="rtl"
     >
       <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <p className="text-[10px] font-black uppercase text-indigo-500">
-            {title}
-          </p>
-          <h3 className="mt-0.5 text-sm font-black text-slate-950">{subtitle}</h3>
+        <div className="flex items-center gap-2.5">
+          <span
+            className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-[var(--dna-accent-soft)] text-[color:var(--dna-accent)]"
+            aria-hidden="true"
+          >
+            <Brain className="h-[18px] w-[18px]" strokeWidth={1.6} />
+          </span>
+          <div>
+            <p className="text-[11px] font-black text-[color:var(--dna-accent)]">
+              {title}
+            </p>
+            <h3 className="mt-0.5 text-sm font-black text-[color:var(--dna-ink)]">{subtitle}</h3>
+          </div>
         </div>
-        <span className="rounded-full border border-white/80 bg-white/80 px-3 py-1 text-[10px] font-black text-slate-500">
+        <span className="inline-flex items-center gap-1 rounded-full border border-[color:var(--dna-line-2)] bg-[var(--dna-surface-2)] px-3 py-1 text-[11px] font-black text-[color:var(--dna-muted)]">
+          <ShieldCheck className="h-3.5 w-3.5" strokeWidth={1.6} aria-hidden="true" />
           مراجعة بشرية
         </span>
       </div>
@@ -166,14 +176,14 @@ export default function LearningIntelligencePanel({
               ? "الصق وصف واجب أو اختر ملخص المقرر..."
               : "اكتب سؤالك أو جزء الواجب الذي تريد فهمه..."
           }
-          className="min-h-[5.5rem] w-full resize-y rounded-2xl border border-slate-200 bg-white/86 px-3 py-2 text-[12px] font-bold leading-6 text-slate-700 outline-none transition focus:border-indigo-300 focus:ring-4 focus:ring-indigo-100"
+          className="min-h-[5.5rem] w-full resize-y rounded-2xl border border-[color:var(--dna-line-2)] bg-[var(--dna-surface)] px-3 py-2 text-[12px] font-bold leading-6 text-[color:var(--dna-ink)] outline-none transition focus:border-[color:var(--dna-accent)] focus:ring-4 focus:ring-[var(--dna-accent-soft)]"
         />
         <textarea
           value={transcript}
           onChange={(event) => setTranscript(event.target.value)}
           rows={2}
           placeholder="نص Viva الصوتي أو ملاحظات الطالب المنطوقة..."
-          className="min-h-[3.8rem] w-full resize-y rounded-2xl border border-slate-200 bg-white/70 px-3 py-2 text-[12px] font-bold leading-6 text-slate-700 outline-none transition focus:border-emerald-300 focus:ring-4 focus:ring-emerald-100"
+          className="min-h-[3.8rem] w-full resize-y rounded-2xl border border-[color:var(--dna-line-2)] bg-[var(--dna-surface)] px-3 py-2 text-[12px] font-bold leading-6 text-[color:var(--dna-ink)] outline-none transition focus:border-[color:var(--dna-accent)] focus:ring-4 focus:ring-[var(--dna-accent-soft)]"
         />
       </div>
 
@@ -184,16 +194,18 @@ export default function LearningIntelligencePanel({
               type="button"
               onClick={() => request("summary")}
               disabled={!!busy}
-              className="rounded-2xl bg-slate-950 px-3 py-2 text-[11px] font-black text-white disabled:opacity-60"
+              className="inline-flex items-center gap-1.5 rounded-2xl bg-[var(--dna-core)] px-3 py-2 text-[11px] font-black text-[color:var(--dna-on-core)] disabled:opacity-60"
             >
+              <GraduationCap className="h-3.5 w-3.5" strokeWidth={1.6} aria-hidden="true" />
               {busy === "summary" ? "..." : "ملخص الأستاذ"}
             </button>
             <button
               type="button"
               onClick={() => request("course")}
               disabled={!!busy}
-              className="rounded-2xl border border-indigo-100 bg-white px-3 py-2 text-[11px] font-black text-indigo-700 disabled:opacity-60"
+              className="inline-flex items-center gap-1.5 rounded-2xl border border-[color:var(--dna-line-2)] bg-[var(--dna-surface)] px-3 py-2 text-[11px] font-black text-[color:var(--dna-accent)] disabled:opacity-60"
             >
+              <BookOpenCheck className="h-3.5 w-3.5" strokeWidth={1.6} aria-hidden="true" />
               فهم المقرر/الواجب
             </button>
           </>
@@ -203,8 +215,9 @@ export default function LearningIntelligencePanel({
             type="button"
             onClick={() => request("tutor")}
             disabled={!!busy}
-            className="rounded-2xl bg-indigo-600 px-3 py-2 text-[11px] font-black text-white disabled:opacity-60"
+            className="inline-flex items-center gap-1.5 rounded-2xl bg-[var(--dna-accent)] px-3 py-2 text-[11px] font-black text-[color:var(--dna-on-accent)] disabled:opacity-60"
           >
+            <MessageCircleQuestion className="h-3.5 w-3.5" strokeWidth={1.6} aria-hidden="true" />
             {busy === "tutor" ? "..." : "اسأل Tutor"}
           </button>
         )}
@@ -212,14 +225,18 @@ export default function LearningIntelligencePanel({
           type="button"
           onClick={() => request("viva")}
           disabled={!!busy}
-          className="rounded-2xl border border-emerald-100 bg-white px-3 py-2 text-[11px] font-black text-emerald-700 disabled:opacity-60"
+          className="inline-flex items-center gap-1.5 rounded-2xl border border-[color:var(--dna-line-2)] bg-[var(--dna-surface)] px-3 py-2 text-[11px] font-black text-[color:var(--dna-accent)] disabled:opacity-60"
         >
+          <Mic className="h-3.5 w-3.5" strokeWidth={1.6} aria-hidden="true" />
           Viva
         </button>
       </div>
 
       {error && (
-        <div className="mt-3 rounded-2xl border border-rose-100 bg-rose-50 px-3 py-2 text-[11px] font-black text-rose-700">
+        <div
+          className="mt-3 flex items-center gap-1.5 rounded-2xl border border-[color:var(--dna-line)] bg-[var(--dna-danger-soft)] px-3 py-2 text-[11px] font-black text-[color:var(--dna-danger)]"
+        >
+          <AlertTriangle className="h-3.5 w-3.5 shrink-0" strokeWidth={1.6} aria-hidden="true" />
           {error}
         </div>
       )}

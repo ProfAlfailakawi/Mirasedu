@@ -15,7 +15,7 @@ import LearningIntelligencePanel from "./src/features/learning-intelligence/Lear
 import LoginRevealOverlay from "./src/components/LoginRevealOverlay";
 import MirasLoader from "./src/components/MirasLoader";
 import { normalizeArabicIndicDigits, stripArabicIndicDigitsFromInput } from "./src/shared/arabic-text";
-import { DnaHubMap, DnaIconTile, DnaStepper, DnaTimeline, type DnaEvent, type DnaStep, type DnaHubNode } from "./src/design/DnaKit";
+import { DnaHubMap, DnaIconTile, DnaStepper, DnaTimeline, DnaHeat, DnaRing, DnaStat, DnaStatusHeader, type DnaEvent, type DnaStep, type DnaHubNode } from "./src/design/DnaKit";
 import { mirasPhoneticWordMatch } from "./src/shared/phonetic-search";
 import {
   allowDemoTransportOrigin,
@@ -293,6 +293,8 @@ import {
   CircleDashed,
   Lightbulb,
   Share,
+  Eye,
+  Info,
 } from "lucide-react";
 
 type MirasLocalVisionMode =
@@ -4896,7 +4898,7 @@ export default function App() {
               <div className="miras-cmdk-empty">
                 {cmdkQuery.trim() ? (
                   <div className="flex flex-col items-center gap-2 py-4 text-center">
-                    <span className="text-3xl opacity-80">🔍</span>
+                    <Search className="h-8 w-8 text-slate-500 opacity-80" strokeWidth={1.6} aria-hidden="true" />
                     <span className="text-[13px] font-bold text-slate-500">
                       لا نتائج لـ «{cmdkQuery}»
                     </span>
@@ -20884,7 +20886,7 @@ ${rows
                 <span className="truncate text-[13px] font-bold text-slate-900">
                   {req.studentName || "طالب غير محدد"}
                 </span>
-                <span className={`shrink-0 rounded-full px-2 py-0.5 text-[9px] font-bold ${passwordResetStatusClass(status)}`}>
+                <span className={`shrink-0 rounded-full px-2 py-0.5 text-[11px] font-bold ${passwordResetStatusClass(status)}`}>
                   {passwordResetStatusLabel(status)}
                 </span>
               </div>
@@ -30374,7 +30376,7 @@ ${rows
                         <span className="mx-auto grid h-7 w-7 place-items-center rounded-full bg-slate-100 font-mono text-[10px] font-bold text-slate-600">
                           {index + 1}
                         </span>
-                        <p className="mt-1.5 text-[9px] font-bold text-slate-500">
+                        <p className="mt-1.5 text-[11px] font-bold text-slate-500">
                           {label}
                         </p>
                       </div>
@@ -31414,7 +31416,7 @@ ${rows
                     <div className="truncate text-[11.5px] font-black leading-tight">
                       {selectedSubmissionDetail.studentName || "طالب"}
                     </div>
-                    <div className="mt-0.5 text-[9px] font-bold text-indigo-400">
+                    <div className="mt-0.5 text-[11px] font-bold text-indigo-400">
                       {selectedSubmissionDetailIndex + 1}/{detailActivitySubmissions.length || 1}
                     </div>
                   </div>
@@ -31607,7 +31609,7 @@ ${rows
                                     ? "محاولة تصغير الشاشة الكاملة"
                                     : c.description || "سلوك مريب"}
                             </span>
-                            <span className="font-mono text-[8px] text-slate-400">{formatKwDateTime(c.timestamp)}</span>
+                            <span className="font-mono text-[11px] text-slate-400">{formatKwDateTime(c.timestamp)}</span>
                           </div>
                         ))}
                       </div>
@@ -31649,7 +31651,7 @@ ${rows
                                 <div className="truncate text-[11px] font-bold text-slate-800">
                                   {mirasCleanAttachmentName(name, "مرفق")}
                                 </div>
-                                <div className="mt-0.5 flex items-center gap-1.5 text-[9px] font-bold text-slate-400">
+                                <div className="mt-0.5 flex items-center gap-1.5 text-[11px] font-bold text-slate-400">
                                   <span>
                                     {isPdf ? "PDF" : isDoc ? "Word" : isPpt ? "PowerPoint" : isXls ? "Excel" : isImage ? "صورة" : "ملف"}
                                   </span>
@@ -31686,7 +31688,7 @@ ${rows
                       {gradeAuditTrailForSubmission(selectedSubmissionDetail).map((audit: any, idx: number) => (
                         <div key={idx} className="flex items-center justify-between rounded-xl bg-white px-3 py-1.5 text-[10px] font-bold text-slate-600 border border-slate-50">
                           <span>الدرجة: {audit.grade} ({audit.changedBy === "teacher" ? "المعلم" : "النظام"})</span>
-                          <span className="font-mono text-[8px] text-slate-400">{formatKwDateTime(audit.timestamp)}</span>
+                          <span className="font-mono text-[11px] text-slate-400">{formatKwDateTime(audit.timestamp)}</span>
                         </div>
                       ))}
                     </div>
@@ -32126,7 +32128,7 @@ ${rows
             className="grid h-8 w-8 shrink-0 place-items-center rounded-xl text-emerald-500 transition hover:bg-emerald-50 hover:text-emerald-700"
             aria-label="إغلاق الرسالة"
           >
-            ✕
+            <X className="h-4 w-4" aria-hidden="true" />
           </button>
         </div>
       )}
@@ -32154,7 +32156,7 @@ ${rows
             className="grid h-8 w-8 shrink-0 place-items-center rounded-xl text-amber-500 transition hover:bg-amber-50 hover:text-amber-700"
             aria-label="إغلاق الرسالة"
           >
-            ✕
+            <X className="h-4 w-4" aria-hidden="true" />
           </button>
         </div>
       )}
@@ -32804,8 +32806,7 @@ ${rows
                 تطابق الرمز الأكاديمي لشعبتك
               </h2>
               <p className="text-slate-500 text-xs mt-2 leading-relaxed">
-                التسجيل في مِراس مغلق ومقفل للمستحقين للدورة فقط. اكتب معرّف
-                شعبتك المخصص للدخول:
+                التسجيل للمستحقين فقط. اكتب معرّف شعبتك:
               </p>
 
               <div className="bg-amber-50/50 border border-amber-100 p-4 rounded-2xl my-5 text-right">
@@ -33083,17 +33084,17 @@ ${rows
                   </div>
                 )}
 
-              <div className="mb-8 grid grid-cols-3 gap-2 text-center text-[10px] font-bold">
-                <div className="rounded-2xl border border-emerald-100 bg-emerald-50 px-2 py-3 text-emerald-700">
-                  غير مستخدم
-                </div>
-                <div className="rounded-2xl border border-indigo-100 bg-indigo-50 px-2 py-3 text-indigo-700">
-                  يربط الحساب
-                </div>
-                <div className="rounded-2xl border border-slate-200 bg-slate-50 px-2 py-3 text-slate-700">
-                  يقفل الجهاز
-                </div>
-              </div>
+              <DnaStepper
+                className="mb-8"
+                size="sm"
+                ariaLabel="مراحل كود الاشتراك"
+                stateText={{ current: "", pending: "", done: "" }}
+                steps={[
+                  { key: "unused", label: "غير مستخدم", state: "current", icon: <Key className="h-4 w-4" /> },
+                  { key: "binds", label: "يربط الحساب", state: "pending", icon: <Link2 className="h-4 w-4" /> },
+                  { key: "locks", label: "يقفل الجهاز", state: "pending", icon: <Lock className="h-4 w-4" /> },
+                ]}
+              />
 
               <div className="space-y-5">
                 {isStudentPrimaryCourseLocked && (
@@ -33158,8 +33159,7 @@ ${rows
                     </button>
                   </div>
                   <p className="text-[11px] text-slate-500 leading-6 mt-2 text-right select-none">
-                    الكود يعمل مرة واحدة فقط، ثم يصبح مملوكاً لهذا الحساب وهذا
-                    الجهاز.
+                    الكود يعمل مرة واحدة فقط.
                   </p>
                 </div>
 
@@ -33171,9 +33171,9 @@ ${rows
                   <span>تفعيل المسار والانضمام الذكي فورا </span>
                 </button>
 
-                <div className="rounded-2xl border border-slate-200 bg-white/80 px-4 py-3 text-right text-[11px] font-bold leading-6 text-slate-500">
-                  إذا فقدت الرمز أو احتجت تبديل الجهاز، تتم المراجعة من لوحة
-                  الأستاذ فقط حتى يبقى الكود مرتبطاً بالكتاب والطالب بشكل آمن.
+                <div className="flex items-center gap-2 rounded-2xl border border-slate-200 bg-white/80 px-4 py-3 text-right text-[11px] font-bold leading-6 text-slate-500">
+                  <Info className="h-4 w-4 shrink-0" aria-hidden="true" />
+                  <span>فقدان الرمز أو تبديل الجهاز: عبر الأستاذ فقط.</span>
                 </div>
               </div>
             </div>
@@ -33679,7 +33679,7 @@ ${rows
                   >
                     <div className="miras-student-identity min-w-0 flex flex-col items-start gap-1 pt-0.5 text-right">
                       <div
-                        className="miras-student-account-pill relative inline-flex shrink-0 cursor-pointer items-center gap-1.5 rounded-full bg-indigo-50 px-2.5 py-0.5 text-[9px] font-bold text-indigo-700 select-none"
+                        className="miras-student-account-pill relative inline-flex shrink-0 cursor-pointer items-center gap-1.5 rounded-full bg-indigo-50 px-2.5 py-0.5 text-[11px] font-bold text-indigo-700 select-none"
                         role="button"
                         tabIndex={0}
                         aria-label="عرض حالة الاتصال"
@@ -33716,7 +33716,7 @@ ${rows
 
                     {sebSessionInfo && (
                       <div className="flex flex-wrap items-center justify-start gap-1.5">
-                        <span className="inline-flex items-center gap-1.5 rounded-full border border-indigo-100 bg-indigo-50/50 px-2.5 py-0.5 text-[9px] font-bold text-indigo-700">
+                        <span className="inline-flex items-center gap-1.5 rounded-full border border-indigo-100 bg-indigo-50/50 px-2.5 py-0.5 text-[11px] font-bold text-indigo-700">
                           <Lock className="h-3 w-3" /> جلسة SEB آمنة لهذا
                           الاختبار فقط
                         </span>
@@ -34374,20 +34374,19 @@ ${rows
                               الأجهزة الموثقة
                             </h3>
                           </div>
-                          <p className="text-xs text-slate-500 leading-relaxed font-normal">
-                            حسابك يعمل على جهاز واحد فقط.
-                          </p>
                         </div>
 
                         <div className="mt-0 flex items-center gap-2">
                           <div className="flex items-center justify-between bg-slate-50/80 px-4 py-3 rounded-2xl border border-slate-200/60 shadow-inner">
-                            <span className="text-[11px] font-semibold text-slate-600">
-                              الأجهزة المستخدمة باسمك:
-                            </span>
-                            <span className="text-xs font-bold text-indigo-700 font-mono">
-                              (
-                              {Math.min(studentSession.devices?.length || 1, 1)}{" "}
-                              / 1) جهاز نشط
+                            <span
+                              className="inline-flex items-center gap-1.5 text-xs font-bold text-indigo-700 font-mono"
+                              dir="ltr"
+                              role="img"
+                              title="حسابك يعمل على جهاز واحد فقط"
+                              aria-label={`حسابك يعمل على جهاز واحد فقط، الأجهزة المستخدمة: ${Math.min(studentSession.devices?.length || 1, 1)} من 1`}
+                            >
+                              <Smartphone className="h-4 w-4" aria-hidden="true" />
+                              {Math.min(studentSession.devices?.length || 1, 1)}/1
                             </span>
                           </div>
                           <div className="text-[10px] bg-indigo-50/30 border border-indigo-100/40 px-3 py-2 rounded-xl text-indigo-800 font-mono text-center">
@@ -34630,19 +34629,12 @@ ${rows
                                     <span className="text-[11px] font-bold text-slate-500">
                                       المكتمل
                                     </span>
-                                    <span className="miras-student-progress-number font-mono text-[1.55rem] font-black leading-none text-slate-950">
-                                      {studentCourseProgressDisplayPercent}
-                                      <span className="text-[0.85rem] font-extrabold text-slate-500">
-                                        %
-                                      </span>
-                                    </span>
-                                  </div>
-                                  <div className="h-2.5 overflow-hidden rounded-full bg-slate-200/70 shadow-inner">
-                                    <div
-                                      className="miras-dna-progress h-full rounded-full bg-indigo-600"
-                                      style={{
-                                        width: `${studentCourseProgressDisplayPercent}%`,
-                                      }}
+                                    <DnaRing
+                                      value={studentCourseProgressDisplayPercent}
+                                      size={58}
+                                      stroke={5}
+                                      tone="indigo"
+                                      ariaLabel={`المكتمل ${studentCourseProgressDisplayPercent}%`}
                                     />
                                   </div>
                                   {(() => {
@@ -35757,9 +35749,7 @@ ${rows
                                           // (نسبة/سرعة/متبقٍ) — الزر يكتفي بنبضه الهادئ،
                                           // فلا يتكرر العدّاد في مكانين (كان ضجيجاً بصرياً).
                                           uploadProgress >= 100 ? (
-                                            <span className="animate-pulse text-[17px]" aria-hidden>
-                                              ☁️
-                                            </span>
+                                            <Cloud className="h-[17px] w-[17px] animate-pulse" aria-hidden="true" />
                                           ) : (
                                             <MirasLoader size={20} role="current" label="جارٍ التنفيذ…" />
                                           )
@@ -35973,7 +35963,12 @@ ${rows
                           ? "جارٍ إعادة المزامنة…"
                           : teacherCloudSyncing
                             ? "جارٍ تحميل بياناتك من السحابة…"
-                            : "متصل بالسحابة ✓"}
+                            : (
+                                <span className="inline-flex items-center gap-1">
+                                  <Check className="h-3 w-3" aria-hidden="true" />
+                                  متصل بالسحابة
+                                </span>
+                              )}
                     </div>
                   )}
                 </div>
@@ -36106,9 +36101,9 @@ ${rows
                     <button key={`m-${item.key}`} type="button" onClick={(e) => { e.preventDefault(); e.stopPropagation(); (e.nativeEvent as any)?.stopImmediatePropagation?.(); try { item.action?.(); } catch {} setTeacherSmartSearchOpen(false); }} className="flex w-full items-center justify-between gap-2 rounded-2xl px-3 py-2 text-right hover:bg-slate-50">
                       <span className="min-w-0 flex-1">
                         <span className="block truncate text-[11px] font-bold text-slate-900">{item.title}</span>
-                        <span className="block truncate text-[9px] font-medium text-slate-400">{item.type} • {item.meta}</span>
+                        <span className="block truncate text-[11px] font-medium text-slate-400">{item.type} • {item.meta}</span>
                       </span>
-                      <span className="rounded-full bg-slate-900 px-2 py-0.5 text-[8.5px] font-bold text-white">{item.actionLabel}</span>
+                      <span className="rounded-full bg-slate-900 px-2 py-0.5 text-[11px] font-bold text-white">{item.actionLabel}</span>
                     </button>
                   ))}
                 </div>
@@ -36197,12 +36192,17 @@ ${rows
                                 ? "جارٍ إعادة المزامنة…"
                                 : teacherCloudSyncing
                                   ? "جارٍ تحميل بياناتك من السحابة…"
-                                  : "متصل بالسحابة ✓"}
+                                  : (
+                                    <span className="inline-flex items-center gap-1">
+                                      <Check className="h-3 w-3" aria-hidden="true" />
+                                      متصل بالسحابة
+                                    </span>
+                                  )}
                           </span>
                         )}
                       </div>
                       {teacherSession?.publicDeviceSession && (
-                        <span className="-mt-2 mb-3 inline-flex items-center gap-1.5 self-end whitespace-nowrap rounded-full border border-indigo-100 bg-indigo-50/70 px-2.5 py-1 text-[9.5px] font-black text-indigo-600 shadow-sm">
+                        <span className="-mt-2 mb-3 inline-flex items-center gap-1.5 self-end whitespace-nowrap rounded-full border border-indigo-100 bg-indigo-50/70 px-2.5 py-1 text-[11px] font-black text-indigo-600 shadow-sm">
                           <Laptop className="h-3 w-3 shrink-0" />
                           جهاز عام · جلسة مؤقتة
                         </span>
@@ -36273,13 +36273,13 @@ ${rows
                                 className="flex w-full items-center justify-between gap-3 rounded-2xl px-3 py-2.5 text-right transition hover:bg-slate-50"
                               >
                                 <div className="min-w-0 flex-1">
-                                  <div className="flex items-center gap-2"><span className="rounded-full bg-indigo-50 px-2 py-0.5 text-[8.5px] font-bold text-indigo-700">{item.type}</span><span className="truncate text-[11px] font-bold text-slate-900">{item.title}</span></div>
-                                  <p className="mt-1 truncate text-[9.5px] font-medium text-slate-500">{item.meta}</p>
+                                  <div className="flex items-center gap-2"><span className="rounded-full bg-indigo-50 px-2 py-0.5 text-[11px] font-bold text-indigo-700">{item.type}</span><span className="truncate text-[11px] font-bold text-slate-900">{item.title}</span></div>
+                                  <p className="mt-1 truncate text-[11px] font-medium text-slate-500">{item.meta}</p>
                                   {item.extra && (
-                                    <p className="mt-0.5 truncate text-[9px] font-medium text-slate-400">{item.extra}</p>
+                                    <p className="mt-0.5 truncate text-[11px] font-medium text-slate-400">{item.extra}</p>
                                   )}
                                 </div>
-                                <span className={`shrink-0 rounded-full px-2.5 py-1 text-[8.5px] font-bold text-white ${item.actionTone === "emerald" ? "bg-emerald-600" : item.actionTone === "blue" ? "bg-blue-600" : item.actionTone === "amber" ? "bg-amber-500" : item.actionTone === "indigo" ? "bg-indigo-600" : "bg-slate-900"}`}>{item.actionLabel}</span>
+                                <span className={`shrink-0 rounded-full px-2.5 py-1 text-[11px] font-bold text-white ${item.actionTone === "emerald" ? "bg-emerald-600" : item.actionTone === "blue" ? "bg-blue-600" : item.actionTone === "amber" ? "bg-amber-500" : item.actionTone === "indigo" ? "bg-indigo-600" : "bg-slate-900"}`}>{item.actionLabel}</span>
                               </button>
                             ))}
                           </div>
@@ -36690,7 +36690,7 @@ ${rows
                               </div>
                               {/* مفتاح الحالات: ثابت فوق الشبكة ومحاذى لليمين
                                   حتى يبقى مرجعاً ظاهراً مهما كثر عدد الطلبة. */}
-                              <div className="mb-2 flex flex-wrap justify-start gap-1.5 rounded-xl border border-slate-100 bg-slate-50/70 px-2 py-1.5 text-[9px] font-bold text-slate-600">
+                              <div className="mb-2 flex flex-wrap justify-start gap-1.5 rounded-xl border border-slate-100 bg-slate-50/70 px-2 py-1.5 text-[11px] font-bold text-slate-600">
                                 <span className="inline-flex items-center gap-1">
                                   <i className="h-2 w-2 rounded-full !p-0 bg-emerald-500" />{" "}
                                   يحل
@@ -37065,11 +37065,11 @@ ${rows
                               <h3 className="text-[13px] font-bold leading-5 text-slate-900 sm:text-sm">
                                 رادار قاعة الاختبار الحي
                               </h3>
-                              <span className="rounded-full border border-slate-100 bg-slate-50 px-2.5 py-1 text-[9px] font-bold text-slate-400">
+                              <span className="rounded-full border border-slate-100 bg-slate-50 px-2.5 py-1 text-[11px] font-bold text-slate-400">
                                 {filteredDrilledSubmissions.length} طالب
                               </span>
                             </div>
-                            <div className="-mx-1 flex gap-1.5 overflow-x-auto px-1 pb-1 text-[9px] font-bold [scrollbar-width:none] [&::-webkit-scrollbar]:hidden sm:mx-0 sm:flex-wrap sm:overflow-visible sm:px-0 sm:pb-0">
+                            <div className="-mx-1 flex gap-1.5 overflow-x-auto px-1 pb-1 text-[11px] font-bold [scrollbar-width:none] [&::-webkit-scrollbar]:hidden sm:mx-0 sm:flex-wrap sm:overflow-visible sm:px-0 sm:pb-0">
                               <button
                                 type="button"
                                 onClick={() => {
@@ -37133,7 +37133,7 @@ ${rows
                                       {sub.studentName || "طالب"}
                                     </span>
                                     <span
-                                      className={`block text-[9px] font-bold ${radar.text} mt-0.5`}
+                                      className={`block text-[11px] font-bold ${radar.text} mt-0.5`}
                                     >
                                       {radar.label}
                                     </span>
@@ -37244,19 +37244,19 @@ ${rows
                                     <span className="block break-words leading-snug">
                                       {sub.studentName}
                                     </span>
-                                    <span className="block font-mono text-[9.5px] font-medium text-slate-400 mt-0.5 truncate">
+                                    <span className="block font-mono text-[11px] font-medium text-slate-400 mt-0.5 truncate">
                                       {sub.studentId}
                                     </span>
                                   </div>
                                 </div>
                                 <div className="flex items-center gap-1.5">
                                   <span
-                                    className={`rounded-full px-2 py-1 text-[9px] font-bold ${isTeacherReturnedSubmission(sub) ? "bg-indigo-50 text-indigo-700" : isExamInProgressSubmission(sub) ? "bg-amber-50 text-amber-700" : sub?.teacherGradeOverride ? "bg-emerald-50 text-emerald-700" : isCheatingAttemptSubmission(sub) ? "bg-red-100 text-red-800" : isWithdrawnSubmission(sub) ? "bg-rose-50 text-rose-700" : teacherVisibleGradeText(sub) || isSubmissionGradeOfficiallyRecorded(sub) || isTimeExpiredRecordedSubmission(sub) ? "bg-emerald-50 text-emerald-700" : "bg-slate-50 text-slate-600"}`}
+                                    className={`rounded-full px-2 py-1 text-[11px] font-bold ${isTeacherReturnedSubmission(sub) ? "bg-indigo-50 text-indigo-700" : isExamInProgressSubmission(sub) ? "bg-amber-50 text-amber-700" : sub?.teacherGradeOverride ? "bg-emerald-50 text-emerald-700" : isCheatingAttemptSubmission(sub) ? "bg-red-100 text-red-800" : isWithdrawnSubmission(sub) ? "bg-rose-50 text-rose-700" : teacherVisibleGradeText(sub) || isSubmissionGradeOfficiallyRecorded(sub) || isTimeExpiredRecordedSubmission(sub) ? "bg-emerald-50 text-emerald-700" : "bg-slate-50 text-slate-600"}`}
                                   >
                                     {teacherSubmissionBadgeText(sub)}
                                   </span>
                                   {shouldDisplaySubmittedLate(sub) && (
-                                    <span className="rounded-full bg-amber-50 px-2 py-1 text-[9px] font-bold text-amber-700 border border-amber-100">
+                                    <span className="rounded-full bg-amber-50 px-2 py-1 text-[11px] font-bold text-amber-700 border border-amber-100">
                                       متأخر
                                     </span>
                                   )}
@@ -37286,12 +37286,13 @@ ${rows
                                 </div>
                               </div>
                               {sub?.exitWasOffline && (
-                                <p className="mt-1.5 text-[9px] font-bold text-amber-600">
-                                  ⚠️ كان الجهاز غير متصل بالإنترنت لحظة الخروج
+                                <p className="mt-1.5 flex items-center gap-1 text-[11px] font-bold text-amber-600">
+                                  <AlertTriangle className="h-3 w-3 shrink-0" aria-hidden="true" />
+                                  كان الجهاز غير متصل بالإنترنت لحظة الخروج
                                 </p>
                               )}
                               {false && (
-                                <div className="mt-2 inline-flex rounded-full border border-emerald-100 bg-emerald-50 px-2 py-0.5 text-[8.5px] font-black text-emerald-700">
+                                <div className="mt-2 inline-flex rounded-full border border-emerald-100 bg-emerald-50 px-2 py-0.5 text-[11px] font-black text-emerald-700">
                                   بصمة عدالة: {sub.originalGrade || "—"} /{" "}
                                   {sub.reviewedGrade ||
                                     teacherGradeInputValue(sub) ||
@@ -37407,8 +37408,9 @@ ${rows
                                       </span>
                                     )}
                                     {sub?.exitWasOffline && (
-                                      <span className="mt-1 block text-[9px] font-bold text-amber-600">
-                                        ⚠️ كان الجهاز غير متصل بالإنترنت لحظة
+                                      <span className="mt-1 flex items-center gap-1 text-[11px] font-bold text-amber-600">
+                                        <AlertTriangle className="h-3 w-3 shrink-0" aria-hidden="true" />
+                                        كان الجهاز غير متصل بالإنترنت لحظة
                                         الخروج
                                       </span>
                                     )}
@@ -37416,7 +37418,7 @@ ${rows
                                       sub?.reviewedGrade ||
                                       gradeAuditTrailForSubmission(sub).length >
                                         0) && (
-                                      <span className="mt-1 inline-flex rounded-full border border-emerald-100 bg-emerald-50 px-2 py-0.5 text-[8.5px] font-black text-emerald-700">
+                                      <span className="mt-1 inline-flex rounded-full border border-emerald-100 bg-emerald-50 px-2 py-0.5 text-[11px] font-black text-emerald-700">
                                         أصلية {sub.originalGrade || "—"} /
                                         مراجعة{" "}
                                         {sub.reviewedGrade ||
@@ -37648,7 +37650,7 @@ ${rows
                                   <details className="group rounded-[var(--miras-r-lg)] border border-white bg-white/80 shadow-sm">
                                     <summary className="flex cursor-pointer list-none items-center justify-between gap-2 px-3 py-2.5 text-[10.5px] font-medium text-slate-600 marker:hidden">
                                       <span>سجل المحاولة والنزاهة</span>
-                                      <span className="font-mono text-[9px] font-normal text-slate-400">
+                                      <span className="font-mono text-[11px] font-normal text-slate-400">
                                         {submissionReviewEvents(selectedSubmissionDetail).length}
                                       </span>
                                     </summary>
@@ -37663,10 +37665,10 @@ ${rows
                                           <span
                                             className={`mt-1.5 h-1.5 w-1.5 rounded-full ${event.tone || "bg-slate-300"}`}
                                           />
-                                          <span className="min-w-0 text-right text-[9.5px] font-normal leading-5 text-slate-600">
+                                          <span className="min-w-0 text-right text-[11px] font-normal leading-5 text-slate-600">
                                             {event.label}
                                           </span>
-                                          <span className="whitespace-nowrap font-mono text-[8.5px] font-normal text-slate-400">
+                                          <span className="whitespace-nowrap font-mono text-[11px] font-normal text-slate-400">
                                             {formatKwDateTime(event.at)}
                                           </span>
                                         </div>
@@ -37674,7 +37676,7 @@ ${rows
                                       {submissionReviewEvents(
                                         selectedSubmissionDetail,
                                       ).length === 0 && (
-                                        <p className="py-2 text-center text-[9.5px] font-normal text-slate-400">
+                                        <p className="py-2 text-center text-[11px] font-normal text-slate-400">
                                           لا توجد أحداث مسجلة.
                                         </p>
                                       )}
@@ -37719,7 +37721,7 @@ ${rows
                                             <span>
                                               {audit.changedBy || "الأستاذ"}
                                             </span>
-                                            <span className="block font-mono text-[9px] text-slate-400">
+                                            <span className="block font-mono text-[11px] text-slate-400">
                                               {formatKwDateTime(
                                                 audit.changedAt,
                                               )}
@@ -37961,7 +37963,7 @@ ${rows
                                   key={label}
                                   className="flex min-h-[3.45rem] flex-col justify-center rounded-[var(--miras-r-md)] border border-slate-100 bg-slate-50/80 px-2.5 py-2 shadow-sm sm:min-h-[3.75rem] sm:rounded-[var(--miras-r-md)]"
                                 >
-                                  <span className="block text-[8px] font-black text-slate-400 sm:text-[8.5px]">
+                                  <span className="block text-[11px] font-black text-slate-400 sm:text-[11px]">
                                     {label}
                                   </span>
                                   <span className="mt-0.5 block break-words text-[10.5px] font-black leading-5 text-slate-800 sm:text-[11px]">
@@ -38270,7 +38272,7 @@ ${rows
                                       )}
                                     </div>
                                   )}
-                                  <p className="text-[9px] text-indigo-500 font-bold">
+                                  <p className="text-[11px] text-indigo-500 font-bold">
                                     الجواب المقرون: {q.correctAnswer}
                                   </p>
                                 </div>
@@ -38847,7 +38849,7 @@ ${rows
                                   الطلاب العالقون
                                 </span>
                                 <span className="flex items-center gap-2">
-                                  <span className="rounded-full bg-slate-50 px-2.5 py-0.5 text-[9px] font-bold text-slate-500">
+                                  <span className="rounded-full bg-slate-50 px-2.5 py-0.5 text-[11px] font-bold text-slate-500">
                                     {stuckStudentGroups.length} طالب /{" "}
                                     {stuckStudentRows.length} سجل
                                   </span>
@@ -39809,7 +39811,7 @@ ${rows
                                             <FolderTree className="inline h-4 w-4 ml-2" />{" "}
                                             {c.title}
                                             {selectedChapIdForAI === c.id && (
-                                              <span className="mr-2 rounded-full bg-indigo-600 px-2 py-0.5 text-[9px] font-bold text-white">
+                                              <span className="mr-2 rounded-full bg-indigo-600 px-2 py-0.5 text-[11px] font-bold text-white">
                                                 محدد
                                               </span>
                                             )}
@@ -40072,7 +40074,7 @@ ${rows
                                                 <h4 className="text-xs font-bold text-slate-800">
                                                   الإجابة / الخيارات
                                                 </h4>
-                                                <span className="rounded-full bg-white px-2.5 py-0.5 text-[9px] font-bold text-slate-500 shadow-sm">
+                                                <span className="rounded-full bg-white px-2.5 py-0.5 text-[11px] font-bold text-slate-500 shadow-sm">
                                                   اختر الإجابة الصحيحة ثم عدّل
                                                   النص
                                                 </span>
@@ -40108,7 +40110,7 @@ ${rows
                                                             )
                                                           }
                                                         />
-                                                        <span className="shrink-0 rounded-full bg-slate-100 px-2.5 py-0.5 text-[9px] font-bold text-slate-500">
+                                                        <span className="shrink-0 rounded-full bg-slate-100 px-2.5 py-0.5 text-[11px] font-bold text-slate-500">
                                                           الخيار {idx + 1}
                                                         </span>
                                                         <input
@@ -40522,7 +40524,7 @@ ${rows
                           <div className="rounded-[var(--miras-r-lg)] border border-indigo-100 bg-white p-3 text-slate-900 shadow-sm sm:rounded-[var(--miras-r-xl)] sm:p-5">
                             <div className="flex flex-col gap-3 sm:gap-4 lg:flex-row lg:items-center lg:justify-between">
                               <div className="max-w-2xl">
-                                <div className="mb-2 inline-flex items-center gap-2 rounded-full bg-indigo-50 px-2 py-0.5 text-[8.5px] font-black text-indigo-700 sm:mb-3 sm:px-3 sm:text-[10px]">
+                                <div className="mb-2 inline-flex items-center gap-2 rounded-full bg-indigo-50 px-2 py-0.5 text-[11px] font-black text-indigo-700 sm:mb-3 sm:px-3 sm:text-[11px]">
                                   <ShieldAlert className="h-3.5 w-3.5" strokeWidth={1.75} />
                                   لوحة قرار مختصرة
                                 </div>
@@ -40530,57 +40532,33 @@ ${rows
                                   مركز المتابعة
                                 </h2>
                               </div>
-                              <div className="grid min-w-full grid-cols-2 gap-2 text-center text-[9px] font-bold sm:min-w-[34rem] sm:text-[10px] sm:grid-cols-4">
-                                <div className="rounded-xl border border-slate-100 bg-slate-50 p-2 sm:rounded-2xl sm:p-3">
-                                  <span className="block text-slate-600">
-                                    إجراء مطلوب
-                                  </span>
-                                  <b className="mt-1 block font-mono text-xl text-slate-900 sm:text-2xl">
-                                    {totalActionCount}
-                                  </b>
-                                </div>
-                                <div className="rounded-xl border border-slate-100 bg-slate-50 p-2 sm:rounded-2xl sm:p-3">
-                                  <span className="block text-slate-600">
-                                    أكواد
-                                  </span>
-                                  <b className="mt-1 block font-mono text-xl text-indigo-700 sm:text-2xl">
-                                    {codeActionCount}
-                                  </b>
-                                </div>
-                                <div className="rounded-xl border border-slate-100 bg-slate-50 p-2 sm:rounded-2xl sm:p-3">
-                                  <span className="block text-slate-600">
-                                    طلبة
-                                  </span>
-                                  <b className="mt-1 block font-mono text-xl text-amber-700 sm:text-2xl">
-                                    {studentActionCount}
-                                  </b>
-                                </div>
-                                <div className="rounded-xl border border-slate-100 bg-slate-50 p-2 sm:rounded-2xl sm:p-3">
-                                  <span className="block text-slate-600">
-                                    دفعات
-                                  </span>
-                                  <b className="mt-1 block font-mono text-xl text-emerald-700 sm:text-2xl">
-                                    {/* العدّاد للمشرف فقط؛ وفي الصندوق التجريبي تُحسب القيمة من بياناته
-                                        المعزولة وحدها (لا حساب حقيقي يصلها) فتُعرض للعارض أيضًا. */}
-                                    {isAdminTeacher || demoActive
-                                      ? Number(
-                                          academicIntegritySummary.batchWatch ||
-                                            0,
-                                        ) +
-                                        Number(
-                                          academicIntegritySummary.batchDanger ||
-                                            0,
-                                        )
-                                      : "—"}
-                                  </b>
-                                </div>
+                              <div className="grid min-w-full grid-cols-2 gap-2 sm:min-w-[34rem] sm:grid-cols-4">
+                                <DnaStat icon={<ClipboardList size={16} />} tone="slate" label="إجراء مطلوب" value={totalActionCount} />
+                                <DnaStat icon={<KeyRound size={16} />} tone="indigo" label="أكواد" value={codeActionCount} />
+                                <DnaStat icon={<Users size={16} />} tone="amber" label="طلبة" value={studentActionCount} />
+                                <DnaStat
+                                  icon={<Layers size={16} />}
+                                  tone="mint"
+                                  label="دفعات"
+                                  value={
+                                    /* العدّاد للمشرف فقط؛ وفي الصندوق التجريبي تُحسب القيمة من بياناته
+                                        المعزولة وحدها (لا حساب حقيقي يصلها) فتُعرض للعارض أيضًا. */
+                                    isAdminTeacher || demoActive
+                                      ? Number(academicIntegritySummary.batchWatch || 0) +
+                                        Number(academicIntegritySummary.batchDanger || 0)
+                                      : "—"
+                                  }
+                                />
                               </div>
                             </div>
-                            <div
-                              className={`mt-3 rounded-2xl border px-3 py-2 text-[11px] font-bold leading-5 sm:mt-4 sm:rounded-3xl sm:px-4 sm:py-3 sm:text-xs sm:leading-6 ${calmState ? "border-emerald-100 bg-emerald-50 text-emerald-800" : "border-amber-100 bg-amber-50 text-amber-800"}`}
-                            >
-                              {recommendationText}
-                            </div>
+                            <DnaStatusHeader
+                              as="div"
+                              className="mt-3 sm:mt-4"
+                              icon={calmState ? <ShieldCheck size={18} /> : <ShieldAlert size={18} />}
+                              tone={calmState ? "mint" : "amber"}
+                              headingLevel={4}
+                              title={recommendationText}
+                            />
                           </div>
                         );
                       })()}
@@ -40746,7 +40724,7 @@ ${rows
                                       <b className="mt-2 block font-mono text-2xl leading-none">
                                         {metric.value}
                                       </b>
-                                      <span className="mt-1 block text-[9.5px] font-black">
+                                      <span className="mt-1 block text-[11px] font-black">
                                         {metric.label}
                                       </span>
                                     </div>
@@ -40760,7 +40738,7 @@ ${rows
                                     تحتاج مراجعة الإدارة
                                   </span>
                                   <span
-                                    className={`rounded-full px-2.5 py-1 text-[9.5px] font-black ${
+                                    className={`rounded-full px-2.5 py-1 text-[11px] font-black ${
                                       superAdminCodeSecurityDesk.queue.length
                                         ? "bg-amber-50 text-amber-700"
                                         : "bg-emerald-50 text-emerald-700"
@@ -40991,7 +40969,7 @@ ${rows
                                             >
                                               {Number(ring.value || 0)}
                                             </span>
-                                            <span className="text-[9px] font-bold text-slate-300">
+                                            <span className="text-[11px] font-bold text-slate-300">
                                               {ring.label}
                                             </span>
                                           </div>
@@ -41004,7 +40982,7 @@ ${rows
                                             />
                                           ))}
                                       </div>
-                                      <div className="mt-4 grid grid-cols-5 gap-1.5 text-center text-[9px] font-bold text-slate-300">
+                                      <div className="mt-4 grid grid-cols-5 gap-1.5 text-center text-[11px] font-bold text-slate-300">
                                         <span
                                           title="أكواد نشطة"
                                           className="rounded-full bg-white/8 px-2 py-1"
@@ -41138,7 +41116,7 @@ ${rows
                                               <span
                                                 className={`mx-auto mb-2 block h-2.5 w-2.5 rounded-full ${ev.tone === "rose" ? "bg-rose-500" : ev.tone === "emerald" ? "bg-emerald-500" : ev.tone === "violet" ? "bg-violet-500" : "bg-indigo-500"}`}
                                               />
-                                              <span className="block whitespace-normal break-words text-[9px] font-bold leading-5">
+                                              <span className="block whitespace-normal break-words text-[11px] font-bold leading-5">
                                                 {ev.compactLabel}
                                                 {ev.count > 1
                                                   ? ` ×${ev.count}`
@@ -41269,7 +41247,7 @@ ${rows
                                           <span className="text-lg font-black leading-none">
                                             {it.n}
                                           </span>
-                                          <span className="text-[8.5px] font-black leading-tight opacity-75">
+                                          <span className="text-[11px] font-black leading-tight opacity-75">
                                             {it.label}
                                           </span>
                                         </div>
@@ -41386,7 +41364,7 @@ ${rows
                                             <span className="text-xl font-black leading-none">
                                               {item.n}
                                             </span>
-                                            <span className="text-[9px] font-bold leading-tight opacity-75">
+                                            <span className="text-[11px] font-bold leading-tight opacity-75">
                                               {item.label}
                                             </span>
                                           </div>
@@ -41670,7 +41648,7 @@ ${rows
                                             {report.title}
                                           </b>
                                           <span
-                                            className={`inline-flex shrink-0 items-center justify-center whitespace-nowrap rounded-full px-2 py-0.5 text-[8.5px] font-black leading-none ${report.priority === "عالية" ? "bg-rose-50 text-rose-700" : report.priority === "متوسطة" ? "bg-amber-50 text-amber-700" : "bg-emerald-50 text-emerald-700"}`}
+                                            className={`inline-flex shrink-0 items-center justify-center whitespace-nowrap rounded-full px-2 py-0.5 text-[11px] font-black leading-none ${report.priority === "عالية" ? "bg-rose-50 text-rose-700" : report.priority === "متوسطة" ? "bg-amber-50 text-amber-700" : "bg-emerald-50 text-emerald-700"}`}
                                           >
                                             {report.priority || "متابعة"}
                                           </span>
@@ -41957,18 +41935,21 @@ ${rows
                                                           والدفعات
                                                         </p>
                                                       </div>
-                                                      <div className="flex flex-wrap gap-2 text-[10px] font-bold">
-                                                        <span className="rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-emerald-700">
+                                                      <div className="flex flex-wrap gap-2 text-[11px] font-bold">
+                                                        <span className="inline-flex items-center gap-1 rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-emerald-700">
+                                                          <ShieldCheck size={12} aria-hidden="true" />
                                                           آمنة:{" "}
                                                           {codeIntegrity.heatmap
                                                             ?.safeBatches || 0}
                                                         </span>
-                                                        <span className="rounded-full border border-amber-200 bg-amber-50 px-3 py-1 text-amber-700">
+                                                        <span className="inline-flex items-center gap-1 rounded-full border border-amber-200 bg-amber-50 px-3 py-1 text-amber-700">
+                                                          <Eye size={12} aria-hidden="true" />
                                                           مراقبة:{" "}
                                                           {codeIntegrity.heatmap
                                                             ?.watchBatches || 0}
                                                         </span>
-                                                        <span className="rounded-full border border-rose-200 bg-rose-50 px-3 py-1 text-rose-700">
+                                                        <span className="inline-flex items-center gap-1 rounded-full border border-rose-200 bg-rose-50 px-3 py-1 text-rose-700">
+                                                          <ShieldAlert size={12} aria-hidden="true" />
                                                           عالية الخطورة:{" "}
                                                           {codeIntegrity.heatmap
                                                             ?.dangerBatches ||
@@ -41976,57 +41957,27 @@ ${rows
                                                         </span>
                                                       </div>
                                                     </div>
-                                                    <div className="grid grid-cols-2 gap-3 lg:grid-cols-3 xl:grid-cols-5">
-                                                      <div className="rounded-[var(--miras-r-lg)] border border-amber-100 bg-gradient-to-b from-amber-50 to-white p-4 text-center miras-shadow-1">
-                                                        <b className="block text-[2rem] leading-none font-black text-amber-700">
-                                                          {
-                                                            academicIntegritySummary.batchWatch
-                                                          }
-                                                        </b>
-                                                        <span className="mt-2 block text-[11px] font-extrabold text-slate-600">
-                                                          دفعات مراقبة
-                                                        </span>
+                                                    {(codeIntegrity.batchIntelligence || []).length > 0 && (
+                                                      <div className="mb-4">
+                                                        <DnaHeat
+                                                          cells={(codeIntegrity.batchIntelligence || []).slice(0, 60).map((b: any, i: number) => ({
+                                                            key: `${b.batchId || "batch"}-${i}`,
+                                                            value: Number(b.score || 0),
+                                                            label: `${b.batchId || ""} — ${b.level || ""} (${Number(b.score || 0)})`,
+                                                          }))}
+                                                          max={100}
+                                                          columns={Math.min(12, Math.max(4, Math.min((codeIntegrity.batchIntelligence || []).length, 60)))}
+                                                          tone="danger"
+                                                          ariaLabel="خريطة حرارة الدفعات حسب درجة الخطورة"
+                                                        />
                                                       </div>
-                                                      <div className="rounded-[var(--miras-r-lg)] border border-rose-100 bg-gradient-to-b from-rose-50 to-white p-4 text-center miras-shadow-1">
-                                                        <b className="block text-[2rem] leading-none font-black text-rose-700">
-                                                          {
-                                                            academicIntegritySummary.batchDanger
-                                                          }
-                                                        </b>
-                                                        <span className="mt-2 block text-[11px] font-extrabold text-slate-600">
-                                                          دفعات عالية
-                                                        </span>
-                                                      </div>
-                                                      <div className="rounded-[var(--miras-r-lg)] border border-slate-200 bg-gradient-to-b from-slate-50 to-white p-4 text-center miras-shadow-1">
-                                                        <b className="block text-[2rem] leading-none font-black text-slate-800">
-                                                          {
-                                                            academicIntegritySummary.cases
-                                                          }
-                                                        </b>
-                                                        <span className="mt-2 block text-[11px] font-extrabold text-slate-600">
-                                                          ملفات مراجعة
-                                                        </span>
-                                                      </div>
-                                                      <div className="rounded-[var(--miras-r-lg)] border border-violet-100 bg-gradient-to-b from-violet-50 to-white p-4 text-center miras-shadow-1">
-                                                        <b className="block text-[2rem] leading-none font-black text-violet-700">
-                                                          {
-                                                            academicIntegritySummary.collective
-                                                          }
-                                                        </b>
-                                                        <span className="mt-2 block text-[11px] font-extrabold text-slate-600">
-                                                          نقل جماعي
-                                                        </span>
-                                                      </div>
-                                                      <div className="rounded-[var(--miras-r-lg)] border border-emerald-100 bg-gradient-to-b from-emerald-50 to-white p-4 text-center miras-shadow-1">
-                                                        <b className="block text-[2rem] leading-none font-black text-emerald-700">
-                                                          {
-                                                            academicIntegritySummary.secondStep
-                                                          }
-                                                        </b>
-                                                        <span className="mt-2 block text-[11px] font-extrabold text-slate-600">
-                                                          تحقق احتياطي
-                                                        </span>
-                                                      </div>
+                                                    )}
+                                                    <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 xl:grid-cols-5">
+                                                      <DnaStat icon={<Eye size={16} />} tone="amber" label="دفعات مراقبة" value={academicIntegritySummary.batchWatch} />
+                                                      <DnaStat icon={<ShieldAlert size={16} />} tone="danger" label="دفعات عالية" value={academicIntegritySummary.batchDanger} />
+                                                      <DnaStat icon={<ClipboardList size={16} />} tone="slate" label="ملفات مراجعة" value={academicIntegritySummary.cases} />
+                                                      <DnaStat icon={<Users size={16} />} tone="lilac" label="نقل جماعي" value={academicIntegritySummary.collective} />
+                                                      <DnaStat icon={<ShieldCheck size={16} />} tone="mint" label="تحقق احتياطي" value={academicIntegritySummary.secondStep} />
                                                     </div>
                                                   </div>
                                                 </div>
@@ -43077,7 +43028,7 @@ ${rows
                                       <Trash2 className="h-4 w-4" />
                                     </button>
                                   </div>
-                                  <p className="mt-2 truncate font-mono text-[9px] text-slate-400">
+                                  <p className="mt-2 truncate font-mono text-[11px] text-slate-400">
                                     {device.deviceLabel ||
                                       device.deviceType ||
                                       "Passkey"}
@@ -43673,7 +43624,7 @@ ${rows
                                                                             <div className="w-full">
                                                                               <div className="flex items-center gap-2 flex-wrap mb-1 pb-1 border-b border-black/5">
                                                                                 <span
-                                                                                  className={`font-black px-1.5 py-0.5 rounded text-[9px] bg-white border border-slate-200 shadow-sm ${style.text}`}
+                                                                                  className={`font-black px-1.5 py-0.5 rounded text-[11px] bg-white border border-slate-200 shadow-sm ${style.text}`}
                                                                                 >
                                                                                   {sanitizeCourseIdentifiersForDisplay(
                                                                                     logActionLabel(log.action),
@@ -43690,7 +43641,7 @@ ${rows
                                                                                   log.details,
                                                                                 )}
                                                                               </p>
-                                                                              <div className="text-[9px] text-slate-400 font-mono mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1">
+                                                                              <div className="text-[11px] text-slate-400 font-mono mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1">
                                                                                 <span>
                                                                                   IP:{" "}
                                                                                   {
@@ -44113,12 +44064,12 @@ ${rows
                                         </div>
                                       </div>
                                       <div className="flex shrink-0 flex-col items-end gap-1">
-                                        <span className="rounded-full bg-white/85 px-2 py-0.5 text-[8.5px] shadow-sm">
+                                        <span className="rounded-full bg-white/85 px-2 py-0.5 text-[11px] shadow-sm">
                                           {group.items.length === 1
                                             ? "سجل واحد"
                                             : `${group.items.length} سجلات`}
                                         </span>
-                                        <span className="rounded-full bg-white/60 px-2.5 py-0.5 text-[9px] shadow-sm">
+                                        <span className="rounded-full bg-white/60 px-2.5 py-0.5 text-[11px] shadow-sm">
                                           {Array.from(group.labels).join(" + ")}
                                         </span>
                                       </div>
@@ -44129,13 +44080,13 @@ ${rows
                                           key={row.id}
                                           className="flex items-center justify-between gap-2 rounded-2xl bg-white/65 px-3 py-2 shadow-sm"
                                         >
-                                          <span className="shrink-0 rounded-full bg-white px-2 py-0.5 text-[9px] shadow-sm">
+                                          <span className="shrink-0 rounded-full bg-white px-2 py-0.5 text-[11px] shadow-sm">
                                             {row.label}
                                           </span>
                                           <span className="min-w-0 truncate font-mono text-[10px] opacity-80">
                                             {row.meta}
                                           </span>
-                                          <span className="shrink-0 text-[9px] opacity-70">
+                                          <span className="shrink-0 text-[11px] opacity-70">
                                             {row.createdAt
                                               ? formatKwDateTime(row.createdAt)
                                               : "وقت غير مسجل"}
@@ -44302,7 +44253,7 @@ ${rows
                                         <span className="text-[11px] font-bold text-indigo-900">
                                           آخر رموز عامة مولدة
                                         </span>
-                                        <span className="rounded-full bg-white px-2 py-0.5 text-[8.5px] font-black text-indigo-700 shadow-sm">
+                                        <span className="rounded-full bg-white px-2 py-0.5 text-[11px] font-black text-indigo-700 shadow-sm">
                                           {lastGeneratedJoinCodes[0]
                                             ?.summaryOnly
                                             ? lastGeneratedJoinCodes[0]?.code
@@ -44365,7 +44316,7 @@ ${rows
                                             كاشف التكرار الذكي — Repetition
                                             Shield
                                           </h4>
-                                          <p className="mt-0.5 text-[9px] font-bold leading-relaxed text-emerald-800">
+                                          <p className="mt-0.5 text-[11px] font-bold leading-relaxed text-emerald-800">
                                             تم مسح الأكواد الجديدة بالكامل:
                                             خالية بنسبة{" "}
                                             <span className="whitespace-nowrap font-mono tabular-nums">
@@ -44704,12 +44655,12 @@ ${rows
                                             {formatJoinCode(c.code)}
                                           </span>
                                           {!isFullJoinCode(c.code) && (
-                                            <span className="rounded-full bg-amber-50 px-2 py-0.5 text-[8.5px] font-black text-amber-700 ring-1 ring-amber-100">
+                                            <span className="rounded-full bg-amber-50 px-2 py-0.5 text-[11px] font-black text-amber-700 ring-1 ring-amber-100">
                                               صيغة تحتاج إعادة إصدار
                                             </span>
                                           )}
                                           {c.status === "used" && (
-                                            <span className="rounded-full bg-slate-500 px-2 py-0.5 text-[8.5px] font-black text-white">
+                                            <span className="rounded-full bg-slate-500 px-2 py-0.5 text-[11px] font-black text-white">
                                               تم استخدامه ومحفوظ بالأرشيف
                                             </span>
                                           )}
@@ -45123,7 +45074,7 @@ ${rows
                                       </div>
                                       <div className="flex items-center justify-between gap-3 lg:justify-end">
                                         <div className="hidden min-w-[170px] rounded-2xl border border-slate-100 bg-white px-4 py-3 text-right shadow-sm sm:block">
-                                          <span className="block text-[9px] font-bold text-slate-400">
+                                          <span className="block text-[11px] font-bold text-slate-400">
                                             أكثر كود تكرر رفضه
                                           </span>
                                           <span
@@ -45168,7 +45119,7 @@ ${rows
                                                     {item.formatted}
                                                     {item.count > 1 && (
                                                       <b
-                                                        className="rounded-full bg-amber-50 px-2 py-0.5 text-[9px] text-amber-700"
+                                                        className="rounded-full bg-amber-50 px-2 py-0.5 text-[11px] text-amber-700"
                                                         dir="rtl"
                                                       >
                                                         ×{item.count}
@@ -45186,7 +45137,7 @@ ${rows
                                           </div>
                                           <div className="grid grid-cols-2 gap-2 lg:col-span-5">
                                             <div className="rounded-3xl bg-slate-50 p-4">
-                                              <span className="block text-[9px] font-bold text-slate-400">
+                                              <span className="block text-[11px] font-bold text-slate-400">
                                                 عدد المحاولات
                                               </span>
                                               <span className="text-2xl font-black text-slate-950">
@@ -45194,7 +45145,7 @@ ${rows
                                               </span>
                                             </div>
                                             <div className="rounded-3xl bg-slate-50 p-4">
-                                              <span className="block text-[9px] font-bold text-slate-400">
+                                              <span className="block text-[11px] font-bold text-slate-400">
                                                 الأجهزة
                                               </span>
                                               <span className="text-2xl font-black text-slate-950">
@@ -45202,7 +45153,7 @@ ${rows
                                               </span>
                                             </div>
                                             <div className="rounded-3xl bg-slate-50 p-4">
-                                              <span className="block text-[9px] font-bold text-slate-400">
+                                              <span className="block text-[11px] font-bold text-slate-400">
                                                 المقررات
                                               </span>
                                               <span className="text-xs font-bold text-slate-800">
@@ -45213,7 +45164,7 @@ ${rows
                                               </span>
                                             </div>
                                             <div className="rounded-3xl bg-slate-50 p-4">
-                                              <span className="block text-[9px] font-bold text-slate-400">
+                                              <span className="block text-[11px] font-bold text-slate-400">
                                                 IP مختصر
                                               </span>
                                               <span className="font-mono text-xs font-bold text-slate-800">
@@ -45228,7 +45179,7 @@ ${rows
                                             <span className="text-[10px] font-bold text-slate-500">
                                               تفاصيل المحاولات المرفوضة
                                             </span>
-                                            <span className="rounded-full bg-slate-50 px-3 py-1 text-[9px] font-bold text-slate-400 ring-1 ring-slate-100">
+                                            <span className="rounded-full bg-slate-50 px-3 py-1 text-[11px] font-bold text-slate-400 ring-1 ring-slate-100">
                                               {Math.min(group.rows.length, 60)}{" "}
                                               سجل
                                             </span>
@@ -45285,7 +45236,7 @@ ${rows
                                                         </span>
                                                       </div>
                                                       <div className="mt-3 rounded-2xl border border-white bg-white px-3 py-3 shadow-sm">
-                                                        <span className="mb-1 block text-[9px] font-bold text-slate-400">
+                                                        <span className="mb-1 block text-[11px] font-bold text-slate-400">
                                                           الكود المرفوض
                                                         </span>
                                                         <span
@@ -45301,7 +45252,7 @@ ${rows
                                                       </div>
                                                       <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2">
                                                         <div className="rounded-2xl bg-white/80 p-3">
-                                                          <span className="block text-[9px] font-bold text-slate-400">
+                                                          <span className="block text-[11px] font-bold text-slate-400">
                                                             المقرر
                                                           </span>
                                                           <span className="mt-1 block whitespace-normal break-words text-xs font-bold text-slate-800">
@@ -45309,7 +45260,7 @@ ${rows
                                                           </span>
                                                         </div>
                                                         <div className="rounded-2xl bg-white/80 p-3">
-                                                          <span className="block text-[9px] font-bold text-slate-400">
+                                                          <span className="block text-[11px] font-bold text-slate-400">
                                                             الجهاز والمتصفح
                                                           </span>
                                                           <span className="mt-1 block whitespace-normal break-words text-xs font-bold text-slate-800">
@@ -45319,7 +45270,7 @@ ${rows
                                                         </div>
                                                       </div>
                                                       <div className="mt-2 rounded-2xl bg-white/80 p-3">
-                                                        <span className="block text-[9px] font-bold text-slate-400">
+                                                        <span className="block text-[11px] font-bold text-slate-400">
                                                           سبب الرفض
                                                         </span>
                                                         <span className="mt-1 block whitespace-normal break-words text-xs font-bold leading-6 text-amber-800">
@@ -45500,11 +45451,11 @@ ${rows
                                             </p>
                                           </div>
                                           <div className="min-w-0 rounded-2xl border border-slate-200 bg-white px-3 py-2 text-right miras-shadow-1 sm:max-w-[16rem]">
-                                            <p className="mb-1 text-[9px] font-semibold text-slate-400">المقررات</p>
+                                            <p className="mb-1 text-[11px] font-semibold text-slate-400">المقررات</p>
                                             {studentCourses.length ? studentCourses.map((course) => (
                                               <div key={course.code} className="border-t border-slate-100 py-1 first:border-0 first:pt-0 last:pb-0">
                                                 {course.showCode && (
-                                                  <p className="font-mono text-[9px] font-medium leading-4 text-indigo-500" dir="ltr">
+                                                  <p className="font-mono text-[11px] font-medium leading-4 text-indigo-500" dir="ltr">
                                                     {course.sectionDisplay}
                                                   </p>
                                                 )}
@@ -46480,16 +46431,16 @@ ${rows
                               <p className="truncate text-[11.5px] font-semibold text-slate-900">
                                 {item.title || "إشعار مِراس"}
                               </p>
-                              <p className="mt-0.5 truncate text-[9.5px] font-normal text-slate-400">
+                              <p className="mt-0.5 truncate text-[11px] font-normal text-slate-400">
                                 {item.type || "push"}
                                 {item.courseCode ? ` • ${item.courseCode}` : ""}
                               </p>
                             </div>
-                            <span className="shrink-0 font-mono text-[8.5px] font-normal text-slate-400">
+                            <span className="shrink-0 font-mono text-[11px] font-normal text-slate-400">
                               {formatKwDateTime(item.updatedAt || item.lastSeenAt)}
                             </span>
                           </div>
-                          <div className="mt-2 flex flex-wrap gap-1.5 text-[9px] font-medium">
+                          <div className="mt-2 flex flex-wrap gap-1.5 text-[11px] font-medium">
                             <span className="rounded-lg bg-emerald-50 px-2 py-0.5 text-emerald-700">
                               أُرسل {sent}
                             </span>
@@ -46512,14 +46463,14 @@ ${rows
                           <p className="text-[10px] font-normal leading-5 text-slate-600">
                             {item.body || ""}
                           </p>
-                          <div className="mt-2 grid grid-cols-2 gap-2 text-[9px] font-normal text-slate-500 sm:grid-cols-4">
+                          <div className="mt-2 grid grid-cols-2 gap-2 text-[11px] font-normal text-slate-500 sm:grid-cols-4">
                             <span>الاستدعاءات: {Number(item.calls || 0)}</span>
                             <span>الأهداف: {Number(item.targets || 0)}</span>
                             <span>المجدول: {Number(item.queued || 0)}</span>
                             <span>المعرّف: {String(item.id || "").slice(-10)}</span>
                           </div>
                           {item.lastError && (
-                            <p className="mt-2 rounded-xl bg-rose-50 px-3 py-2 text-[9.5px] font-medium text-rose-700">
+                            <p className="mt-2 rounded-xl bg-rose-50 px-3 py-2 text-[11px] font-medium text-rose-700">
                               {item.lastError}
                             </p>
                           )}
@@ -46580,18 +46531,18 @@ ${rows
                             <SourceIcon className="h-3.5 w-3.5" />
                           </span>
                           {r.browser && (
-                            <span className="rounded-lg bg-slate-50 px-2 py-0.5 text-[9.5px] font-bold text-slate-500 ring-1 ring-slate-100">
+                            <span className="rounded-lg bg-slate-50 px-2 py-0.5 text-[11px] font-bold text-slate-500 ring-1 ring-slate-100">
                               {r.browser}
                               {r.displayMode === "pwa" ? " • PWA" : ""}
                             </span>
                           )}
                           {(r.role || r.userId) && (
-                            <span className="rounded-lg bg-slate-50 px-2 py-0.5 text-[9.5px] font-bold text-slate-500 ring-1 ring-slate-100">
+                            <span className="rounded-lg bg-slate-50 px-2 py-0.5 text-[11px] font-bold text-slate-500 ring-1 ring-slate-100">
                               {r.role === "student" ? "طالب" : r.role === "teacher" ? "معلم" : r.role}
                               {r.userId ? ` • ${r.userId}` : ""}
                             </span>
                           )}
-                          <span className="rounded-lg bg-slate-50 px-2 py-0.5 font-mono text-[9px] font-bold text-slate-400 ring-1 ring-slate-100">
+                          <span className="rounded-lg bg-slate-50 px-2 py-0.5 font-mono text-[11px] font-bold text-slate-400 ring-1 ring-slate-100">
                             آخر ظهور {formatKwDateTime(r.lastSeenAt)}
                           </span>
                         </div>
@@ -46602,14 +46553,14 @@ ${rows
                             </summary>
                             <pre
                               dir="ltr"
-                              className="mt-1.5 max-h-40 overflow-auto rounded-xl bg-slate-950 p-3 text-[9.5px] leading-5 text-emerald-300"
+                              className="mt-1.5 max-h-40 overflow-auto rounded-xl bg-slate-950 p-3 text-[11px] leading-5 text-emerald-300"
                             >
                               {r.stack}
                             </pre>
                           </details>
                         )}
                         <div className="mt-2.5 flex items-center justify-between">
-                          <span className="text-[9.5px] font-bold text-slate-400">
+                          <span className="text-[11px] font-bold text-slate-400">
                             أول ظهور {formatKwDateTime(r.firstSeenAt)}
                           </span>
                           {r.resolvedAt ? (
