@@ -2329,12 +2329,12 @@ const tourVisuals = {
     <TourCard>
       <div className="mb-2.5 flex items-center justify-between px-0.5">
         <span className="text-[10px] font-bold text-white/60">كشف الطلبة</span>
-        <span className="rounded-full bg-white/12 px-2 py-0.5 text-[9px] font-bold text-white/70">٢٨</span>
+        <span className="rounded-full bg-white/12 px-2 py-0.5 text-[9px] font-bold text-white/70">28</span>
       </div>
       <div className="space-y-1.5">
-        <TourRow label="طالب تجريبي" meta="٢٠٢١" tone="done" delay={0.05} />
-        <TourRow label="طالبة تجريبية" meta="٢٠٢٢" tone="done" delay={0.13} />
-        <TourRow label="طالب تجريبي ٢" meta="٢٠٢٣" tone="idle" delay={0.21} />
+        <TourRow label="طالب تجريبي" meta="2021" tone="done" delay={0.05} />
+        <TourRow label="طالبة تجريبية" meta="2022" tone="done" delay={0.13} />
+        <TourRow label="طالب تجريبي 2" meta="2023" tone="idle" delay={0.21} />
       </div>
     </TourCard>
   ),
@@ -2343,7 +2343,7 @@ const tourVisuals = {
       <div className="mb-2.5 flex items-center justify-between px-0.5">
         <span className="text-[10px] font-bold text-white/60">مفاتيح الدخول</span>
         <span className="inline-flex items-center gap-1 text-[9px] font-bold text-emerald-300">
-          <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" /> ٣ مُفعّلة
+          <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" /> 3 مُفعّلة
         </span>
       </div>
       <div className="grid grid-cols-2 gap-1.5">
@@ -2363,8 +2363,8 @@ const tourVisuals = {
         </span>
       </div>
       <div className="space-y-1.5">
-        <TourRow label="سلّم الاختبار" meta="١٢:٤٠" tone="done" delay={0.05} />
-        <TourRow label="يحلّ الآن" meta="٠٨:١٢" tone="live" delay={0.13} />
+        <TourRow label="سلّم الاختبار" meta="12:40" tone="done" delay={0.05} />
+        <TourRow label="يحلّ الآن" meta="08:12" tone="live" delay={0.13} />
         <TourRow label="لم يبدأ بعد" meta="—" tone="idle" delay={0.21} />
       </div>
       <div className="mt-2.5 h-1 overflow-hidden rounded-full bg-white/12">
@@ -2400,11 +2400,11 @@ const tourVisuals = {
     <TourCard>
       <div className="mb-2.5 flex items-center justify-between px-0.5">
         <span className="text-[10px] font-bold text-white/60">مهامّي</span>
-        <span className="rounded-full bg-white/12 px-2 py-0.5 text-[9px] font-bold text-white/70">٣</span>
+        <span className="rounded-full bg-white/12 px-2 py-0.5 text-[9px] font-bold text-white/70">3</span>
       </div>
       <div className="space-y-1.5">
         <TourRow label="اختبار الوحدة الثانية" meta="غداً" tone="live" delay={0.05} />
-        <TourRow label="مشروع التطبيق العملي" meta="٥ أيام" tone="idle" delay={0.13} />
+        <TourRow label="مشروع التطبيق العملي" meta="5 أيام" tone="idle" delay={0.13} />
         <TourRow label="تمرين المراجعة" meta="سُلّم" tone="done" delay={0.21} />
       </div>
     </TourCard>
@@ -2413,7 +2413,7 @@ const tourVisuals = {
     <TourCard>
       <div className="mb-3 flex items-center justify-between px-0.5">
         <span className="text-[10px] font-bold text-white/60">تقدّمي</span>
-        <span className="text-[9px] font-bold text-emerald-300">٧ من ١٠</span>
+        <span className="text-[9px] font-bold text-emerald-300">7 من 10</span>
       </div>
       <div className="h-1.5 overflow-hidden rounded-full bg-white/12">
         <motion.div
@@ -2424,7 +2424,7 @@ const tourVisuals = {
         />
       </div>
       <div className="mt-3 space-y-1.5">
-        <TourRow label="اختبار الوحدة الأولى" meta="٩٢٪" tone="done" delay={0.25} />
+        <TourRow label="اختبار الوحدة الأولى" meta="92٪" tone="done" delay={0.25} />
         <TourRow label="تمرين المراجعة" meta="مكتمل" tone="done" delay={0.33} />
       </div>
     </TourCard>
@@ -19512,7 +19512,7 @@ ${rows
     if (newPassword.length < 6) {
       setTeacherPwStatus({
         success: false,
-        message: "كلمة المرور الجديدة يجب ألا تقل عن ٦ خانات.",
+        message: "كلمة المرور الجديدة يجب ألا تقل عن 6 خانات.",
       });
       return;
     }
@@ -19555,7 +19555,7 @@ ${rows
     if (newPassword.length < 6) {
       setMyPwStatus({
         success: false,
-        message: "كلمة المرور الجديدة يجب ألا تقل عن ٦ خانات.",
+        message: "كلمة المرور الجديدة يجب ألا تقل عن 6 خانات.",
       });
       return;
     }
@@ -27620,7 +27620,7 @@ ${rows
       {
         key: "recorded",
         label: "رُصدت",
-        state: recorded ? "done" : inProgress || returned || blocked ? "pending" : "current",
+        state: recorded ? "done" : "pending",
       },
       {
         key: "announced",
@@ -37155,7 +37155,19 @@ ${rows
                               inputMode="decimal"
                               type="text"
                               dir="ltr"
-                              placeholder="الدرجة من ١٠٠"
+                              placeholder={(() => {
+                                const sample = (teacherSubmissions || []).find(
+                                  (x: any) =>
+                                    String(x?.activityId || "") ===
+                                    String(selectedSubmissionActivityId || ""),
+                                );
+                                const max = sample
+                                  ? Number(activityMaxPointsForSubmission(sample))
+                                  : 0;
+                                return max > 0
+                                  ? `الدرجة من ${max}`
+                                  : "الدرجة من 100";
+                              })()}
                               aria-label="الدرجة التي ستُرصد للطلبة المحدَّدين"
                               className="w-full rounded-2xl border border-indigo-100 bg-white px-4 py-3 text-center font-mono text-sm font-semibold text-indigo-700 shadow-sm outline-none focus:border-indigo-300"
                             />
@@ -42568,7 +42580,7 @@ ${rows
 
                           <label className="space-y-1">
                             <span className="block text-[11px] font-bold text-slate-600">
-                              كلمة المرور الجديدة (٦ خانات فأكثر)
+                              كلمة المرور الجديدة (6 خانات فأكثر)
                             </span>
                             <input
                               type="text"
@@ -42816,7 +42828,7 @@ ${rows
                         </label>
                         <label className="space-y-1">
                           <span className="block text-[11px] font-bold text-slate-600">
-                            كلمة المرور الجديدة (٦ خانات فأكثر)
+                            كلمة المرور الجديدة (6 خانات فأكثر)
                           </span>
                           <input
                             type="password"
@@ -46368,7 +46380,7 @@ ${rows
                     ]
                   : [
                       { label: "أخطاء نشطة", value: mirasRadarData.stats?.active ?? 0, Icon: AlertTriangle, tone: "bg-rose-500/20 ring-rose-400/40", iconTone: "text-rose-300" },
-                      { label: "آخر ٢٤ ساعة", value: mirasRadarData.stats?.last24h ?? 0, Icon: Clock, tone: "bg-amber-500/20 ring-amber-400/40", iconTone: "text-amber-300" },
+                      { label: "آخر 24 ساعة", value: mirasRadarData.stats?.last24h ?? 0, Icon: Clock, tone: "bg-amber-500/20 ring-amber-400/40", iconTone: "text-amber-300" },
                       { label: "من الخادم", value: mirasRadarData.stats?.server ?? 0, Icon: Server, tone: "bg-indigo-500/20 ring-indigo-400/40", iconTone: "text-indigo-300" },
                       { label: "إجمالي التكرار", value: mirasRadarData.stats?.totalHits ?? 0, Icon: Activity, tone: "bg-emerald-500/20 ring-emerald-400/40", iconTone: "text-emerald-300" },
                     ]
