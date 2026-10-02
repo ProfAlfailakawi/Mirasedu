@@ -1610,6 +1610,19 @@ const MirasRatioRing = ({ done, total }: { done: number; total: number }) => {
   );
 };
 
+// شريط رفيع لمرور الوقت بين فتح النشاط وإغلاقه (من تاريخي الفتح والإغلاق الظاهرين أصلاً).
+const MirasWindowBar = ({ open, close }: { open?: any; close?: any }) => {
+  const o = open ? new Date(open).getTime() : NaN;
+  const c = close ? new Date(close).getTime() : NaN;
+  if (!Number.isFinite(o) || !Number.isFinite(c) || c <= o) return null;
+  const pct = Math.max(0, Math.min(100, Math.round(((Date.now() - o) / (c - o)) * 100)));
+  return (
+    <div className="miras-window-bar" role="img" aria-label={`${pct}%`}>
+      <span style={{ width: `${pct}%` }} />
+    </div>
+  );
+};
+
 // خريطة النغمة → أيقونة رفيعة + درجة الخطورة. اللون يتبع الخطورة فقط:
 // أحمر للعاجل، كهرماني للتحذير، وكل ما عداه بلون العلامة الهادئ.
 const NOTICE_TONE_ICON: Record<string, any> = {
@@ -28972,15 +28985,25 @@ ${rows
                   return (
                     <div
                       key={row.idNumber}
-                      className={`rounded-2xl border bg-white p-4 miras-shadow-1 transition-all duration-250 ${
+                      data-status={
+                        row.isSuspended
+                          ? "suspended"
+                          : row.registered
+                            ? "registered"
+                            : "roster"
+                      }
+                      className={`miras-roster-card${isEditing ? " is-editing" : ""} rounded-2xl border bg-white p-4 miras-shadow-1 transition-all duration-250 ${
                         isEditing
                           ? "border-indigo-300 ring-2 ring-indigo-50"
                           : "border-slate-100 hover:border-slate-200/80 hover:miras-shadow-1"
                       }`}
                     >
-                      <div className="grid grid-cols-1 gap-3.5">
-                        <div>
-                          <label className="text-[10px] font-bold text-indigo-500 block mb-1">
+                      <div className="miras-roster-grid grid grid-cols-1 gap-3.5">
+                        <span className="miras-roster-avatar" aria-hidden="true">
+                          {String(row.name || "").trim().charAt(0) || "•"}
+                        </span>
+                        <div className="miras-roster-id">
+                          <label className="miras-roster-label text-[10px] font-bold text-indigo-500 block mb-1">
                             الرقم الجامعي
                           </label>
                           <div className="font-mono text-base font-black text-indigo-700">
@@ -29004,8 +29027,8 @@ ${rows
                           </div>
                         </div>
 
-                        <div>
-                          <label className="text-[10px] font-bold text-slate-400 block mb-1">
+                        <div className="miras-roster-name">
+                          <label className="miras-roster-label text-[10px] font-bold text-slate-400 block mb-1">
                             اسم الطالب
                           </label>
                           <div className="text-[15px] font-black text-slate-800 break-words [overflow-wrap:anywhere]">
@@ -29023,7 +29046,7 @@ ${rows
                           </div>
                         </div>
 
-                        <div className="flex items-center justify-between border-t border-slate-100 pt-3 mt-1">
+                        <div className="miras-roster-foot flex items-center justify-between border-t border-slate-100 pt-3 mt-1">
                           <div>
                             {!isEditing && (
                               <span
@@ -34984,6 +35007,9 @@ ${rows
                                       </span>
                                     </div>
                                   )}
+                                  {!priorExamSubmission ? (
+                                    <MirasWindowBar open={exam.open} close={exam.close} />
+                                  ) : null}
                                   {priorExamSubmission ? (
                                     <DnaStepper
                                       size="sm"
@@ -36972,7 +36998,7 @@ ${rows
                             setSelectedSubmissionIds({});
                             setSubmissionStatusFilter(null);
                           }}
-                          className="group rounded-[var(--miras-r-lg)] border border-slate-100 bg-white p-5 text-right shadow-sm transition-all hover:border-indigo-200 hover:shadow-md"
+                          className={`group rounded-[var(--miras-r-lg)] border border-slate-100 bg-white p-5 text-right shadow-sm transition-all hover:border-indigo-200 hover:shadow-md${submissionActivityCards.length === 1 ? " sm:col-span-2" : ""}`}
                         >
                           <div className="flex items-start justify-between gap-3">
                             <div className="min-w-0 flex-1">
@@ -36986,7 +37012,18 @@ ${rows
                             <MirasRatioRing done={card.graded} total={card.total} />
                             <ChevronLeft className="mt-1 h-4 w-4 shrink-0 text-slate-300 transition-transform group-hover:-translate-x-1 group-hover:text-indigo-500" />
                           </div>
-                          <div className="mt-3 flex flex-wrap gap-1.5">
+                          {card.total > 0 && (
+                            <div
+                              className="miras-stack-bar mt-3"
+                              role="img"
+                              aria-label={`${card.graded} مصحح، ${card.pending} بانتظار، ${card.returned} معاد من ${card.total}`}
+                            >
+                              <span className="is-graded" style={{ width: `${(card.graded / card.total) * 100}%` }} />
+                              <span className="is-pending" style={{ width: `${(card.pending / card.total) * 100}%` }} />
+                              <span className="is-returned" style={{ width: `${(card.returned / card.total) * 100}%` }} />
+                            </div>
+                          )}
+                          <div className="miras-sub-chips mt-3 flex flex-wrap gap-1.5">
                             {card.graded > 0 && (
                               <span className="rounded-full bg-emerald-50 px-2.5 py-1 text-[10px] font-bold text-emerald-700">
                                 {card.graded} مصحح
@@ -40173,7 +40210,7 @@ ${rows
                                           {q.questionText}
                                         </p>
                                       )}
-                                      <div className="mt-2 flex flex-wrap gap-2">
+                                      <div className="miras-q-meta mt-2 flex flex-wrap gap-2">
                                         <span className="text-[10px] bg-indigo-50 text-indigo-700 px-2.5 py-1 rounded-full font-bold">
                                           {questionTypeOptions.find((o) => o.value === q.type)?.label ||
                                             ({ "short-answer": "مقالي", "scenario-analysis": "تحليل موقف", ordering: "ترتيب" } as Record<string, string>)[String(q.type)] ||
@@ -40326,7 +40363,27 @@ ${rows
                           key={sec.code}
                           className="bg-slate-50/80 rounded-3xl border border-slate-200 p-5 space-y-4 text-right shadow-sm hover:shadow-md transition-all"
                         >
-                          <div className="flex items-start justify-end gap-3">
+                          <div className="flex items-center justify-end gap-3">
+                            {(() => {
+                              const courseStudentCount = teacherStudents.filter(
+                                (student: any) =>
+                                  studentBelongsToCourse(student, sec.code),
+                              ).length;
+                              return (
+                                <span
+                                  className={`miras-course-ring ${sec.isOpen ? "is-open" : "is-closed"}`}
+                                  title={`${courseStudentCount} طالب`}
+                                  aria-label={`${courseStudentCount} طالب`}
+                                  role="img"
+                                >
+                                  <svg viewBox="0 0 36 36" aria-hidden="true">
+                                    <circle cx="18" cy="18" r="15" fill="none" strokeWidth="2" className="miras-course-ring-track" />
+                                    <circle cx="18" cy="18" r="15" fill="none" strokeWidth="2.4" strokeLinecap="round" className="miras-course-ring-arc" transform="rotate(-90 18 18)" />
+                                  </svg>
+                                  <b>{courseStudentCount}</b>
+                                </span>
+                              );
+                            })()}
                             <span
                               className={`text-[10px] font-bold px-3 py-1 rounded-full ${sec.isOpen ? "bg-emerald-50 text-emerald-700" : "bg-red-50 text-red-700"}`}
                             >
@@ -40349,9 +40406,9 @@ ${rows
                               className="inline-flex h-10 items-center justify-center rounded-2xl border border-slate-200 bg-white text-slate-700 hover:border-indigo-300 hover:text-indigo-700 transition-all"
                             >
                               {sec.isOpen ? (
-                                <Lock className="h-4 w-4" />
+                                <Lock className="h-4 w-4" strokeWidth={1.5} />
                               ) : (
-                                <Play className="h-4 w-4" />
+                                <Play className="h-4 w-4" strokeWidth={1.5} />
                               )}
                             </button>
                             <button
@@ -40360,7 +40417,7 @@ ${rows
                               onClick={() => beginEditSection(sec)}
                               className="inline-flex h-10 items-center justify-center rounded-2xl border border-indigo-100 bg-indigo-50 text-indigo-700 transition-all"
                             >
-                              <Edit className="h-4 w-4" />
+                              <Edit className="h-4 w-4" strokeWidth={1.5} />
                             </button>
                             <button
                               title="حذف"
@@ -40368,7 +40425,7 @@ ${rows
                               onClick={() => deleteSectionSafely(sec)}
                               className="inline-flex h-10 items-center justify-center rounded-2xl border border-red-100 bg-red-50 text-red-700 transition-all"
                             >
-                              <Trash2 className="h-4 w-4" />
+                              <Trash2 className="h-4 w-4" strokeWidth={1.5} />
                             </button>
                           </div>
                         </div>
@@ -40435,7 +40492,9 @@ ${rows
                       <div className="miras-section-hero">
                         <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
                           <div className="text-right">
-                            <h2 className="miras-section-current-title">
+                            <h2
+                              className={`miras-section-current-title${activeTab.id === "integrity" ? " miras-section-title-dup" : ""}`}
+                            >
                               {activeTab.label}
                             </h2>
                           </div>
@@ -40590,10 +40649,10 @@ ${rows
                                   >
                                     <div className="grid w-full grid-cols-[1fr_auto] items-center gap-3 text-right">
                                       <div className="min-w-0">
-                                        <p className="truncate font-black text-slate-900">
+                                        <p className="[overflow-wrap:anywhere] font-black text-slate-900">
                                           {student.name}
                                         </p>
-                                        <p className="mt-1 truncate text-[10px] font-bold text-slate-500">
+                                        <p className="mt-1 [overflow-wrap:anywhere] text-[10px] font-bold text-slate-500">
                                           {student.riskReasons.join(" • ") ||
                                             "متابعة هادئة"}
                                         </p>
@@ -41236,12 +41295,12 @@ ${rows
                                         )}
                                       </button>
                                     </div>
-                                    <div className="mt-4 grid grid-cols-4 gap-2 md:grid-cols-8">
+                                    <div className="miras-dh-tiles mt-4 grid grid-cols-4 gap-2 md:grid-cols-8">
                                       {tiles.map((it, i) => (
                                         <div
                                           key={`dh-tile-${i}`}
                                           title={it.t}
-                                          className={`flex flex-col items-center gap-1 rounded-2xl border px-2 py-3 ${it.n > 0 ? "border-amber-100 bg-amber-50/70 text-amber-700" : "border-slate-100 bg-white/70 text-slate-400"}`}
+                                          className={`${it.n > 0 ? "" : "miras-zero-tile "}flex flex-col items-center gap-1 rounded-2xl border px-2 py-3 ${it.n > 0 ? "border-amber-100 bg-amber-50/70 text-amber-700" : "border-slate-100 bg-white/70 text-slate-400"}`}
                                         >
                                           <it.Icon className="h-4.5 w-4.5" />
                                           <span className="text-lg font-black leading-none">
@@ -41350,7 +41409,7 @@ ${rows
                                           <div
                                             key={item.key}
                                             title={item.label}
-                                            className={`flex min-h-[92px] flex-col items-center justify-center gap-2 rounded-3xl border px-2 py-3 shadow-sm ${item.cls}`}
+                                            className={`${item.n > 0 ? "" : "miras-dim-tile "}flex min-h-[92px] flex-col items-center justify-center gap-2 rounded-3xl border px-2 py-3 shadow-sm ${item.cls}`}
                                           >
                                             <span
                                               className={`relative grid h-11 w-11 place-items-center overflow-hidden rounded-2xl shadow-sm ${item.orb}`}
@@ -42509,7 +42568,7 @@ ${rows
                   {teacherSession &&
                     isAdminTeacher &&
                     analyticsSubTab === "admin" && (
-                      <div className="rounded-[var(--miras-r-xl)] border border-violet-100 bg-gradient-to-br from-violet-50/40 to-white/90 p-6 backdrop-blur shadow-sm space-y-4">
+                      <div className="miras-calm-form rounded-[var(--miras-r-xl)] border border-violet-100 bg-gradient-to-br from-violet-50/40 to-white/90 p-6 backdrop-blur shadow-sm space-y-4">
                         <div className="flex flex-col gap-1 border-b border-slate-100 pb-4">
                           <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">
                             <KeyRound className="h-4 w-4 text-violet-600" />
@@ -42597,7 +42656,7 @@ ${rows
                   {teacherSession &&
                     (analyticsSubTab === "admin" ||
                       analyticsSubTab === "dataTools") && (
-                      <div className="rounded-[var(--miras-r-xl)] border border-indigo-100 bg-white p-6 shadow-sm space-y-4">
+                      <div className="miras-calm-form rounded-[var(--miras-r-xl)] border border-indigo-100 bg-white p-6 shadow-sm space-y-4">
                         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-100 pb-4">
                           <div>
                             <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">
@@ -42765,7 +42824,7 @@ ${rows
 
                   {/* Teacher self-service password change */}
                   {teacherSession && analyticsSubTab === "accounts" && (
-                    <div className="rounded-[var(--miras-r-xl)] border border-indigo-100 bg-white p-6 shadow-sm space-y-4">
+                    <div className="miras-calm-form rounded-[var(--miras-r-xl)] border border-indigo-100 bg-white p-6 shadow-sm space-y-4">
                       <div className="flex flex-col gap-1 border-b border-slate-100 pb-4">
                         <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">
                           <KeyRound className="h-4 w-4 text-indigo-600" strokeWidth={1.75} />
@@ -44929,6 +44988,13 @@ ${rows
                                 <span className="mt-1 block text-2xl font-black text-slate-950">
                                   {item.value}
                                 </span>
+                                <span className="miras-tile-bar" aria-hidden="true">
+                                  <i
+                                    style={{
+                                      width: `${Math.min(100, Math.round(((Number(item.value) || 0) / Math.max(1, Number(activationAttemptSummary.attempts) || 0)) * 100))}%`,
+                                    }}
+                                  />
+                                </span>
                               </div>
                             ))}
                           </div>
@@ -46240,7 +46306,7 @@ ${rows
                     أجهزة آبل (Safari على iOS/iPadOS):
                   </h4>
                 </div>
-                <ol className="text-[11px] font-bold text-slate-600 list-decimal list-inside space-y-1.5 leading-5 pr-1">
+                <ol className="miras-guide-steps text-[11px] font-bold text-slate-600 list-decimal list-inside space-y-1.5 leading-5 pr-1">
                   <li>
                     اضغط على زر المشاركة{" "}
                     <span className="inline-flex items-center bg-white px-1 py-0.5 border rounded align-middle" aria-label="مشاركة">
@@ -46275,7 +46341,7 @@ ${rows
                     أجهزة أندرويد والحاسوب (Chrome / Edge):
                   </h4>
                 </div>
-                <p className="text-[11px] font-bold text-slate-600 leading-5">
+                <p className="miras-guide-step-p text-[11px] font-bold text-slate-600 leading-5">
                   اضغط على رمز النقاط الثلاث{" "}
                   <span className="text-slate-900">⁝</span> في الزاوية العلوية
                   للمتصفح، ثم اختر{" "}

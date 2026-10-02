@@ -727,3 +727,361 @@ html body .miras-student-alert-popover .miras-notice-timeline-card > div.mt-3:no
   margin-top: 0.2rem !important;
   justify-content: flex-start !important;
 }
+
+/* ═══════════════ ٨) شريط التنقل العلوي على سطح المكتب: الشارة بجوار أيقونتها وتسميات مقروءة ═══════════════
+   الشارة كانت مثبّتة على حافة الزر (الخلية عريضة على سطح المكتب) فتبتعد ~75px عن أيقونتها.
+   تُموضع هنا بخصائص منطقية نسبةً إلى منتصف الزر (حيث الأيقونة). الجوال لا يتأثر. */
+@media (min-width: 921px) {
+  html body .teacher-nav-desktop .teacher-orbit-dock-track button.miras-dock-item:not(#_) {
+    position: relative;
+  }
+  html body .teacher-nav-desktop .teacher-orbit-dock-track button.miras-dock-item > span.absolute.z-10:not(#_) {
+    inset-inline-start: auto !important;
+    inset-inline-end: calc(50% - 1.45rem) !important;
+    left: auto;
+    inset-block-start: 0 !important;
+    top: auto;
+  }
+  html body .teacher-nav-desktop .teacher-orbit-dock-track .miras-dock-label:not(#_) {
+    font-size: 11px !important;
+  }
+}
+
+/* ═══════════════ ٩) رأس المعلم: مسافات أضيق قبل المحتوى وإخفاء العنوان المكرر بصرياً ═══════════════ */
+/* «الأكواد» تحت «المتابعة» تكرار لاسم التبويب الفرعي وللاسم في الشريط: يبقى في DOM لقارئات الشاشة. */
+html body .miras-section-hero .miras-section-current-title.miras-section-title-dup:not(#_) {
+  position: absolute !important;
+  width: 1px !important;
+  height: 1px !important;
+  margin: -1px !important;
+  padding: 0 !important;
+  overflow: hidden !important;
+  clip: rect(0 0 0 0) !important;
+  white-space: nowrap !important;
+  border: 0 !important;
+}
+@media (min-width: 921px) {
+  html body .teacher-command-main:not(#_) {
+    row-gap: 0.75rem !important;
+  }
+  html body .teacher-command-main > .miras-teacher-home-panel:not(#_) {
+    padding-top: 0.5rem !important;
+  }
+}
+
+/* ═══════════════ ١٠) عمود محتوى أعرض على الشاشات الواسعة ═══════════════
+   كان عمود المعلم ~1050px داخل لوحة 1440px؛ يتسع الآن إلى ~1110px
+   (بعرض رأس الصفحة نفسه) دون تغيير الجوال أو اللوحي. */
+@media (min-width: 1360px) {
+  html body .teacher-command-main.teacher-command-main:not(#_) {
+    max-width: 1240px !important;
+  }
+}
+
+/* ═══════════════ ١١) المقررات: حلقة صغيرة بعدد الطلبة وحالة الفتح ═══════════════ */
+.miras-course-ring {
+  position: relative;
+  display: inline-grid;
+  place-items: center;
+  width: 2.4rem;
+  height: 2.4rem;
+  flex: 0 0 auto;
+}
+.miras-course-ring svg { position: absolute; inset: 0; width: 100%; height: 100%; }
+.miras-course-ring-track { stroke: var(--miras-line, rgba(100, 116, 139, 0.25)); }
+.miras-course-ring.is-open .miras-course-ring-arc { stroke: #059669; stroke-dasharray: 94.25 94.25; }
+.miras-course-ring.is-closed .miras-course-ring-arc { stroke: #94a3b8; stroke-dasharray: 3 8; }
+.miras-course-ring b { font-size: 0.8rem; font-weight: 800; line-height: 1; color: var(--miras-ink, #0f172a); }
+html[data-theme="dark"] .miras-course-ring.is-open .miras-course-ring-arc { stroke: #34d399; }
+html[data-theme="dark"] .miras-course-ring b { color: #e2e8f0; }
+
+/* ═══════════════ ١٢) قائمة الطلبة: صف مدمج بحلقة حرف أولي ونقطة حالة ═══════════════
+   الحقول «الرقم الجامعي/اسم الطالب» تبقى في DOM لقارئات الشاشة وتُخفى بصرياً؛ وضع التعديل لا يتغير. */
+.miras-roster-card:not(.is-editing) {
+  padding: 0.6rem 0.8rem !important;
+}
+.miras-roster-card:not(.is-editing) .miras-roster-grid {
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  grid-template-areas: "av name foot" "av id foot";
+  column-gap: 0.7rem;
+  row-gap: 0.05rem;
+  align-items: center;
+}
+.miras-roster-card:not(.is-editing) .miras-roster-label {
+  position: absolute !important;
+  width: 1px; height: 1px; margin: -1px !important; padding: 0;
+  overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0;
+}
+.miras-roster-card.is-editing .miras-roster-avatar { display: none; }
+.miras-roster-avatar {
+  grid-area: av;
+  position: relative;
+  display: inline-grid;
+  place-items: center;
+  width: 2.5rem;
+  height: 2.5rem;
+  border-radius: 999px;
+  font-size: 0.95rem;
+  font-weight: 800;
+  color: var(--miras-brand, #4f46e5);
+  background: var(--miras-brand-tint, rgba(79, 70, 229, 0.08));
+  box-shadow: inset 0 0 0 2px var(--miras-roster-ring, #94a3b8);
+}
+.miras-roster-avatar::after {
+  content: "";
+  position: absolute;
+  inset-block-end: -1px;
+  inset-inline-start: -1px;
+  width: 0.62rem;
+  height: 0.62rem;
+  border-radius: 999px;
+  background: var(--miras-roster-ring, #94a3b8);
+  box-shadow: 0 0 0 2px var(--miras-surface, #fff);
+}
+.miras-roster-card[data-status="registered"] { --miras-roster-ring: #10b981; }
+.miras-roster-card[data-status="suspended"] { --miras-roster-ring: #f59e0b; }
+.miras-roster-card[data-status="roster"] { --miras-roster-ring: #94a3b8; }
+.miras-roster-card:not(.is-editing) .miras-roster-name { grid-area: name; min-width: 0; }
+.miras-roster-card:not(.is-editing) .miras-roster-id { grid-area: id; min-width: 0; }
+.miras-roster-card:not(.is-editing) .miras-roster-name > div { font-size: 0.95rem; line-height: 1.35; }
+.miras-roster-card:not(.is-editing) .miras-roster-id > div { font-size: 0.78rem; font-weight: 700; line-height: 1.3; opacity: 0.8; }
+.miras-roster-card:not(.is-editing) .miras-roster-foot {
+  grid-area: foot;
+  border: 0 !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  gap: 0.35rem;
+}
+/* نص الحالة يبقى للقراءة الصوتية؛ النقطة على الحلقة تغني عنه بصرياً */
+.miras-roster-card:not(.is-editing) .miras-roster-foot > div:first-child {
+  position: absolute; width: 1px; height: 1px; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap;
+}
+.miras-roster-card:not(.is-editing) .miras-roster-foot button {
+  width: 2rem !important;
+  height: 2rem !important;
+  border-radius: 0.7rem !important;
+}
+.miras-roster-card:not(.is-editing) .miras-roster-foot button svg { width: 1rem; height: 1rem; stroke-width: 1.5; }
+.miras-roster-card { position: relative; }
+
+/* ═══════════════ ١٣) التسليمات: شريط مكدّس رفيع وأرقام أكبر (من العدّادات الظاهرة أصلاً) ═══════════════ */
+.miras-stack-bar {
+  display: flex;
+  height: 0.3rem;
+  border-radius: 999px;
+  overflow: hidden;
+  background: var(--miras-line, rgba(148, 163, 184, 0.25));
+}
+.miras-stack-bar > span { display: block; height: 100%; min-width: 0; }
+.miras-stack-bar > .is-graded { background: #10b981; }
+.miras-stack-bar > .is-pending { background: #94a3b8; }
+.miras-stack-bar > .is-returned { background: #6366f1; }
+.miras-sub-chips.miras-sub-chips > span { font-size: 0.8rem; font-weight: 700; padding: 0.2rem 0.65rem; }
+
+/* ═══════════════ ١٤) المحاولات: شريط رفيع تحت كل رقم (نسبته إلى عدد المحاولات الظاهر) ═══════════════ */
+.miras-tile-bar { display: block; height: 0.25rem; margin-top: 0.55rem; border-radius: 999px; overflow: hidden; background: var(--miras-line, rgba(148, 163, 184, 0.25)); }
+.miras-tile-bar > i { display: block; height: 100%; border-radius: 999px; background: var(--miras-brand, #4f46e5); }
+
+/* ═══════════════ ١٥) الصحة والأجهزة والإدارة: بلا بلاطات صفرية، نماذج هادئة، لغة أزرار واحدة ═══════════════ */
+/* البلاطات الصفرية تبقى في DOM لقارئات الشاشة وتُخفى بصرياً؛ الأرقام غير الصفرية فقط تظهر */
+.miras-dh-tiles > .miras-zero-tile {
+  position: absolute !important;
+  width: 1px; height: 1px; margin: -1px; padding: 0 !important; overflow: hidden;
+  clip: rect(0 0 0 0); white-space: nowrap; border: 0 !important;
+}
+.miras-dh-tiles:not(:has(> :not(.miras-zero-tile))) { margin-top: 0 !important; }
+.miras-dim-tile { opacity: 0.5; filter: saturate(0.55); }
+
+/* نموذج هادئ لكل بطاقة: حقول بمقاس موحد وحلقة تركيز واحدة */
+.miras-calm-form { background-image: none !important; }
+.miras-calm-form :is(input, select) {
+  min-height: 2.75rem;
+  border-radius: 0.85rem;
+  border-color: var(--miras-line, rgba(148, 163, 184, 0.4));
+  box-shadow: none;
+}
+.miras-calm-form :is(input, select):focus {
+  outline: none;
+  border-color: var(--miras-brand, #4f46e5);
+  box-shadow: 0 0 0 3px var(--miras-brand-tint, rgba(79, 70, 229, 0.15));
+}
+/* زر أساسي واحد (indigo)؛ الأحمر للتدمير فقط وبصيغة محيطية خفيفة */
+.miras-app-teacher-root button.bg-violet-600:not(#_) {
+  background: var(--miras-brand, #4f46e5) !important;
+  color: #fff !important;
+  min-height: 2.5rem;
+}
+.miras-app-teacher-root button.bg-violet-600:not(#_):hover { filter: brightness(0.92); }
+.miras-app-teacher-root button[aria-label="تطهير كامل"]:not(#_) {
+  background: transparent !important;
+  color: #dc2626 !important;
+  box-shadow: inset 0 0 0 1.5px rgba(220, 38, 38, 0.45) !important;
+}
+.miras-app-teacher-root button[aria-label="تطهير كامل"]:not(#_):hover { background: rgba(220, 38, 38, 0.08) !important; }
+.miras-app-teacher-root button[aria-label="تطهير كامل"] svg { stroke-width: 1.5; }
+html[data-theme="dark"] .miras-app-teacher-root button[aria-label="تطهير كامل"]:not(#_) { color: #fca5a5 !important; box-shadow: inset 0 0 0 1.5px rgba(252, 165, 165, 0.5) !important; }
+
+/* ═══════════════ ١٦) أزرار الأيقونات: مقاس ونصف قطر وسماكة خط موحّدة (لون أساسي واحد) ═══════════════
+   تُستثنى أزرار التصدير والحذف/الإغلاق الحمراء. */
+.miras-app-teacher-root button.h-12.w-12.rounded-2xl:is(.bg-slate-950, .bg-emerald-600, .bg-indigo-600, .bg-slate-900):not([aria-label*="تصدير"]):not(:disabled):not(#_) {
+  width: 2.75rem !important;
+  height: 2.75rem !important;
+  border-radius: 0.95rem !important;
+  background: var(--miras-brand, #4f46e5) !important;
+  color: #fff !important;
+}
+.miras-app-teacher-root button.h-12.w-12.rounded-2xl:is(.bg-slate-950, .bg-emerald-600, .bg-indigo-600, .bg-slate-900):not([aria-label*="تصدير"]) svg {
+  stroke-width: 1.75;
+}
+
+/* ═══════════════ ١٧) عنوان صغير لكل تبويب فرعي أيقوني على سطح المكتب (النص من aria-label نفسه) ═══════════════ */
+@media (min-width: 1024px) {
+  html body .miras-inner-tabs:not(#_) {
+    max-width: none !important;
+    grid-auto-flow: column !important;
+    grid-auto-columns: auto !important;
+  }
+  html body .miras-inner-tab:not(#_) {
+    width: auto !important;
+    min-width: 2.4rem;
+    padding-inline: 0.75rem !important;
+    gap: 0.4rem;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+  html body .miras-inner-tab.miras-inner-tab:not(#_)::after {
+    content: attr(aria-label) !important;
+    display: inline !important;
+    position: static !important;
+    inset: auto !important;
+    transform: none !important;
+    max-width: none !important;
+    background: none !important;
+    box-shadow: none !important;
+    padding: 0 !important;
+    font-size: 11px !important;
+    font-weight: 700 !important;
+    color: inherit !important;
+    white-space: nowrap;
+    text-overflow: clip !important;
+    height: auto !important;
+    width: auto !important;
+    opacity: 1 !important;
+    border: 0 !important;
+  }
+  html body .miras-integrity-switch:not(#_) {
+    width: auto !important;
+  }
+  html body .miras-integrity-switch-btn:not(#_) {
+    display: inline-flex !important;
+    flex-direction: row !important;
+    align-items: center !important;
+    justify-content: center !important;
+    width: auto !important;
+    padding-inline: 0.75rem !important;
+    gap: 0.4rem !important;
+  }
+  html body .miras-integrity-switch-btn.miras-integrity-switch-btn:not(#_)::after {
+    content: attr(aria-label) !important;
+    position: static !important;
+    inset: auto !important;
+    transform: none !important;
+    display: inline !important;
+    background: none !important;
+    box-shadow: none !important;
+    padding: 0 !important;
+    max-width: none !important;
+    font-size: 11px !important;
+    font-weight: 700 !important;
+    line-height: 1 !important;
+    white-space: nowrap;
+  }
+}
+
+/* ═══════════════ ١٨) أسئلة البنك: شريحتا النوع والدرجة في كبسولة رفيعة واحدة ═══════════════ */
+.miras-q-meta.miras-q-meta {
+  display: inline-flex !important;
+  flex-wrap: nowrap !important;
+  align-items: center;
+  gap: 0 !important;
+  margin-top: 0.7rem !important;
+  border-radius: 999px;
+  border: 1px solid var(--miras-line, rgba(148, 163, 184, 0.35));
+  background: var(--miras-surface, transparent);
+  overflow: hidden;
+}
+.miras-q-meta > span {
+  background: transparent !important;
+  border-radius: 0 !important;
+  padding: 0.18rem 0.7rem !important;
+  font-size: 0.72rem !important;
+}
+.miras-q-meta > span + span { border-inline-start: 1px solid var(--miras-line, rgba(148, 163, 184, 0.35)); }
+
+/* ═══════════════ ١٩) دليل التثبيت: خطوات مرقّمة بدوائر (النص نفسه) ═══════════════ */
+.miras-guide-steps.miras-guide-steps {
+  list-style: none !important;
+  counter-reset: miras-step;
+  padding-inline: 0 !important;
+  margin: 0;
+}
+.miras-guide-steps > li {
+  counter-increment: miras-step;
+  position: relative;
+  padding-inline-start: 2.1rem;
+  min-height: 1.6rem;
+  line-height: 1.7;
+}
+.miras-guide-steps > li::before {
+  content: counter(miras-step);
+  position: absolute;
+  inset-inline-start: 0;
+  top: 0.05rem;
+  width: 1.45rem;
+  height: 1.45rem;
+  border-radius: 999px;
+  display: grid;
+  place-items: center;
+  font-size: 0.72rem;
+  font-weight: 800;
+  color: #fff;
+  background: var(--miras-brand, #4f46e5);
+}
+.miras-guide-step-p {
+  position: relative;
+  padding-inline-start: 2.1rem;
+  line-height: 1.7;
+}
+.miras-guide-step-p::before {
+  content: "1";
+  position: absolute;
+  inset-inline-start: 0;
+  top: 0.05rem;
+  width: 1.45rem;
+  height: 1.45rem;
+  border-radius: 999px;
+  display: grid;
+  place-items: center;
+  font-size: 0.72rem;
+  font-weight: 800;
+  color: #fff;
+  background: var(--miras-brand, #4f46e5);
+}
+
+/* ═══════════════ ٢٠) قوائم الطالب: شريط مرور الوقت بين الفتح والإغلاق ═══════════════ */
+.miras-window-bar { height: 0.25rem; border-radius: 999px; overflow: hidden; background: var(--miras-line, rgba(148, 163, 184, 0.25)); }
+.miras-window-bar > span { display: block; height: 100%; border-radius: 999px; background: var(--miras-brand, #4f46e5); opacity: 0.85; }
+
+/* الجوال: أهداف اللمس 44px تتطلب صفاً مستقلاً للأزرار تحت الاسم كي لا يُعصَر الاسم */
+@media (max-width: 767px) {
+  .miras-roster-card:not(.is-editing) .miras-roster-grid {
+    grid-template-columns: auto minmax(0, 1fr);
+    grid-template-areas: "av name" "av id" "foot foot";
+    row-gap: 0.1rem;
+  }
+  .miras-roster-card:not(.is-editing) .miras-roster-foot {
+    justify-content: flex-end;
+    margin-top: 0.35rem !important;
+  }
+}
