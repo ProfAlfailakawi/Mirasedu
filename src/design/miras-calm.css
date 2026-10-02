@@ -1133,9 +1133,9 @@ html[data-theme="dark"] #root input.miras-flat-input:not(#_):not(#_):focus {
 
 /* ═══════════════ ٢٠) حد أدنى ١١px للنص الحقيقي على سطح المكتب (الهاتف يرفعه index.css إلى ١٢px) ═══════════════
    بتخصيص صفري (:where) عمدًا: يغلب أدوات Tailwind (المرتّبة في طبقة) فقط، وأي قاعدة أخرى أكبر تبقى قائمة (لا يُصغَّر نص أبدًا).
-   لا يُمسّ شريط التجربة (.miras-demo-bar). */
+   لا يُمسّ شريط التجربة (.miras-demo-bar). متغيّرات sm: فعّالة من 640px فتدخل ضمن هذا الحد (≥768px)؛ متغيّرات lg: لا تُضاف لأن الحد قد يصغّر نصًّا أكبر بين 768 و1023. */
 @media (min-width: 768px) {
-  :where(:is(.text-\[9px\], .text-\[9\.5px\], .text-\[10px\], .text-\[10\.5px\], .text-\[0\.55rem\]):not(.miras-demo-bar *)) {
+  :where(:is(.text-\[8\.5px\], .text-\[9px\], .text-\[9\.5px\], .text-\[10px\], .text-\[10\.5px\], .text-\[0\.55rem\], .text-\[0\.66rem\], .sm\:text-\[9\.5px\], .sm\:text-\[10px\]):not(.miras-demo-bar *)) {
     font-size: 11px;
   }
   /* تسميات بلاطات الخطر وسطر لوحة أمان الكود كانت تُصغَّر بقاعدة !important أقدم */
