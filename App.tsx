@@ -8716,6 +8716,16 @@ export default function App() {
 
   // بعد ٥ ثوانٍ من الانتظار نشرح السبب: الخادم يستيقظ ويقرأ القاعدة كاملة.
   const teacherCloudSyncing = teacherCloudLoads > 0;
+  // عند الخروج (أي مسار) نُصفّر جاهزية البيانات وعلم عرض الشاشة الافتتاحية، فيمرّ
+  // كل دخول جديد بنفس الشاشة وينتظر بياناته بدل أن يُعاد استخدام جاهزية قديمة.
+  useEffect(() => {
+    if (teacherSession || studentSession) return;
+    try {
+      sessionStorage.removeItem("miras_login_reveal_played");
+    } catch {}
+    setTeacherCloudReady({});
+    setStudentCloudReady({});
+  }, [teacherSession, studentSession]);
   // شاشة الدخول الافتتاحية تبقى حتى تكتمل بيانات الحساب فعلاً.
   const loginRevealDataReady =
     loginRevealRole === "teacher"
