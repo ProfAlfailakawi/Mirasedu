@@ -1225,3 +1225,17 @@ html.miras-cloud-gated .miras-dock-v2 {
 @media (prefers-reduced-motion: reduce) {
   .miras-cloud-gate__ring, .miras-cloud-gate__bar span, .miras-cloud-gate__card { animation: none; }
 }
+
+/* حجب العمل عند انقطاع السحابة: لا تعديل بلا حفظ */
+.miras-cloud-lock {
+  position: fixed;
+  inset: 0;
+  z-index: 800;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1.25rem;
+  background: color-mix(in srgb, var(--miras-bg, #f4f5f8) 78%, transparent);
+  -webkit-backdrop-filter: blur(10px) saturate(140%);
+  backdrop-filter: blur(10px) saturate(140%);
+}

@@ -8685,6 +8685,12 @@ export default function App() {
     currentView === "student_workspace" &&
     !!studentSession?.id &&
     !studentCloudReady[String(studentSession.id)];
+  const cloudWorkLocked =
+    (isAppOffline || liveConnectionTrouble) &&
+    ((currentView === "teacher_workspace" && !!teacherSession?.email) ||
+      (currentView === "student_workspace" &&
+        !!studentSession?.id &&
+        !selectedChapterQuiz));
   const teacherCloudGateActive =
     currentView === "teacher_workspace" &&
     !!teacherSession?.email &&
@@ -31338,6 +31344,30 @@ ${rows
                 ? "جارٍ إعادة المزامنة"
                 : "متصل وجميع بياناتك متزامنة"}
           </span>
+        </div>
+      )}
+
+      {cloudWorkLocked && (
+        <div
+          role="alert"
+          aria-live="assertive"
+          dir="rtl"
+          className="miras-cloud-lock"
+        >
+          <div className="miras-cloud-gate__card">
+            <div className="miras-cloud-gate__orb" aria-hidden="true">
+              <span className="miras-cloud-gate__ring" />
+              <span className="miras-cloud-gate__ring miras-cloud-gate__ring--2" />
+              <CloudOff className="h-7 w-7" />
+            </div>
+            <h2 className="miras-cloud-gate__title">انقطع الاتصال بالسحابة</h2>
+            <p className="miras-cloud-gate__text">
+              أوقفنا العمل مؤقتاً حتى لا يضيع أي تعديل. لا يوجد وضع محلي في مِراس؛ كل شيء يُحفظ في السحابة فقط، وسنكمل تلقائياً فور عودة الاتصال.
+            </p>
+            <div className="miras-cloud-gate__bar" aria-hidden="true">
+              <span />
+            </div>
+          </div>
         </div>
       )}
 
