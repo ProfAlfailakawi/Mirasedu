@@ -7851,6 +7851,8 @@ export default function App() {
         "تعذر تحميل بيانات الطالب بعد التفعيل. تحقق من الاتصال ثم أعد المحاولة.",
       );
       return false;
+    } finally {
+      setStudentCloudReadyFor(String(activeStudent.id));
     }
   };
   const applyActivatedStudentResponse = async (
@@ -7981,6 +7983,8 @@ export default function App() {
   // بوابة السحابة: لوحة المعلم لا تُعرض إلا بعد اكتمال أول تحميل من السحابة
   // لهذا الحساب، حتى لا يرى المعلم أصفاراً توحي بأن بياناته ضاعت.
   const [teacherCloudReadyFor, setTeacherCloudReadyFor] = useState("");
+  // نفس البوابة للطالب: لا تُعرض مساحته قبل اكتمال أول تحميل لبياناته.
+  const [studentCloudReadyFor, setStudentCloudReadyFor] = useState("");
   const [joinCodesLoadState, setJoinCodesLoadState] = useState<
     "loading" | "ready" | "failed"
   >("loading");
@@ -8632,6 +8636,8 @@ export default function App() {
         // Keep the last known project during a transient Safari/Hosting outage.
         // The live poll retries and replaces this data after the connection returns.
         console.warn("Student persistent details refresh deferred:", err);
+      } finally {
+        if (active) setStudentCloudReadyFor(String(studentSession.id));
       }
     };
 
@@ -8675,6 +8681,10 @@ export default function App() {
 
   // بعد ٥ ثوانٍ من الانتظار نشرح السبب: الخادم يستيقظ ويقرأ القاعدة كاملة.
   const teacherCloudSyncing = teacherCloudLoads > 0;
+  const studentCloudGateActive =
+    currentView === "student_workspace" &&
+    !!studentSession?.id &&
+    studentCloudReadyFor !== String(studentSession.id);
   const teacherCloudGateActive =
     currentView === "teacher_workspace" &&
     !!teacherSession?.email &&
@@ -8682,9 +8692,12 @@ export default function App() {
       String(teacherSession.email || "").trim().toLowerCase();
   useEffect(() => {
     const root = document.documentElement;
-    root.classList.toggle("miras-cloud-gated", teacherCloudGateActive);
+    root.classList.toggle(
+      "miras-cloud-gated",
+      teacherCloudGateActive || studentCloudGateActive,
+    );
     return () => root.classList.remove("miras-cloud-gated");
-  }, [teacherCloudGateActive]);
+  }, [teacherCloudGateActive, studentCloudGateActive]);
   useEffect(() => {
     if (!teacherCloudSyncing) {
       setTeacherCloudLoadSlow(false);
@@ -33708,6 +33721,37 @@ ${rows
                     تعذّر تحديث البيانات — تحقّق من اتصالك بالإنترنت. سنواصل
                     المحاولة تلقائياً وجلستك محفوظة.
                   </span>
+                </div>
+              )}
+              {studentCloudGateActive && (
+                <div
+                  role="status"
+                  aria-live="polite"
+                  dir="rtl"
+                  className="miras-cloud-gate"
+                >
+                  <div className="miras-cloud-gate__card">
+                    <div className="miras-cloud-gate__orb" aria-hidden="true">
+                      <span className="miras-cloud-gate__ring" />
+                      <span className="miras-cloud-gate__ring miras-cloud-gate__ring--2" />
+                      {isAppOffline ? (
+                        <CloudOff className="h-7 w-7" />
+                      ) : (
+                        <Cloud className="h-7 w-7" />
+                      )}
+                    </div>
+                    <h2 className="miras-cloud-gate__title">
+                      {isAppOffline ? "بانتظار الشبكة" : "جارٍ الاتصال بالسحابة"}
+                    </h2>
+                    <p className="miras-cloud-gate__text">
+                      {isAppOffline
+                        ? "سنفتح مساحتك تلقائياً عند عودة الاتصال، وبياناتك محفوظة."
+                        : "نجهّز مقرراتك ومهامك. تُفتح مساحتك تلقائياً فور اكتمال التحميل."}
+                    </p>
+                    <div className="miras-cloud-gate__bar" aria-hidden="true">
+                      <span />
+                    </div>
+                  </div>
                 </div>
               )}
               <main className="mx-auto flex w-full max-w-7xl flex-col justify-start px-3 py-0 sm:px-4 lg:px-5">
