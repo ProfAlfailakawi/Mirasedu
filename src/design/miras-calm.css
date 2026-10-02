@@ -1085,3 +1085,19 @@ html[data-theme="dark"] .miras-app-teacher-root button[aria-label="تطهير ك
     margin-top: 0.35rem !important;
   }
 }
+
+/* ═══════════════ ٢١) اسم المعلم في الرأس: يلتف على أسطر ولا يُقصّ أو يُقسَّم كلمة كلمة ═══════════════
+   النص كما تعطيه البيانات؛ يبقى تحت العنوان بحجم 12px على الأقل. */
+@media (max-width: 920px), (pointer: coarse) and (hover: none) {
+  html body .miras-app-teacher-root.miras-teacher-viewport-v5 .miras-zero-name-pill:not(#_) {
+    white-space: normal !important;
+    overflow: visible !important;
+    text-overflow: clip !important;
+    overflow-wrap: break-word !important;
+    word-break: normal !important;
+    line-height: 1.4 !important;
+    font-size: 12px !important;
+    text-align: start;
+    min-width: 0;
+  }
+}
