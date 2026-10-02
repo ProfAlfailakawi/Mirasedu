@@ -17109,6 +17109,7 @@ ${rows
   };
 
   const handleLogin = async () => {
+    if (loginCloudGateActive) return;
     setErrorMsg("");
     setSuccessMsg("");
     try {
@@ -18014,6 +18015,8 @@ ${rows
     // جاهزة للتفاعل). بربط الإطلاق بحالة showSplash نفسها نضمن أنه يقع بعدها
     // دائماً مهما تغيّر توقيتها — لا اعتماد على أي مؤقّت مقدَّر.
     if (showSplash) return;
+    // لا بصمة تلقائية قبل التأكد من السحابة؛ تنطلق فور جاهزيتها.
+    if (loginCloudGateActive) return;
 
     if (
       isLoginVisible &&
@@ -18099,6 +18102,7 @@ ${rows
     showCompactPasskeyLogin,
     // اختفاء شاشة البداية يُعيد تشغيل الأثر فتنطلق البصمة بعدها مباشرة.
     showSplash,
+    loginCloudGateActive,
     teacherSession,
     studentSession,
     passkeyBusy,
@@ -32323,37 +32327,7 @@ ${rows
             dir="rtl"
             className="meras-auth-shell miras-calm-auth min-h-[100dvh] flex flex-col items-center justify-center px-4 py-4 relative overflow-hidden bg-[#f4f5f8]"
           >
-            {loginCloudGateActive && (
-              <div role="status" aria-live="polite" dir="rtl" className="meras-auth-card miras-login-gate">
-                <span className="miras-login-gate__brand">
-                  <MirasMark className="h-3.5 w-3.5" />
-                  مِراس
-                </span>
-                <div className="miras-login-gate__orb" aria-hidden="true">
-                  <span className="miras-login-gate__ring" />
-                  <span className="miras-login-gate__ring miras-login-gate__ring--2" />
-                  {isAppOffline ? (
-                    <CloudOff className="h-8 w-8" />
-                  ) : (
-                    <Cloud className="h-8 w-8" />
-                  )}
-                </div>
-                <h2 className="miras-login-gate__title">
-                  {isAppOffline ? "بانتظار الشبكة" : "جارٍ الاتصال بالسحابة"}
-                </h2>
-                <div className="miras-login-gate__bar" aria-hidden="true">
-                  <span />
-                </div>
-                <button
-                  type="button"
-                  onClick={openSignupWithInstallGate}
-                  className="miras-login-gate__link"
-                >
-                  إنشاء حساب جديد
-                </button>
-              </div>
-            )}
-            <div className={`meras-auth-card w-full max-w-xl h-auto max-h-[calc(100dvh-2rem)] overflow-y-auto flex flex-col justify-center glass-panel rounded-[var(--miras-r-xl)] shadow-premium-lg p-8 sm:p-10 border border-white/60 relative z-10 transition-all duration-300 ${loginCloudGateActive ? "hidden" : ""}`}>
+            <div className={`meras-auth-card w-full max-w-xl h-auto max-h-[calc(100dvh-2rem)] overflow-y-auto flex flex-col justify-center glass-panel rounded-[var(--miras-r-xl)] shadow-premium-lg p-8 sm:p-10 border border-white/60 relative z-10 transition-all duration-300`}>
               <div className="absolute top-6 left-6 z-20 flex items-center gap-2">
                 <button
                   type="button"
@@ -32559,15 +32533,16 @@ ${rows
                             type="button"
                             title="الدخول بالبصمة"
                             aria-label="الدخول بالبصمة"
-                            disabled={passkeyBusy}
+                            disabled={passkeyBusy || loginCloudGateActive}
                             onClick={() => loginWithPasskey()}
                             className="miras-passkey-auto-button inline-flex h-20 w-20 items-center justify-center rounded-3xl border border-emerald-100 bg-white text-emerald-700 transition-all duration-300 btn-spring-active miras-shadow-2 hover:bg-emerald-50 disabled:opacity-70"
                           >
-                            {passkeyBusy ? (
+                            {passkeyBusy || loginCloudGateActive ? (
                               <MirasLoader
                                 size={32}
                                 role="current"
-                                label="جارٍ التحقق بالبصمة…"
+                                delay={0}
+                                label={loginCloudGateActive ? "جارٍ الاتصال بالسحابة…" : "جارٍ التحقق بالبصمة…"}
                               />
                             ) : (
                               <Fingerprint className="h-9 w-9" />
@@ -32716,6 +32691,7 @@ ${rows
                           title="تسجيل الدخول"
                           aria-label="تسجيل الدخول"
                           onClick={handleLogin}
+                          disabled={loginCloudGateActive}
                           className="miras-login-primary flex h-16 w-16 items-center justify-center rounded-3xl text-white transition-colors duration-200 btn-spring-active"
                         >
                           <Lock className="h-7 w-7" />
@@ -32727,15 +32703,16 @@ ${rows
                           type="button"
                           title="الدخول بالبصمة"
                           aria-label="الدخول بالبصمة"
-                          disabled={passkeyBusy}
+                          disabled={passkeyBusy || loginCloudGateActive}
                           onClick={() => loginWithPasskey()}
                           className="flex h-16 w-16 items-center justify-center rounded-3xl border border-emerald-100 bg-emerald-50 text-emerald-700 transition-all duration-300 btn-spring-active hover:bg-emerald-100 disabled:opacity-60"
                         >
-                          {passkeyBusy ? (
+                          {passkeyBusy || loginCloudGateActive ? (
                             <MirasLoader
-                              size={24}
+                              size={28}
                               role="current"
-                              label="جارٍ التحقق بالبصمة…"
+                              delay={0}
+                              label={loginCloudGateActive ? "جارٍ الاتصال بالسحابة…" : "جارٍ التحقق بالبصمة…"}
                             />
                           ) : (
                             <Fingerprint className="h-7 w-7" />
