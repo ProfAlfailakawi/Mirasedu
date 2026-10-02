@@ -6655,7 +6655,7 @@ body,
   color: #fff;
   border: 1px solid rgba(255, 255, 255, .92);
   box-shadow: 0 8px 18px rgba(79, 70, 229, .22);
-  font-size: .6rem;
+  font-size: .6875rem;
   line-height: 1;
   font-weight: 700;
   font-variant-numeric: tabular-nums;
@@ -18955,9 +18955,13 @@ html[data-theme="dark"] #root .miras-exam-header-bar.bg-slate-950 {
   /* سبع خانات في عرض الهاتف: أكبر مقاسٍ تتسع له «التسليمات» كاملةً دون «…»
      (كان 8.4px). يبلغ 12px من عرض 500px فأعلى (2.75vw كان يقصّ «التسليمات» على 430px). */
   .miras-dock-v2 button.miras-dock-item .miras-dock-label:not(#_):not(#_) {
-    font-size: clamp(9.5px, 2.4vw, 12px) !important;
+    font-size: clamp(10.5px, 2.85vw, 12px) !important;
     letter-spacing: -0.03em !important;
     text-overflow: clip !important;
+  }
+  /* «التسليمات» أطول تسمية في الشريط: تبقى أصغر قليلاً (≈٩.٥–١٠.٢px) كي لا تُقصّ على ٣٦٠–٤١٢px. */
+  .miras-dock-v2 button.miras-dock-item[aria-label="تسليمات الاختبارات والمشاريع"] .miras-dock-label:not(#_):not(#_) {
+    font-size: clamp(9.5px, 2.6vw, 10.2px) !important;
   }
 
   /* ── أهداف لمس ≥ 44px ─────────────────────────────────────────────────── */

@@ -288,7 +288,7 @@
   block-size: var(--icon) !important;
 }
 .dna-num {
-  font-size: calc(var(--node) * 0.38);
+  font-size: max(11px, calc(var(--node) * 0.38));
   font-weight: 700;
   font-variant-numeric: tabular-nums;
   line-height: 1;
