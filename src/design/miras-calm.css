@@ -826,3 +826,7 @@ html[data-theme="dark"] .miras-course-ring b { color: #e2e8f0; }
 .miras-stack-bar > .is-pending { background: #94a3b8; }
 .miras-stack-bar > .is-returned { background: #6366f1; }
 .miras-sub-chips.miras-sub-chips > span { font-size: 0.8rem; font-weight: 700; padding: 0.2rem 0.65rem; }
+
+/* ═══════════════ ١٤) المحاولات: شريط رفيع تحت كل رقم (نسبته إلى عدد المحاولات الظاهر) ═══════════════ */
+.miras-tile-bar { display: block; height: 0.25rem; margin-top: 0.55rem; border-radius: 999px; overflow: hidden; background: var(--miras-line, rgba(148, 163, 184, 0.25)); }
+.miras-tile-bar > i { display: block; height: 100%; border-radius: 999px; background: var(--miras-brand, #4f46e5); }

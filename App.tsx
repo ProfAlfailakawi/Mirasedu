@@ -44972,6 +44972,13 @@ ${rows
                                 <span className="mt-1 block text-2xl font-black text-slate-950">
                                   {item.value}
                                 </span>
+                                <span className="miras-tile-bar" aria-hidden="true">
+                                  <i
+                                    style={{
+                                      width: `${Math.min(100, Math.round(((Number(item.value) || 0) / Math.max(1, Number(activationAttemptSummary.attempts) || 0)) * 100))}%`,
+                                    }}
+                                  />
+                                </span>
                               </div>
                             ))}
                           </div>
