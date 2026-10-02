@@ -8736,6 +8736,31 @@ export default function App() {
       : loginRevealRole === "student"
         ? !!studentCloudReady[String(studentSession?.id || "")]
         : true;
+  // فتح التطبيق من جديد بجلسة محفوظة (بلا تسجيل دخول) كان يعرض اللوحة بأصفار حتى
+  // يصحو الخادم؛ نُظهر الشاشة الافتتاحية نفسها حتى تكتمل بيانات الحساب.
+  useEffect(() => {
+    if (loginRevealRole) return;
+    if (
+      currentView === "teacher_workspace" &&
+      teacherSession?.email &&
+      !teacherCloudReady[String(teacherSession.email).trim().toLowerCase()]
+    ) {
+      setLoginRevealRole("teacher");
+    } else if (
+      currentView === "student_workspace" &&
+      studentSession?.id &&
+      !studentCloudReady[String(studentSession.id)]
+    ) {
+      setLoginRevealRole("student");
+    }
+  }, [
+    loginRevealRole,
+    currentView,
+    teacherSession?.email,
+    studentSession?.id,
+    teacherCloudReady,
+    studentCloudReady,
+  ]);
   // إن تعثّر التحميل نعيد المحاولة كل ٦ ثوانٍ وعند عودة الشبكة بدل التعليق.
   useEffect(() => {
     if (!loginRevealRole || loginRevealDataReady) return;
