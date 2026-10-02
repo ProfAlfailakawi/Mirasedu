@@ -5729,18 +5729,19 @@ export default function App() {
     const teacherKey = String(
       teacherSession?.email || teacherSession?.id || "",
     ).toLowerCase();
-    if (teacherKey) {
-      try {
-        const stored = localStorage.getItem(
-          `miras_teacher_important_read_${teacherKey}`,
-        );
-        if (stored) {
-          setTeacherImportantReadKeys(new Set(JSON.parse(stored)));
-          return;
-        }
-      } catch (e) {
-        console.error("Error loading teacher important notifications", e);
+    // لا نُفرغ المفاتيح عند غياب الجلسة (قفل البصمة/خروج مؤقت): كانت تُمسح من
+    // الذاكرة ثم يُعاد تحميلها، وأي ضغطة في الفاصل كانت تكتب مجموعة ناقصة فوق المحفوظ.
+    if (!teacherKey) return;
+    try {
+      const stored = localStorage.getItem(
+        `miras_teacher_important_read_${teacherKey}`,
+      );
+      if (stored) {
+        setTeacherImportantReadKeys(new Set(JSON.parse(stored)));
+        return;
       }
+    } catch (e) {
+      console.error("Error loading teacher important notifications", e);
     }
     setTeacherImportantReadKeys(new Set());
   }, [teacherSession?.email, teacherSession?.id]);
@@ -45876,11 +45877,9 @@ ${rows
                                     <button
                                       type="button"
                                       aria-label="إغلاق التنبيهات"
-                                      onClick={() =>
-                                        setTeacherImportantNotificationsOpen(
-                                          false,
-                                        )
-                                      }
+                                      // الإغلاق بعد الاطلاع يعني «شوهدت»: كانت التنبيهات
+                                      // تعود في الفتحة التالية لأن الإغلاق وحده لا يحفظ شيئاً.
+                                      onClick={markAllTeacherImportantNotificationsRead}
                                       className="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-500 shadow-sm hover:bg-slate-50 hover:text-slate-800 transition-all"
                                     >
                                       <X className="h-5 w-5" />
