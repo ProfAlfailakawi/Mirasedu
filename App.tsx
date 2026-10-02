@@ -32341,9 +32341,6 @@ ${rows
                 <h2 className="miras-login-gate__title">
                   {isAppOffline ? "بانتظار الشبكة" : "جارٍ الاتصال بالسحابة"}
                 </h2>
-                <p className="miras-login-gate__text">
-                  يظهر نموذج تسجيل الدخول تلقائياً فور اكتمال الاتصال.
-                </p>
                 <div className="miras-login-gate__bar" aria-hidden="true">
                   <span />
                 </div>
@@ -36506,29 +36503,6 @@ ${rows
                       )}
                     </select>
                     <ChevronDown className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 pointer-events-none" />
-                  </div>
-                </div>
-              )}
-
-              {teacherCloudSyncing && (
-                <div
-                  role="status"
-                  aria-live="polite"
-                  dir="rtl"
-                  className="mx-3 mt-3 flex items-start gap-3 rounded-[var(--miras-r-lg)] border border-indigo-100 bg-indigo-50/90 px-4 py-3 text-right sm:mx-6 lg:mx-8"
-                >
-                  <RefreshCw
-                    className="mt-0.5 h-4 w-4 shrink-0 animate-spin text-indigo-600"
-                    aria-hidden="true"
-                  />
-                  <div className="text-xs font-bold leading-5 text-indigo-900">
-                    جارٍ تحميل بياناتك من السحابة…
-                    {teacherCloudLoadSlow && (
-                      <span className="block font-semibold text-indigo-700">
-                        الخادم يستيقظ بعد تحديث أو فترة خمول، وقد يستغرق ذلك دقيقة.
-                        بياناتك محفوظة ولم يُحذف شيء.
-                      </span>
-                    )}
                   </div>
                 </div>
               )}
