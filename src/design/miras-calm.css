@@ -717,3 +717,12 @@ html body .miras-section-hero .miras-section-current-title.miras-section-title-d
     padding-top: 0.5rem !important;
   }
 }
+
+/* ═══════════════ ١٠) عمود محتوى أعرض على الشاشات الواسعة ═══════════════
+   كان عمود المعلم ~1050px داخل لوحة 1440px؛ يتسع الآن إلى ~1110px
+   (بعرض رأس الصفحة نفسه) دون تغيير الجوال أو اللوحي. */
+@media (min-width: 1360px) {
+  html body .teacher-command-main.teacher-command-main:not(#_) {
+    max-width: 1240px !important;
+  }
+}

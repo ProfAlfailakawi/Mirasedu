@@ -36972,7 +36972,7 @@ ${rows
                             setSelectedSubmissionIds({});
                             setSubmissionStatusFilter(null);
                           }}
-                          className="group rounded-[var(--miras-r-lg)] border border-slate-100 bg-white p-5 text-right shadow-sm transition-all hover:border-indigo-200 hover:shadow-md"
+                          className={`group rounded-[var(--miras-r-lg)] border border-slate-100 bg-white p-5 text-right shadow-sm transition-all hover:border-indigo-200 hover:shadow-md${submissionActivityCards.length === 1 ? " sm:col-span-2" : ""}`}
                         >
                           <div className="flex items-start justify-between gap-3">
                             <div className="min-w-0 flex-1">
