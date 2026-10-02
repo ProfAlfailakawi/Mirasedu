@@ -676,3 +676,22 @@ html body .miras-student-alert-popover .miras-notice-timeline-card > div.mt-3:no
   margin-top: 0.2rem !important;
   justify-content: flex-start !important;
 }
+
+/* ═══════════════ ٨) شريط التنقل العلوي على سطح المكتب: الشارة بجوار أيقونتها وتسميات مقروءة ═══════════════
+   الشارة كانت مثبّتة على حافة الزر (الخلية عريضة على سطح المكتب) فتبتعد ~75px عن أيقونتها.
+   تُموضع هنا بخصائص منطقية نسبةً إلى منتصف الزر (حيث الأيقونة). الجوال لا يتأثر. */
+@media (min-width: 921px) {
+  html body .teacher-nav-desktop .teacher-orbit-dock-track button.miras-dock-item:not(#_) {
+    position: relative;
+  }
+  html body .teacher-nav-desktop .teacher-orbit-dock-track button.miras-dock-item > span.absolute.z-10:not(#_) {
+    inset-inline-start: auto !important;
+    inset-inline-end: calc(50% - 1.45rem) !important;
+    left: auto;
+    inset-block-start: 0 !important;
+    top: auto;
+  }
+  html body .teacher-nav-desktop .teacher-orbit-dock-track .miras-dock-label:not(#_) {
+    font-size: 11px !important;
+  }
+}
