@@ -40435,7 +40435,9 @@ ${rows
                       <div className="miras-section-hero">
                         <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
                           <div className="text-right">
-                            <h2 className="miras-section-current-title">
+                            <h2
+                              className={`miras-section-current-title${activeTab.id === "integrity" ? " miras-section-title-dup" : ""}`}
+                            >
                               {activeTab.label}
                             </h2>
                           </div>
