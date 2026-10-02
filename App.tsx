@@ -7978,6 +7978,9 @@ export default function App() {
   // البيانات انمسحت؛ نتتبع التحميل لنعرض حالته صراحة بدل القوائم الفارغة.
   const [teacherCloudLoads, setTeacherCloudLoads] = useState(0);
   const [teacherCloudLoadSlow, setTeacherCloudLoadSlow] = useState(false);
+  // بوابة السحابة: لوحة المعلم لا تُعرض إلا بعد اكتمال أول تحميل من السحابة
+  // لهذا الحساب، حتى لا يرى المعلم أصفاراً توحي بأن بياناته ضاعت.
+  const [teacherCloudReadyFor, setTeacherCloudReadyFor] = useState("");
   const [joinCodesLoadState, setJoinCodesLoadState] = useState<
     "loading" | "ready" | "failed"
   >("loading");
@@ -8672,6 +8675,16 @@ export default function App() {
 
   // بعد ٥ ثوانٍ من الانتظار نشرح السبب: الخادم يستيقظ ويقرأ القاعدة كاملة.
   const teacherCloudSyncing = teacherCloudLoads > 0;
+  const teacherCloudGateActive =
+    currentView === "teacher_workspace" &&
+    !!teacherSession?.email &&
+    teacherCloudReadyFor !==
+      String(teacherSession.email || "").trim().toLowerCase();
+  useEffect(() => {
+    const root = document.documentElement;
+    root.classList.toggle("miras-cloud-gated", teacherCloudGateActive);
+    return () => root.classList.remove("miras-cloud-gated");
+  }, [teacherCloudGateActive]);
   useEffect(() => {
     if (!teacherCloudSyncing) {
       setTeacherCloudLoadSlow(false);
@@ -13842,7 +13855,10 @@ export default function App() {
       fetchJoinCodes(teacherEmail),
       fetchCodeIntegrity(teacherEmail),
       reloadTeacherDashboard(teacherEmail),
-    ]).finally(() => setTeacherCloudLoads((n) => Math.max(0, n - 1)));
+    ]).finally(() => {
+      setTeacherCloudLoads((n) => Math.max(0, n - 1));
+      setTeacherCloudReadyFor(String(teacherEmail || "").trim().toLowerCase());
+    });
   };
 
   const fetchCodeIntegrity = async (emailOverride?: string) => {
@@ -36438,7 +36454,59 @@ ${rows
                 </div>
               )}
 
-              {teacherCloudSyncing && (
+              {teacherCloudGateActive && (
+                <div
+                  role="status"
+                  aria-live="polite"
+                  dir="rtl"
+                  className="miras-cloud-gate"
+                >
+                  <div className="miras-cloud-gate__card">
+                    <div className="miras-cloud-gate__orb" aria-hidden="true">
+                      <span className="miras-cloud-gate__ring" />
+                      <span className="miras-cloud-gate__ring miras-cloud-gate__ring--2" />
+                      {isAppOffline ? (
+                        <CloudOff className="h-7 w-7" />
+                      ) : (
+                        <Cloud className="h-7 w-7" />
+                      )}
+                    </div>
+                    <h2 className="miras-cloud-gate__title">
+                      {isAppOffline
+                        ? "بانتظار الشبكة"
+                        : "جارٍ الاتصال بالسحابة"}
+                    </h2>
+                    <p className="miras-cloud-gate__text">
+                      {isAppOffline
+                        ? "لن تُعرض لوحتك قبل الاتصال بالسحابة حتى لا تظهر بيانات ناقصة. سنكمل تلقائياً عند عودة الشبكة."
+                        : "نجهّز مقرراتك وطلبتك. تُفتح اللوحة تلقائياً فور اكتمال المزامنة."}
+                    </p>
+                    {teacherCloudLoadSlow && !isAppOffline && (
+                      <p className="miras-cloud-gate__hint">
+                        الخادم يستيقظ بعد تحديث أو فترة خمول، وقد يستغرق ذلك دقيقة. بياناتك محفوظة ولم يُحذف شيء.
+                      </p>
+                    )}
+                    <div className="miras-cloud-gate__bar" aria-hidden="true">
+                      <span />
+                    </div>
+                    {teacherCloudLoadSlow && (
+                      <button
+                        type="button"
+                        className="miras-cloud-gate__retry"
+                        onClick={() => {
+                          const em = String(teacherSession?.email || "").trim().toLowerCase();
+                          if (em) void loadTeacherCloudData(em);
+                        }}
+                      >
+                        <RefreshCw className="h-4 w-4" aria-hidden="true" />
+                        إعادة المحاولة
+                      </button>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {teacherCloudSyncing && !teacherCloudGateActive && (
                 <div
                   role="status"
                   aria-live="polite"

@@ -1116,3 +1116,112 @@ html[data-theme="dark"] .miras-app-teacher-root button[aria-label="تطهير ك
     margin-inline-end: 0.3rem;
   }
 }
+
+
+/* ═══════════════ بوابة السحابة: لا تُعرض لوحة المعلم قبل اكتمال أول مزامنة ═══════════════ */
+.miras-cloud-gate ~ * { display: none !important; }
+html.miras-cloud-gated .teacher-orbit-dock-track,
+html.miras-cloud-gated .miras-dock-v2 {
+  opacity: 0.35;
+  pointer-events: none;
+  filter: grayscale(0.6);
+  transition: opacity 0.3s ease;
+}
+.miras-cloud-gate {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: min(64vh, 34rem);
+  padding: 1.5rem 1rem;
+}
+.miras-cloud-gate__card {
+  width: min(100%, 22rem);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.7rem;
+  padding: 2rem 1.5rem 1.6rem;
+  text-align: center;
+  border-radius: var(--miras-r-lg, 1.4rem);
+  border: 1px solid var(--miras-line, rgba(226, 232, 240, 0.9));
+  background: var(--miras-surface, #fff);
+  box-shadow: var(--miras-e1, 0 14px 36px rgba(15, 23, 42, 0.07));
+  animation: mirasGateIn 0.45s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+.miras-cloud-gate__orb {
+  position: relative;
+  width: 4.4rem;
+  height: 4.4rem;
+  display: grid;
+  place-items: center;
+  border-radius: 999px;
+  color: var(--miras-brand, #4f46e5);
+  background: var(--miras-brand-tint, rgba(99, 102, 241, 0.1));
+}
+.miras-cloud-gate__ring {
+  position: absolute;
+  inset: 0;
+  border-radius: 999px;
+  border: 1.5px solid var(--miras-brand-line, rgba(99, 102, 241, 0.35));
+  animation: mirasGatePulse 2.4s ease-out infinite;
+}
+.miras-cloud-gate__ring--2 { animation-delay: 1.2s; }
+.miras-cloud-gate__title {
+  margin: 0.3rem 0 0;
+  font-size: 1.15rem;
+  font-weight: 900;
+  color: var(--miras-ink, #0f172a);
+}
+.miras-cloud-gate__text {
+  margin: 0;
+  font-size: 0.8rem;
+  line-height: 1.75;
+  font-weight: 600;
+  color: var(--miras-ink-2, #475569);
+}
+.miras-cloud-gate__hint {
+  margin: 0;
+  padding: 0.5rem 0.7rem;
+  border-radius: 0.9rem;
+  font-size: 0.72rem;
+  line-height: 1.7;
+  font-weight: 700;
+  color: var(--miras-brand, #4f46e5);
+  background: var(--miras-brand-tint, rgba(99, 102, 241, 0.08));
+}
+.miras-cloud-gate__bar {
+  width: 100%;
+  height: 4px;
+  margin-top: 0.4rem;
+  overflow: hidden;
+  border-radius: 999px;
+  background: var(--miras-line-soft, rgba(226, 232, 240, 0.7));
+}
+.miras-cloud-gate__bar span {
+  display: block;
+  width: 40%;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, transparent, var(--miras-brand, #4f46e5), transparent);
+  animation: mirasGateSweep 1.5s ease-in-out infinite;
+}
+.miras-cloud-gate__retry {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin-top: 0.3rem;
+  padding: 0.5rem 1rem;
+  min-height: 44px;
+  border-radius: 999px;
+  border: 1px solid var(--miras-brand-line, rgba(99, 102, 241, 0.35));
+  background: transparent;
+  color: var(--miras-brand, #4f46e5);
+  font-size: 0.78rem;
+  font-weight: 800;
+}
+@keyframes mirasGateIn { from { opacity: 0; transform: translateY(8px) scale(0.98); } }
+@keyframes mirasGatePulse { from { transform: scale(1); opacity: 0.8; } to { transform: scale(1.7); opacity: 0; } }
+@keyframes mirasGateSweep { from { transform: translateX(120%); } to { transform: translateX(-220%); } }
+@media (prefers-reduced-motion: reduce) {
+  .miras-cloud-gate__ring, .miras-cloud-gate__bar span, .miras-cloud-gate__card { animation: none; }
+}
