@@ -284,6 +284,10 @@ import {
   FlaskConical,
   RefreshCw as MirasRefreshCw,
   ShieldCheck,
+  CloudDownload,
+  Database,
+  Zap,
+  BadgeCheck,
   LogIn,
   RotateCcw,
   Radio,
@@ -32324,26 +32328,40 @@ ${rows
             className="meras-auth-shell miras-calm-auth min-h-[100dvh] flex flex-col items-center justify-center px-4 py-4 relative overflow-hidden bg-[#f4f5f8]"
           >
             {loginCloudGateActive && (
-              <div role="status" aria-live="polite" className="miras-cloud-gate relative z-10">
-                <div className="miras-cloud-gate__card">
-                  <div className="miras-cloud-gate__orb" aria-hidden="true">
-                    <span className="miras-cloud-gate__ring" />
-                    <span className="miras-cloud-gate__ring miras-cloud-gate__ring--2" />
+              <div role="status" aria-live="polite" dir="rtl" className="miras-login-gate">
+                <div className="miras-login-gate__stage" aria-hidden="true">
+                  <span className="miras-login-gate__halo" />
+                  <span className="miras-login-gate__orbit">
+                    <i className="miras-login-gate__dot miras-login-gate__dot--a" />
+                    <i className="miras-login-gate__dot miras-login-gate__dot--b" />
+                  </span>
+                  <div className="miras-login-gate__tile">
                     {isAppOffline ? (
-                      <CloudOff className="h-7 w-7" />
+                      <CloudOff className="h-12 w-12" />
                     ) : (
-                      <Cloud className="h-7 w-7" />
+                      <CloudDownload className="h-12 w-12" />
                     )}
                   </div>
-                  <h2 className="miras-cloud-gate__title">
-                    {isAppOffline ? "بانتظار الشبكة" : "جارٍ الاتصال بالسحابة"}
-                  </h2>
-                  <p className="miras-cloud-gate__text">
-                    يظهر نموذج تسجيل الدخول تلقائياً فور اتصال مِراس بالسحابة.
-                  </p>
-                  <div className="miras-cloud-gate__bar" aria-hidden="true">
-                    <span />
+                  <div className="miras-login-gate__chips">
+                    <span><Database className="h-5 w-5" /></span>
+                    <span><Zap className="h-5 w-5" /></span>
+                    <span><BadgeCheck className="h-5 w-5" /></span>
                   </div>
+                </div>
+                <div className="miras-login-gate__panel">
+                  <span className="miras-login-gate__pill">
+                    <i />
+                    {isAppOffline ? "بانتظار الشبكة" : "جاري الاتصال"}
+                  </span>
+                  <h2 className="miras-login-gate__title">
+                    {isAppOffline ? "لا يوجد اتصال بالإنترنت" : "جاري التحقق من الاتصال…"}
+                  </h2>
+                  <div className="miras-login-gate__dots" aria-hidden="true">
+                    <i /><i /><i /><i /><i />
+                  </div>
+                  <p className="miras-login-gate__foot">
+                    يظهر نموذج الدخول تلقائياً فور اتصال مِراس بالسحابة
+                  </p>
                 </div>
               </div>
             )}
