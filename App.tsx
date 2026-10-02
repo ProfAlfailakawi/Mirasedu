@@ -32362,6 +32362,13 @@ ${rows
                   <p className="miras-login-gate__foot">
                     يظهر نموذج الدخول تلقائياً فور اتصال مِراس بالسحابة
                   </p>
+                  <button
+                    type="button"
+                    onClick={openSignupWithInstallGate}
+                    className="miras-login-gate__link"
+                  >
+                    إنشاء حساب جديد
+                  </button>
                 </div>
               </div>
             )}

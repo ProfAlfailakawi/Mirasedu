@@ -1261,3 +1261,13 @@ html[data-theme="dark"] .miras-app-teacher-root button[aria-label="تطهير ك
   .miras-login-gate, .miras-login-gate__halo, .miras-login-gate__orbit,
   .miras-login-gate__pill i, .miras-login-gate__dots i { animation: none; }
 }
+.miras-login-gate__link {
+  min-height: 44px;
+  padding: 0.5rem 1.1rem;
+  border-radius: 999px;
+  font-size: 0.8rem;
+  font-weight: 800;
+  color: #d1fae5;
+  border: 1px solid rgba(167, 243, 208, 0.28);
+  background: transparent;
+}
