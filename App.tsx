@@ -7545,6 +7545,45 @@ export default function App() {
     typeof navigator !== "undefined" ? !navigator.onLine : false,
   );
   const [connectionRecoveredAt, setConnectionRecoveredAt] = useState(0);
+  // بوابة السحابة في شاشة تسجيل الدخول فقط: لا يظهر نموذج الدخول قبل التأكد من السحابة.
+  const [loginCloudReady, setLoginCloudReady] = useState(false);
+  const loginCloudGateWanted =
+    currentView === "signup" && instructorMode === true && !passwordResetToken;
+  useEffect(() => {
+    if (!loginCloudGateWanted) {
+      setLoginCloudReady(false);
+      return;
+    }
+    let cancelled = false;
+    let timer = 0;
+    const check = async () => {
+      let ok = false;
+      try {
+        const resp = await fetch(`/api/cloud-status?t=${Date.now()}`, {
+          cache: "no-store",
+        });
+        ok = resp.ok;
+      } catch {}
+      if (cancelled) return;
+      if (ok) {
+        setLoginCloudReady(true);
+        return;
+      }
+      timer = window.setTimeout(check, 4000);
+    };
+    void check();
+    const onOnline = () => {
+      window.clearTimeout(timer);
+      void check();
+    };
+    window.addEventListener("online", onOnline);
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timer);
+      window.removeEventListener("online", onOnline);
+    };
+  }, [loginCloudGateWanted]);
+  const loginCloudGateActive = loginCloudGateWanted && !loginCloudReady;
   useEffect(() => {
     if (typeof window === "undefined") return;
     const goOnline = () => {
@@ -32284,7 +32323,31 @@ ${rows
             dir="rtl"
             className="meras-auth-shell miras-calm-auth min-h-[100dvh] flex flex-col items-center justify-center px-4 py-4 relative overflow-hidden bg-[#f4f5f8]"
           >
-            <div className="meras-auth-card w-full max-w-xl h-auto max-h-[calc(100dvh-2rem)] overflow-y-auto flex flex-col justify-center glass-panel rounded-[var(--miras-r-xl)] shadow-premium-lg p-8 sm:p-10 border border-white/60 relative z-10 transition-all duration-300">
+            {loginCloudGateActive && (
+              <div role="status" aria-live="polite" className="miras-cloud-gate relative z-10">
+                <div className="miras-cloud-gate__card">
+                  <div className="miras-cloud-gate__orb" aria-hidden="true">
+                    <span className="miras-cloud-gate__ring" />
+                    <span className="miras-cloud-gate__ring miras-cloud-gate__ring--2" />
+                    {isAppOffline ? (
+                      <CloudOff className="h-7 w-7" />
+                    ) : (
+                      <Cloud className="h-7 w-7" />
+                    )}
+                  </div>
+                  <h2 className="miras-cloud-gate__title">
+                    {isAppOffline ? "بانتظار الشبكة" : "جارٍ الاتصال بالسحابة"}
+                  </h2>
+                  <p className="miras-cloud-gate__text">
+                    يظهر نموذج تسجيل الدخول تلقائياً فور اتصال مِراس بالسحابة.
+                  </p>
+                  <div className="miras-cloud-gate__bar" aria-hidden="true">
+                    <span />
+                  </div>
+                </div>
+              </div>
+            )}
+            <div className={`meras-auth-card w-full max-w-xl h-auto max-h-[calc(100dvh-2rem)] overflow-y-auto flex flex-col justify-center glass-panel rounded-[var(--miras-r-xl)] shadow-premium-lg p-8 sm:p-10 border border-white/60 relative z-10 transition-all duration-300 ${loginCloudGateActive ? "hidden" : ""}`}>
               <div className="absolute top-6 left-6 z-20 flex items-center gap-2">
                 <button
                   type="button"
