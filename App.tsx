@@ -7545,6 +7545,45 @@ export default function App() {
     typeof navigator !== "undefined" ? !navigator.onLine : false,
   );
   const [connectionRecoveredAt, setConnectionRecoveredAt] = useState(0);
+  // بوابة السحابة في شاشة تسجيل الدخول فقط: لا يظهر نموذج الدخول قبل التأكد من السحابة.
+  const [loginCloudReady, setLoginCloudReady] = useState(false);
+  const loginCloudGateWanted =
+    currentView === "signup" && instructorMode === true && !passwordResetToken;
+  useEffect(() => {
+    if (!loginCloudGateWanted) {
+      setLoginCloudReady(false);
+      return;
+    }
+    let cancelled = false;
+    let timer = 0;
+    const check = async () => {
+      let ok = false;
+      try {
+        const resp = await fetch(`/api/cloud-status?t=${Date.now()}`, {
+          cache: "no-store",
+        });
+        ok = resp.ok;
+      } catch {}
+      if (cancelled) return;
+      if (ok) {
+        setLoginCloudReady(true);
+        return;
+      }
+      timer = window.setTimeout(check, 4000);
+    };
+    void check();
+    const onOnline = () => {
+      window.clearTimeout(timer);
+      void check();
+    };
+    window.addEventListener("online", onOnline);
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timer);
+      window.removeEventListener("online", onOnline);
+    };
+  }, [loginCloudGateWanted]);
+  const loginCloudGateActive = loginCloudGateWanted && !loginCloudReady;
   useEffect(() => {
     if (typeof window === "undefined") return;
     const goOnline = () => {
@@ -7978,6 +8017,10 @@ export default function App() {
   // البيانات انمسحت؛ نتتبع التحميل لنعرض حالته صراحة بدل القوائم الفارغة.
   const [teacherCloudLoads, setTeacherCloudLoads] = useState(0);
   const [teacherCloudLoadSlow, setTeacherCloudLoadSlow] = useState(false);
+  // جاهزية بيانات كل حساب (تُغلق بها شاشة الدخول الافتتاحية): لكل حساب على حدة.
+  const [teacherCloudReady, setTeacherCloudReady] = useState<Record<string, true>>({});
+  const [studentCloudReady, setStudentCloudReady] = useState<Record<string, true>>({});
+  const [studentLoadRetry, setStudentLoadRetry] = useState(0);
   const [joinCodesLoadState, setJoinCodesLoadState] = useState<
     "loading" | "ready" | "failed"
   >("loading");
@@ -8625,6 +8668,7 @@ export default function App() {
           setPersonalProject(details.projects[0]);
         else if (detailsResp.ok) setPersonalProject(null);
         setStudentSubmissions(details.exerciseSubmissions || []);
+        setStudentCloudReady((m) => ({ ...m, [String(studentSession.id)]: true }));
       } catch (err) {
         // Keep the last known project during a transient Safari/Hosting outage.
         // The live poll retries and replaces this data after the connection returns.
@@ -8637,7 +8681,7 @@ export default function App() {
     return () => {
       active = false;
     };
-  }, [studentSession?.id]);
+  }, [studentSession?.id, studentLoadRetry]);
 
   useEffect(() => {
     if (!teacherSession?.email || currentView !== "teacher_workspace") return;
@@ -8672,6 +8716,31 @@ export default function App() {
 
   // بعد ٥ ثوانٍ من الانتظار نشرح السبب: الخادم يستيقظ ويقرأ القاعدة كاملة.
   const teacherCloudSyncing = teacherCloudLoads > 0;
+  // شاشة الدخول الافتتاحية تبقى حتى تكتمل بيانات الحساب فعلاً.
+  const loginRevealDataReady =
+    loginRevealRole === "teacher"
+      ? !!teacherCloudReady[String(teacherSession?.email || "").trim().toLowerCase()]
+      : loginRevealRole === "student"
+        ? !!studentCloudReady[String(studentSession?.id || "")]
+        : true;
+  // إن تعثّر التحميل نعيد المحاولة كل ٦ ثوانٍ وعند عودة الشبكة بدل التعليق.
+  useEffect(() => {
+    if (!loginRevealRole || loginRevealDataReady) return;
+    const retry = () => {
+      if (loginRevealRole === "teacher") {
+        const em = String(teacherSession?.email || "").trim().toLowerCase();
+        if (em && !teacherCloudSyncing) void loadTeacherCloudData(em);
+      } else {
+        setStudentLoadRetry((n) => n + 1);
+      }
+    };
+    const timer = window.setInterval(retry, 6000);
+    window.addEventListener("online", retry);
+    return () => {
+      window.clearInterval(timer);
+      window.removeEventListener("online", retry);
+    };
+  }, [loginRevealRole, loginRevealDataReady, teacherCloudSyncing, teacherSession?.email]);
   useEffect(() => {
     if (!teacherCloudSyncing) {
       setTeacherCloudLoadSlow(false);
@@ -13834,6 +13903,7 @@ export default function App() {
   // تحميل بيانات لوحة المعلم كاملة مع تتبّع حالته لشريط «جارٍ التحميل من السحابة».
   const loadTeacherCloudData = (teacherEmail: string) => {
     setTeacherCloudLoads((n) => n + 1);
+    const readyKey = String(teacherEmail || "").trim().toLowerCase();
     return Promise.allSettled([
       fetchSections(teacherEmail),
       fetchTeacherExams(teacherEmail),
@@ -13842,7 +13912,12 @@ export default function App() {
       fetchJoinCodes(teacherEmail),
       fetchCodeIntegrity(teacherEmail),
       reloadTeacherDashboard(teacherEmail),
-    ]).finally(() => setTeacherCloudLoads((n) => Math.max(0, n - 1)));
+    ]).then((results) => {
+      setTeacherCloudLoads((n) => Math.max(0, n - 1));
+      if (results[0].status === "fulfilled" && results[0].value === true)
+        setTeacherCloudReady((m) => ({ ...m, [readyKey]: true }));
+      return results;
+    });
   };
 
   const fetchCodeIntegrity = async (emailOverride?: string) => {
@@ -15148,6 +15223,7 @@ ${rows
         headers: teacherHeaders(email),
       });
       const d = await resp.json();
+      if (!resp.ok) return false;
       if (d.sections) {
         const sections = Array.isArray(d.sections) ? d.sections : [];
         setTeacherSections(sections);
@@ -15165,9 +15241,12 @@ ${rows
           sections[0]
         )
           setSelectedTeacherCourseCode(sections[0].code);
+        return true;
       }
+      return false;
     } catch (e) {
       console.error(e);
+      return false;
     }
   };
 
@@ -17070,6 +17149,7 @@ ${rows
   };
 
   const handleLogin = async () => {
+    if (loginCloudGateActive) return;
     setErrorMsg("");
     setSuccessMsg("");
     try {
@@ -17975,6 +18055,8 @@ ${rows
     // جاهزة للتفاعل). بربط الإطلاق بحالة showSplash نفسها نضمن أنه يقع بعدها
     // دائماً مهما تغيّر توقيتها — لا اعتماد على أي مؤقّت مقدَّر.
     if (showSplash) return;
+    // لا بصمة تلقائية قبل التأكد من السحابة؛ تنطلق فور جاهزيتها.
+    if (loginCloudGateActive) return;
 
     if (
       isLoginVisible &&
@@ -18060,6 +18142,7 @@ ${rows
     showCompactPasskeyLogin,
     // اختفاء شاشة البداية يُعيد تشغيل الأثر فتنطلق البصمة بعدها مباشرة.
     showSplash,
+    loginCloudGateActive,
     teacherSession,
     studentSession,
     passkeyBusy,
@@ -32284,7 +32367,7 @@ ${rows
             dir="rtl"
             className="meras-auth-shell miras-calm-auth min-h-[100dvh] flex flex-col items-center justify-center px-4 py-4 relative overflow-hidden bg-[#f4f5f8]"
           >
-            <div className="meras-auth-card w-full max-w-xl h-auto max-h-[calc(100dvh-2rem)] overflow-y-auto flex flex-col justify-center glass-panel rounded-[var(--miras-r-xl)] shadow-premium-lg p-8 sm:p-10 border border-white/60 relative z-10 transition-all duration-300">
+            <div className={`meras-auth-card w-full max-w-xl h-auto max-h-[calc(100dvh-2rem)] overflow-y-auto flex flex-col justify-center glass-panel rounded-[var(--miras-r-xl)] shadow-premium-lg p-8 sm:p-10 border border-white/60 relative z-10 transition-all duration-300`}>
               <div className="absolute top-6 left-6 z-20 flex items-center gap-2">
                 <button
                   type="button"
@@ -32490,15 +32573,16 @@ ${rows
                             type="button"
                             title="الدخول بالبصمة"
                             aria-label="الدخول بالبصمة"
-                            disabled={passkeyBusy}
+                            disabled={passkeyBusy || loginCloudGateActive}
                             onClick={() => loginWithPasskey()}
                             className="miras-passkey-auto-button inline-flex h-20 w-20 items-center justify-center rounded-3xl border border-emerald-100 bg-white text-emerald-700 transition-all duration-300 btn-spring-active miras-shadow-2 hover:bg-emerald-50 disabled:opacity-70"
                           >
-                            {passkeyBusy ? (
+                            {passkeyBusy || loginCloudGateActive ? (
                               <MirasLoader
                                 size={32}
                                 role="current"
-                                label="جارٍ التحقق بالبصمة…"
+                                delay={0}
+                                label={loginCloudGateActive ? "جارٍ الاتصال بالسحابة…" : "جارٍ التحقق بالبصمة…"}
                               />
                             ) : (
                               <Fingerprint className="h-9 w-9" />
@@ -32647,6 +32731,7 @@ ${rows
                           title="تسجيل الدخول"
                           aria-label="تسجيل الدخول"
                           onClick={handleLogin}
+                          disabled={loginCloudGateActive}
                           className="miras-login-primary flex h-16 w-16 items-center justify-center rounded-3xl text-white transition-colors duration-200 btn-spring-active"
                         >
                           <Lock className="h-7 w-7" />
@@ -32658,15 +32743,16 @@ ${rows
                           type="button"
                           title="الدخول بالبصمة"
                           aria-label="الدخول بالبصمة"
-                          disabled={passkeyBusy}
+                          disabled={passkeyBusy || loginCloudGateActive}
                           onClick={() => loginWithPasskey()}
                           className="flex h-16 w-16 items-center justify-center rounded-3xl border border-emerald-100 bg-emerald-50 text-emerald-700 transition-all duration-300 btn-spring-active hover:bg-emerald-100 disabled:opacity-60"
                         >
-                          {passkeyBusy ? (
+                          {passkeyBusy || loginCloudGateActive ? (
                             <MirasLoader
-                              size={24}
+                              size={28}
                               role="current"
-                              label="جارٍ التحقق بالبصمة…"
+                              delay={0}
+                              label={loginCloudGateActive ? "جارٍ الاتصال بالسحابة…" : "جارٍ التحقق بالبصمة…"}
                             />
                           ) : (
                             <Fingerprint className="h-7 w-7" />
@@ -36434,29 +36520,6 @@ ${rows
                       )}
                     </select>
                     <ChevronDown className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 pointer-events-none" />
-                  </div>
-                </div>
-              )}
-
-              {teacherCloudSyncing && (
-                <div
-                  role="status"
-                  aria-live="polite"
-                  dir="rtl"
-                  className="mx-3 mt-3 flex items-start gap-3 rounded-[var(--miras-r-lg)] border border-indigo-100 bg-indigo-50/90 px-4 py-3 text-right sm:mx-6 lg:mx-8"
-                >
-                  <RefreshCw
-                    className="mt-0.5 h-4 w-4 shrink-0 animate-spin text-indigo-600"
-                    aria-hidden="true"
-                  />
-                  <div className="text-xs font-bold leading-5 text-indigo-900">
-                    جارٍ تحميل بياناتك من السحابة…
-                    {teacherCloudLoadSlow && (
-                      <span className="block font-semibold text-indigo-700">
-                        الخادم يستيقظ بعد تحديث أو فترة خمول، وقد يستغرق ذلك دقيقة.
-                        بياناتك محفوظة ولم يُحذف شيء.
-                      </span>
-                    )}
                   </div>
                 </div>
               )}
@@ -46768,6 +46831,7 @@ ${rows
       {loginRevealRole && (
         <LoginRevealOverlay
           role={loginRevealRole}
+          ready={loginRevealDataReady}
           onDone={() => setLoginRevealRole(null)}
         />
       )}

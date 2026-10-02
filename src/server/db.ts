@@ -1088,6 +1088,9 @@ export class LocalDatabase {
   }
 
   public getDatabaseGuardStatus() {
+    // نفس إعادة الفتح التلقائية بعد مهلة الحصة التي يستخدمها persist()، حتى لا يبقى
+    // الحكم 503 مؤبداً لشاشة الدخول ما دام لا أحد يكتب.
+    reopenFirestoreSyncIfQuotaCooldownPassed();
     return {
       locked: this.databaseGuardLocked,
       code: this.databaseGuardLocked

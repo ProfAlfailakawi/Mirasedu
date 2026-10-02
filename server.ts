@@ -10170,6 +10170,14 @@ app.get("/api/version", (_req, res) => {
   res.json({ build: currentBuildId() });
 });
 
+// حالة السحابة لشاشة الدخول: 200 فقط إذا كانت قاعدة البيانات جاهزة للقراءة والحفظ.
+app.get("/api/cloud-status", (_req, res) => {
+  res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate");
+  const status = dbInstance.getDatabaseGuardStatus();
+  const ok = !status?.locked && !status?.firestoreQuotaExceeded;
+  res.status(ok ? 200 : 503).json({ ok });
+});
+
 app.get("/api/config/firebase-public", (req, res) => {
   const config = firebasePublicConfig();
   const hasFirebaseClientConfig = !!(
