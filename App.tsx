@@ -8736,6 +8736,50 @@ export default function App() {
       : loginRevealRole === "student"
         ? !!studentCloudReady[String(studentSession?.id || "")]
         : true;
+  // فتح التطبيق من جديد بجلسة محفوظة (بلا تسجيل دخول) كان يعرض اللوحة بأصفار حتى
+  // يصحو الخادم؛ نُظهر الشاشة الافتتاحية نفسها حتى تكتمل بيانات الحساب.
+  // لا يشمل التفعيل: يُطبَّق فقط إن وُجدت جلسة محفوظة لحظة فتح الصفحة، ومرة واحدة.
+  const restoredSessionAtLoadRef = useRef<boolean | null>(null);
+  if (restoredSessionAtLoadRef.current === null) {
+    try {
+      restoredSessionAtLoadRef.current =
+        !!localStorage.getItem("miras_student_session") ||
+        !!localStorage.getItem("miras_teacher_session");
+    } catch {
+      restoredSessionAtLoadRef.current = false;
+    }
+  }
+  const restoreGateFiredRef = useRef(false);
+  useEffect(() => {
+    if (
+      loginRevealRole ||
+      !restoredSessionAtLoadRef.current ||
+      restoreGateFiredRef.current
+    )
+      return;
+    if (
+      currentView === "teacher_workspace" &&
+      teacherSession?.email &&
+      !teacherCloudReady[String(teacherSession.email).trim().toLowerCase()]
+    ) {
+      restoreGateFiredRef.current = true;
+      setLoginRevealRole("teacher");
+    } else if (
+      currentView === "student_workspace" &&
+      studentSession?.id &&
+      !studentCloudReady[String(studentSession.id)]
+    ) {
+      restoreGateFiredRef.current = true;
+      setLoginRevealRole("student");
+    }
+  }, [
+    loginRevealRole,
+    currentView,
+    teacherSession?.email,
+    studentSession?.id,
+    teacherCloudReady,
+    studentCloudReady,
+  ]);
   // إن تعثّر التحميل نعيد المحاولة كل ٦ ثوانٍ وعند عودة الشبكة بدل التعليق.
   useEffect(() => {
     if (!loginRevealRole || loginRevealDataReady) return;
