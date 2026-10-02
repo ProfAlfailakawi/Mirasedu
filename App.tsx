@@ -40326,7 +40326,27 @@ ${rows
                           key={sec.code}
                           className="bg-slate-50/80 rounded-3xl border border-slate-200 p-5 space-y-4 text-right shadow-sm hover:shadow-md transition-all"
                         >
-                          <div className="flex items-start justify-end gap-3">
+                          <div className="flex items-center justify-end gap-3">
+                            {(() => {
+                              const courseStudentCount = teacherStudents.filter(
+                                (student: any) =>
+                                  studentBelongsToCourse(student, sec.code),
+                              ).length;
+                              return (
+                                <span
+                                  className={`miras-course-ring ${sec.isOpen ? "is-open" : "is-closed"}`}
+                                  title={`${courseStudentCount} طالب`}
+                                  aria-label={`${courseStudentCount} طالب`}
+                                  role="img"
+                                >
+                                  <svg viewBox="0 0 36 36" aria-hidden="true">
+                                    <circle cx="18" cy="18" r="15" fill="none" strokeWidth="2" className="miras-course-ring-track" />
+                                    <circle cx="18" cy="18" r="15" fill="none" strokeWidth="2.4" strokeLinecap="round" className="miras-course-ring-arc" transform="rotate(-90 18 18)" />
+                                  </svg>
+                                  <b>{courseStudentCount}</b>
+                                </span>
+                              );
+                            })()}
                             <span
                               className={`text-[10px] font-bold px-3 py-1 rounded-full ${sec.isOpen ? "bg-emerald-50 text-emerald-700" : "bg-red-50 text-red-700"}`}
                             >
@@ -40349,9 +40369,9 @@ ${rows
                               className="inline-flex h-10 items-center justify-center rounded-2xl border border-slate-200 bg-white text-slate-700 hover:border-indigo-300 hover:text-indigo-700 transition-all"
                             >
                               {sec.isOpen ? (
-                                <Lock className="h-4 w-4" />
+                                <Lock className="h-4 w-4" strokeWidth={1.5} />
                               ) : (
-                                <Play className="h-4 w-4" />
+                                <Play className="h-4 w-4" strokeWidth={1.5} />
                               )}
                             </button>
                             <button
@@ -40360,7 +40380,7 @@ ${rows
                               onClick={() => beginEditSection(sec)}
                               className="inline-flex h-10 items-center justify-center rounded-2xl border border-indigo-100 bg-indigo-50 text-indigo-700 transition-all"
                             >
-                              <Edit className="h-4 w-4" />
+                              <Edit className="h-4 w-4" strokeWidth={1.5} />
                             </button>
                             <button
                               title="حذف"
@@ -40368,7 +40388,7 @@ ${rows
                               onClick={() => deleteSectionSafely(sec)}
                               className="inline-flex h-10 items-center justify-center rounded-2xl border border-red-100 bg-red-50 text-red-700 transition-all"
                             >
-                              <Trash2 className="h-4 w-4" />
+                              <Trash2 className="h-4 w-4" strokeWidth={1.5} />
                             </button>
                           </div>
                         </div>
