@@ -8021,6 +8021,8 @@ export default function App() {
   const [teacherCloudReady, setTeacherCloudReady] = useState<Record<string, true>>({});
   const [studentCloudReady, setStudentCloudReady] = useState<Record<string, true>>({});
   const [studentLoadRetry, setStudentLoadRetry] = useState(0);
+  // جيل الجلسة: يزداد عند الخروج حتى لا يكتب تحميلٌ قديم جاهزيةً لجلسة جديدة.
+  const cloudSessionGenRef = useRef(0);
   const [joinCodesLoadState, setJoinCodesLoadState] = useState<
     "loading" | "ready" | "failed"
   >("loading");
@@ -8716,6 +8718,17 @@ export default function App() {
 
   // بعد ٥ ثوانٍ من الانتظار نشرح السبب: الخادم يستيقظ ويقرأ القاعدة كاملة.
   const teacherCloudSyncing = teacherCloudLoads > 0;
+  // عند الخروج (أي مسار) نُصفّر جاهزية البيانات وعلم عرض الشاشة الافتتاحية، فيمرّ
+  // كل دخول جديد بنفس الشاشة وينتظر بياناته بدل أن يُعاد استخدام جاهزية قديمة.
+  useEffect(() => {
+    if (teacherSession || studentSession) return;
+    cloudSessionGenRef.current += 1;
+    try {
+      sessionStorage.removeItem("miras_login_reveal_played");
+    } catch {}
+    setTeacherCloudReady({});
+    setStudentCloudReady({});
+  }, [teacherSession, studentSession]);
   // شاشة الدخول الافتتاحية تبقى حتى تكتمل بيانات الحساب فعلاً.
   const loginRevealDataReady =
     loginRevealRole === "teacher"
@@ -13904,6 +13917,7 @@ export default function App() {
   const loadTeacherCloudData = (teacherEmail: string) => {
     setTeacherCloudLoads((n) => n + 1);
     const readyKey = String(teacherEmail || "").trim().toLowerCase();
+    const loadGen = cloudSessionGenRef.current;
     return Promise.allSettled([
       fetchSections(teacherEmail),
       fetchTeacherExams(teacherEmail),
@@ -13914,7 +13928,11 @@ export default function App() {
       reloadTeacherDashboard(teacherEmail),
     ]).then((results) => {
       setTeacherCloudLoads((n) => Math.max(0, n - 1));
-      if (results[0].status === "fulfilled" && results[0].value === true)
+      if (
+        loadGen === cloudSessionGenRef.current &&
+        results[0].status === "fulfilled" &&
+        results[0].value === true
+      )
         setTeacherCloudReady((m) => ({ ...m, [readyKey]: true }));
       return results;
     });
