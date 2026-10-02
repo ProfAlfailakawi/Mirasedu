@@ -8731,6 +8731,7 @@ export default function App() {
     revealStartedRef.current = false;
     try {
       sessionStorage.removeItem("miras_login_reveal_played");
+      sessionStorage.removeItem("miras_restore_reveal_played");
     } catch {}
     setTeacherCloudReady({});
     setStudentCloudReady({});
@@ -8764,6 +8765,17 @@ export default function App() {
       restoreGateFiredRef.current
     )
       return;
+    // التحديث الذاتي الصامت يُعيد تحميل الصفحة بعد نشر إصدار جديد؛ sessionStorage
+    // يصمد عبر إعادة التحميل فلا تُعاد الشاشة التي ظهرت قبل لحظات في التبويب نفسه.
+    try {
+      if (
+        sessionStorage.getItem("miras_login_reveal_played") === "1" ||
+        sessionStorage.getItem("miras_restore_reveal_played") === "1"
+      ) {
+        restoreGateFiredRef.current = true;
+        return;
+      }
+    } catch {}
     if (
       currentView === "teacher_workspace" &&
       teacherSession?.email &&
@@ -8771,6 +8783,9 @@ export default function App() {
     ) {
       restoreGateFiredRef.current = true;
       revealStartedRef.current = true;
+      try {
+        sessionStorage.setItem("miras_restore_reveal_played", "1");
+      } catch {}
       setLoginRevealRole("teacher");
     } else if (
       currentView === "student_workspace" &&
@@ -8779,6 +8794,9 @@ export default function App() {
     ) {
       restoreGateFiredRef.current = true;
       revealStartedRef.current = true;
+      try {
+        sessionStorage.setItem("miras_restore_reveal_played", "1");
+      } catch {}
       setLoginRevealRole("student");
     }
   }, [
