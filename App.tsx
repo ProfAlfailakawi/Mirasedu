@@ -284,10 +284,6 @@ import {
   FlaskConical,
   RefreshCw as MirasRefreshCw,
   ShieldCheck,
-  CloudDownload,
-  Database,
-  Zap,
-  BadgeCheck,
   LogIn,
   RotateCcw,
   Radio,
@@ -32328,48 +32324,36 @@ ${rows
             className="meras-auth-shell miras-calm-auth min-h-[100dvh] flex flex-col items-center justify-center px-4 py-4 relative overflow-hidden bg-[#f4f5f8]"
           >
             {loginCloudGateActive && (
-              <div role="status" aria-live="polite" dir="rtl" className="miras-login-gate">
-                <div className="miras-login-gate__stage" aria-hidden="true">
-                  <span className="miras-login-gate__halo" />
-                  <span className="miras-login-gate__orbit">
-                    <i className="miras-login-gate__dot miras-login-gate__dot--a" />
-                    <i className="miras-login-gate__dot miras-login-gate__dot--b" />
-                  </span>
-                  <div className="miras-login-gate__tile">
-                    {isAppOffline ? (
-                      <CloudOff className="h-12 w-12" />
-                    ) : (
-                      <CloudDownload className="h-12 w-12" />
-                    )}
-                  </div>
-                  <div className="miras-login-gate__chips">
-                    <span><Database className="h-5 w-5" /></span>
-                    <span><Zap className="h-5 w-5" /></span>
-                    <span><BadgeCheck className="h-5 w-5" /></span>
-                  </div>
+              <div role="status" aria-live="polite" dir="rtl" className="meras-auth-card miras-login-gate">
+                <span className="miras-login-gate__brand">
+                  <MirasMark className="h-3.5 w-3.5" />
+                  مِراس
+                </span>
+                <div className="miras-login-gate__orb" aria-hidden="true">
+                  <span className="miras-login-gate__ring" />
+                  <span className="miras-login-gate__ring miras-login-gate__ring--2" />
+                  {isAppOffline ? (
+                    <CloudOff className="h-8 w-8" />
+                  ) : (
+                    <Cloud className="h-8 w-8" />
+                  )}
                 </div>
-                <div className="miras-login-gate__panel">
-                  <span className="miras-login-gate__pill">
-                    <i />
-                    {isAppOffline ? "بانتظار الشبكة" : "جاري الاتصال"}
-                  </span>
-                  <h2 className="miras-login-gate__title">
-                    {isAppOffline ? "لا يوجد اتصال بالإنترنت" : "جاري التحقق من الاتصال…"}
-                  </h2>
-                  <div className="miras-login-gate__dots" aria-hidden="true">
-                    <i /><i /><i /><i /><i />
-                  </div>
-                  <p className="miras-login-gate__foot">
-                    يظهر نموذج الدخول تلقائياً فور اتصال مِراس بالسحابة
-                  </p>
-                  <button
-                    type="button"
-                    onClick={openSignupWithInstallGate}
-                    className="miras-login-gate__link"
-                  >
-                    إنشاء حساب جديد
-                  </button>
+                <h2 className="miras-login-gate__title">
+                  {isAppOffline ? "بانتظار الشبكة" : "جارٍ الاتصال بالسحابة"}
+                </h2>
+                <p className="miras-login-gate__text">
+                  يظهر نموذج تسجيل الدخول تلقائياً فور اكتمال الاتصال.
+                </p>
+                <div className="miras-login-gate__bar" aria-hidden="true">
+                  <span />
                 </div>
+                <button
+                  type="button"
+                  onClick={openSignupWithInstallGate}
+                  className="miras-login-gate__link"
+                >
+                  إنشاء حساب جديد
+                </button>
               </div>
             )}
             <div className={`meras-auth-card w-full max-w-xl h-auto max-h-[calc(100dvh-2rem)] overflow-y-auto flex flex-col justify-center glass-panel rounded-[var(--miras-r-xl)] shadow-premium-lg p-8 sm:p-10 border border-white/60 relative z-10 transition-all duration-300 ${loginCloudGateActive ? "hidden" : ""}`}>
