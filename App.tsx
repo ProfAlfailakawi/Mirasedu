@@ -36996,7 +36996,18 @@ ${rows
                             <MirasRatioRing done={card.graded} total={card.total} />
                             <ChevronLeft className="mt-1 h-4 w-4 shrink-0 text-slate-300 transition-transform group-hover:-translate-x-1 group-hover:text-indigo-500" />
                           </div>
-                          <div className="mt-3 flex flex-wrap gap-1.5">
+                          {card.total > 0 && (
+                            <div
+                              className="miras-stack-bar mt-3"
+                              role="img"
+                              aria-label={`${card.graded} مصحح، ${card.pending} بانتظار، ${card.returned} معاد من ${card.total}`}
+                            >
+                              <span className="is-graded" style={{ width: `${(card.graded / card.total) * 100}%` }} />
+                              <span className="is-pending" style={{ width: `${(card.pending / card.total) * 100}%` }} />
+                              <span className="is-returned" style={{ width: `${(card.returned / card.total) * 100}%` }} />
+                            </div>
+                          )}
+                          <div className="miras-sub-chips mt-3 flex flex-wrap gap-1.5">
                             {card.graded > 0 && (
                               <span className="rounded-full bg-emerald-50 px-2.5 py-1 text-[10px] font-bold text-emerald-700">
                                 {card.graded} مصحح
