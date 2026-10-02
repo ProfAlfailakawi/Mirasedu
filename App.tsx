@@ -7845,14 +7845,13 @@ export default function App() {
         setPersonalProject(details.projects[0]);
       else setPersonalProject(null);
       setStudentSubmissions(details.exerciseSubmissions || []);
+      setStudentCloudReady((m) => ({ ...m, [String(activeStudent.id)]: true }));
       return true;
     } catch {
       setStudentWorkspaceLoadError(
         "تعذر تحميل بيانات الطالب بعد التفعيل. تحقق من الاتصال ثم أعد المحاولة.",
       );
       return false;
-    } finally {
-      setStudentCloudReadyFor(String(activeStudent.id));
     }
   };
   const applyActivatedStudentResponse = async (
@@ -7982,9 +7981,11 @@ export default function App() {
   const [teacherCloudLoadSlow, setTeacherCloudLoadSlow] = useState(false);
   // بوابة السحابة: لوحة المعلم لا تُعرض إلا بعد اكتمال أول تحميل من السحابة
   // لهذا الحساب، حتى لا يرى المعلم أصفاراً توحي بأن بياناته ضاعت.
-  const [teacherCloudReadyFor, setTeacherCloudReadyFor] = useState("");
+  // جاهزية لكل حساب على حدة: اكتمال تحميل حساب سابق لا يلغي جاهزية الحالي.
+  const [teacherCloudReady, setTeacherCloudReady] = useState<Record<string, true>>({});
   // نفس البوابة للطالب: لا تُعرض مساحته قبل اكتمال أول تحميل لبياناته.
-  const [studentCloudReadyFor, setStudentCloudReadyFor] = useState("");
+  const [studentCloudReady, setStudentCloudReady] = useState<Record<string, true>>({});
+  const [studentGateRetry, setStudentGateRetry] = useState(0);
   const [joinCodesLoadState, setJoinCodesLoadState] = useState<
     "loading" | "ready" | "failed"
   >("loading");
@@ -8632,12 +8633,11 @@ export default function App() {
           setPersonalProject(details.projects[0]);
         else if (detailsResp.ok) setPersonalProject(null);
         setStudentSubmissions(details.exerciseSubmissions || []);
+        setStudentCloudReady((m) => ({ ...m, [String(studentSession.id)]: true }));
       } catch (err) {
         // Keep the last known project during a transient Safari/Hosting outage.
         // The live poll retries and replaces this data after the connection returns.
         console.warn("Student persistent details refresh deferred:", err);
-      } finally {
-        if (active) setStudentCloudReadyFor(String(studentSession.id));
       }
     };
 
@@ -8646,7 +8646,7 @@ export default function App() {
     return () => {
       active = false;
     };
-  }, [studentSession?.id]);
+  }, [studentSession?.id, studentGateRetry]);
 
   useEffect(() => {
     if (!teacherSession?.email || currentView !== "teacher_workspace") return;
@@ -8684,12 +8684,34 @@ export default function App() {
   const studentCloudGateActive =
     currentView === "student_workspace" &&
     !!studentSession?.id &&
-    studentCloudReadyFor !== String(studentSession.id);
+    !studentCloudReady[String(studentSession.id)];
   const teacherCloudGateActive =
     currentView === "teacher_workspace" &&
     !!teacherSession?.email &&
-    teacherCloudReadyFor !==
-      String(teacherSession.email || "").trim().toLowerCase();
+    !teacherCloudReady[String(teacherSession.email || "").trim().toLowerCase()];
+  // البوابة مغلقة حتى ينجح التحميل: نعيد المحاولة تلقائياً كل ٦ ثوانٍ وعند عودة الشبكة.
+  useEffect(() => {
+    if (!teacherCloudGateActive || teacherCloudSyncing) return;
+    const email = String(teacherSession?.email || "").trim().toLowerCase();
+    if (!email) return;
+    const retry = () => void loadTeacherCloudData(email);
+    const timer = window.setTimeout(retry, 6000);
+    window.addEventListener("online", retry);
+    return () => {
+      window.clearTimeout(timer);
+      window.removeEventListener("online", retry);
+    };
+  }, [teacherCloudGateActive, teacherCloudSyncing, teacherSession?.email]);
+  useEffect(() => {
+    if (!studentCloudGateActive) return;
+    const retry = () => setStudentGateRetry((n) => n + 1);
+    const timer = window.setTimeout(retry, 6000);
+    window.addEventListener("online", retry);
+    return () => {
+      window.clearTimeout(timer);
+      window.removeEventListener("online", retry);
+    };
+  }, [studentCloudGateActive, studentGateRetry]);
   useEffect(() => {
     const root = document.documentElement;
     root.classList.toggle(
@@ -13860,6 +13882,7 @@ export default function App() {
   // تحميل بيانات لوحة المعلم كاملة مع تتبّع حالته لشريط «جارٍ التحميل من السحابة».
   const loadTeacherCloudData = (teacherEmail: string) => {
     setTeacherCloudLoads((n) => n + 1);
+    const email = String(teacherEmail || "").trim().toLowerCase();
     return Promise.allSettled([
       fetchSections(teacherEmail),
       fetchTeacherExams(teacherEmail),
@@ -13868,9 +13891,13 @@ export default function App() {
       fetchJoinCodes(teacherEmail),
       fetchCodeIntegrity(teacherEmail),
       reloadTeacherDashboard(teacherEmail),
-    ]).finally(() => {
+    ]).then((results) => {
       setTeacherCloudLoads((n) => Math.max(0, n - 1));
-      setTeacherCloudReadyFor(String(teacherEmail || "").trim().toLowerCase());
+      // تُفتح البوابة فقط إذا نجح جلب المقررات فعلاً؛ وإلا تبقى مغلقة وتُعاد المحاولة.
+      const sectionsOk =
+        results[0].status === "fulfilled" && results[0].value === true;
+      if (sectionsOk) setTeacherCloudReady((m) => ({ ...m, [email]: true }));
+      return results;
     });
   };
 
@@ -15177,6 +15204,7 @@ ${rows
         headers: teacherHeaders(email),
       });
       const d = await resp.json();
+      if (!resp.ok) return false;
       if (d.sections) {
         const sections = Array.isArray(d.sections) ? d.sections : [];
         setTeacherSections(sections);
@@ -15194,9 +15222,12 @@ ${rows
           sections[0]
         )
           setSelectedTeacherCourseCode(sections[0].code);
+        return true;
       }
+      return false;
     } catch (e) {
       console.error(e);
+      return false;
     }
   };
 
@@ -36461,7 +36492,7 @@ ${rows
               </header>
 
               {/* Subtle, premium active course context switcher row (moved outside header to prevent overflow on cards) */}
-              {!(
+              {!teacherCloudGateActive && !(
                 isAdminTeacher &&
                 (teacherTab === "codes" || teacherTab === "analytics")
               ) && (
