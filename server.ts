@@ -10174,8 +10174,11 @@ app.get("/api/version", (_req, res) => {
 app.get("/api/cloud-status", (_req, res) => {
   res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate");
   const status = dbInstance.getDatabaseGuardStatus();
-  const ok = !status?.locked && !status?.firestoreQuotaExceeded;
-  res.status(ok ? 200 : 503).json({ ok });
+  // «جاهز» تعني أيضاً أن في ذاكرة الخادم بيانات فعلية: خادم بقاعدة فارغة (قراءة
+  // سحابية ناقصة أو حصة منتهية) كان يمرّ فيُعرض للمعلم لوحة أصفار.
+  const hasData = !!status?.localHasMeaningfulContent || !!status?.allowEmptyInit;
+  const ok = !status?.locked && !status?.firestoreQuotaExceeded && hasData;
+  res.status(ok ? 200 : 503).json({ ok, hasData });
 });
 
 app.get("/api/config/firebase-public", (req, res) => {
