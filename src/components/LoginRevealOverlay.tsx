@@ -15,7 +15,7 @@ import {
 // لتتراصّ كشعارٍ صغير (أربع شارات حول إطار شعري يحمل عنوان الدور)، تتنفّس
 // المنظومة نفَساً واحداً هادئاً ثم تتقدّم بلطف «داخل» اللوحة بينما ترتفع الستارة
 // — كشفٌ عبر البوابة لا تلاشٍ مسطّح. تُعرض مرة واحدة فقط بعد تسجيل الدخول
-// (حارس sessionStorage في App)، لا تعترض أي تفاعل (pointer-events: none)،
+// تحجب التفاعل مع اللوحة حتى تكتمل قراءة السحابة،
 // والحركة transform/opacity فقط حفاظاً على 60fps. المدة الكلية ~1.68 ثانية.
 
 type RevealRole = "student" | "teacher";
@@ -173,7 +173,7 @@ export default function LoginRevealOverlay({
     <div
       dir="rtl"
       className="fixed inset-0 z-[220] grid place-items-center overflow-hidden"
-      style={{ pointerEvents: "none" }}
+      style={{ pointerEvents: "auto" }}
       aria-hidden="true"
     >
       {/* الستارة نفسها ترتفع (تتلاشى) عند المغادرة بينما تبقى الشارات فوق

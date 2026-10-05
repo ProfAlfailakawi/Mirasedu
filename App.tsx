@@ -1,3 +1,5 @@
+import { homePasswordResets } from "./src/shared/home-password-reset-requests";
+import { cloudDataReady } from "./src/shared/cloud-data-ready";
 import { studentSessionIssuedAt, shouldApplyStudentLockSignal } from "./src/shared/student-lock-signal";
 import { countActivatedCourseStudents } from "./src/shared/course-activation-count";
 import { deviceAuditForDisplay } from "./src/shared/device-audit";
@@ -8670,7 +8672,8 @@ export default function App() {
 
     const loadStudentDataOnSession = async () => {
       try {
-        await refreshStudentLiveState(studentSession);
+        const liveReady = await refreshStudentLiveState(studentSession);
+        if (!liveReady || !active) return;
 
         const detailsResp = await fetch(`/api/students/${studentSession.id}`, {
           cache: "no-store",
@@ -8697,7 +8700,7 @@ export default function App() {
     return () => {
       active = false;
     };
-  }, [studentSession?.id, studentLoadRetry]);
+  }, [studentSession?.id, studentSession?.authToken, studentLoadRetry]);
 
   useEffect(() => {
     if (!teacherSession?.email || currentView !== "teacher_workspace") return;
@@ -8752,51 +8755,15 @@ export default function App() {
       : loginRevealRole === "student"
         ? !!studentCloudReady[String(studentSession?.id || "")]
         : true;
-  // فتح التطبيق من جديد بجلسة محفوظة (بلا تسجيل دخول) كان يعرض اللوحة بأصفار حتى
-  // يصحو الخادم؛ نُظهر الشاشة الافتتاحية نفسها حتى تكتمل بيانات الحساب.
-  // لا يشمل التفعيل: يُطبَّق فقط إن وُجدت جلسة محفوظة لحظة فتح الصفحة، ومرة واحدة.
-  const restoredSessionAtLoadRef = useRef<boolean | null>(null);
-  if (restoredSessionAtLoadRef.current === null) {
-    try {
-      restoredSessionAtLoadRef.current =
-        !!localStorage.getItem("miras_student_session") ||
-        !!localStorage.getItem("miras_teacher_session");
-    } catch {
-      restoredSessionAtLoadRef.current = false;
-    }
-  }
-  const restoreGateFiredRef = useRef(false);
+  // كل جلسة تحتاج قراءة سحابية ناجحة، بما فيها استعادة الجلسة والتحديث الذاتي.
   // قبل أول رسم: لا تظهر اللوحة بأصفار لحظةً قبل الشاشة الافتتاحية.
   useLayoutEffect(() => {
-    if (
-      loginRevealRole ||
-      !restoredSessionAtLoadRef.current ||
-      restoreGateFiredRef.current
-    )
-      return;
-    // التحديث الذاتي الصامت يُعيد تحميل الصفحة بعد نشر إصدار جديد؛ sessionStorage
-    // يصمد عبر إعادة التحميل فلا تُعاد الشاشة التي ظهرت قبل لحظات في التبويب نفسه.
-    try {
-      const updateAt = Number(
-        sessionStorage.getItem("miras_update_reload_at") || 0,
-      );
-      sessionStorage.removeItem("miras_update_reload_at");
-      const playedBefore =
-        sessionStorage.getItem("miras_login_reveal_played") === "1" ||
-        sessionStorage.getItem("miras_restore_reveal_played") === "1";
-      // نتجنب التكرار فقط إن كانت إعادة التحميل من التحديث الذاتي (علامة حديثة)؛
-      // التحديث اليدوي أو غيره يُظهر الشاشة كي لا تظهر اللوحة بأصفار.
-      if (playedBefore && updateAt && Date.now() - updateAt < 30000) {
-        restoreGateFiredRef.current = true;
-        return;
-      }
-    } catch {}
+    if (loginRevealRole) return;
     if (
       currentView === "teacher_workspace" &&
       teacherSession?.email &&
       !teacherCloudReady[String(teacherSession.email).trim().toLowerCase()]
     ) {
-      restoreGateFiredRef.current = true;
       revealStartedRef.current = true;
       try {
         sessionStorage.setItem("miras_restore_reveal_played", "1");
@@ -8807,7 +8774,6 @@ export default function App() {
       studentSession?.id &&
       !studentCloudReady[String(studentSession.id)]
     ) {
-      restoreGateFiredRef.current = true;
       revealStartedRef.current = true;
       try {
         sessionStorage.setItem("miras_restore_reveal_played", "1");
@@ -14024,8 +13990,7 @@ export default function App() {
       setTeacherCloudLoads((n) => Math.max(0, n - 1));
       if (
         loadGen === cloudSessionGenRef.current &&
-        results[0].status === "fulfilled" &&
-        results[0].value === true
+        cloudDataReady(results, [0, 1, 2, 3, 6])
       )
         setTeacherCloudReady((m) => ({ ...m, [readyKey]: true }));
       return results;
@@ -15404,6 +15369,7 @@ ${rows
         headers: teacherHeaders(email),
       });
       const d = await resp.json();
+      if (!resp.ok || !Array.isArray(d.exams)) return false;
       if (Array.isArray(d.exams)) {
         setTeacherCreatedExams(d.exams.filter(isLiveRecord));
         try {
@@ -15413,7 +15379,8 @@ ${rows
           );
         } catch {}
       }
-    } catch (e) {}
+      return true;
+    } catch (e) { return false; }
   };
 
   const fetchTeacherProjects = async (emailOverride?: string) => {
@@ -15430,6 +15397,7 @@ ${rows
         headers: teacherHeaders(email),
       });
       const d = await resp.json();
+      if (!resp.ok || !Array.isArray(d.projects)) return false;
       if (Array.isArray(d.projects)) {
         setTeacherProjects(d.projects.filter(isLiveRecord));
         try {
@@ -15439,7 +15407,8 @@ ${rows
           );
         } catch {}
       }
-    } catch (e) {}
+      return true;
+    } catch (e) { return false; }
   };
 
   const fetchTeacherSubmissions = async (
@@ -15517,8 +15486,8 @@ ${rows
 
   const refreshStudentLiveState = async (sessionOverride?: any) => {
     const activeStudentSession = sessionOverride || studentSession;
-    if (!activeStudentSession?.id) return;
-    if (studentLiveRefreshInFlightRef.current) return;
+    if (!activeStudentSession?.id) return false;
+    if (studentLiveRefreshInFlightRef.current) return false;
     studentLiveRefreshInFlightRef.current = true;
     try {
       const params = new URLSearchParams({
@@ -15558,6 +15527,8 @@ ${rows
         }
         return;
       }
+      if (!resp.ok) return false;
+      if (!Array.isArray(d.enrollments) || !Array.isArray(d.exams) || !Array.isArray(d.projects)) return false;
       if (d.student && typeof d.student === "object") {
         setStudentSession((prev: any) => {
           const base = prev || activeStudentSession;
@@ -15768,6 +15739,7 @@ ${rows
           () => setLiveSyncInfo((prev) => ({ ...prev, hasFreshUpdate: false })),
           1800,
         );
+      return true;
     } catch {
       // فشل تحديث حي (شبكة غالباً). لا نطرد الطالب ولا نمسح الجلسة؛ نكتفي بعدّ
       // المحاولات المتتالية وإظهار مؤشر اتصال هادئ بعد ٣ محاولات (فالفشل العابر
@@ -15778,6 +15750,7 @@ ${rows
         ...prev,
         lastSeen: new Date().toISOString(),
       }));
+      return false;
     } finally {
       studentLiveRefreshInFlightRef.current = false;
     }
@@ -15795,8 +15768,10 @@ ${rows
         },
       );
       const d = await resp.json();
+      if (!resp.ok || !Array.isArray(d.requests)) return false;
       if (Array.isArray(d.requests)) setPasswordResetRequestsState(d.requests);
-    } catch (e) {}
+      return true;
+    } catch (e) { return false; }
   };
 
   const questionAnswerPlaceholder = () => {
@@ -16132,6 +16107,7 @@ ${rows
         headers: teacherHeaders(email),
       });
       const d = await resp.json();
+      if (!resp.ok || !Array.isArray(d.logs)) return false;
       if (Array.isArray(d.logs)) {
         // السجل السحابي هو مصدر الحقيقة بعد أي تهيئة. كان الدمج مع كاش
         // localStorage القديم يُبقي أحداثاً محذوفة ظاهرة في العداد ثم لا يجد
@@ -16144,8 +16120,10 @@ ${rows
           localStorage.removeItem("academicLabLocalSystemLogs");
         } catch {}
       }
+      return true;
     } catch (e) {
       console.error(e);
+      return false;
     }
   };
 
@@ -16157,11 +16135,12 @@ ${rows
         headers: teacherHeaders(email),
       });
       const d = await resp.json();
-      if (options.isCurrent && !options.isCurrent()) return;
+      if (options.isCurrent && !options.isCurrent()) return false;
       if (!resp.ok) {
-        if (resp.status === 401) return;
+        if (resp.status === 401) return false;
         throw new Error(d?.error || "تعذر جلب بيانات السحابة.");
       }
+      if (!Array.isArray(d.students) || !Array.isArray(d.allowedStudents)) return false;
       if (d) {
         setOverallReports(d);
         if (d.inactiveOrStruggling) setStrugglingReport(d.inactiveOrStruggling);
@@ -16170,11 +16149,13 @@ ${rows
           Array.isArray(d.students) ? d.students : [],
         );
       }
+      return true;
     } catch (e) {
       console.error(e);
       if (!options.quiet && (!options.isCurrent || options.isCurrent())) setErrorMsg(
         "تعذر تحميل كشف الطلبة من السحابة. تحقق من الاتصال ثم أعد المحاولة.",
       );
+      return false;
     }
   };
 
@@ -17164,6 +17145,7 @@ ${rows
         } catch {}
         rememberMirasPasskeyUnlockNow();
       }
+      setTeacherCloudReady((prev) => { const next = { ...prev }; delete next[teacherEmail]; return next; });
       setTeacherSession(teacherWithAuth);
       if (method === "passkey") {
         rememberPasskeyForSession(
@@ -17227,6 +17209,7 @@ ${rows
         );
       } catch {}
       rememberMirasPasskeyUnlockNow();
+      setStudentCloudReady((prev) => { const next = { ...prev }; delete next[String(studentWithAuth.id)]; return next; });
       setStudentSession(studentWithAuth);
       if (Array.isArray(studentWithAuth.enrollments))
         setStudentEnrollments(studentWithAuth.enrollments);
@@ -19711,12 +19694,13 @@ ${rows
         console.warn("Failed to update database quota status on refresh:", err);
       }
     };
-    await Promise.allSettled([
+    const results = await Promise.allSettled([
       fetchReports(email),
       fetchLogs(email),
       fetchQuestionBank(email),
       refreshQuota(),
     ]);
+    return cloudDataReady(results, [0, 1]);
   };
 
   // بعد تغيير كلمة المرور يُبطل الخادم الجلسات الأقدم ويرسل جلسة جديدة لهذا
@@ -21044,6 +21028,10 @@ ${rows
     const actorEmail = String(
       log.actorEmail || log.teacherEmail || log.email || "",
     ).toLowerCase();
+    if (teacherTab === "home") {
+      const owner = log.sectionCode ? courseOwnerEmail(log.sectionCode) : actorEmail;
+      return isSameTeacherIdentity(owner, currentTeacherEmail);
+    }
     if (isAdminTeacher) {
       if (auditScopeEmail === "all") return true;
       const targetEmail = scopedOwnerEmail;
@@ -21086,6 +21074,7 @@ ${rows
   const actionablePasswordResetRequests = passwordResetRequests
     .filter((req: any) => !isFinishedPasswordResetRequest(req))
     .slice(0, 4);
+  const homePasswordResetRequests = homePasswordResets(passwordResetRequests, currentTeacherEmail, isSameTeacherIdentity);
 
   const renderPasswordResetRequest = (req: any) => {
     const key = req.id || `${req.studentId}-${req.timestamp}`;
@@ -36709,7 +36698,7 @@ ${rows
                   />
                   )}
 
-                  {actionablePasswordResetRequests.length > 0 && (
+                  {homePasswordResetRequests.length > 0 && (
                     <div className="rounded-[var(--miras-r-xl)] border border-amber-100 bg-amber-50/80 p-4 text-right shadow-sm">
                       <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
                         <div>
@@ -36722,11 +36711,11 @@ ${rows
                           </p>
                         </div>
                         <span className="rounded-full bg-white px-3 py-1 text-[11px] font-bold text-amber-700 shadow-sm">
-                          {actionablePasswordResetRequests.length} طلب
+                          {homePasswordResetRequests.length} طلب
                         </span>
                       </div>
                       <div className="mt-3 grid max-h-[520px] grid-cols-1 gap-3 overflow-y-auto md:grid-cols-2">
-                        {actionablePasswordResetRequests.map((req: any) =>
+                        {homePasswordResetRequests.map((req: any) =>
                           renderPasswordResetRequest(req),
                         )}
                       </div>
