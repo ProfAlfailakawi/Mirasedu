@@ -1,3 +1,4 @@
+import { studentSessionIssuedAt, shouldApplyStudentLockSignal } from "./src/shared/student-lock-signal";
 import { countActivatedCourseStudents } from "./src/shared/course-activation-count";
 import { deviceAuditForDisplay } from "./src/shared/device-audit";
 import {
@@ -3025,14 +3026,16 @@ async function mirasFetch(
           data?.code === "STUDENT_DEVICE_LOCKED" &&
           requestMatchesActiveStudent
         ) {
+          const lockSignal = {
+            type: "STUDENT_DEVICE_LOCKED",
+            at: Date.now(),
+            sessionIssuedAt: studentSessionIssuedAt(requestAuthToken),
+          };
           try {
             localStorage.removeItem("miras_student_session");
             localStorage.setItem(
               MIRAS_STUDENT_LIVE_SYNC_KEY,
-              JSON.stringify({
-                type: "STUDENT_DEVICE_LOCKED",
-                at: Date.now(),
-              }),
+              JSON.stringify(lockSignal),
             );
           } catch {}
           if (typeof window !== "undefined") {
@@ -3040,6 +3043,7 @@ async function mirasFetch(
               new CustomEvent("miras-student-device-locked", {
                 detail: {
                   ...data,
+                  ...lockSignal,
                   error: data?.error || MIRAS_DEVICE_LOCK_MESSAGE,
                 },
               }),
@@ -3047,10 +3051,7 @@ async function mirasFetch(
           }
           try {
             const channel = new BroadcastChannel(MIRAS_STUDENT_LIVE_CHANNEL);
-            channel.postMessage({
-              type: "STUDENT_DEVICE_LOCKED",
-              at: Date.now(),
-            });
+            channel.postMessage(lockSignal);
             channel.close();
           } catch {}
         }
@@ -3480,6 +3481,7 @@ export default function App() {
   useEffect(() => {
     const onDeviceLocked = (event: Event) => {
       const detail = (event as CustomEvent).detail || {};
+      if (!shouldApplyStudentLockSignal(detail, readStoredSessionAuthToken("miras_student_session"))) return;
       forceStudentDeviceLock(detail.error || MIRAS_DEVICE_LOCK_MESSAGE);
     };
     window.addEventListener("miras-student-device-locked", onDeviceLocked);
@@ -8590,6 +8592,7 @@ export default function App() {
       try {
         const signal = JSON.parse(event.newValue || "{}");
         if (signal?.type === "STUDENT_DEVICE_LOCKED") {
+          if (!shouldApplyStudentLockSignal(signal, readStoredSessionAuthToken("miras_student_session"))) return;
           forceStudentDeviceLock(MIRAS_DEVICE_LOCK_MESSAGE);
           return;
         }
@@ -8601,6 +8604,7 @@ export default function App() {
       liveChannel = new BroadcastChannel(MIRAS_STUDENT_LIVE_CHANNEL);
       liveChannel.onmessage = (event) => {
         if (event.data?.type === "STUDENT_DEVICE_LOCKED") {
+          if (!shouldApplyStudentLockSignal(event.data, readStoredSessionAuthToken("miras_student_session"))) return;
           forceStudentDeviceLock(MIRAS_DEVICE_LOCK_MESSAGE);
           return;
         }

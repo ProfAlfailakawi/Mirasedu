@@ -137,7 +137,16 @@ const secondaryReset = await api("POST", "/api/teacher/students/1001/reset-acces
 check("D16) secondary-course teacher can request device transfer", secondaryReset.ok && secondaryReset.data.student?.pendingDeviceTransfer === true, `${secondaryReset.status} ${JSON.stringify(secondaryReset.data).slice(0,150)}`);
 const oldDevice = await api("GET", "/api/live/student-state?studentId=1001", null, { jar: studentJar, deviceToken: "tok-1001", ua: SAFARI_UA });
 check("D17) old background session cannot reclaim the account after transfer", !oldDevice.ok);
-const newDevice = await api("POST", "/api/auth/login", { idNumber: "1001", password: "pass1001" }, { deviceToken: "tok-1001-new", ua: CHROME_UA });
+const newJar = makeJar();
+const newDevice = await api("POST", "/api/auth/login", { idNumber: "1001", password: "pass1001" }, { jar: newJar, deviceToken: "tok-1001-new", ua: CHROME_UA });
 check("D18) new device can be approved after authorized transfer", newDevice.ok, `${newDevice.status} ${JSON.stringify(newDevice.data).slice(0,150)}`);
+
+const newHeaders = { authorization: `Bearer ${newDevice.data.authToken || ""}` };
+for (let index = 0; index < 3; index++) {
+  const live = await api("GET", "/api/live/student-state?studentId=1001", null, { jar: newJar, deviceToken: "tok-1001-new", ua: CHROME_UA, headers: newHeaders });
+  check(`D19.${index}) approved new device keeps its session on subsequent live-state requests`, live.ok, `${live.status} ${JSON.stringify(live.data).slice(0,160)}`);
+}
+const details = await api("GET", "/api/students/1001", null, { jar: newJar, deviceToken: "tok-1001-new", ua: CHROME_UA, headers: newHeaders });
+check("D20) new device can load student details immediately after login", details.ok, `${details.status} ${JSON.stringify(details.data).slice(0,160)}`);
 
 done();
