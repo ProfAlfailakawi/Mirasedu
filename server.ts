@@ -9357,6 +9357,9 @@ app.post("/api/convert-data-to-pdf", convertRateLimit, async (req: any, res: any
 // مع بقاء flushCloudSoon بعد الرد كشبكة أمان للمسارات غير JSON. الهدف: لا يظهر
 // سجل في الواجهة إلا وهو محفوظ/مجدول للدوام السحابي، فلا يختفي بعد التحديث.
 app.use(async (req, res, next) => {
+  if (/^\/api\/teacher\/students\/[^/]+\/reset-access$/.test(req.path)) {
+    res.locals.deviceTransferStartedAt = performance.now();
+  }
   try {
     if (req.url.startsWith("/api/") && !req.path.startsWith("/api/config")) {
       await dbInstance.initialSyncPromise;
@@ -21259,6 +21262,7 @@ app.post("/api/teacher/students/:id/reset-access", async (req, res) => {
       link: "/",
     },
   );
+  const cloudStartedAt = performance.now();
   try {
     // Register the complete student/code patch before taking its durability version.
     await dbInstance.persist();
@@ -21269,6 +21273,13 @@ app.post("/api/teacher/students/:id/reset-access", async (req, res) => {
     console.error("Device access mutation could not be confirmed:", error);
     return res.status(503).json(cloudDurabilityErrorBody());
   }
+  const finishedAt = performance.now();
+  const startedAt = Number(res.locals.deviceTransferStartedAt || cloudStartedAt);
+  const prepareMs = Math.max(0, cloudStartedAt - startedAt);
+  const cloudMs = Math.max(0, finishedAt - cloudStartedAt);
+  const totalMs = Math.max(0, finishedAt - startedAt);
+  res.setHeader("Server-Timing", `prepare;dur=${prepareMs.toFixed(1)}, cloud;dur=${cloudMs.toFixed(1)}, total;dur=${totalMs.toFixed(1)}`);
+  console.info(JSON.stringify({ event: "device_access_timing", mode, prepareMs: Math.round(prepareMs), cloudMs: Math.round(cloudMs), totalMs: Math.round(totalMs) }));
   const savedStudent = dbInstance.getStudents().find(s => s.id === student.id);
   res.json({ success: true, student: savedStudent });
 });

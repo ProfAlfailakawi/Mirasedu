@@ -20,7 +20,7 @@ export async function api(method, path, body, { deviceToken, jar, ua, headers: e
   const res = await fetch(BASE + path, { method, headers, body: body ? JSON.stringify(body) : undefined });
   if (jar) applySetCookie(jar, res);
   let data = {}; try { data = await res.json(); } catch {}
-  return { status: res.status, ok: res.ok, data };
+  return { status: res.status, ok: res.ok, data, serverTiming: res.headers.get("server-timing") };
 }
 
 export function createReporter(title) {

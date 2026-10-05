@@ -134,6 +134,7 @@ await api("POST", "/api/auth/login", { idNumber: "dd@test.kw", password: process
 const deniedReset = await api("POST", "/api/teacher/students/1001/reset-access", { mode: "reset_device" }, { jar: unrelatedJar, deviceToken: "t-unrelated" });
 check("D15) unrelated teacher cannot reset a student's device", deniedReset.status === 403);
 const secondaryReset = await api("POST", "/api/teacher/students/1001/reset-access", { mode: "reset_device" }, { jar: secondaryJar, deviceToken: "t-secondary" });
+check("D16 timing) transfer response reports preparation and durable cloud wait", /prepare;dur=\d/.test(secondaryReset.serverTiming || "") && /cloud;dur=\d/.test(secondaryReset.serverTiming || "") && /total;dur=\d/.test(secondaryReset.serverTiming || ""));
 check("D16) secondary-course teacher can request device transfer", secondaryReset.ok && secondaryReset.data.student?.pendingDeviceTransfer === true, `${secondaryReset.status} ${JSON.stringify(secondaryReset.data).slice(0,150)}`);
 const oldDevice = await api("GET", "/api/live/student-state?studentId=1001", null, { jar: studentJar, deviceToken: "tok-1001", ua: SAFARI_UA });
 check("D17) old background session cannot reclaim the account after transfer", !oldDevice.ok);

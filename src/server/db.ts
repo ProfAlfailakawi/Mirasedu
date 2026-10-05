@@ -1,3 +1,4 @@
+import { planAtomicCloudWrite, commitAtomicCloudWrite, attemptOptimisticCloudCommit, canReuseCloudBaseline } from "../shared/atomic-cloud-write";
 import { waitForCloudMutation } from "../shared/cloud-mutation-barrier";
 import { preserveGeneralCodeOnReset } from "./generalJoinCodes";
 import { AsyncLocalStorage } from "node:async_hooks";
@@ -1021,6 +1022,7 @@ export class LocalDatabase {
   private mutationVersion: number = 0;
   private committedMutationVersion: number = 0;
   private urgentCloudWaiters: number = 0;
+  private knownCloudMetaRevision: { stamp: number; updateTime: any } | null = null;
   private cloudUnsubscribe: (() => void) | null = null;
   // آخر بيان معروف بعدد أجزاء كل مفتاح — يُستخدم فقط لو احتجنا لاحقاً نقرأ
   // مفتاحاً واحداً بمعزل عن البقية؛ يُحدَّث من كل قراءة أو كتابة ناجحة.
@@ -1537,11 +1539,11 @@ export class LocalDatabase {
       return { exists: false, state: this.databaseStateFromCloud({}), raw: null };
     }
     const raw = snap.data() as any;
-    return {
-      exists: true,
-      raw,
-      state: await this.cloudStateFromMeta(raw),
-    };
+    const state = await this.cloudStateFromMeta(raw);
+    this.knownCloudMetaRevision = snap.updateTime && this.isEntityCloudMeta(raw)
+      ? { stamp: Number(raw.lastUpdated || 0), updateTime: snap.updateTime }
+      : null;
+    return { exists: true, raw, state };
   }
 
   // previousState = آخر حالة معروفة متزامنة فعلاً مع السحابة (this.lastSyncedState
@@ -1549,6 +1551,51 @@ export class LocalDatabase {
   // تسليماً واحداً فقط تكتب وثيقة teacherSubmissions دون أن تمسّ students أو
   // activityLogs أو joinCodes وغيرها. previousState=null (أو undefined) تعني
   // "اكتب كل شيء" — تُستخدم فقط في الاستعادة/أول نسخة سحابية حين لا معنى للمقارنة.
+  private async tryAtomicCloudWrite(state: DatabaseState, previousState: DatabaseState, updateTime?: any): Promise<boolean> {
+    const cleaned = cleanUndefined(state) as DatabaseState;
+    const generation = Number(cleaned.lastUpdated || Date.now());
+    const nowIso = new Date().toISOString();
+    const plan = planAtomicCloudWrite({
+      current: cleaned,
+      previous: previousState,
+      manifest: this.lastEntityManifest,
+      keys: MIRAS_CLOUD_ENTITY_KEYS,
+      perDocKeys: MIRAS_PERDOC_KEYS,
+      chunkSize: MIRAS_CLOUD_CHUNK_SIZE,
+      generation,
+      updatedAt: nowIso,
+      metaFields: {
+        storageFormat: MIRAS_CLOUD_ENTITY_STORAGE_FORMAT,
+        entityKeys: MIRAS_CLOUD_ENTITY_KEYS,
+        lastUpdated: generation,
+        updatedAt: nowIso,
+        contentCounts: MIRAS_DATABASE_CONTENT_KEYS.reduce((acc: Record<string, number>, key) => {
+          const value = (cleaned as any)[key];
+          acc[key] = Array.isArray(value) ? value.length : 0;
+          return acc;
+        }, {}),
+      },
+    });
+    if (plan) {
+      const batch = dbFS.batch();
+      const refFor = (operation: { collection: string; id: string }) => operation.collection === "meta"
+        ? this.cloudDatabaseMetaRef()
+        : this.cloudDatabaseMetaRef().collection(operation.collection).doc(operation.id);
+      const results: any = await commitAtomicCloudWrite(plan, {
+        set: operation => operation.collection === "meta" && updateTime
+          ? batch.update(refFor(operation), operation.data, { lastUpdateTime: updateTime })
+          : batch.set(refFor(operation), operation.data),
+        delete: operation => batch.delete(refFor(operation)),
+        commit: () => batch.commit(),
+      });
+      this.lastEntityManifest = plan.manifest;
+      const writeTime = results?.[results.length - 1]?.writeTime;
+      this.knownCloudMetaRevision = writeTime ? { stamp: generation, updateTime: writeTime } : null;
+      return true;
+    }
+    return false;
+  }
+
   private async writeCloudDatabaseState(
     state: DatabaseState,
     previousState?: DatabaseState | null,
@@ -1561,6 +1608,10 @@ export class LocalDatabase {
       ...this.lastEntityManifest,
     };
     const nowIso = new Date().toISOString();
+
+    if (this.urgentCloudWaiters > 0 && previousState && await this.tryAtomicCloudWrite(cleaned, previousState)) {
+      return;
+    }
 
     for (const key of MIRAS_CLOUD_ENTITY_KEYS) {
       const value = (cleaned as any)[key] ?? null;
@@ -1647,7 +1698,7 @@ export class LocalDatabase {
 
     await Promise.all(writes);
 
-    await this.cloudDatabaseMetaRef().set({
+    const metaWrite = await this.cloudDatabaseMetaRef().set({
       storageFormat: MIRAS_CLOUD_ENTITY_STORAGE_FORMAT,
       entityKeys: MIRAS_CLOUD_ENTITY_KEYS,
       entityManifest: mergedManifest,
@@ -1660,6 +1711,7 @@ export class LocalDatabase {
       }, {}),
     });
     this.lastEntityManifest = mergedManifest;
+    this.knownCloudMetaRevision = metaWrite?.writeTime ? { stamp: generation, updateTime: metaWrite.writeTime } : null;
   }
 
   private databaseStateFromCloud(cloudData: Partial<DatabaseState>): DatabaseState {
@@ -1765,6 +1817,9 @@ export class LocalDatabase {
           this.lastSyncedState = cloneDbValue(incoming);
         }
         this.lastListenerAppliedStamp = incomingStamp;
+        this.knownCloudMetaRevision = snapshot.updateTime && this.isEntityCloudMeta(raw)
+          ? { stamp: incomingStamp, updateTime: snapshot.updateTime }
+          : null;
         this.scheduleLocalSave();
         })().catch((error) => {
           console.error("⚠️ Firestore chunked live synchronization failed:", error);
@@ -2016,105 +2071,124 @@ export class LocalDatabase {
     this.isSyncingFS = true;
     this.lastFSSyncTime = Date.now();
     const versionAtStart = this.mutationVersion;
-    const baseAtStart = cloneDbValue(this.lastSyncedState || this.data || {});
+    const baseAtStart = cloneDbValue(this.lastSyncedState || this.data) as DatabaseState;
     const localAtStart = cleanUndefined(cloneDbValue(this.data)) as DatabaseState;
 
     try {
       let committedPayload: DatabaseState | null = null;
+      let optimisticConflict = false;
 
-      // ⚡ المسار السريع: كانت كل حفظة تقرأ القاعدة كاملة من السحابة (كل مفاتيح
-      // الكيانات وأجزائها) لمجرّد الدمج الثلاثي — أكبر كلفة زمن/حصة في النظام
-      // كله. الآن نقرأ وثيقة الميتا الصغيرة وحدها: إن طابق طابعها آخر كتابة لنا
-      // أو آخر لقطة طبّقها المستمع، فالسحابة لم تتغيّر منذ آخر تكامل و
-      // lastSyncedState يمثّلها تماماً — نكتب الفروق مباشرة بلا قراءة ولا دمج.
-      // أي وضع آخر (تغيير خارجي، ميتا قديمة بلا عدّادات، صيغة v2) يسقط تلقائياً
-      // للمسار الكامل القديم بنفس ضماناته حرفياً.
-      const metaSnap = await this.cloudDatabaseMetaRef().get();
-      const metaRaw = metaSnap.exists ? (metaSnap.data() as any) : null;
-      const localHasContent = databaseHasMeaningfulContent(localAtStart);
-      const metaCounts = metaRaw?.contentCounts;
-      const metaCloudHasContent =
-        metaCounts && typeof metaCounts === "object"
-          ? Object.values(metaCounts).some((n: any) => Number(n) > 0)
-          : null;
-      const metaStamp = Number(metaRaw?.lastUpdated || 0);
-      const cloudUnchangedSinceLastIntegration =
-        !!metaRaw &&
-        metaStamp > 0 &&
-        (metaStamp === this.lastWrittenUpdatedAt ||
-          metaStamp === this.lastListenerAppliedStamp);
-
-      let cloudRead: { exists: boolean; state: DatabaseState | null };
-      if (
-        metaRaw &&
-        metaCloudHasContent === true &&
-        localHasContent &&
-        cloudUnchangedSinceLastIntegration &&
-        this.isEntityCloudMeta(metaRaw)
-      ) {
-        cloudRead = { exists: true, state: null }; // state=null ⇒ مسار سريع
-      } else {
-        const fullRead = await this.readCloudDatabaseState();
-        cloudRead = { exists: fullRead.exists, state: fullRead.state };
+      const knownRevision = this.knownCloudMetaRevision;
+      if (this.urgentCloudWaiters > 0 && knownRevision &&
+          knownRevision.stamp === Number(baseAtStart.lastUpdated || 0) &&
+          databaseHasMeaningfulContent(baseAtStart) && !this.databaseGuardLocked) {
+        const optimistic = cleanUndefined(localAtStart) as DatabaseState;
+        optimistic.lastUpdated = Math.max(Date.now(), Number(localAtStart.lastUpdated || 0));
+        const result = await attemptOptimisticCloudCommit(() =>
+          this.tryAtomicCloudWrite(optimistic, baseAtStart, knownRevision.updateTime));
+        if (result === "committed") {
+          committedPayload = optimistic;
+          this.unlockDatabaseGuard();
+        } else if (result === "conflict") {
+          optimisticConflict = true;
+          this.knownCloudMetaRevision = null;
+        }
       }
-      const cloudState =
-        cloudRead.state ?? this.databaseStateFromCloud({});
-      const cloudHasContent =
-        cloudRead.state === null
-          ? true
-          : databaseHasMeaningfulContent(cloudState);
+      if (!committedPayload) {
+        // ⚡ المسار السريع: كانت كل حفظة تقرأ القاعدة كاملة من السحابة (كل مفاتيح
+        // الكيانات وأجزائها) لمجرّد الدمج الثلاثي — أكبر كلفة زمن/حصة في النظام
+        // كله. الآن نقرأ وثيقة الميتا الصغيرة وحدها: إن طابق طابعها آخر كتابة لنا
+        // أو آخر لقطة طبّقها المستمع، فالسحابة لم تتغيّر منذ آخر تكامل و
+        // lastSyncedState يمثّلها تماماً — نكتب الفروق مباشرة بلا قراءة ولا دمج.
+        // أي وضع آخر (تغيير خارجي، ميتا قديمة بلا عدّادات، صيغة v2) يسقط تلقائياً
+        // للمسار الكامل القديم بنفس ضماناته حرفياً.
+        const metaSnap = await this.cloudDatabaseMetaRef().get();
+        const metaRaw = metaSnap.exists ? (metaSnap.data() as any) : null;
+        const localHasContent = databaseHasMeaningfulContent(localAtStart);
+        const metaCounts = metaRaw?.contentCounts;
+        const metaCloudHasContent =
+          metaCounts && typeof metaCounts === "object"
+            ? Object.values(metaCounts).some((n: any) => Number(n) > 0)
+            : null;
+        const metaStamp = Number(metaRaw?.lastUpdated || 0);
+        const cloudUnchangedSinceLastIntegration =
+          !!metaRaw &&
+          canReuseCloudBaseline(metaStamp, Number(baseAtStart.lastUpdated || 0),
+            this.lastWrittenUpdatedAt, this.lastListenerAppliedStamp, optimisticConflict);
 
-      if (cloudRead.state === null) {
-        // ⚡ المسار السريع: فروق مباشرة ضد آخر حالة متزامنة (= السحابة الفعلية).
-        committedPayload = cleanUndefined(localAtStart) as DatabaseState;
-        committedPayload.lastUpdated = Math.max(
-          Date.now(),
-          Number(localAtStart.lastUpdated || 0),
-        );
-        await this.writeCloudDatabaseState(
-          committedPayload,
-          baseAtStart as DatabaseState,
-        );
-        this.unlockDatabaseGuard();
-      } else if (!cloudHasContent && !localHasContent && !MIRAS_ALLOW_EMPTY_FIRESTORE_INIT) {
-        this.lockDatabaseGuard(
-          cloudRead.exists
-            ? "Blocked writing an empty runtime over an existing but empty Firestore system/database document."
-            : "Blocked empty write to missing Firestore system/database. Restore backup or explicitly enable empty initialization for a new installation.",
-        );
-        committedPayload = null;
-      } else if (!cloudHasContent && localAtStart && !MIRAS_ALLOW_LOCAL_RESTORE_TO_EMPTY_CLOUD && !MIRAS_ALLOW_EMPTY_FIRESTORE_INIT) {
-        this.lockDatabaseGuard(
-          cloudRead.exists
-            ? "Blocked local cache from overwriting an existing empty Firestore database document without explicit restore approval."
-            : "Blocked local cache from creating a missing Firestore database document without explicit restore approval.",
-        );
-        committedPayload = null;
-      } else if (!cloudHasContent && localHasContent && MIRAS_ALLOW_LOCAL_RESTORE_TO_EMPTY_CLOUD) {
-        committedPayload = cleanUndefined(localAtStart) as DatabaseState;
-        await this.writeCloudDatabaseState(committedPayload);
-        this.unlockDatabaseGuard();
-      } else if (!localHasContent && cloudHasContent) {
-        committedPayload = cloudState;
-        this.unlockDatabaseGuard();
-      } else {
-        const merged = mergeCloudThreeWay(
-          baseAtStart,
-          localAtStart,
-          cloudState,
-        ) as DatabaseState;
-        merged.lastUpdated = Math.max(
-          Date.now(),
-          Number(merged.lastUpdated || 0),
-          Number(localAtStart.lastUpdated || 0),
-          Number(cloudState.lastUpdated || 0),
-        );
-        committedPayload = cleanUndefined(merged) as DatabaseState;
-        // baseAtStart = آخر حالة كانت متزامنة فعلاً قبل هذه الدورة؛ مقارنة الناتج
-        // المدموج بها هي ما يسمح بكتابة المفاتيح المتغيّرة فقط (مثال: تسليم واحد)
-        // بدل قاعدة البيانات كاملة في كل مزامنة.
-        await this.writeCloudDatabaseState(committedPayload, baseAtStart as DatabaseState);
-        this.unlockDatabaseGuard();
+        let cloudRead: { exists: boolean; state: DatabaseState | null };
+        if (
+          metaRaw &&
+          metaCloudHasContent === true &&
+          localHasContent &&
+          cloudUnchangedSinceLastIntegration &&
+          this.isEntityCloudMeta(metaRaw)
+        ) {
+          cloudRead = { exists: true, state: null }; // state=null ⇒ مسار سريع
+        } else {
+          const fullRead = await this.readCloudDatabaseState();
+          cloudRead = { exists: fullRead.exists, state: fullRead.state };
+        }
+        const cloudState =
+          cloudRead.state ?? this.databaseStateFromCloud({});
+        const cloudHasContent =
+          cloudRead.state === null
+            ? true
+            : databaseHasMeaningfulContent(cloudState);
+
+        if (cloudRead.state === null) {
+          // ⚡ المسار السريع: فروق مباشرة ضد آخر حالة متزامنة (= السحابة الفعلية).
+          committedPayload = cleanUndefined(localAtStart) as DatabaseState;
+          committedPayload.lastUpdated = Math.max(
+            Date.now(),
+            Number(localAtStart.lastUpdated || 0),
+          );
+          await this.writeCloudDatabaseState(
+            committedPayload,
+            baseAtStart as DatabaseState,
+          );
+          this.unlockDatabaseGuard();
+        } else if (!cloudHasContent && !localHasContent && !MIRAS_ALLOW_EMPTY_FIRESTORE_INIT) {
+          this.lockDatabaseGuard(
+            cloudRead.exists
+              ? "Blocked writing an empty runtime over an existing but empty Firestore system/database document."
+              : "Blocked empty write to missing Firestore system/database. Restore backup or explicitly enable empty initialization for a new installation.",
+          );
+          committedPayload = null;
+        } else if (!cloudHasContent && localAtStart && !MIRAS_ALLOW_LOCAL_RESTORE_TO_EMPTY_CLOUD && !MIRAS_ALLOW_EMPTY_FIRESTORE_INIT) {
+          this.lockDatabaseGuard(
+            cloudRead.exists
+              ? "Blocked local cache from overwriting an existing empty Firestore database document without explicit restore approval."
+              : "Blocked local cache from creating a missing Firestore database document without explicit restore approval.",
+          );
+          committedPayload = null;
+        } else if (!cloudHasContent && localHasContent && MIRAS_ALLOW_LOCAL_RESTORE_TO_EMPTY_CLOUD) {
+          committedPayload = cleanUndefined(localAtStart) as DatabaseState;
+          await this.writeCloudDatabaseState(committedPayload);
+          this.unlockDatabaseGuard();
+        } else if (!localHasContent && cloudHasContent) {
+          committedPayload = cloudState;
+          this.unlockDatabaseGuard();
+        } else {
+          const merged = mergeCloudThreeWay(
+            baseAtStart,
+            localAtStart,
+            cloudState,
+          ) as DatabaseState;
+          merged.lastUpdated = Math.max(
+            Date.now(),
+            Number(merged.lastUpdated || 0),
+            Number(localAtStart.lastUpdated || 0),
+            Number(cloudState.lastUpdated || 0),
+          );
+          committedPayload = cleanUndefined(merged) as DatabaseState;
+          // baseAtStart = آخر حالة كانت متزامنة فعلاً قبل هذه الدورة؛ مقارنة الناتج
+          // المدموج بها هي ما يسمح بكتابة المفاتيح المتغيّرة فقط (مثال: تسليم واحد)
+          // بدل قاعدة البيانات كاملة في كل مزامنة.
+          await this.writeCloudDatabaseState(committedPayload, baseAtStart as DatabaseState);
+          this.unlockDatabaseGuard();
+        }
+
       }
 
       if (committedPayload) {
