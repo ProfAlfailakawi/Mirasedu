@@ -5961,6 +5961,7 @@ export default function App() {
   const [passwordResetRequestsState, setPasswordResetRequestsState] = useState<
     any[]
   >([]);
+  const deletedPasswordResetIdsRef = useRef(new Set<string>());
   const [notificationState, setNotificationState] = useState({
     supported: false,
     permission: "default",
@@ -8036,6 +8037,7 @@ export default function App() {
   const [teacherCloudLoads, setTeacherCloudLoads] = useState(0);
   const [teacherCloudLoadSlow, setTeacherCloudLoadSlow] = useState(false);
   // جاهزية بيانات كل حساب (تُغلق بها شاشة الدخول الافتتاحية): لكل حساب على حدة.
+  const teacherCloudLoadInFlightRef = useRef(new Map<string, Promise<any>>());
   const [teacherCloudReady, setTeacherCloudReady] = useState<Record<string, true>>({});
   const [studentCloudReady, setStudentCloudReady] = useState<Record<string, true>>({});
   const [studentLoadRetry, setStudentLoadRetry] = useState(0);
@@ -8381,14 +8383,10 @@ export default function App() {
       await refreshStudentLiveState();
     };
     const refreshTeacherImportantStateIfNeeded = async (force = false) => {
-      if (!teacherSession?.email || currentView !== "teacher_workspace") return;
+      if (!teacherSession?.email || currentView !== "teacher_workspace" || !teacherCloudReady[String(teacherSession.email).trim().toLowerCase()]) return;
       const now = Date.now();
-      // هذه الدالة تجلب code-integrity (≈1.7MB) + logs (≈364KB) معاً. الاستطلاع
-      // يعمل كل ٥ ثوانٍ، وكانت المهلة ٣٥٠٠ms فقط (أقصر من دورة الاستطلاع)، فكانت
-      // تُعاد هذه الحمولة الضخمة كل ٥ ثوانٍ بلا توقف → تنزيل/تحليل ~٢MB وإعادة رسم
-      // الواجهة كل ٥ ثوانٍ = بطء وتحميل مستمر (خصوصاً على الجوال وفي تبويب الأكواد).
-      // عند وصول إشعار جديد فعلاً (force=true) نُحدّث فوراً؛ وإلا نكتفي بتحديث خفيف
-      // كل ٦٠ ثانية كشبكة أمان بدل كل ٥ ثوانٍ.
+      // Refresh personal notices without repeatedly downloading the full integrity report.
+      // Keep the initial home load exclusive until cloud readiness succeeds.
       if (
         !force &&
         now - Number(lastTeacherNotificationRefreshRef.current || 0) < 60000
@@ -8397,7 +8395,6 @@ export default function App() {
       lastTeacherNotificationRefreshRef.current = now;
       await Promise.allSettled([
         fetchLogs(),
-        fetchCodeIntegrity(),
         fetchPasswordResetRequests(),
       ]);
     };
@@ -8478,6 +8475,7 @@ export default function App() {
     teacherSession?.email,
     currentView,
     activeCourseCode,
+    teacherCloudReady,
   ]);
 
   useEffect(() => {
@@ -13974,10 +13972,13 @@ export default function App() {
 
   // تحميل بيانات لوحة المعلم كاملة مع تتبّع حالته لشريط «جارٍ التحميل من السحابة».
   const loadTeacherCloudData = (teacherEmail: string) => {
-    setTeacherCloudLoads((n) => n + 1);
     const readyKey = String(teacherEmail || "").trim().toLowerCase();
     const loadGen = cloudSessionGenRef.current;
-    return Promise.allSettled([
+    const flightKey = `${readyKey}:${loadGen}`;
+    const existing = teacherCloudLoadInFlightRef.current.get(flightKey);
+    if (existing) return existing;
+    setTeacherCloudLoads((n) => n + 1);
+    const pending = Promise.allSettled([
       fetchSections(teacherEmail),
       fetchTeacherExams(teacherEmail),
       fetchTeacherProjects(teacherEmail),
@@ -14000,7 +14001,9 @@ export default function App() {
         ]);
       }
       return results;
-    });
+    }).finally(() => teacherCloudLoadInFlightRef.current.delete(flightKey));
+    teacherCloudLoadInFlightRef.current.set(flightKey, pending);
+    return pending;
   };
 
   const fetchCodeIntegrity = async (emailOverride?: string) => {
@@ -14956,7 +14959,7 @@ ${rows
   };
 
   const deletePasswordResetRequest = async (id: string) => {
-    if (!(await confirmAction("حذف طلب الاسترجاع من القائمة؟"))) return;
+    if (!(await confirmAction("حذف طلب الاسترجاع وطلباته السابقة المكررة؟"))) return;
     try {
       const resp = await fetch(`/api/teacher/password-reset-requests/${id}`, {
         method: "DELETE",
@@ -14966,7 +14969,11 @@ ${rows
         setErrorMsg("تعذر حذف الطلب.");
         return;
       }
-      await fetchPasswordResetRequests();
+      const result = await resp.json().catch(() => ({}));
+      const ids: string[] = Array.isArray(result.deletedIds) ? result.deletedIds : [id];
+      ids.forEach(deletedId => deletedPasswordResetIdsRef.current.add(deletedId));
+      setPasswordResetRequestsState(prev => prev.filter(item => !deletedPasswordResetIdsRef.current.has(String(item.id))));
+      void fetchPasswordResetRequests();
       setSuccessMsg("تم حذف طلب الاسترجاع من القائمة.");
     } catch {
       setErrorMsg("تعذر حذف الطلب حالياً.");
@@ -15180,20 +15187,12 @@ ${rows
       if (cachedQ) setTeacherQuestions(JSON.parse(cachedQ));
     } catch {}
 
-    if (!teacherEmail || !teacherSession?.authToken) return;
-    fetchChapters();
-    fetchSections(teacherEmail);
-    fetchLogs(teacherEmail);
-    fetchReports(teacherEmail);
-    fetchJoinCodes(teacherEmail);
-    fetchCodeIntegrity(teacherEmail);
-    fetchQuestionBank(teacherEmail);
-    fetchTeacherExams(teacherEmail);
-    fetchPasswordResetRequests(teacherEmail);
+    // The session loader owns initial network reads; duplicating them here
+    // starts large integrity and question-bank requests before home is ready.
   }, []);
 
   useEffect(() => {
-    if (!teacherSession?.email || currentView !== "teacher_workspace") return;
+    if (!teacherSession?.email || currentView !== "teacher_workspace" || !teacherCloudReady[String(teacherSession.email).trim().toLowerCase()]) return;
     let refreshing = false;
     const refresh = async () => {
       if (refreshing) return;
@@ -15210,7 +15209,7 @@ ${rows
       window.clearInterval(timer);
       window.removeEventListener("focus", refresh);
     };
-  }, [teacherSession?.email, currentView]);
+  }, [teacherSession?.email, currentView, teacherCloudReady]);
 
   // Sync state helpers
   const fetchChapters = async () => {
@@ -15775,7 +15774,7 @@ ${rows
       );
       const d = await resp.json();
       if (!resp.ok || !Array.isArray(d.requests)) return false;
-      if (Array.isArray(d.requests)) setPasswordResetRequestsState(d.requests);
+      if (Array.isArray(d.requests)) setPasswordResetRequestsState(d.requests.filter((item: any) => !deletedPasswordResetIdsRef.current.has(String(item.id))));
       return true;
     } catch (e) { return false; }
   };

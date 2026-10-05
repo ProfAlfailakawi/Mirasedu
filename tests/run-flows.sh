@@ -77,6 +77,7 @@ run_group tests/flows.student-submit.mjs
 run_group tests/flows.quiz-grading.mjs
 run_group tests/flows.exam-create.mjs
 run_group tests/flows.notifications.mjs
+run_group tests/flows.password-resets.mjs
 run_group tests/flows.grade-release.mjs
 run_group tests/flows.device-lock.mjs tests/seed-device-lock.cjs
 run_group tests/flows.public-device-login.mjs
@@ -88,6 +89,7 @@ node node_modules/.bin/tsx --test tests/device-audit.test.ts || overall=1
 node node_modules/.bin/tsx --test tests/student-lock-signal.test.ts || overall=1
 node node_modules/.bin/tsx --test tests/cloud-data-ready.test.ts || overall=1
 node node_modules/.bin/tsx --test tests/cloud-readiness-probe.test.ts || overall=1
+node node_modules/.bin/tsx --test tests/password-reset-routing.test.ts || overall=1
 node node_modules/.bin/tsx --test tests/home-password-reset-requests.test.ts || overall=1
 node node_modules/.bin/tsx --test tests/teacher-notification-scope.test.ts || overall=1
 node node_modules/.bin/tsx --test tests/course-activation-count.test.ts || overall=1

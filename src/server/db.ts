@@ -2969,8 +2969,12 @@ export class LocalDatabase {
   }
 
   public deletePasswordResetRequest(id: string) {
-    if (!this.data.passwordResetRequests) this.data.passwordResetRequests = [];
-    this.data.passwordResetRequests = this.data.passwordResetRequests.filter(req => req.id !== id);
+    this.deletePasswordResetRequests([id]);
+  }
+
+  public deletePasswordResetRequests(ids: string[]) {
+    const removed = new Set(ids);
+    this.data.passwordResetRequests = (this.data.passwordResetRequests || []).filter(req => !removed.has(req.id));
     this.persist();
   }
 

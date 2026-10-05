@@ -1,3 +1,4 @@
+import { resolvePasswordResetRoute, passwordResetDeletionIds } from "./src/shared/password-reset-routing";
 import { recoverResetGeneralCode } from "./src/server/generalJoinCodes";
 import express from "express";
 import rateLimit from "express-rate-limit";
@@ -6852,7 +6853,10 @@ function notifyTeachersForSection(
   if (!isCriticalTeacherNotification(data, title)) return 0;
   const safeTitle = sanitizePublicMessageText(title) || "مِراس";
   const safeBody = sanitizePublicMessageText(body) || "لديك تنبيه جديد.";
-  const ownerEmail = sectionOwnerEmail(sectionCode);
+  const ownerEmail = data.type === "password_reset"
+    ? String(data.teacherEmail || "").trim().toLowerCase()
+    : sectionOwnerEmail(sectionCode);
+  if (data.type === "password_reset" && !ownerEmail) return 0;
   const count = notifyUsers(
     (token) =>
       token.role !== "student" &&
@@ -10764,6 +10768,11 @@ app.get("/api/notifications/inbox", (req, res) => {
     .filter((item: any) => {
       const t = new Date(item.createdAt || item.updatedAt || item.data?.createdAt || item.data?.sentAt || 0).getTime();
       if (since && t <= since) return false;
+      if (role !== "student" && String(item.type || item.data?.type || "") === "password_reset") {
+        const studentId = String(item.data?.studentId || item.studentId || "");
+        const route = studentPasswordResetRoute(studentId);
+        if (!route.teacherEmail || route.teacherEmail !== userId.toLowerCase()) return false;
+      }
       const itemRole = String(item.role || item.data?.role || item.data?.targetRole || "")
         .trim()
         .toLowerCase();
@@ -13705,6 +13714,14 @@ app.post("/api/teacher/change-my-password", teacherCredentialRateLimit, (req, re
   return res.json({ success: true, ...(authToken ? { authToken } : {}) });
 });
 
+function studentPasswordResetRoute(studentId: string) {
+  return resolvePasswordResetRoute(
+    dbInstance.getStudents().find(s => String(s.id) === String(studentId)),
+    dbInstance.getAllowedStudents().filter(s => String(s.idNumber) === String(studentId)),
+    activeSections(), dbInstance.getJoinCodes(), sectionDisplayCode,
+  );
+}
+
 app.post("/api/auth/forgot-password", (req, res) => {
   const idNumber = normalizeStudentId(req.body?.idNumber);
   if (!/^\d{4,}$/.test(idNumber))
@@ -13715,6 +13732,7 @@ app.post("/api/auth/forgot-password", (req, res) => {
   const allowed = dbInstance
     .getAllowedStudents()
     .find((s: any) => String(s.idNumber) === idNumber);
+  const route = studentPasswordResetRoute(idNumber);
   const resetToken = crypto.randomBytes(24).toString("hex");
   const verificationCode = makeJoinCode(
     "LAB",
@@ -13738,12 +13756,8 @@ app.post("/api/auth/forgot-password", (req, res) => {
     studentEmail: student?.email,
     studentPhone: (student as any)?.phone || (allowed as any)?.phone || "",
     username: student?.email || idNumber,
-    sectionCode: student?.sectionCode || allowed?.sectionCode,
-    teacherEmail: student
-      ? sectionOwnerEmail(student.sectionCode)
-      : allowed
-        ? sectionOwnerEmail(allowed.sectionCode)
-        : undefined,
+    sectionCode: route.sectionCode,
+    teacherEmail: route.teacherEmail || undefined,
     resetToken,
     resetLink: buildResetLink(req, resetToken),
     verificationCode,
@@ -13759,17 +13773,9 @@ app.post("/api/auth/forgot-password", (req, res) => {
     details: student
       ? `تم إنشاء رابط إعادة تعيين مؤقت ينتهي خلال ساعة واحدة. رقم الطلب: ${resetRequest.id}`
       : "طلب استعادة لطالب غير مسجل؛ يلزم التحقق من الكشف قبل إصدار أي كلمة مرور.",
-    teacherEmail: student
-      ? sectionOwnerEmail(student.sectionCode)
-      : allowed
-        ? sectionOwnerEmail(allowed.sectionCode)
-        : undefined,
-    actorEmail: student
-      ? sectionOwnerEmail(student.sectionCode)
-      : allowed
-        ? sectionOwnerEmail(allowed.sectionCode)
-        : undefined,
-    sectionCode: student?.sectionCode || allowed?.sectionCode,
+    teacherEmail: route.teacherEmail || undefined,
+    actorEmail: route.teacherEmail || undefined,
+    sectionCode: route.sectionCode,
     ip: req.ip || "127.0.0.1",
     userAgent: req.headers["user-agent"] || "Unknown",
     os: "استعادة الدخول",
@@ -13777,10 +13783,10 @@ app.post("/api/auth/forgot-password", (req, res) => {
     isViolationWarning: false,
   });
   notifyTeachersForSection(
-    student?.sectionCode || allowed?.sectionCode,
+    route.sectionCode,
     "طلب استرجاع كلمة مرور",
     `${resetRequest.studentName} طلب رابط إعادة تعيين`,
-    { type: "password_reset", studentId: idNumber, link: "/" },
+    { type: "password_reset", studentId: idNumber, link: "/", teacherEmail: route.teacherEmail, sectionCode: route.sectionCode },
   );
   if (student)
     notifyStudent(
@@ -22162,7 +22168,10 @@ app.get("/api/teacher/password-reset-requests", (req, res) => {
           ? { ...item, resetLink: buildResetLink(req, item.resetToken) }
           : item,
       )
-      .map(publicPasswordResetRequest),
+      .map((item: any) => {
+        const route = studentPasswordResetRoute(item.studentId);
+        return publicPasswordResetRequest({ ...item, ...route });
+      }),
   );
   return res.json({ success: true, requests });
 });
@@ -22309,8 +22318,9 @@ app.delete("/api/teacher/password-reset-requests/:id", (req, res) => {
   const teacherEmail = teacherEmailFromRequest(req);
   if (teacherEmail && !canAccessPasswordResetRequest(item, teacherEmail))
     return res.status(403).json({ error: "لا تملك صلاحية إدارة هذا الطلب." });
-  dbInstance.deletePasswordResetRequest(req.params.id);
-  return res.json({ success: true });
+  const deletedIds = passwordResetDeletionIds(dbInstance.getPasswordResetRequests(), item);
+  dbInstance.deletePasswordResetRequests(deletedIds);
+  return res.json({ success: true, deletedIds });
 });
 
 app.get("/api/teacher/exams", async (req, res) => {
