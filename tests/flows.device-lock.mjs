@@ -125,4 +125,19 @@ const surfaceLogs = audit.filter(log=>String(log.studentId)==="5601" && log.acti
 check("D14d) same-phone app/browser refusal remains a non-security event",surfaceLogs.length>0 && surfaceLogs.every(log=>log.isViolationWarning===false));
 check("D14e) no misleading generic login audit duplicates the validator",!audit.some(log=>log.action==="انتهاك الأجهزة"));
 
+// A student may belong to more than one teacher; account actions use the same
+// existing ownership scope as profile management, even for a secondary course.
+const secondaryJar = makeJar();
+await api("POST", "/api/auth/login", { idNumber: "bb@test.kw", password: process.env.TEST_TEACHER_PASSWORD || "change-me-in-ci" }, { jar: secondaryJar, deviceToken: "t-secondary" });
+const unrelatedJar = makeJar();
+await api("POST", "/api/auth/login", { idNumber: "dd@test.kw", password: process.env.TEST_TEACHER_PASSWORD || "change-me-in-ci" }, { jar: unrelatedJar, deviceToken: "t-unrelated" });
+const deniedReset = await api("POST", "/api/teacher/students/1001/reset-access", { mode: "reset_device" }, { jar: unrelatedJar, deviceToken: "t-unrelated" });
+check("D15) unrelated teacher cannot reset a student's device", deniedReset.status === 403);
+const secondaryReset = await api("POST", "/api/teacher/students/1001/reset-access", { mode: "reset_device" }, { jar: secondaryJar, deviceToken: "t-secondary" });
+check("D16) secondary-course teacher can request device transfer", secondaryReset.ok && secondaryReset.data.student?.pendingDeviceTransfer === true, `${secondaryReset.status} ${JSON.stringify(secondaryReset.data).slice(0,150)}`);
+const oldDevice = await api("GET", "/api/live/student-state?studentId=1001", null, { jar: studentJar, deviceToken: "tok-1001", ua: SAFARI_UA });
+check("D17) old background session cannot reclaim the account after transfer", !oldDevice.ok);
+const newDevice = await api("POST", "/api/auth/login", { idNumber: "1001", password: "pass1001" }, { deviceToken: "tok-1001-new", ua: CHROME_UA });
+check("D18) new device can be approved after authorized transfer", newDevice.ok, `${newDevice.status} ${JSON.stringify(newDevice.data).slice(0,150)}`);
+
 done();

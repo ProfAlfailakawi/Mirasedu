@@ -21128,11 +21128,7 @@ app.post("/api/teacher/students/:id/reset-access", (req, res) => {
     .find((s) => s.id === String(req.params.id));
   if (!student) return res.status(404).json({ error: "الطالب غير موجود" });
   const teacherEmail = teacherEmailFromRequest(req);
-  if (
-    teacherEmail &&
-    !isAdminEmail(teacherEmail) &&
-    sectionOwnerEmail(student.sectionCode) !== teacherEmail
-  ) {
+  if (!teacherEmail || !teacherCanManageStudent(student, teacherEmail)) {
     return res
       .status(403)
       .json({ error: "لا يمكن تعديل حساب طالب في مقرر لا تملكه." });

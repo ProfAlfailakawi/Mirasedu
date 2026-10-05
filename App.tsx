@@ -7671,6 +7671,7 @@ export default function App() {
   // نافذة QR للتفعيل المباشر (لكل أستاذ على أكواده): تعرض رمزاً يمسحه الطالب بكاميرا جواله
   // فيفتح التطبيق وكود الانضمام معبّأ جاهزاً بدل كتابته يدوياً.
   const [joinQrModalCode, setJoinQrModalCode] = useState<string>("");
+  const [passwordResetQrLink, setPasswordResetQrLink] = useState<string>("");
   const [joinQrSvg, setJoinQrSvg] = useState<string>("");
   const [joinQrBusy, setJoinQrBusy] = useState<boolean>(false);
   const buildJoinQrDeepLink = (rawCode: string) => {
@@ -7683,14 +7684,14 @@ export default function App() {
   };
   // يبني وسم SVG لرمز QR كلما فُتحت نافذة الرمز، ويمسحه عند الإغلاق.
   useEffect(() => {
-    if (!joinQrModalCode) {
+    if (!joinQrModalCode && !passwordResetQrLink) {
       setJoinQrSvg("");
       setJoinQrBusy(false);
       return;
     }
     let cancelled = false;
     setJoinQrBusy(true);
-    buildMirasJoinQrSvg(buildJoinQrDeepLink(joinQrModalCode)).then((svg) => {
+    buildMirasJoinQrSvg(passwordResetQrLink || buildJoinQrDeepLink(joinQrModalCode)).then((svg) => {
       if (cancelled) return;
       setJoinQrSvg(svg);
       setJoinQrBusy(false);
@@ -7698,7 +7699,7 @@ export default function App() {
     return () => {
       cancelled = true;
     };
-  }, [joinQrModalCode]);
+  }, [joinQrModalCode, passwordResetQrLink]);
   const [activationQrScannerOpen, setActivationQrScannerOpen] = useState(false);
   const [activationQrScannerStatus, setActivationQrScannerStatus] =
     useState("");
@@ -21134,6 +21135,7 @@ ${rows
               <div className="rounded-2xl bg-amber-50/70 px-3 py-2"><span className="block text-amber-600">ينتهي</span><span className="mt-1 block font-mono text-amber-800">{formatKwDateTime(req.expiresAt)}</span></div>
             </div>
             <div className="mt-3 flex flex-wrap justify-end gap-2 border-t border-slate-100 pt-3">
+              <button type="button" onClick={() => { setJoinQrModalCode(""); setPasswordResetQrLink(req.resetLink); }} disabled={!req.resetLink || ["used", "expired", "cancelled", "revoked"].includes(status) || (req.expiresAt && new Date(req.expiresAt).getTime() <= Date.now())} title="QR تغيير كلمة المرور" aria-label="QR تغيير كلمة المرور" className="inline-flex h-10 w-10 items-center justify-center rounded-2xl border border-indigo-100 bg-indigo-50 text-indigo-700 transition-colors hover:bg-indigo-100 disabled:text-slate-300 disabled:bg-slate-50"><QrCode className="h-4 w-4" /></button>
               <button onClick={() => copyResetLinkToClipboard(req.resetLink)} title="نسخ الرابط" aria-label="نسخ الرابط" className="inline-flex h-10 w-10 items-center justify-center rounded-2xl bg-slate-900 text-white shadow-sm transition-colors hover:bg-indigo-600"><Link2 className="h-4 w-4" /></button>
               <button onClick={() => resendPasswordResetLink(req.id)} title="إعادة إرسال" aria-label="إعادة إرسال" className="inline-flex h-10 w-10 items-center justify-center rounded-2xl border border-indigo-100 bg-indigo-50 text-indigo-700 transition-colors hover:bg-indigo-100"><RotateCw className="h-4 w-4" /></button>
               <button onClick={() => manualPasswordReset(req)} title="تغيير يدوي" aria-label="تغيير يدوي" className="inline-flex h-10 w-10 items-center justify-center rounded-2xl border border-emerald-100 bg-emerald-50 text-emerald-700 transition-colors hover:bg-emerald-100"><PencilLine className="h-4 w-4" /></button>
@@ -28335,7 +28337,7 @@ ${rows
       );
       const d = await resp.json().catch(() => ({}));
       if (!resp.ok) {
-        setErrorMsg(d.error || "تعذر إيقاف حساب الطالب.");
+        setErrorMsg(d.error || "تعذر تبديل جهاز الطالب.");
         return;
       }
       setAccessStoppedIds((prev) => {
@@ -31494,11 +31496,11 @@ ${rows
         </div>
       )}
 
-      {joinQrModalCode && (
+      {(joinQrModalCode || passwordResetQrLink) && (
         <div
           className="fixed inset-0 z-[135] flex items-center justify-center bg-slate-950/55 p-4 backdrop-blur-md"
           dir="rtl"
-          onClick={() => setJoinQrModalCode("")}
+          onClick={() => { setJoinQrModalCode(""); setPasswordResetQrLink(""); }}
         >
           <div
             className="relative w-full max-w-[22rem] overflow-hidden rounded-[var(--miras-r-xl)] border border-white/80 bg-white p-5 text-center miras-shadow-3"
@@ -31507,11 +31509,11 @@ ${rows
             <div className="flex items-start justify-between gap-3 text-right">
               <div className="inline-flex items-center gap-2 rounded-2xl border border-indigo-100 bg-indigo-50/70 px-3 py-1.5 text-[11px] font-bold text-indigo-700">
                 <QrCode className="h-4 w-4" />
-                رمز تفعيل مباشر
+                {passwordResetQrLink ? "تغيير كلمة المرور" : "رمز تفعيل مباشر"}
               </div>
               <button
                 type="button"
-                onClick={() => setJoinQrModalCode("")}
+                onClick={() => { setJoinQrModalCode(""); setPasswordResetQrLink(""); }}
                 className="grid h-10 w-10 shrink-0 place-items-center rounded-[var(--miras-r-lg)] border border-slate-100 bg-slate-50/80 text-slate-500 transition hover:bg-slate-100"
                 aria-label="إغلاق"
               >
@@ -31519,8 +31521,7 @@ ${rows
               </button>
             </div>
             <p className="mt-4 text-[12px] font-bold leading-6 text-slate-600">
-              يمسحه الطالب بكاميرا جواله فيفتح التطبيق والكود معبّأ جاهز
-              للتفعيل — دون كتابة.
+              {passwordResetQrLink ? "يمسحه الطالب لفتح صفحة تغيير كلمة المرور." : "يمسحه الطالب بكاميرا جواله فيفتح التطبيق والكود معبّأ جاهز للتفعيل — دون كتابة."}
             </p>
             <div className="mx-auto mt-4 flex aspect-square w-full max-w-[15rem] items-center justify-center rounded-[var(--miras-r-lg)] border border-slate-100 bg-white p-3 shadow-inner">
               {joinQrBusy ? (
@@ -31538,20 +31539,20 @@ ${rows
                 </span>
               )}
             </div>
-            <div
+            {!passwordResetQrLink && <div
               dir="ltr"
               className="mt-4 rounded-2xl bg-slate-50 px-3 py-2 font-mono text-[13px] font-black tracking-[0.12em] text-indigo-900"
             >
               {formatJoinCode(joinQrModalCode)}
-            </div>
+            </div>}
             <button
               type="button"
               onClick={async () => {
                 try {
                   await navigator.clipboard.writeText(
-                    buildJoinQrDeepLink(joinQrModalCode),
+                    passwordResetQrLink || buildJoinQrDeepLink(joinQrModalCode),
                   );
-                  setSuccessMsg("تم نسخ رابط التفعيل المباشر.");
+                  setSuccessMsg(passwordResetQrLink ? "تم نسخ رابط تغيير كلمة المرور." : "تم نسخ رابط التفعيل المباشر.");
                 } catch {
                   setErrorMsg("تعذّر نسخ الرابط. انسخ الكود يدوياً.");
                 }
@@ -31559,7 +31560,7 @@ ${rows
               className="mt-3 inline-flex w-full items-center justify-center gap-2 rounded-2xl border border-indigo-100 bg-indigo-50 px-4 py-3 text-[12px] font-bold text-indigo-700 transition hover:bg-indigo-600 hover:text-white"
             >
               <Link2 className="h-4 w-4" />
-              نسخ رابط التفعيل المباشر
+              {passwordResetQrLink ? "نسخ رابط تغيير كلمة المرور" : "نسخ رابط التفعيل المباشر"}
             </button>
           </div>
         </div>
