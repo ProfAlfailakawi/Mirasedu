@@ -1,3 +1,4 @@
+import { waitForCloudMutation } from "../shared/cloud-mutation-barrier";
 import { preserveGeneralCodeOnReset } from "./generalJoinCodes";
 import { AsyncLocalStorage } from "node:async_hooks";
 import fs from "fs";
@@ -1018,6 +1019,8 @@ export class LocalDatabase {
   private persistTimeout: NodeJS.Timeout | null = null;
   private lastSyncedState: DatabaseState | null = null;
   private mutationVersion: number = 0;
+  private committedMutationVersion: number = 0;
+  private urgentCloudWaiters: number = 0;
   private cloudUnsubscribe: (() => void) | null = null;
   // آخر بيان معروف بعدد أجزاء كل مفتاح — يُستخدم فقط لو احتجنا لاحقاً نقرأ
   // مفتاحاً واحداً بمعزل عن البقية؛ يُحدَّث من كل قراءة أو كتابة ناجحة.
@@ -1109,6 +1112,38 @@ export class LocalDatabase {
       allowLocalOnlyMode: MIRAS_ALLOW_LOCAL_ONLY_MODE,
       localHasMeaningfulContent: databaseHasMeaningfulContent(this.data),
     };
+  }
+
+  public async waitForMutationSync(version: number): Promise<void> {
+    if (!Number.isSafeInteger(version) || version < 1 || version > this.mutationVersion) {
+      throw new Error("Invalid cloud mutation version.");
+    }
+    if (!dbFS || this.isDemo) return this.waitForSync();
+    this.flushLocalSave();
+    await this.reattemptDatabaseGuardIfCooldownPassed();
+    if (firestoreQuotaExceeded || this.databaseGuardLocked) {
+      throw new Error("Cloud mutation cannot be confirmed while database writes are blocked.");
+    }
+    this.urgentCloudWaiters += 1;
+    try {
+      await waitForCloudMutation(version, {
+        committedVersion: () => this.committedMutationVersion,
+        flush: () => {
+          if (this.pendingFSSync && this.persistTimeout) {
+            clearTimeout(this.persistTimeout);
+            this.persistTimeout = null;
+            this.cloudSyncScheduled = false;
+          }
+          if (this.pendingFSSync && !this.isSyncingFS) {
+            // syncPromise carries the rejection to the waiter; handle the outer promise too.
+            void this.performCloudSync().catch(() => {});
+          }
+        },
+        activeWrite: () => this.syncPromise,
+      });
+    } finally {
+      this.urgentCloudWaiters -= 1;
+    }
   }
 
   public async waitForSync(): Promise<void> {
@@ -2100,6 +2135,8 @@ export class LocalDatabase {
           committedState?.lastUpdated || 0,
         );
         this.lastSyncedState = cloneDbValue(committedState);
+        // Advance only after the cloud write resolved. Later mutations remain queued.
+        this.committedMutationVersion = Math.max(this.committedMutationVersion, versionAtStart);
         this.scheduleLocalSave();
       }
       if (resolver) resolver();
@@ -2127,7 +2164,7 @@ export class LocalDatabase {
         !this.cloudSyncScheduled &&
         !firestoreQuotaExceeded
       ) {
-        this.scheduleCloudSync(false);
+        this.scheduleCloudSync(this.urgentCloudWaiters > 0);
       }
     }
   }

@@ -28364,12 +28364,7 @@ ${rows
           String(st.id) === id
             ? {
                 ...st,
-                devices: [],
-                accessResetAt: new Date().toISOString(),
-                isAccessBlocked: false,
-                accessBlockReason: "",
-                pendingDeviceTransfer: true,
-                retiredDeviceFingerprints: Array.isArray(st.devices) ? st.devices : [],
+                ...d.student,
               }
             : st,
         ),
@@ -28377,8 +28372,10 @@ ${rows
       setSuccessMsg(
         "تم فك ربط الجهاز القديم وإنهاء جلسته بنجاح. اطلب من الطالب فتح مِراس من الجهاز الجديد؛ سيتم اعتماده تلقائياً عند أول دخول.",
       );
-      fetchReports();
-      fetchLogs();
+      window.setTimeout(() => {
+        void fetchReports();
+        void fetchLogs();
+      }, 300);
     } catch {
       setErrorMsg("تعذر تنفيذ العملية حالياً.");
     } finally {

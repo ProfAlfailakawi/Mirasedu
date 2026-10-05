@@ -9384,7 +9384,7 @@ app.use(async (req, res, next) => {
     let cloudGuardedJson = false;
     res.json = ((body?: any) => {
       const statusCode = Number(res.statusCode || 200);
-      if (cloudGuardedJson || res.headersSent || statusCode >= 400) {
+      if (cloudGuardedJson || res.headersSent || statusCode >= 400 || res.locals.cloudMutationConfirmed === true) {
         return originalJson(body);
       }
       cloudGuardedJson = true;
@@ -21128,7 +21128,7 @@ app.post("/api/teacher/students/:idNumber/remove-course", (req, res) => {
   });
 });
 
-app.post("/api/teacher/students/:id/reset-access", (req, res) => {
+app.post("/api/teacher/students/:id/reset-access", async (req, res) => {
   const student = dbInstance
     .getStudents()
     .find((s) => s.id === String(req.params.id));
@@ -21259,10 +21259,18 @@ app.post("/api/teacher/students/:id/reset-access", (req, res) => {
       link: "/",
     },
   );
-  return res.json({
-    success: true,
-    student: dbInstance.getStudents().find((s) => s.id === student.id),
-  });
+  try {
+    // Register the complete student/code patch before taking its durability version.
+    await dbInstance.persist();
+    const version = dbInstance.getMutationVersion();
+    await dbInstance.waitForMutationSync(version).catch(() => dbInstance.waitForMutationSync(version));
+    res.locals.cloudMutationConfirmed = true;
+  } catch (error) {
+    console.error("Device access mutation could not be confirmed:", error);
+    return res.status(503).json(cloudDurabilityErrorBody());
+  }
+  const savedStudent = dbInstance.getStudents().find(s => s.id === student.id);
+  res.json({ success: true, student: savedStudent });
 });
 
 // ================= SECTIONS MANAGEMENT =================
