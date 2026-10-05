@@ -88,6 +88,7 @@ node node_modules/.bin/tsx --test tests/device-audit.test.ts || overall=1
 node node_modules/.bin/tsx --test tests/student-lock-signal.test.ts || overall=1
 node node_modules/.bin/tsx --test tests/cloud-data-ready.test.ts || overall=1
 node node_modules/.bin/tsx --test tests/home-password-reset-requests.test.ts || overall=1
+node node_modules/.bin/tsx --test tests/teacher-notification-scope.test.ts || overall=1
 node node_modules/.bin/tsx --test tests/course-activation-count.test.ts || overall=1
 node node_modules/.bin/tsx --test tests/flows.demo-orphan.mjs || overall=1
 node node_modules/.bin/tsx --test tests/flows.demo-coursework.mjs || overall=1

@@ -1,3 +1,4 @@
+import { teacherOwnsNotification, duplicatesCodeIntegrityLog } from "./src/shared/teacher-notification-scope";
 import { homePasswordResets } from "./src/shared/home-password-reset-requests";
 import { cloudDataReady } from "./src/shared/cloud-data-ready";
 import { studentSessionIssuedAt, shouldApplyStudentLockSignal } from "./src/shared/student-lock-signal";
@@ -13229,6 +13230,9 @@ export default function App() {
       "student_logged_in",
     ].includes(type);
     if (isAdminCurrent && routineTeacherAction) return false;
+    const relatedCourse = n?.sectionCode || n?.courseCode || data.sectionCode || data.courseCode;
+    if (relatedCourse && !isSameTeacherIdentity(courseOwnerEmail(String(relatedCourse)), teacherKey)) return false;
+    if (teacherEmail && !isSameTeacherIdentity(teacherEmail, teacherKey)) return false;
     if (userId && userId === teacherKey) return true;
     if (teacherEmail && teacherEmail === teacherKey) return true;
     const targetCourse = String(
@@ -13245,14 +13249,6 @@ export default function App() {
       )
     )
       return true;
-    if (isAdminCurrent) {
-      return (
-        !userId &&
-        !teacherEmail &&
-        !targetCourse &&
-        ["admin", "superadmin", "super_admin"].includes(role)
-      );
-    }
     // لا نعرض أي تنبيه عام غير موجه صراحة؛ هذا يمنع ظهور رسالة معلم عند معلم آخر أو عند مدير النظام.
     return false;
   };
@@ -26964,7 +26960,18 @@ ${rows
           0,
       ).getTime() || 0;
 
+    const owns = (item: any) => teacherOwnsNotification(item, currentTeacherEmail, courseOwnerEmail, isSameTeacherIdentity);
+    const ownSecurityLogs = deviceAuditForDisplay(systemLogs.filter(owns));
+    const ownDeviceProblems = deviceProblemAttempts.filter(owns);
     const items: any[] = [];
+    homePasswordResetRequests.forEach((req: any) => items.push({
+      key: `teacher-reset-${req.id || req.studentId || req.requestedAt}`,
+      title: "طلب استرجاع كلمة مرور",
+      body: `${req.studentName || "طالب"} • الرقم: ${req.studentId || "-"} يطلب استرجاع كلمة المرور.`,
+      when: req.requestedAt || req.timestamp || req.createdAt,
+      tone: "violet",
+      action: () => openTeacherTab("home"),
+    }));
     const now = Date.now();
     const todayStr = new Date().toISOString().split("T")[0];
 
@@ -26987,7 +26994,7 @@ ${rows
       }
 
       // 2. Devices needing review / approval (جهاز يحتاج اعتماداً أو مراجعة)
-      deviceProblemAttempts.forEach((attempt: any) => {
+      ownDeviceProblems.forEach((attempt: any) => {
         const isSecondHandApproval =
           String(attempt.approvalRequestType || "") === "second_hand_device";
         items.push({
@@ -27011,7 +27018,7 @@ ${rows
       });
 
       // 3. High risk security / Integrity warnings / Cheating from system logs (نزاهة وأمن عالية الخطورة)
-      scopedSystemLogs
+      ownSecurityLogs
         .filter((log: any) => {
           const text = `${log.action || ""} ${log.details || ""} ${log.description || ""} ${log.message || ""}`;
           // Ignore ordinary teacher operations and regular entries
@@ -27045,7 +27052,7 @@ ${rows
             text.includes("مخالفة");
           items.push({
             key: `admin-log-${log.id || log.timestamp || log.createdAt}`,
-            title: isCheating ? "نزاهة عالية الخطورة" : "تنبيه أمني / صلاحيات",
+            title: isCheating ? "نزاهة عالية الخطورة" : log.action === "محاولة كود مرفوضة" ? "دخول مرفوض يحتاج مراجعة" : "تنبيه أمني / صلاحيات",
             body: sanitizeCourseIdentifiersForDisplay(
               `${log.studentName || "مستخدم"} • ${logActionLabel(log.action) || "حدث أمني"} • ${log.details || ""}`,
             ),
@@ -27062,7 +27069,9 @@ ${rows
       localNotifications
         .map(normalizeLocalNotification)
         .filter(notificationTargetsTeacher)
+        .filter((note: any) => owns(note) || (!note?.studentId && !note?.data?.studentId && !note?.sectionCode && !note?.data?.sectionCode && String(note?.userId || note?.data?.userId || "").toLowerCase() === currentTeacherEmail))
         .filter((note: any) => {
+          if (duplicatesCodeIntegrityLog(note, ownSecurityLogs, timeValue)) return false;
           const text = `${note.title || ""} ${note.body || ""}`.toLowerCase();
           return /كود متداول|مشبوه|استخدام غير طبيعي|أمنية|صلاحيات|سوبر أدمن|إدارة|admin|superadmin/i.test(
             text,
@@ -27235,7 +27244,7 @@ ${rows
       }
 
       // 7. Device needs review (جهاز يحتاج مراجعة)
-      deviceProblemAttempts.forEach((attempt: any) => {
+      ownDeviceProblems.forEach((attempt: any) => {
         const isSecondHandApproval =
           String(attempt.approvalRequestType || "") === "second_hand_device";
         // Filter for teacher's courses if any
@@ -27288,7 +27297,7 @@ ${rows
         });
 
       // 9. Password reset requests (طلب استرجاع كلمة مرور)
-      actionablePasswordResetRequests.forEach((req: any) => {
+      homePasswordResetRequests.forEach((req: any) => {
         items.push({
           key: `teacher-reset-${req.id || req.studentId || req.requestedAt}`,
           title: "طلب استرجاع كلمة مرور",
@@ -27335,7 +27344,7 @@ ${rows
         });
 
       // 11. Security logs of high importance (حالة نزاهة أو أمان تحتاج مراجعة)
-      scopedSystemLogs
+      ownSecurityLogs
         .filter((log: any) => {
           const text = `${log.action || ""} ${log.details || ""} ${log.description || ""} ${log.message || ""}`;
           if (
@@ -27390,7 +27399,10 @@ ${rows
       .sort((a, b) => timeValue(b) - timeValue(a))
       .slice(0, 30);
   }, [
-    actionablePasswordResetRequests,
+    homePasswordResetRequests,
+    systemLogs,
+    teacherSections,
+    currentTeacherEmail,
     activeCourseExamSubmissions,
     scopedSystemLogs,
     deviceProblemAttempts,

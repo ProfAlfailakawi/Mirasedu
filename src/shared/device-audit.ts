@@ -3,7 +3,10 @@ export const LEGACY_THIRD_DEVICE_DETAILS = "محاولة تسجيل دخول ف�
 export const LEGACY_DEVICE_REJECTION_DESCRIPTION = "رفض دخول بسبب قفل الجهاز؛ السبب التفصيلي غير محفوظ في هذا السجل القديم.";
 
 export function deviceAuditForDisplay<T extends Record<string, any>>(logs: T[]): T[] {
-  return logs.flatMap(log => {
+  return logs.flatMap(original => {
+    const log = String(original.details || "").includes("محاولة دخول بتوكن منسوخ دون سر المتصفح الأصلي")
+      ? { ...original, details: String(original.details).replace("محاولة دخول بتوكن منسوخ دون سر المتصفح الأصلي", "رفض دخول لعدم تطابق بيانات ربط المتصفح المعتمد؛ يحتاج مراجعة") }
+      : original;
     if (log.action !== "انتهاك الأجهزة" || log.details !== LEGACY_THIRD_DEVICE_DETAILS) return [log];
     const at = new Date(log.timestamp || log.createdAt || 0).getTime();
     const detailed = logs.some(other => {
