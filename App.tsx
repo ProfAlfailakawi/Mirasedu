@@ -1,3 +1,4 @@
+import { probeCloudReadiness } from "./src/shared/cloud-readiness-probe";
 import { teacherOwnsNotification, duplicatesCodeIntegrityLog } from "./src/shared/teacher-notification-scope";
 import { homePasswordResets } from "./src/shared/home-password-reset-requests";
 import { cloudDataReady } from "./src/shared/cloud-data-ready";
@@ -7570,14 +7571,16 @@ export default function App() {
     }
     let cancelled = false;
     let timer = 0;
+    let inFlight = false;
     const check = async () => {
-      let ok = false;
-      try {
-        const resp = await fetch(`/api/cloud-status?t=${Date.now()}`, {
-          cache: "no-store",
-        });
-        ok = resp.ok;
-      } catch {}
+      if (cancelled || inFlight) return;
+      inFlight = true;
+      const path = `/api/cloud-status?t=${Date.now()}`;
+      const urls = [path];
+      // Production Hosting and Cloud Run are two paths to the same cloud guard.
+      if (!/^(localhost|127\.0\.0\.1)$/.test(window.location.hostname)) urls.push(`${MIRAS_API_ORIGIN}${path}`);
+      const ok = await probeCloudReadiness(originalFetch!.bind(window), urls);
+      inFlight = false;
       if (cancelled) return;
       if (ok) {
         setLoginCloudReady(true);
@@ -13979,16 +13982,23 @@ export default function App() {
       fetchTeacherExams(teacherEmail),
       fetchTeacherProjects(teacherEmail),
       fetchPasswordResetRequests(teacherEmail),
-      fetchJoinCodes(teacherEmail),
-      fetchCodeIntegrity(teacherEmail),
-      reloadTeacherDashboard(teacherEmail),
+      fetchReports(teacherEmail, { quiet: true }),
+      fetchLogs(teacherEmail),
     ]).then((results) => {
       setTeacherCloudLoads((n) => Math.max(0, n - 1));
       if (
         loadGen === cloudSessionGenRef.current &&
-        cloudDataReady(results, [0, 1, 2, 3, 6])
+        cloudDataReady(results, [0, 1, 2, 3, 4, 5])
       )
+      {
         setTeacherCloudReady((m) => ({ ...m, [readyKey]: true }));
+        // These tools do not supply the home metrics and must not delay entry.
+        void Promise.allSettled([
+          fetchJoinCodes(teacherEmail),
+          fetchCodeIntegrity(teacherEmail),
+          fetchQuestionBank(teacherEmail),
+        ]);
+      }
       return results;
     });
   };
@@ -21070,7 +21080,7 @@ ${rows
   const actionablePasswordResetRequests = passwordResetRequests
     .filter((req: any) => !isFinishedPasswordResetRequest(req))
     .slice(0, 4);
-  const homePasswordResetRequests = homePasswordResets(passwordResetRequests, currentTeacherEmail, isSameTeacherIdentity);
+  const homePasswordResetRequests = homePasswordResets(passwordResetRequests, currentTeacherEmail, isSameTeacherIdentity, (request: any) => !!request.sectionCode && isSameTeacherIdentity(courseOwnerEmail(request.sectionCode), currentTeacherEmail));
 
   const renderPasswordResetRequest = (req: any) => {
     const key = req.id || `${req.studentId}-${req.timestamp}`;
