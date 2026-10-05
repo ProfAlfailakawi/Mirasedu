@@ -4471,10 +4471,11 @@ export default function App() {
       "SELECT",
       "OPTION",
     ]);
+    // Counts can equal a course code; literal values must remain numeric.
     const inSkippedZone = (node: Node) => {
       let el: HTMLElement | null = node.parentElement;
       while (el) {
-        if (SKIP_TAGS.has(el.tagName) || el.isContentEditable) return true;
+        if (SKIP_TAGS.has(el.tagName) || el.isContentEditable || el.hasAttribute("data-miras-literal")) return true;
         el = el.parentElement;
       }
       return false;
@@ -20538,7 +20539,7 @@ ${rows
             <span className="block text-[11px] font-bold leading-[1.45] text-slate-500">
               {label}
             </span>
-            <span className="mt-0.5 block text-[1.65rem] font-black leading-tight tracking-tight text-slate-950">
+            <span data-miras-literal="true" className="mt-0.5 block text-[1.65rem] font-black leading-tight tracking-tight text-slate-950">
               {value}
             </span>
           </div>
