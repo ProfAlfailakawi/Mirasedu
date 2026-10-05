@@ -771,17 +771,7 @@ function responseForPasskeyUser(req: express.Request, saved: any, user: any) {
   const sebLoginPass = isSebRequest(req) ? getValidSebPass(req, student) : null;
   const sessionValidation = validateSessionFingerprint(req, student);
   if (!sessionValidation.isValid && !sebLoginPass) {
-    dbInstance.addActivityLog({
-      studentId: student.id,
-      studentName: student.name,
-      action: "انتهاك الأجهزة",
-      details: "محاولة دخول بالبصمة من جهاز غير مصرح به",
-      ip: req.ip || "127.0.0.1",
-      userAgent: req.headers["user-agent"] || "Unknown",
-      os: "مجهول",
-      browser: "Passkey",
-      isViolationWarning: true,
-    });
+    recordDeviceLoginRejection(req, student, sessionValidation);
     notifyStudent(
       student.id,
       "محاولة دخول بالبصمة مرفوضة",
@@ -13115,11 +13105,37 @@ function recordSameDeviceSurfaceBlock(
   });
 }
 
+function recordDeviceLoginRejection(
+  req: express.Request,
+  student: Student,
+  validation: { error?: string; auditRecorded?: boolean; isViolationWarning?: boolean },
+) {
+  if (validation.auditRecorded) return;
+  const details = validation.error || "رفض الدخول بسبب قفل الجهاز.";
+  const deviceLoginKey = crypto.createHash("sha256").update(JSON.stringify([
+    student.id, details, getRequestDeviceToken(req), getRequestDeviceFingerprint(req),
+  ])).digest("hex");
+  const now = Date.now();
+  if (dbInstance.getActivityLogs().some((log: any) =>
+    log.deviceLoginKey === deviceLoginKey &&
+    now - new Date(log.timestamp || 0).getTime() >= 0 &&
+    now - new Date(log.timestamp || 0).getTime() < 6 * 60 * 60 * 1000,
+  )) return;
+  dbInstance.addActivityLog({
+    studentId: student.id, studentName: student.name,
+    action: validation.isViolationWarning === false ? "تعذر التعرف على الجهاز" : "رفض دخول من جهاز غير معتمد",
+    details, deviceLoginKey,
+    ip: req.ip || "127.0.0.1", userAgent: String(req.headers["user-agent"] || "Unknown"),
+    os: "قفل الجهاز", browser: "تسجيل الدخول",
+    isViolationWarning: validation.isViolationWarning !== false,
+  } as any);
+}
+
 function validateSessionFingerprint(
   req: express.Request,
   student: Student,
   opts?: { strictLoginSurface?: boolean },
-): { isValid: boolean; error?: string; statusCode?: number } {
+): { isValid: boolean; error?: string; statusCode?: number; auditRecorded?: boolean; isViolationWarning?: boolean } {
   const browser = req.headers["user-agent"] || "Unknown Browser";
   const ip = req.ip || "127.0.0.1";
   const sebPass = getValidSebPass(req, student);
@@ -13154,6 +13170,7 @@ function validateSessionFingerprint(
     });
     return {
       isValid: false,
+      auditRecorded: true,
       statusCode: 409,
       error: STUDENT_DEVICE_ALREADY_BOUND_ERROR,
     };
@@ -13167,6 +13184,8 @@ function validateSessionFingerprint(
     if (!currentDeviceToken) {
       return {
         isValid: false,
+        auditRecorded: false,
+        isViolationWarning: false,
         statusCode: 400,
         error:
           "تعذّر اعتماد جهازك الجديد لأن المتصفح لم يرسل معرّف الجهاز. تأكد أنك لا تستخدم وضع التصفح الخاص/المتخفّي وأن المتصفح يسمح بحفظ بيانات الموقع، ثم أعد فتح مِراس وحاول مرة أخرى.",
@@ -13197,6 +13216,7 @@ function validateSessionFingerprint(
       });
       return {
         isValid: false,
+        auditRecorded: true,
         statusCode: 409,
         error:
           "حسابك في وضع النقل لجهاز جديد. يرجى تسجيل الدخول من جهازك الجديد لإكمال النقل، لأن هذا الجهاز القديم أصبح ملغياً.",
@@ -13300,6 +13320,7 @@ function validateSessionFingerprint(
         });
         return {
           isValid: false,
+          auditRecorded: true,
           statusCode: 409,
           error:
             "هذا الحساب مقفل على المتصفح الأصلي. لا يكفي نسخ الكود أو بيانات المتصفح؛ اطلب من الأستاذ تبديل الجهاز.",
@@ -13311,14 +13332,10 @@ function validateSessionFingerprint(
       lockedDeviceToken &&
       !currentDeviceToken
     ) {
-      recordActivationAttempt(req, {
-        code: activationCode,
-        student,
-        reason: "محاولة دخول بدون توكن الجهاز المفعّل",
-        foundCode: activationRecord,
-      });
       return {
         isValid: false,
+        auditRecorded: false,
+        isViolationWarning: false,
         error:
           "تعذّر التعرف على جهازك لأن المتصفح لم يرسل معرّف الجهاز. تأكد أنك لا تستخدم وضع التصفح الخاص/المتخفّي وأن المتصفح يسمح بحفظ بيانات الموقع، ثم افتح مِراس وحاول مرة أخرى. إن كنت تنتقل لجهاز جديد فاطلب من الأستاذ «تبديل الجهاز».",
       };
@@ -13337,6 +13354,7 @@ function validateSessionFingerprint(
       });
       return {
         isValid: false,
+        auditRecorded: true,
         error:
           "هذا الحساب مسجل في جهاز آخر. للتبديل لهذا الجهاز اطلب من الأستاذ (تبديل الجهاز) ثم سجل دخولك هنا.",
       };
@@ -13398,6 +13416,7 @@ function validateSessionFingerprint(
       }
       return {
         isValid: false,
+        auditRecorded: true,
         statusCode: 409,
         error:
           "أنت مسجّل على متصفح آخر في هذا الجهاز. لا يمكن فتح الحساب من متصفح أو وضع مختلف (سفاري/PWA) — تواصل مع الأستاذ لتبديل الجهاز.",
@@ -13426,6 +13445,7 @@ function validateSessionFingerprint(
       });
       return {
         isValid: false,
+        auditRecorded: true,
         error:
           "هذا الحساب مسجل في جهاز آخر. للتبديل لهذا الجهاز اطلب من الأستاذ (تبديل الجهاز) ثم سجل دخولك هنا.",
       };
@@ -13480,6 +13500,7 @@ function validateSessionFingerprint(
         );
         return {
           isValid: false,
+          auditRecorded: true,
           statusCode: 409,
           error:
             "أنت مسجّل على متصفح آخر في هذا الجهاز. لا يمكن فتح الحساب من متصفح أو وضع مختلف في نفس الوقت — تواصل مع الأستاذ لتبديل الجهاز.",
@@ -13510,6 +13531,7 @@ function validateSessionFingerprint(
     if (student.devices.length >= 1) {
       return {
         isValid: false,
+        auditRecorded: false,
         error: `هذا الحساب مسجل في جهاز آخر. للتبديل لهذا الجهاز اطلب من الأستاذ (تبديل الجهاز) ثم سجل دخولك هنا.`,
       };
     }
@@ -15427,18 +15449,7 @@ app.post("/api/auth/login", loginIpRateLimit, (req, res) => {
   });
   if (!sessionValidation.isValid && !sebLoginPass) {
     // Record login violation in audit logs
-    dbInstance.addActivityLog({
-      studentId: student.id,
-      studentName: student.name,
-      action: "انتهاك الأجهزة",
-      details:
-        "محاولة تسجيل دخول فاشلة بسبب تجاوز الحد الأقصى للأجهزة (جهاز ثالث)",
-      ip: req.ip || "127.0.0.1",
-      userAgent: req.headers["user-agent"] || "Unknown",
-      os: "مجهول",
-      browser: "مجهول",
-      isViolationWarning: true,
-    });
+    recordDeviceLoginRejection(req, student, sessionValidation);
     notifyStudent(
       student.id,
       "محاولة دخول مرفوضة",

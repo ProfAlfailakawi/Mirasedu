@@ -1,0 +1,11 @@
+import assert from 'node:assert/strict';
+import { test } from 'node:test';
+import { deviceAuditForDisplay, LEGACY_THIRD_DEVICE_DETAILS, LEGACY_DEVICE_REJECTION_DESCRIPTION } from '../src/shared/device-audit';
+const old = { id:'old',studentId:'1',action:'انتهاك الأجهزة',details:LEGACY_THIRD_DEVICE_DETAILS,timestamp:'2026-10-01T12:11:00Z',ip:'test-ip',userAgent:'test-ua' };
+const detailed = { ...old,id:'detailed',action:'محاولة كود مرفوضة',details:'محاولة دخول من جهاز مختلف عن جهاز التفعيل',timestamp:'2026-10-01T12:11:01Z' };
+test('legacy message does not claim a third device; original and stable id retained',()=>{const result=deviceAuditForDisplay([old]);assert.equal(result[0].details,LEGACY_DEVICE_REJECTION_DESCRIPTION);assert.equal(result[0].id,'old');assert.equal(old.details,LEGACY_THIRD_DEVICE_DETAILS);});
+test('same event keeps the detailed record only',()=>{assert.deepEqual(deviceAuditForDisplay([old,detailed]),[detailed]);});
+test('same-device technical block does not become an integrity warning',()=>{const technical={...detailed,action:'رفض متصفح/وضع عرض آخر على نفس الجهاز',isViolationWarning:false};assert.deepEqual(deviceAuditForDisplay([old,technical]),[technical]);});
+test('different students, devices and later attempts stay separate',()=>{for(const patch of [{studentId:'2'},{ip:'different'},{userAgent:'different'},{timestamp:'2026-10-01T12:12:00Z'}]){assert.equal(deviceAuditForDisplay([old,{...detailed,...patch}]).length,2);}});
+test('missing evidence does not remove historical records',()=>{assert.equal(deviceAuditForDisplay([old,{...detailed,ip:''}]).length,2);});
+test('new and unrelated security logs unchanged',()=>{const modern={...old,details:'محاولة مختلفة'};assert.deepEqual(deviceAuditForDisplay([modern,detailed]),[modern,detailed]);});

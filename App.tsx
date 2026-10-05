@@ -1,3 +1,4 @@
+import { deviceAuditForDisplay } from "./src/shared/device-audit";
 import {
   useState,
   useEffect,
@@ -12124,7 +12125,7 @@ export default function App() {
     DEVICE_REGISTERED: "تسجيل جهاز جديد",
     TAB_SWITCH: "خروج من نافذة الاختبار",
     PASTE_BLOCKED: "منع لصق نص",
-    THIRD_DEVICE_BLOCKED: "جهاز ثالث مرفوض",
+    THIRD_DEVICE_BLOCKED: "جهاز غير معتمد مرفوض",
     JOIN_CODE_REDEEMED: "استخدام رمز انضمام",
     ENROLLMENT_SUSPENDED: "تعليق التسجيل",
     GRADE_RELEASED: "اعتماد الدرجة",
@@ -21008,7 +21009,7 @@ ${rows
     excelMappingOpen && excelPendingRows.length
       ? parseAllowedExcelRows()
       : { parsed: [], error: "" };
-  const scopedSystemLogs = systemLogs.filter((log: any) => {
+  const scopedSystemLogs = deviceAuditForDisplay(systemLogs.filter((log: any) => {
     if (isDatabaseResetLog(log)) return false;
     const actorEmail = String(
       log.actorEmail || log.teacherEmail || log.email || "",
@@ -21028,7 +21029,7 @@ ${rows
       (student: any) => String(student.id) === String(log.studentId),
     );
     return st ? visibleCourseCodes.includes(st.sectionCode) : false;
-  });
+  }));
   const passwordResetRequests = passwordResetRequestsState
     .filter((req: any) => {
       if (isAdminTeacher && auditScopeEmail === "all") return true;
@@ -27015,7 +27016,7 @@ ${rows
             text.includes("غير طبيعي")
           );
         })
-        .slice(-15)
+        .slice(0, 15)
         .forEach((log: any) => {
           const text = `${log.action || ""} ${log.details || ""}`;
           const isCheating =
@@ -27335,7 +27336,7 @@ ${rows
             text.includes("الحساب موقوف")
           );
         })
-        .slice(-8)
+        .slice(0, 8)
         .forEach((log: any) => {
           items.push({
             key: `teacher-log-${log.id || log.timestamp || log.createdAt}`,

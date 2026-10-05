@@ -113,4 +113,16 @@ await (async () => {
   check("D13c) no false 'different device fingerprint' alert to the teacher", alerts.length === 0, JSON.stringify(alerts));
 })();
 
+// D14: detailed reasons are recorded once, without a generic "third device" log.
+await api("POST", "/api/auth/login", { idNumber:"5602",password:"GoodPass9" }, {deviceToken:"tok-1001",ua:SAFARI_UA,headers:asBrowser});
+const auditResponse = await api("GET", "/api/teacher/logs", null, {jar:teacherJar,deviceToken:"t-notice"});
+const audit = auditResponse.data.logs || [];
+check("D14a) audit read succeeds",auditResponse.ok);
+check("D14b) no login refusal is labelled as a third device",!audit.some(log=>String(log.details||"").includes("جهاز ثالث")));
+const borrowedLogs = audit.filter(log=>String(log.studentId)==="5602" && String(log.details||"").includes("جهاز مرتبط بطالب آخر"));
+check("D14c) repeated borrowed-device refusal keeps one detailed audit entry",borrowedLogs.length===1,JSON.stringify(borrowedLogs));
+const surfaceLogs = audit.filter(log=>String(log.studentId)==="5601" && log.action==="رفض متصفح/وضع عرض آخر على نفس الجهاز");
+check("D14d) same-phone app/browser refusal remains a non-security event",surfaceLogs.length>0 && surfaceLogs.every(log=>log.isViolationWarning===false));
+check("D14e) no misleading generic login audit duplicates the validator",!audit.some(log=>log.action==="انتهاك الأجهزة"));
+
 done();
