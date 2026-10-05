@@ -89,6 +89,7 @@ node node_modules/.bin/tsx --test tests/device-audit.test.ts || overall=1
 node node_modules/.bin/tsx --test tests/student-lock-signal.test.ts || overall=1
 node node_modules/.bin/tsx --test tests/atomic-cloud-write.test.ts || overall=1
 node node_modules/.bin/tsx --test tests/cloud-mutation-barrier.test.ts || overall=1
+node node_modules/.bin/tsx --test tests/cloud-sync-listener.test.mjs || overall=1
 node node_modules/.bin/tsx --test tests/cloud-data-ready.test.ts || overall=1
 node node_modules/.bin/tsx --test tests/cloud-readiness-probe.test.ts || overall=1
 node node_modules/.bin/tsx --test tests/password-reset-routing.test.ts || overall=1

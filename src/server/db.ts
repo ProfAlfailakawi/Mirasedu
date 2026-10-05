@@ -1024,6 +1024,7 @@ export class LocalDatabase {
   private urgentCloudWaiters: number = 0;
   private knownCloudMetaRevision: { stamp: number; updateTime: any } | null = null;
   private cloudUnsubscribe: (() => void) | null = null;
+  private cloudSnapshotSequence = 0;
   // آخر بيان معروف بعدد أجزاء كل مفتاح — يُستخدم فقط لو احتجنا لاحقاً نقرأ
   // مفتاحاً واحداً بمعزل عن البقية؛ يُحدَّث من كل قراءة أو كتابة ناجحة.
   private lastEntityManifest: Record<string, { chunkCount: number }> = {};
@@ -1763,17 +1764,21 @@ export class LocalDatabase {
           return;
         }
         const raw = snapshot.data() as any;
-        // تخطٍّ رخيص لصدى كتابتنا نفسها (الحالة الشائعة): إن لم تكن لدينا تغييرات
-        // معلّقة وكان طابع المستند هو طابع آخر كتابة دفعناها، فلا داعي لإعادة بناء
-        // القاعدة ومقارنتها عبر JSON.stringify الثقيل على كل كتابة.
-        if (
-          !this.pendingFSSync &&
-          Number(raw?.lastUpdated || 0) === this.lastWrittenUpdatedAt
-        ) {
-          return;
-        }
+        const sequence = ++this.cloudSnapshotSequence;
         void (async () => {
+        // Firestore may deliver our own metadata before batch.commit resolves.
+        // Wait for that write, then discard its echo even if later mutations are queued.
+        // Otherwise every busy write downloads the whole database again and can replace
+        // a device transfer with the earlier snapshot while the transfer is being saved.
+        while (this.syncPromise) await this.syncPromise.catch(() => {});
+        if (sequence !== this.cloudSnapshotSequence ||
+            Number(raw?.lastUpdated || 0) === this.lastWrittenUpdatedAt) return;
         const incoming = await this.cloudStateFromMeta(raw);
+        // A newer write or snapshot may have completed while the entity reads waited.
+        while (this.syncPromise) await this.syncPromise.catch(() => {});
+        if (sequence !== this.cloudSnapshotSequence ||
+            Number(raw?.lastUpdated || 0) === this.lastWrittenUpdatedAt ||
+            Number(raw?.lastUpdated || 0) < Math.max(this.lastWrittenUpdatedAt, this.lastListenerAppliedStamp)) return;
         const incomingHasContent = databaseHasMeaningfulContent(incoming);
         const currentHasContent = databaseHasMeaningfulContent(this.data);
         if (!incomingHasContent && !MIRAS_ALLOW_EMPTY_FIRESTORE_INIT) {
@@ -1822,6 +1827,8 @@ export class LocalDatabase {
           : null;
         this.scheduleLocalSave();
         })().catch((error) => {
+          if (sequence !== this.cloudSnapshotSequence ||
+              Number(raw?.lastUpdated || 0) <= this.lastWrittenUpdatedAt) return;
           console.error("⚠️ Firestore chunked live synchronization failed:", error);
           if (!MIRAS_ALLOW_LOCAL_ONLY_MODE) {
             this.lockDatabaseGuard(
@@ -1927,7 +1934,7 @@ export class LocalDatabase {
     if (this.isDemo) return;
     try {
       const nextHasContent = databaseHasMeaningfulContent(state);
-      const existingHasContent = readExistingDbFileHasMeaningfulContent();
+      const existingHasContent = !nextHasContent && readExistingDbFileHasMeaningfulContent();
       if (!nextHasContent && existingHasContent && !this.allowEmptyDatabaseWriteOnce) {
         console.error(
           "🛑 Blocked writing an empty runtime database over a non-empty data/db.json cache. This prevents accidental data loss during development or deployment.",
@@ -2071,7 +2078,7 @@ export class LocalDatabase {
     this.isSyncingFS = true;
     this.lastFSSyncTime = Date.now();
     const versionAtStart = this.mutationVersion;
-    const baseAtStart = cloneDbValue(this.lastSyncedState || this.data) as DatabaseState;
+    const baseAtStart = this.lastSyncedState || cloneDbValue(this.data) as DatabaseState;
     const localAtStart = cleanUndefined(cloneDbValue(this.data)) as DatabaseState;
 
     try {
