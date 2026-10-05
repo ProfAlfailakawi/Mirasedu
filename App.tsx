@@ -1,3 +1,4 @@
+import { countActivatedCourseStudents } from "./src/shared/course-activation-count";
 import { deviceAuditForDisplay } from "./src/shared/device-audit";
 import {
   useState,
@@ -16143,7 +16144,7 @@ ${rows
     }
   };
 
-  const fetchReports = async (emailOverride?: string) => {
+  const fetchReports = async (emailOverride?: string, options: { quiet?: boolean; isCurrent?: () => boolean } = {}) => {
     try {
       const email = emailOverride || teacherSession?.email || "";
       const resp = await fetch("/api/teacher/reports", {
@@ -16151,6 +16152,7 @@ ${rows
         headers: teacherHeaders(email),
       });
       const d = await resp.json();
+      if (options.isCurrent && !options.isCurrent()) return;
       if (!resp.ok) {
         if (resp.status === 401) return;
         throw new Error(d?.error || "تعذر جلب بيانات السحابة.");
@@ -16165,11 +16167,34 @@ ${rows
       }
     } catch (e) {
       console.error(e);
-      setErrorMsg(
+      if (!options.quiet && (!options.isCurrent || options.isCurrent())) setErrorMsg(
         "تعذر تحميل كشف الطلبة من السحابة. تحقق من الاتصال ثم أعد المحاولة.",
       );
     }
   };
+
+  useEffect(() => {
+    if (currentView !== "teacher_workspace" || teacherTab !== "sections" || !teacherSession?.email) return;
+    let active = true;
+    let refreshing = false;
+    const refresh = async () => {
+      if (!active || refreshing || document.visibilityState === "hidden") return;
+      refreshing = true;
+      try {
+        await fetchReports(teacherSession.email, { quiet: true, isCurrent: () => active });
+      } finally { refreshing = false; }
+    };
+    void refresh();
+    const timer = window.setInterval(refresh, 10000);
+    window.addEventListener("focus", refresh);
+    document.addEventListener("visibilitychange", refresh);
+    return () => {
+      active = false;
+      window.clearInterval(timer);
+      window.removeEventListener("focus", refresh);
+      document.removeEventListener("visibilitychange", refresh);
+    };
+  }, [currentView, teacherTab, teacherSession?.email]);
 
   const extractActivationCodeFromQrText = (rawValue: any) => {
     const raw = String(rawValue || "").trim();
@@ -40533,22 +40558,19 @@ ${rows
                         >
                           <div className="flex items-center justify-end gap-3">
                             {(() => {
-                              const courseStudentCount = teacherStudents.filter(
-                                (student: any) =>
-                                  studentBelongsToCourse(student, sec.code),
-                              ).length;
+                              const courseStudentCount = countActivatedCourseStudents(teacherStudents, sec.code, courseCodesMatch);
                               return (
                                 <span
                                   className={`miras-course-ring ${sec.isOpen ? "is-open" : "is-closed"}`}
-                                  title={`${courseStudentCount} طالب`}
-                                  aria-label={`${courseStudentCount} طالب`}
+                                  title={`${courseStudentCount} طالب فعّلوا المقرر`}
+                                  aria-label={`${courseStudentCount} طالب فعّلوا المقرر`}
                                   role="img"
                                 >
                                   <svg viewBox="0 0 36 36" aria-hidden="true">
                                     <circle cx="18" cy="18" r="15" fill="none" strokeWidth="2" className="miras-course-ring-track" />
                                     <circle cx="18" cy="18" r="15" fill="none" strokeWidth="2.4" strokeLinecap="round" className="miras-course-ring-arc" transform="rotate(-90 18 18)" />
                                   </svg>
-                                  <b>{courseStudentCount}</b>
+                                  <b data-miras-literal="true">{courseStudentCount}</b>
                                 </span>
                               );
                             })()}
