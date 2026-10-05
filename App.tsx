@@ -1,3 +1,4 @@
+import { deviceReviewNotifications } from "./src/shared/device-review-notifications";
 import { probeCloudReadiness } from "./src/shared/cloud-readiness-probe";
 import { teacherOwnsNotification, duplicatesCodeIntegrityLog } from "./src/shared/teacher-notification-scope";
 import { homePasswordResets } from "./src/shared/home-password-reset-requests";
@@ -26970,7 +26971,8 @@ ${rows
       ).getTime() || 0;
 
     const owns = (item: any) => teacherOwnsNotification(item, currentTeacherEmail, courseOwnerEmail, isSameTeacherIdentity);
-    const ownSecurityLogs = deviceAuditForDisplay(systemLogs.filter(owns));
+    const ownAuditLogs = deviceAuditForDisplay(systemLogs.filter(owns));
+    const ownSecurityLogs = deviceReviewNotifications(ownAuditLogs);
     const ownDeviceProblems = deviceProblemAttempts.filter(owns);
     const items: any[] = [];
     homePasswordResetRequests.forEach((req: any) => items.push({
@@ -27060,10 +27062,12 @@ ${rows
             text.includes("مصيدة") ||
             text.includes("مخالفة");
           items.push({
-            key: `admin-log-${log.id || log.timestamp || log.createdAt}`,
-            title: isCheating ? "نزاهة عالية الخطورة" : log.action === "محاولة كود مرفوضة" ? "دخول مرفوض يحتاج مراجعة" : "تنبيه أمني / صلاحيات",
+            key: log.deviceReviewGroupKey || `admin-log-${log.id || log.timestamp || log.createdAt}`,
+            title: log.deviceReviewGroupKey ? "محاولة دخول من متصفح غير معتمد" : isCheating ? "نزاهة عالية الخطورة" : log.action === "محاولة كود مرفوضة" ? "دخول مرفوض يحتاج مراجعة" : "تنبيه أمني / صلاحيات",
             body: sanitizeCourseIdentifiersForDisplay(
-              `${log.studentName || "مستخدم"} • ${logActionLabel(log.action) || "حدث أمني"} • ${log.details || ""}`,
+              log.deviceReviewGroupKey
+                ? `${log.studentName || "طالب"} • الحساب مسجل؛ بيانات المتصفح في محاولة الدخول لم تطابق الربط المعتمد.`
+                : `${log.studentName || "مستخدم"} • ${logActionLabel(log.action) || "حدث أمني"} • ${log.details || ""}`,
             ),
             when: log.timestamp || log.createdAt,
             tone: "rose",
@@ -27080,7 +27084,7 @@ ${rows
         .filter(notificationTargetsTeacher)
         .filter((note: any) => owns(note) || (!note?.studentId && !note?.data?.studentId && !note?.sectionCode && !note?.data?.sectionCode && String(note?.userId || note?.data?.userId || "").toLowerCase() === currentTeacherEmail))
         .filter((note: any) => {
-          if (duplicatesCodeIntegrityLog(note, ownSecurityLogs, timeValue)) return false;
+          if (duplicatesCodeIntegrityLog(note, ownAuditLogs, timeValue)) return false;
           const text = `${note.title || ""} ${note.body || ""}`.toLowerCase();
           return /كود متداول|مشبوه|استخدام غير طبيعي|أمنية|صلاحيات|سوبر أدمن|إدارة|admin|superadmin/i.test(
             text,
@@ -27336,6 +27340,7 @@ ${rows
         .map(normalizeLocalNotification)
         .filter(notificationTargetsTeacher)
         .filter(isCriticalTeacherInAppNotification)
+        .filter((note: any) => !duplicatesCodeIntegrityLog(note, ownAuditLogs, timeValue))
         .forEach((note: any) => {
           const noteType = String(note.type || note.data?.type || "").toLowerCase();
           items.push({
@@ -27377,14 +27382,16 @@ ${rows
         .slice(0, 8)
         .forEach((log: any) => {
           items.push({
-            key: `teacher-log-${log.id || log.timestamp || log.createdAt}`,
+            key: log.deviceReviewGroupKey || `teacher-log-${log.id || log.timestamp || log.createdAt}`,
             // رمز الحدث الخام (مثل TAB_SWITCH) لا يُعرض كعنوان؛ وصفه العربي في النص أدناه.
             title:
-              (log.action && !/^[A-Z0-9_]+$/.test(String(log.action))
+              log.deviceReviewGroupKey ? "محاولة دخول من متصفح غير معتمد" : (log.action && !/^[A-Z0-9_]+$/.test(String(log.action))
                 ? log.action
                 : "") || "تنبيه أمني مهم للمقرر",
             body: sanitizeCourseIdentifiersForDisplay(
-              `${log.studentName || "طالب"} • ${log.details || ""}`,
+              log.deviceReviewGroupKey
+                ? `${log.studentName || "طالب"} • الحساب مسجل؛ بيانات المتصفح في محاولة الدخول لم تطابق الربط المعتمد.`
+                : `${log.studentName || "طالب"} • ${log.details || ""}`,
             ),
             when: log.timestamp || log.createdAt,
             tone: "rose",

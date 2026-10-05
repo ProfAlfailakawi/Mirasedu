@@ -1,3 +1,4 @@
+import { sameDeviceReviewIncident } from "./src/shared/device-review-notifications";
 import { resolvePasswordResetRoute, passwordResetDeletionIds } from "./src/shared/password-reset-routing";
 import { recoverResetGeneralCode } from "./src/server/generalJoinCodes";
 import express from "express";
@@ -8284,6 +8285,20 @@ function recordActivationAttempt(
     code: params.code,
     student: params.student,
   });
+  const attemptSectionCode = String(
+    req.body?.courseCode ||
+      req.body?.sectionCode ||
+      params.student?.sectionCode ||
+      (params.student as any)?.studentSection ||
+      (params.foundCode as any)?.studentSection ||
+      (params.foundCode as any)?.sectionCode ||
+      (params.foundCode as any)?.courseCode ||
+      "",
+  ).trim();
+  const hasRecentAlertIncident = dbInstance.getActivationAttempts().some((attempt: any) =>
+    sameDeviceReviewIncident(attempt, { studentId: params.student?.id, code: params.code,
+      sectionCode: attemptSectionCode, reason: storedReason }, dedupNow),
+  );
   const hasRecentIdenticalAttempt = dbInstance
     .getActivationAttempts()
     .some((attempt: any) => {
@@ -8312,16 +8327,6 @@ function recordActivationAttempt(
   const deviceFingerprint = getRequestDeviceFingerprint(req);
   const deviceToken = getRequestDeviceToken(req);
   const telemetry = getActivationTelemetry(req);
-  const attemptSectionCode = String(
-    req.body?.courseCode ||
-      req.body?.sectionCode ||
-      params.student?.sectionCode ||
-      (params.student as any)?.studentSection ||
-      (params.foundCode as any)?.studentSection ||
-      (params.foundCode as any)?.sectionCode ||
-      (params.foundCode as any)?.courseCode ||
-      "",
-  ).trim();
   const reputation = updateJoinCodeReputation(req, { ...params, telemetry });
   const currentAttemptsForCode = dbInstance
     .getActivationAttempts()
@@ -8417,7 +8422,7 @@ function recordActivationAttempt(
     browser: honeyCode ? "مصيدة الأكواد" : "نظام الحماية",
     isViolationWarning: true,
   });
-  if (params.student && attemptSectionCode) {
+  if (params.student && attemptSectionCode && !hasRecentAlertIncident) {
     notifyTeachersForSection(
       attemptSectionCode,
       honeyCode ? "مصيدة كود" : "تنبيه نزاهة كود",
@@ -13327,7 +13332,7 @@ function validateSessionFingerprint(
         recordActivationAttempt(req, {
           code: activationCode,
           student,
-          reason: "محاولة دخول بتوكن منسوخ دون سر المتصفح الأصلي",
+          reason: "عدم تطابق بيانات ربط المتصفح المعتمد",
           foundCode: activationRecord,
         });
         return {
