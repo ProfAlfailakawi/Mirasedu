@@ -18025,15 +18025,14 @@ ${rows
   };
 
   const fetchTrustedPasskeyDevices = async () => {
-    if (!isAdminTeacher) return;
+    if (!teacherSession?.email) return;
     try {
       const resp = await fetch("/api/auth/passkey/devices", {
         cache: "no-store",
         headers: teacherHeaders(),
       });
       const data = await resp.json().catch(() => ({}));
-      if (resp.ok && Array.isArray(data.devices))
-        setPasskeyTrustedDevices(data.devices);
+      setPasskeyTrustedDevices(resp.ok && Array.isArray(data.devices) ? data.devices : []);
     } catch {}
   };
 
@@ -20596,7 +20595,7 @@ ${rows
     }
   }, [analyticsSubTab, codesSubTab]);
   useEffect(() => {
-    if (isAdminTeacher) void fetchTrustedPasskeyDevices();
+    if (teacherSession?.email) void fetchTrustedPasskeyDevices();
   }, [isAdminTeacher, teacherTab, passkeyDevicesOpen, teacherSession?.email]);
   useEffect(() => {
     if (teacherTab === "codes" && codesSubTab === "attempts") {
@@ -43135,7 +43134,7 @@ ${rows
                             <span className="rounded-full bg-amber-50 px-3 py-1 text-amber-700">
                               {passwordResetRequests.length} طلب
                             </span>
-                            {isAdminTeacher && (
+                            {teacherSession && (
                               <span className="rounded-full bg-emerald-50 px-3 py-1 text-emerald-700">
                                 {passkeyTrustedDevices.length} جهاز
                               </span>
@@ -43182,7 +43181,7 @@ ${rows
                           </div>
                         )}
 
-                      {analyticsSubTab === "accounts" && isAdminTeacher && (
+                      {analyticsSubTab === "accounts" && (
                         <div className="rounded-[var(--miras-r-xl)] border border-emerald-100 bg-emerald-50/60 p-4 shadow-sm">
                           <button
                             type="button"

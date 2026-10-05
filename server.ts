@@ -14438,11 +14438,23 @@ app.post("/api/auth/passkey/status", (req, res) => {
   }
 });
 
+function teacherCanAccessPasskeyDevice(item: any, teacherEmail: string): boolean {
+  if (!teacherEmail) return false;
+  if (isAdminEmail(teacherEmail)) return true;
+  if (item?.role !== "student") return false;
+  const student = dbInstance.getStudents().find(
+    (row: any) => String(row.id) === String(item.userId),
+  );
+  return Boolean(student && teacherCanManageStudent(student, teacherEmail));
+}
+
 app.get("/api/auth/passkey/devices", (req, res) => {
   const teacherEmail = teacherEmailFromRequest(req);
-  if (!teacherEmail || !isAdminEmail(teacherEmail))
-    return res.status(403).json({ error: "هذه الصلاحية للسوبر أدمن فقط." });
-  const devices = dbInstance.getPasskeyCredentials().map((item: any) => ({
+  if (!teacherEmail)
+    return res.status(401).json({ error: "سجّل الدخول بحساب المعلم." });
+  const devices = dbInstance.getPasskeyCredentials()
+    .filter((item: any) => teacherCanAccessPasskeyDevice(item, teacherEmail))
+    .map((item: any) => ({
     credentialId: item.credentialId,
     role: item.role,
     userId: item.userId,
@@ -14459,13 +14471,14 @@ app.get("/api/auth/passkey/devices", (req, res) => {
 
 app.delete("/api/auth/passkey/devices/:credentialId", (req, res) => {
   const teacherEmail = teacherEmailFromRequest(req);
-  if (!teacherEmail || !isAdminEmail(teacherEmail))
-    return res.status(403).json({ error: "هذه الصلاحية للسوبر أدمن فقط." });
+  if (!teacherEmail)
+    return res.status(401).json({ error: "سجّل الدخول بحساب المعلم." });
   const credentialId = String(req.params.credentialId || "");
   const saved = dbInstance
     .getPasskeyCredentials()
     .find((item: any) => item.credentialId === credentialId);
-  if (!saved) return res.status(404).json({ error: "الجهاز غير موجود." });
+  if (!saved || !teacherCanAccessPasskeyDevice(saved, teacherEmail))
+    return res.status(404).json({ error: "الجهاز غير موجود ضمن طلبتك." });
   const ok = (dbInstance as any).deletePasskeyCredential(credentialId);
   if (!ok) return res.status(404).json({ error: "الجهاز غير موجود." });
   dbInstance.addActivityLog({
@@ -14477,7 +14490,7 @@ app.delete("/api/auth/passkey/devices/:credentialId", (req, res) => {
     details: `تم إلغاء ثقة جهاز بصمة لحساب ${saved.userName || saved.userId}`,
     ip: req.ip || "127.0.0.1",
     userAgent: req.headers["user-agent"] || "Unknown",
-    os: "لوحة السوبر أدمن",
+    os: isAdminEmail(teacherEmail) ? "لوحة السوبر أدمن" : "لوحة المعلم",
     browser: "Passkey",
     isViolationWarning: false,
   });
