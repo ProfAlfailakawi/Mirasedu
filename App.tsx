@@ -21349,11 +21349,10 @@ ${rows
     };
   }, [currentView, teacherTab, teacherSession?.email, teacherCloudReady]);
   const scopedOverallReports = {
-    totalAllowed:
-      allowedStudentsText
-        .split("\n")
-        .filter((line) => line.includes(activeCourseCode)).length ||
+    totalAllowed: Math.max(
+      allowedRosterForCourse.length,
       scopedTeacherStudents.length,
+    ),
     totalRegistered: scopedTeacherStudents.length,
     percentCompleted:
       scopedTeacherStudents.length > 0
@@ -36744,8 +36743,8 @@ ${rows
                       icon={BookOpen}
                     />
                     <TeacherMetricCard
-                      label="عدد الطلبة"
-                      value={`${scopedOverallReports.totalRegistered || 0}`}
+                      label="الطلبة المفعّلون من الإجمالي"
+                      value={`${scopedOverallReports.totalRegistered || 0} من ${scopedOverallReports.totalAllowed || 0}`}
                       icon={Users}
                     />
                     <TeacherMetricCard
