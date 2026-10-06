@@ -4520,7 +4520,7 @@ export default function App() {
       }
       if (root.nodeType !== Node.ELEMENT_NODE) return;
       const el = root as HTMLElement;
-      if (SKIP_TAGS.has(el.tagName) || el.isContentEditable) return;
+      if (SKIP_TAGS.has(el.tagName) || el.isContentEditable || el.hasAttribute("data-miras-literal")) return;
       const tw = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
       let n: Node | null;
       const batch: Text[] = [];
@@ -4572,6 +4572,9 @@ export default function App() {
     });
     return () => {
       if (observer) observer.disconnect();
+      // A queued flush must never reconnect an observer from the previous screen.
+      observer = null;
+      pending.clear();
     };
   }, [teacherSections, teacherSession, studentEnrollments, currentView]);
   const isAppStandalone =
