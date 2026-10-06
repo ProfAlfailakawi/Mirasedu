@@ -12747,9 +12747,12 @@ export default function App() {
     // selector controls display and scoped server summaries.
     const p = new URLSearchParams();
     if (email) p.set("teacherEmail", email);
-    if (isMirasAdminEmail(email) && (teacherTab === "codes" || teacherTab === "analytics")) {
+    // Background refreshes and handlers can outlive the render that created
+    // them. Read the active audit tab/scope from refs so a scope change cannot
+    // accidentally send the old account (or omit includeAll) to the server.
+    if (isMirasAdminEmail(email) && (teacherTabRef.current === "codes" || teacherTabRef.current === "analytics")) {
       p.set("includeAll", "1");
-      p.set("scope", auditScopeEmail);
+      p.set("scope", auditScopeRef.current);
     }
     const pb = p.toString();
     return pb ? `?${pb}` : "";
@@ -14087,8 +14090,8 @@ export default function App() {
       if (activationAttemptFromDate)
         params.set("from", activationAttemptFromDate);
       if (activationAttemptToDate) params.set("to", activationAttemptToDate);
-      if (isAdminTeacher && auditScopeEmail)
-        params.set("scope", auditScopeEmail);
+      if (isAdminTeacher && auditScopeRef.current)
+        params.set("scope", auditScopeRef.current);
       const resp = await fetch(
         `/api/teacher/activation-attempts?${params.toString()}`,
         {
