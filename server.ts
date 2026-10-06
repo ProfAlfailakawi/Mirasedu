@@ -11451,11 +11451,23 @@ app.get("/api/teacher/code-integrity", (req, res) => {
     ...liveCodes,
     ...retired.filter((code: any) => isArchivedJoinCodeRecord(code)),
   ];
+  // Build each lookup once instead of scanning thousands of codes for every event.
+  const firstBy = (items: any[], keyFor: (item: any) => string) => {
+    const index = new Map<string, any>();
+    for (const item of items) {
+      const key = keyFor(item);
+      if (!index.has(key)) index.set(key, item);
+    }
+    return index;
+  };
+  const lookupByCode = firstBy(lookupCodes, code => compactJoinCode(code.code));
+  const studentsById = firstBy(dbInstance.getStudents(), student => normalizeStudentId(student.id));
+  const allowedById = firstBy(dbInstance.getAllowedStudents(), row => normalizeStudentId(row.idNumber || row.id || row.studentId));
+  const sectionsByCode = firstBy(activeSections(), section => String(section.code).toLowerCase());
   const attempts = dbInstance.getActivationAttempts();
   const scopedAttempts = attempts.filter((attempt: any) => {
     if (adminView) return true;
-    const codeRecord = lookupCodes.find((code: any) =>
-      compactJoinCode(code.code) === compactJoinCode(attempt.normalizedCode || attempt.code || ""));
+    const codeRecord = lookupByCode.get(compactJoinCode(attempt.normalizedCode || attempt.code || ""));
     return attemptReportOwnerMatches(attempt, codeRecord, teacherEmail);
   });
   const codeInScope = (code: any) => {
@@ -11466,6 +11478,14 @@ app.get("/api/teacher/code-integrity", (req, res) => {
   };
   const scopedCodes = liveCodes.filter(codeInScope);
   const scopedLookupCodes = lookupCodes.filter(codeInScope);
+  const scopedLookupByCode = firstBy(scopedLookupCodes, code => compactJoinCode(code.code));
+  const attemptsByCode = new Map<string, any[]>();
+  for (const attempt of scopedAttempts) {
+    const key = compactJoinCode(attempt.normalizedCode || attempt.code || "");
+    const group = attemptsByCode.get(key);
+    if (group) group.push(attempt);
+    else attemptsByCode.set(key, [attempt]);
+  }
   const suspiciousCodes = scopedCodes
     .filter(
       (code: any) =>
@@ -11586,11 +11606,7 @@ app.get("/api/teacher/code-integrity", (req, res) => {
     const normalizedCode = normalizeJoinCode(
       item.normalizedCode || item.code || item.joinCode || "",
     );
-    const codeRecord = scopedLookupCodes.find(
-      (code: any) =>
-        normalizeJoinCode(code.code) === normalizedCode ||
-        compactJoinCode(code.code) === compactJoinCode(normalizedCode),
-    );
+    const codeRecord = scopedLookupByCode.get(compactJoinCode(normalizedCode));
     const linkedStudentId = normalizeStudentId(
       item.studentId ||
         item.idNumber ||
@@ -11599,16 +11615,8 @@ app.get("/api/teacher/code-integrity", (req, res) => {
         codeRecord?.usedByStudentId ||
         codeRecord?.assignedStudentId,
     );
-    const student = dbInstance
-      .getStudents()
-      .find((st: any) => normalizeStudentId(st.id) === linkedStudentId);
-    const allowed = dbInstance
-      .getAllowedStudents()
-      .find(
-        (row: any) =>
-          normalizeStudentId(row.idNumber || row.id || row.studentId) ===
-          linkedStudentId,
-      );
+    const student = studentsById.get(linkedStudentId);
+    const allowed = allowedById.get(linkedStudentId);
     const sectionCode =
       item.sectionCode ||
       codeRecord?.studentSection ||
@@ -11659,11 +11667,7 @@ app.get("/api/teacher/code-integrity", (req, res) => {
         : confidenceScore >= 50
           ? "مراقبة"
           : "طبيعي");
-    const itemAttempts = scopedAttempts.filter(
-      (attempt: any) =>
-        compactJoinCode(attempt.normalizedCode || attempt.code || "") ===
-        compactJoinCode(normalizedCode),
-    );
+    const itemAttempts = attemptsByCode.get(compactJoinCode(normalizedCode)) || [];
     const fairness = item.fairnessLevel
       ? {
           level: item.fairnessLevel,
@@ -11685,12 +11689,7 @@ app.get("/api/teacher/code-integrity", (req, res) => {
       linkedStudentEmail: student?.email || item.studentEmail || "",
       linkedSectionCode: sectionCode,
       linkedSectionName:
-        activeSections()
-          .find(
-            (sec: any) =>
-              String(sec.code).toLowerCase() ===
-              String(sectionCode).toLowerCase(),
-          )?.courseName || courseNameFromCode(sectionCode) || "المقرر المحدد",
+        sectionsByCode.get(String(sectionCode).toLowerCase())?.courseName || courseNameFromCode(sectionCode) || "المقرر المحدد",
       linkedAccountLabel: [
         student?.name || allowed?.name || item.studentName || "",
         student?.id || allowed?.idNumber || linkedStudentId || "",

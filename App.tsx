@@ -2741,6 +2741,7 @@ function resolveMirasDeviceId(): string {
   return value;
 }
 
+let teacherReadMutationEpoch = 0;
 const originalFetch = typeof window !== "undefined" ? window.fetch : null;
 const MIRAS_API_ORIGIN =
   "https://miras-api-538577909672.us-central1.run.app";
@@ -2993,7 +2994,10 @@ async function mirasFetch(
   }
   const trackMutatingRequest = mirasRequestLooksMutating(input, init);
   const trackFaviconRequest = mirasRequestShouldAffectFavicon(input, init);
-  if (trackMutatingRequest) notifyMirasActionNetwork("start");
+  if (trackMutatingRequest) {
+    teacherReadMutationEpoch += 1;
+    notifyMirasActionNetwork("start");
+  }
   if (trackFaviconRequest) notifyMirasFaviconActionNetwork("start");
   try {
     let requestAuthToken = "";
@@ -3118,7 +3122,10 @@ async function mirasFetch(
     if (trackFaviconRequest) notifyMirasFaviconActionResult("attention");
     throw error;
   } finally {
-    if (trackMutatingRequest) notifyMirasActionNetwork("end");
+    if (trackMutatingRequest) {
+      teacherReadMutationEpoch += 1;
+      notifyMirasActionNetwork("end");
+    }
     if (trackFaviconRequest) notifyMirasFaviconActionNetwork("end");
   }
 }
@@ -4498,7 +4505,7 @@ export default function App() {
     };
     const sanitizeTextNode = (node: Text) => {
       const val = node.nodeValue;
-      if (!val || val.length < 3) return;
+      if (!val || val.length < 3 || /^[\s\d.,%٪+−–/-]+$/.test(val)) return;
       pattern.lastIndex = 0;
       if (!pattern.test(val)) return;
       if (inSkippedZone(node)) return;
@@ -4523,13 +4530,20 @@ export default function App() {
 
     let observer: MutationObserver | null = null;
     let scheduled = false;
-    const pending: Node[] = [];
+    const pending = new Set<Node>();
     const flush = () => {
       scheduled = false;
       if (!observer) return;
       observer.disconnect();
-      const nodes = pending.splice(0, pending.length);
-      nodes.forEach(walk);
+      const roots = [...pending].filter(node => {
+        if (!node.isConnected) return false;
+        for (let parent = node.parentNode; parent; parent = parent.parentNode) {
+          if (pending.has(parent)) return false;
+        }
+        return true;
+      });
+      pending.clear();
+      roots.forEach(walk);
       observer.observe(document.body, {
         childList: true,
         subtree: true,
@@ -4537,7 +4551,7 @@ export default function App() {
       });
     };
     const schedule = (node: Node) => {
-      pending.push(node);
+      if (!inSkippedZone(node)) pending.add(node);
       if (!scheduled) {
         scheduled = true;
         setTimeout(flush, 120);
@@ -5603,6 +5617,20 @@ export default function App() {
   }
   const [auditLoad, setAuditLoad] = useState<{ key: string; status: "loading" | "ready" | "failed" }>({ key: "", status: "loading" });
   const [auditRetry, setAuditRetry] = useState(0);
+  const auditReadsRef = useRef(createCloudSingleFlight<Response>());
+  const fetchTeacherRead = async (url: string, init: RequestInit) => {
+    const key = JSON.stringify([url, Array.from(new Headers(init.headers).entries()),
+      cloudSessionGenRef.current, auditContextRef.current.epoch, teacherReadMutationEpoch]);
+    const response = await auditReadsRef.current.run(key, async () => {
+      const result = await fetch(url, init);
+      // Finish the body before releasing the shared read (large audit responses).
+      const body = await result.arrayBuffer();
+      return new Response([204, 205, 304].includes(result.status) ? null : body, {
+        status: result.status, statusText: result.statusText, headers: result.headers,
+      });
+    });
+    return response.clone();
+  };
 
   const [allowedRosterOpen, setAllowedRosterOpen] = useState(true);
   const [manualStudentFormOpen, setManualStudentFormOpen] = useState(false);
@@ -13896,7 +13924,7 @@ export default function App() {
       if (options.activatedSince) joinCodesParams.set("activatedSince", options.activatedSince);
       const joinCodesQueryString = joinCodesParams.toString();
       const joinCodesQuery = joinCodesQueryString ? `?${joinCodesQueryString}` : "";
-      const resp = await fetch(`/api/teacher/join-codes${joinCodesQuery}`, {
+      const resp = await fetchTeacherRead(`/api/teacher/join-codes${joinCodesQuery}`, {
         cache: "no-store",
         headers: teacherHeaders(email),
       });
@@ -14003,7 +14031,7 @@ export default function App() {
       const email = activeTeacherEmail(emailOverride);
       const params = new URLSearchParams(getTeacherUrlParams(email).replace(/^\?/, ""));
       params.set("scope", ["codes", "analytics"].includes(teacherTabRef.current) ? auditScopeRef.current : "self");
-      const resp = await fetch(`/api/teacher/code-integrity?${params}`, {
+      const resp = await fetchTeacherRead(`/api/teacher/code-integrity?${params}`, {
         cache: "no-store", headers: teacherHeaders(email),
       });
       const data = await resp.json();
@@ -15322,7 +15350,7 @@ ${rows
       const requestedTab = teacherTabRef.current;
       const requestedScope = auditScopeRef.current;
       const teacherEmailParam = getTeacherUrlParams(email);
-      const resp = await fetch(`/api/teacher/sections${teacherEmailParam}`, {
+      const resp = await fetchTeacherRead(`/api/teacher/sections${teacherEmailParam}`, {
         headers: teacherHeaders(email),
       });
       const d = await resp.json();
@@ -16176,7 +16204,7 @@ ${rows
     try {
       const email = emailOverride || teacherSession?.email || "";
       const teacherEmailParam = getTeacherUrlParams(email);
-      const resp = await fetch(`/api/teacher/logs${teacherEmailParam}`, {
+      const resp = await fetchTeacherRead(`/api/teacher/logs${teacherEmailParam}`, {
         headers: teacherHeaders(email),
       });
       const d = await resp.json();
@@ -16206,7 +16234,7 @@ ${rows
       const email = emailOverride || teacherSession?.email || "";
       const requestedTab = teacherTabRef.current;
       const requestedScope = auditScopeRef.current;
-      const resp = await fetch(`/api/teacher/reports${getTeacherUrlParams(email)}`, {
+      const resp = await fetchTeacherRead(`/api/teacher/reports${getTeacherUrlParams(email)}`, {
         cache: "no-store",
         headers: teacherHeaders(email),
       });
@@ -18105,7 +18133,7 @@ ${rows
         params.set("scope", requestedScope);
       }
       const query = params.toString();
-      const resp = await fetch(`/api/auth/passkey/devices${query ? `?${query}` : ""}`, {
+      const resp = await fetchTeacherRead(`/api/auth/passkey/devices${query ? `?${query}` : ""}`, {
         cache: "no-store",
         headers: teacherHeaders(),
       });
@@ -20520,8 +20548,8 @@ ${rows
     if (tab === "textbook") fetchChapters().catch(() => {});
     if (tab === "questions") fetchQuestionBank().catch(() => {});
     if (tab === "sections") fetchSections().catch(() => {});
-    if (tab === "analytics") fetchLogs().catch(() => {});
-    if (tab === "codes") {
+    if (tab === "analytics" && !isAdminTeacher) fetchLogs().catch(() => {});
+    if (tab === "codes" && !isAdminTeacher) {
       fetchJoinCodes().catch(() => {});
       fetchCodeIntegrity().catch(() => {});
     }
@@ -20677,7 +20705,7 @@ ${rows
       loadTeacherAccounts();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isAdminTeacher, analyticsSubTab]);
+  }, [isAdminTeacher, teacherSession?.email]);
   useEffect(() => {
     if (!isAdminTeacher && analyticsSubTab === "admin") {
       setAnalyticsSubTab("summary");
@@ -20687,8 +20715,11 @@ ${rows
     }
   }, [analyticsSubTab, codesSubTab]);
   useEffect(() => {
-    if (teacherSession?.email) void fetchTrustedPasskeyDevices();
-  }, [isAdminTeacher, teacherTab, passkeyDevicesOpen, auditScopeEmail, teacherSession?.email]);
+    // The common audit loader owns these reads; opening a disclosure needs no new request.
+    if (teacherSession?.email && !(isAdminTeacher && ["codes", "analytics"].includes(teacherTab))) {
+      void fetchTrustedPasskeyDevices();
+    }
+  }, [isAdminTeacher, teacherTab, teacherSession?.email]);
   useEffect(() => {
     if (currentView !== "teacher_workspace" || !isAdminTeacher) return;
     if (teacherTab !== "codes" && teacherTab !== "analytics") {
@@ -20947,6 +20978,23 @@ ${rows
     if (accountName && !accountName.includes("@")) return accountName;
     return teacherDisplayNameForMessage(e);
   };
+  const normalizedAccountName = (name: string) => name
+    .replace(/[ً-ٰٟ]/g, "")
+    .replace(/^(?:د\s*[.،]?|الدكتور|الدكتورة)\s+/, "")
+    .replace(/[أإآ]/g, "ا").replace(/\s+/g, " ").trim();
+  const isOwnAccountOption = (email: string) =>
+    isSameTeacherIdentity(email, currentTeacherEmail) ||
+    (!!teacherSession?.name && normalizedAccountName(teacherAccountLabel(email)) ===
+      normalizedAccountName(String(teacherSession.name))) ||
+    (teacherAccounts.some((account: any) => isSameTeacherIdentity(account?.email, email) &&
+      account?.role === "admin") && !!teacherSession?.name &&
+      normalizedAccountName(teacherAccountLabel(email)).split(" ").slice(0, 2).join(" ") ===
+      normalizedAccountName(String(teacherSession.name)).split(" ").slice(0, 2).join(" "));
+  useEffect(() => {
+    if (isAdminTeacher && !["all", "self"].includes(auditScopeEmail) && isOwnAccountOption(auditScopeEmail)) {
+      handleAuditScopeChange("self");
+    }
+  }, [teacherAccounts, teacherSession?.name, teacherSession?.email, auditScopeEmail, isAdminTeacher]);
   const scopedOwnerEmail = isAdminTeacher
     ? auditScopeEmail === "self"
       ? currentTeacherEmail
@@ -40854,16 +40902,15 @@ ${rows
                       >
                         <option value="all">كل الحسابات</option>
                         <option value="self">بياناتي وطلبتي</option>
-                        <option value={MIRAS_PEER_OWNER_EMAIL}>
-                          {teacherAccountLabel(MIRAS_PEER_OWNER_EMAIL)}
-                        </option>
+                        {!isOwnAccountOption(MIRAS_PEER_OWNER_EMAIL) && (
+                          <option value={MIRAS_PEER_OWNER_EMAIL}>
+                            {teacherAccountLabel(MIRAS_PEER_OWNER_EMAIL)}
+                          </option>
+                        )}
                         {teacherAccountOptions
                           .filter(
                             (email) =>
-                              String(email).toLowerCase() !==
-                                String(
-                                  teacherSession?.email || "",
-                                ).toLowerCase() &&
+                              !isOwnAccountOption(String(email)) &&
                               String(email).toLowerCase() !==
                                 MIRAS_PEER_OWNER_EMAIL,
                           )
@@ -44154,16 +44201,15 @@ ${rows
                       >
                         <option value="all">كل الحسابات</option>
                         <option value="self">بياناتي وطلبتي</option>
-                        <option value={MIRAS_PEER_OWNER_EMAIL}>
-                          {teacherAccountLabel(MIRAS_PEER_OWNER_EMAIL)}
-                        </option>
+                        {!isOwnAccountOption(MIRAS_PEER_OWNER_EMAIL) && (
+                          <option value={MIRAS_PEER_OWNER_EMAIL}>
+                            {teacherAccountLabel(MIRAS_PEER_OWNER_EMAIL)}
+                          </option>
+                        )}
                         {teacherAccountOptions
                           .filter(
                             (email) =>
-                              String(email).toLowerCase() !==
-                                String(
-                                  teacherSession?.email || "",
-                                ).toLowerCase() &&
+                              !isOwnAccountOption(String(email)) &&
                               String(email).toLowerCase() !==
                                 MIRAS_PEER_OWNER_EMAIL,
                           )
@@ -44232,7 +44278,7 @@ ${rows
                                 Math.max(16, Math.round((x.value / top) * 100)),
                               );
                               return (
-                                <div className="miras-funnel" role="list">
+                                <div className="miras-funnel" role="list" data-miras-literal="true">
                                   {stages.map((st, i) => {
                                     const w = widths[i];
                                     const w2 =
@@ -44253,12 +44299,12 @@ ${rows
                                         </span>
                                         <span
                                           className="miras-funnel-shape"
+                                          aria-hidden="true"
                                           style={{
                                             clipPath: `polygon(${l1}% 0, ${100 - l1}% 0, ${100 - l2}% 100%, ${l2}% 100%)`,
                                           }}
-                                        >
-                                          <b>{st.value}</b>
-                                        </span>
+                                        />
+                                        <b className="miras-funnel-count">{st.value.toLocaleString("en-US")}</b>
                                         <span className="miras-funnel-pct">
                                           {i > 0 ? `${st.pct}%` : ""}
                                         </span>
@@ -44269,7 +44315,7 @@ ${rows
                               );
                             })()}
                             {clusters.length > 0 && (
-                              <div className="space-y-2 rounded-2xl border border-rose-100 bg-rose-50/60 p-3">
+                              <div className="miras-health-clusters space-y-2 rounded-2xl border border-rose-100 bg-rose-50/60 p-3" data-miras-literal="true">
                                 <div className="flex items-center gap-2">
                                   <span className="inline-flex h-2 w-2 rounded-full bg-rose-500" />
                                   <span className="text-[11px] font-bold text-rose-700">
@@ -44287,7 +44333,7 @@ ${rows
                                       <span className="font-black text-slate-900">
                                         {c.distinctStudents} طلبة
                                       </span>{" "}
-                                      و{c.distinctCodes} أكواد من شبكة واحدة
+                                      و {c.distinctCodes} أكواد من شبكة واحدة
                                       {c.tightWindow
                                         ? ` خلال ${c.windowMinutes} دقيقة`
                                         : ""}
@@ -44371,7 +44417,7 @@ ${rows
                                   title={c.note}
                                 >
                                   <span className="miras-code-legend-dot" aria-hidden="true" />
-                                  <span className="miras-code-legend-n">
+                                  <span className="miras-code-legend-n" data-miras-literal="true">
                                     {c.n} <small>{c.unit}</small>
                                   </span>
                                   <span className="miras-code-legend-label">
