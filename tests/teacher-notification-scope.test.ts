@@ -22,6 +22,8 @@ test('ownerless administrative broadcast is not a personal course alert',()=>{
 test('direct personal notices work across roles while student and foreign notices stay out',()=>{
   assert.equal(owns({role:'admin',userId:admin},admin,owner,same),true);
   assert.equal(owns({role:'admin',userId:'other@example.com'},admin,owner,same),false);
+  assert.equal(owns({role:'admin',userId:'other@example.com',sectionCode:`111-${admin}`},admin,owner,same),false);
+  assert.equal(owns({type:'code_integrity',data:{userId:'other@example.com',courseCode:`111-${admin}`}},admin,owner,same),false);
   assert.equal(owns({role:'student',data:{teacherEmail:admin}},admin,owner,same),false);
   assert.equal(owns({role:'teacher',userId:admin,data:{teacherEmail:'other@example.com'}},admin,owner,same),false);
   assert.equal(owns({targetSectionCode:'111-ada@example.com',sectionCode:`111-${admin}`},admin,owner,same),false);

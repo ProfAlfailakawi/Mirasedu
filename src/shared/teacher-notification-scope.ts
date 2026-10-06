@@ -1,7 +1,11 @@
+import { isPendingPasswordReset } from './home-password-reset-requests';
+
 /** Notification scope follows the signed-in teacher, never the admin audit selector. */
 export function teacherOwnsNotification(item: any, teacherEmail: string, courseOwner: (code: string) => string, sameIdentity: (a: any, b: any) => boolean): boolean {
   const data = item?.data || {};
   if (['student', 'students'].includes(String(item?.role || item?.targetRole || data.role || data.targetRole || '').toLowerCase())) return false;
+  const recipient = item?.userId || data.userId;
+  if (recipient && !sameIdentity(recipient, teacherEmail)) return false;
   const course = item?.targetSectionCode || item?.linkedSectionCode || item?.sectionCode || item?.courseCode || item?.studentSection || data.sectionCode || data.courseCode;
   if (course) return sameIdentity(courseOwner(String(course)), teacherEmail);
   const owner = item?.teacherEmail || item?.ownerEmail || data.teacherEmail || data.ownerEmail || item?.actorEmail || item?.userId || data.userId;
@@ -49,4 +53,3 @@ export function duplicatesCodeIntegrityLog(note: any, logs: any[], timeValue: (i
       timeValue(log) > 0 && timeValue(note) > 0 && Math.abs(timeValue(log) - timeValue(note)) <= 15000;
   });
 }
-import { isPendingPasswordReset } from './home-password-reset-requests';

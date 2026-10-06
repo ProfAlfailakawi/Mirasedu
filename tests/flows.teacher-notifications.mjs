@@ -1,7 +1,7 @@
 import { api, makeJar, createReporter, BB } from './lib.mjs';
 const {check,done}=createReporter('FLOWS / PERSONAL TEACHER NOTIFICATIONS');
 const admin='ah.alfailakawi@paaet.edu.kw',pw=process.env.TEST_TEACHER_PASSWORD||'change-me-in-ci';
-for(const [email,role,expected] of [[admin,'admin',['own-admin','own-teacher-role','reset-current']],[admin,'teacher',['own-admin','own-teacher-role','reset-current']],[BB,'teacher',['foreign-admin-role','foreign-misdirected']]]){
+for(const [email,role,expected] of [[admin,'admin',['own-admin','own-teacher-role','reset-current']],[admin,'teacher',['own-admin','own-teacher-role','reset-current']],[BB,'teacher',['foreign-admin-role']]]){
   const jar=makeJar(),deviceToken='notice-'+email;
   const login=await api('POST','/api/auth/login',{idNumber:email,password:pw},{jar,deviceToken});
   check('personal inbox login '+email+' '+role,login.ok);
