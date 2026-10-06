@@ -20098,6 +20098,9 @@ app.get("/api/teacher/join-codes", (req, res) => {
   const includeAll =
     String(req.query.includeAll || "") === "1" && isAdminEmail(teacherEmail);
   const includeRetired = String(req.query.includeRetired || "") === "1";
+  // The code manager can request only recent activations while it is open.
+  // This keeps live refreshes small even when the teacher owns thousands of codes.
+  const activatedSince = Date.parse(String(req.query.activatedSince || ""));
   const retired =
     includeRetired && typeof (dbInstance as any).getRetiredJoinCodes === "function"
       ? (dbInstance as any).getRetiredJoinCodes().map((item: any) => ({
@@ -20125,6 +20128,10 @@ app.get("/api/teacher/join-codes", (req, res) => {
   const joinCodes = sourceCodes
     .filter((jc: any) => String(jc?.code || "").trim())
     .filter((jc: any) => includeAll || canAccessJoinCode(jc, teacherEmail))
+    .filter((jc: any) =>
+      !Number.isFinite(activatedSince) ||
+      (Date.parse(String(jc?.activatedAt || "")) || 0) >= activatedSince,
+    )
     .map((jc: any) => {
       const storedCourseCode = String(
         jc.sectionCode || jc.courseCode || jc.studentSection || "",

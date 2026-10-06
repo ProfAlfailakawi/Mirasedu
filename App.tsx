@@ -13839,7 +13839,7 @@ export default function App() {
     return typeof value === "string" ? value : null;
   };
 
-  const fetchJoinCodes = async (emailOverride?: string, options: { includeRetired?: boolean } = {}) => {
+  const fetchJoinCodes = async (emailOverride?: string, options: { includeRetired?: boolean; activatedSince?: string } = {}) => {
     const email = activeTeacherEmail(emailOverride);
     const includeRetired = options.includeRetired !== false;
     const loadGen = cloudSessionGenRef.current;
@@ -13861,9 +13861,11 @@ export default function App() {
     } catch {}
     try {
       const teacherEmailParam = getTeacherUrlParams(email);
-      const joinCodesQuery = includeRetired
-        ? (teacherEmailParam ? `${teacherEmailParam}&includeRetired=1` : "?includeRetired=1")
-        : teacherEmailParam;
+      const joinCodesParams = new URLSearchParams(teacherEmailParam.replace(/^\?/, ""));
+      if (includeRetired) joinCodesParams.set("includeRetired", "1");
+      if (options.activatedSince) joinCodesParams.set("activatedSince", options.activatedSince);
+      const joinCodesQueryString = joinCodesParams.toString();
+      const joinCodesQuery = joinCodesQueryString ? `?${joinCodesQueryString}` : "";
       const resp = await fetch(`/api/teacher/join-codes${joinCodesQuery}`, {
         cache: "no-store",
         headers: teacherHeaders(email),
@@ -13880,9 +13882,9 @@ export default function App() {
       const scopedCodes = d.joinCodes.filter((item: any) =>
         String(item?.code || "").trim(),
       );
-      const recentOptimisticCodes = cachedCodes.filter((item: any) =>
-        isRecentlyIssuedJoinCodeRecord(item),
-      );
+      const recentOptimisticCodes = options.activatedSince
+        ? []
+        : cachedCodes.filter((item: any) => isRecentlyIssuedJoinCodeRecord(item));
       // السيرفر هو مصدر الحقيقة، لكن الأرشيف لا يجوز أن يختفي لأننا فلترناه كـ live.
       // ندمج الأكواد الحية + المؤرشفة/المحذوفة/الملغية القادمة من السيرفر، ونُبقي
       // فقط الكود الحديث جداً في الكاش عند تأخر المزامنة.
@@ -13890,13 +13892,15 @@ export default function App() {
         scopedCodes,
         recentOptimisticCodes,
       );
-      setJoinCodesList((prev) => includeRetired ? nextCodes : mergeJoinCodeRecords(
-        nextCodes, prev.filter((item: any) => !isLiveJoinCodeRecord(item)),
-      ));
+      setJoinCodesList((prev) => options.activatedSince
+        ? mergeJoinCodeRecords(nextCodes, prev)
+        : includeRetired ? nextCodes : mergeJoinCodeRecords(
+          nextCodes, prev.filter((item: any) => !isLiveJoinCodeRecord(item)),
+        ));
       joinCodesLoadedEmailRef.current = email;
       setJoinCodesLoadState("ready");
       try {
-        if (includeRetired) localStorage.setItem(storageKey, JSON.stringify(nextCodes));
+        if (includeRetired && !options.activatedSince) localStorage.setItem(storageKey, JSON.stringify(nextCodes));
       } catch {}
     } catch (e) {
       if (!isCurrent()) return;
@@ -21251,6 +21255,39 @@ ${rows
   const joinCodesAwaitingCloud =
     joinCodesLoadState === "loading" && joinCodesList.length === 0;
   const joinCodesCloudFailed = joinCodesLoadState === "failed";
+  useEffect(() => {
+    const email = String(teacherSession?.email || "").trim().toLowerCase();
+    if (
+      currentView !== "teacher_workspace" ||
+      teacherTab !== "codes" ||
+      !email ||
+      !teacherCloudReady[email]
+    ) return;
+
+    let active = true;
+    let refreshing = false;
+    const refreshActivations = () => {
+      if (!active || refreshing || document.visibilityState === "hidden") return;
+      // A short overlap protects activations that land during a request or
+      // whose server/client clocks differ slightly. The API returns only codes
+      // activated in this window, not the teacher's full code inventory.
+      const activatedSince = new Date(Date.now() - 60_000).toISOString();
+      refreshing = true;
+      void fetchJoinCodes(undefined, { includeRetired: false, activatedSince })
+        .finally(() => { refreshing = false; });
+    };
+
+    refreshActivations();
+    const timer = window.setInterval(refreshActivations, 3000);
+    window.addEventListener("focus", refreshActivations);
+    document.addEventListener("visibilitychange", refreshActivations);
+    return () => {
+      active = false;
+      window.clearInterval(timer);
+      window.removeEventListener("focus", refreshActivations);
+      document.removeEventListener("visibilitychange", refreshActivations);
+    };
+  }, [currentView, teacherTab, teacherSession?.email, teacherCloudReady]);
   const scopedOverallReports = {
     totalAllowed:
       allowedStudentsText
