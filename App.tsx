@@ -1,3 +1,4 @@
+import { groupSecurityNotifications } from "./src/shared/security-notification-groups";
 import { createCloudSingleFlight, cloudSessionKey } from "./src/shared/cloud-single-flight";
 import { teacherWorkspaceReady } from "./src/shared/teacher-workspace-ready";
 import { deviceTransferCopy } from "./src/shared/device-transfer-copy";
@@ -27425,14 +27426,17 @@ ${rows
 
     // Deduplicate and filter read keys
     const seen = new Set<string>();
-    return items
+    return groupSecurityNotifications(items)
       .filter((item) => {
-        if (seen.has(item.key) || teacherImportantReadKeys.has(item.key) || item.readKeys?.some((key: string) => teacherImportantReadKeys.has(key)))
+        if (seen.has(item.key) || teacherImportantReadKeys.has(item.key) || (item.readKeys?.length && (item.repeatCount
+          ? item.readKeys.every((key: string) => teacherImportantReadKeys.has(key))
+          : item.readKeys.some((key: string) => teacherImportantReadKeys.has(key)))))
           return false;
         seen.add(item.key);
         return true;
       })
       .sort((a, b) => timeValue(b) - timeValue(a))
+      .map(item => item.repeatCount && item.repeatCount > 1 ? { ...item, body: `${item.body} • ${item.repeatCount} محاولات خلال 15 دقيقة؛ الوقت الظاهر لآخر محاولة.` } : item)
       .slice(0, 30);
   }, [
     homePasswordResetRequests,
@@ -27546,6 +27550,7 @@ ${rows
     setTeacherImportantReadKeys((prev) => {
       const next = new Set<string>(prev);
       next.add(key);
+      criticalTeacherNotifications.find(item => item.key === key)?.readKeys?.forEach((readKey: string) => next.add(readKey));
       persistTeacherImportantReadKeys(next);
       return next;
     });
@@ -27554,7 +27559,7 @@ ${rows
   const markAllTeacherImportantNotificationsRead = () => {
     setTeacherImportantReadKeys((prev) => {
       const next = new Set<string>(prev);
-      criticalTeacherNotifications.forEach((item: any) => next.add(item.key));
+      criticalTeacherNotifications.forEach((item: any) => { next.add(item.key); item.readKeys?.forEach((key: string) => next.add(key)); });
       persistTeacherImportantReadKeys(next);
       return next;
     });
