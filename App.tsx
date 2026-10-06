@@ -1,3 +1,4 @@
+import { deviceTransferCopy } from "./src/shared/device-transfer-copy";
 import { deviceReviewNotifications } from "./src/shared/device-review-notifications";
 import { probeCloudReadiness } from "./src/shared/cloud-readiness-probe";
 import { teacherOwnsNotification, duplicatesCodeIntegrityLog } from "./src/shared/teacher-notification-scope";
@@ -13890,11 +13891,12 @@ export default function App() {
     type: "confirm" | "prompt",
     message: string,
     defaultValue = "",
+    options: { title?: string; confirmLabel?: string; icon?: "device"; preserveMessage?: boolean } = {},
   ) =>
     new Promise<any>((resolve) => {
       dialogResolveRef.current = resolve;
       setDialogInput(defaultValue);
-      setDialogState({ type, message: compactMirasDialogMessage(message, type) });
+      setDialogState({ ...options, type, message: options.preserveMessage ? message : compactMirasDialogMessage(message, type) });
     });
 
   const closeProgramDialog = (value: any) => {
@@ -13905,8 +13907,8 @@ export default function App() {
     if (resolver) resolver(value);
   };
 
-  const confirmAction = async (message: string) =>
-    !!(await openProgramDialog("confirm", message || "هل أنت متأكد؟"));
+  const confirmAction = async (message: string, options: { title?: string; confirmLabel?: string; icon?: "device"; preserveMessage?: boolean } = {}) =>
+    !!(await openProgramDialog("confirm", message || "هل أنت متأكد؟", "", options));
   const promptAction = async (message: string, defaultValue = "") => {
     const value = await openProgramDialog("prompt", message, defaultValue);
     return typeof value === "string" ? value : null;
@@ -28339,7 +28341,8 @@ ${rows
     }
     if (
       !(await confirmAction(
-        `السماح للطالب ${student.name || id} بالانتقال إلى جهاز جديد؟ سيتم إنهاء جلسة الجهاز القديم وفك ربطه فقط دون حذف الحساب أو التسليمات.`,
+        deviceTransferCopy.message(student.name || id),
+        { title: deviceTransferCopy.title, confirmLabel: deviceTransferCopy.confirmLabel, icon: "device", preserveMessage: true },
       ))
     )
       return;
@@ -28377,7 +28380,7 @@ ${rows
         ),
       );
       setSuccessMsg(
-        "تم فك ربط الجهاز القديم وإنهاء جلسته بنجاح. اطلب من الطالب فتح مِراس من الجهاز الجديد؛ سيتم اعتماده تلقائياً عند أول دخول.",
+        deviceTransferCopy.success,
       );
       window.setTimeout(() => {
         void fetchReports();
@@ -32424,12 +32427,12 @@ ${rows
           <div className="relative w-full max-w-[25.5rem] overflow-hidden rounded-[var(--miras-r-xl)] border border-white/80 bg-white p-4 text-right miras-shadow-3 sm:rounded-[var(--miras-r-xl)] sm:p-5">
             <div className="pointer-events-none absolute -left-14 -top-14 h-36 w-36 rounded-full bg-indigo-100/55 blur-3xl" />
             <div className="relative flex items-start gap-3">
-              <div className="grid h-12 w-12 shrink-0 place-items-center rounded-2xl bg-amber-50 text-amber-700 shadow-inner sm:h-14 sm:w-14">
-                <AlertTriangle className="h-5 w-5 sm:h-6 sm:w-6" />
+              <div className={`grid h-12 w-12 shrink-0 place-items-center rounded-2xl shadow-inner sm:h-14 sm:w-14 ${dialogState.icon === "device" ? "bg-indigo-50 text-indigo-700" : "bg-amber-50 text-amber-700"}`}>
+                {dialogState.icon === "device" ? <Smartphone className="h-5 w-5 sm:h-6 sm:w-6" /> : <AlertTriangle className="h-5 w-5 sm:h-6 sm:w-6" />}
               </div>
               <div className="min-w-0 flex-1 pt-0.5">
                 <h3 className="text-[1.35rem] font-black leading-tight text-slate-950 sm:text-[1.55rem]">
-                  تأكيد من مِراس
+                  {dialogState.title || "تأكيد من مِراس"}
                 </h3>
                 <p className="mt-1.5 text-[12px] font-bold leading-6 text-slate-500 sm:text-sm sm:leading-7">
                   {dialogState.message}
@@ -32466,7 +32469,7 @@ ${rows
                 }
                 className="rounded-2xl bg-gradient-to-br from-indigo-900 to-indigo-600 px-5 py-3 text-sm font-bold text-white miras-shadow-glow transition hover:brightness-110"
               >
-                تأكيد
+                {dialogState.confirmLabel || "تأكيد"}
               </button>
             </div>
           </div>

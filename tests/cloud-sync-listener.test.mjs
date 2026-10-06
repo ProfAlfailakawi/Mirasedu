@@ -75,7 +75,7 @@ test('device transfers survive early cloud echoes and queued later mutations wit
   // A later edit arriving during the transfer's cloud write must not be discarded.
   mutateDuringCommit=async()=>{db.updateStudent('test-student',{name:'Later edit'});await db.persist();};
   db.updateJoinCode('TEST',{activationDeviceFingerprint:''});
-  db.updateStudent('test-student',{devices:[],pendingDeviceTransfer:true});
+  db.updateStudent('test-student',{devices:[],pendingDeviceTransfer:true,optional:undefined,nested:{omit:undefined,array:[undefined,'kept']}});
   await db.persist();
   const transferVersion=db.getMutationVersion();
   await db.waitForMutationSync(transferVersion);
@@ -88,6 +88,10 @@ test('device transfers survive early cloud echoes and queued later mutations wit
   assert.equal(JSON.parse(documents.get('system/database/entities/students').payload)[0].name,'Later edit');
   assert.equal(JSON.parse(documents.get('system/database/entities/students').payload)[0].pendingDeviceTransfer,true);
   assert.ok(commits>=2);
+  const durableStudent=JSON.parse(documents.get('system/database/entities/students').payload)[0];
+  assert.ok(!('optional' in durableStudent));
+  assert.ok(!('omit' in durableStudent.nested));
+  assert.deepEqual([...durableStudent.nested.array].sort(),['kept',null].sort());
   // External writes still refresh the state; only our acknowledged echo is skipped.
   const external=structuredClone(documents.get('system/database'));external.lastUpdated=Date.now()+10000;
   documents.set('system/database/entities/students',{payload:JSON.stringify([{...db.getStudents()[0],name:'External edit'}])});

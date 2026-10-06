@@ -21243,30 +21243,6 @@ app.post("/api/teacher/students/:id/reset-access", async (req, res) => {
     browser: "إدارة الطلبة",
     isViolationWarning: false,
   });
-  notifyUsers(
-    (token) =>
-      token.role === "student" && String(token.userId) === String(student.id),
-    mode === "hold"
-      ? "تم إيقاف الحساب"
-      : mode === "restore"
-        ? "تمت إعادة تفعيل الحساب"
-        : "تحديث الوصول",
-    mode === "hold"
-      ? "تم إيقاف حسابك مؤقتاً من قبل أستاذ المقرر."
-      : mode === "restore"
-        ? "تمت إعادة تفعيل حسابك. يمكنك الدخول من جديد."
-        : "تمت إعادة تهيئة ربط جهاز حسابك. افتح مِراس من الجهاز الجديد ليتم اعتماده تلقائياً.",
-    {
-      type:
-        mode === "hold"
-          ? "access_blocked"
-          : mode === "restore"
-            ? "access_restored"
-            : "access_reset",
-      studentId: student.id,
-      link: "/",
-    },
-  );
   const cloudStartedAt = performance.now();
   try {
     // Register the complete student/code patch before taking its durability version.
@@ -21285,6 +21261,38 @@ app.post("/api/teacher/students/:id/reset-access", async (req, res) => {
   const totalMs = Math.max(0, finishedAt - startedAt);
   res.setHeader("Server-Timing", `prepare;dur=${prepareMs.toFixed(1)}, cloud;dur=${cloudMs.toFixed(1)}, total;dur=${totalMs.toFixed(1)}`);
   console.info(JSON.stringify({ event: "device_access_timing", mode, prepareMs: Math.round(prepareMs), cloudMs: Math.round(cloudMs), totalMs: Math.round(totalMs) }));
+  // Notify only after the confirmed transfer is returned. Push/audit bookkeeping
+  // must not add another cloud round trip to the teacher's device action.
+  res.once("finish", () => {
+    try {
+      notifyUsers(
+        (token) =>
+          token.role === "student" && String(token.userId) === String(student.id),
+        mode === "hold"
+          ? "تم إيقاف الحساب"
+          : mode === "restore"
+            ? "تمت إعادة تفعيل الحساب"
+            : "تحديث الوصول",
+        mode === "hold"
+          ? "تم إيقاف حسابك مؤقتاً من قبل أستاذ المقرر."
+          : mode === "restore"
+            ? "تمت إعادة تفعيل حسابك. يمكنك الدخول من جديد."
+            : "تمت إعادة تهيئة ربط جهاز حسابك. افتح مِراس من الجهاز الجديد ليتم اعتماده تلقائياً.",
+        {
+          type:
+            mode === "hold"
+              ? "access_blocked"
+              : mode === "restore"
+                ? "access_restored"
+                : "access_reset",
+          studentId: student.id,
+          link: "/",
+        },
+      );
+    } catch (error) {
+      console.error("Device access notification failed after confirmed transfer:", error);
+    }
+  });
   const savedStudent = dbInstance.getStudents().find(s => s.id === student.id);
   res.json({ success: true, student: savedStudent });
 });

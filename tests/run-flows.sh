@@ -87,6 +87,7 @@ node node_modules/.bin/tsx --test tests/general-code-reset.test.mjs || overall=1
 node node_modules/.bin/tsx tests/flows.arabic-text.mjs || overall=1
 node node_modules/.bin/tsx --test tests/device-audit.test.ts || overall=1
 node node_modules/.bin/tsx --test tests/device-review-notifications.test.ts || overall=1
+node node_modules/.bin/tsx --test tests/device-transfer-copy.test.ts || overall=1
 node node_modules/.bin/tsx --test tests/student-lock-signal.test.ts || overall=1
 node node_modules/.bin/tsx --test tests/atomic-cloud-write.test.ts || overall=1
 node node_modules/.bin/tsx --test tests/cloud-mutation-barrier.test.ts || overall=1

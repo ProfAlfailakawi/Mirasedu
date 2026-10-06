@@ -1553,7 +1553,8 @@ export class LocalDatabase {
   // activityLogs أو joinCodes وغيرها. previousState=null (أو undefined) تعني
   // "اكتب كل شيء" — تُستخدم فقط في الاستعادة/أول نسخة سحابية حين لا معنى للمقارنة.
   private async tryAtomicCloudWrite(state: DatabaseState, previousState: DatabaseState, updateTime?: any): Promise<boolean> {
-    const cleaned = cleanUndefined(state) as DatabaseState;
+    // Callers supply the sanitized snapshot; avoid copying the entire database again.
+    const cleaned = state;
     const generation = Number(cleaned.lastUpdated || Date.now());
     const nowIso = new Date().toISOString();
     const plan = planAtomicCloudWrite({
@@ -2079,7 +2080,8 @@ export class LocalDatabase {
     this.lastFSSyncTime = Date.now();
     const versionAtStart = this.mutationVersion;
     const baseAtStart = this.lastSyncedState || cloneDbValue(this.data) as DatabaseState;
-    const localAtStart = cleanUndefined(cloneDbValue(this.data)) as DatabaseState;
+    // JSON cloning already strips undefined fields and normalizes sparse arrays.
+    const localAtStart = cloneDbValue(this.data) as DatabaseState;
 
     try {
       let committedPayload: DatabaseState | null = null;
@@ -2089,7 +2091,7 @@ export class LocalDatabase {
       if (this.urgentCloudWaiters > 0 && knownRevision &&
           knownRevision.stamp === Number(baseAtStart.lastUpdated || 0) &&
           databaseHasMeaningfulContent(baseAtStart) && !this.databaseGuardLocked) {
-        const optimistic = cleanUndefined(localAtStart) as DatabaseState;
+        const optimistic = localAtStart;
         optimistic.lastUpdated = Math.max(Date.now(), Number(localAtStart.lastUpdated || 0));
         const result = await attemptOptimisticCloudCommit(() =>
           this.tryAtomicCloudWrite(optimistic, baseAtStart, knownRevision.updateTime));
@@ -2145,7 +2147,7 @@ export class LocalDatabase {
 
         if (cloudRead.state === null) {
           // ⚡ المسار السريع: فروق مباشرة ضد آخر حالة متزامنة (= السحابة الفعلية).
-          committedPayload = cleanUndefined(localAtStart) as DatabaseState;
+          committedPayload = localAtStart;
           committedPayload.lastUpdated = Math.max(
             Date.now(),
             Number(localAtStart.lastUpdated || 0),
@@ -2170,7 +2172,7 @@ export class LocalDatabase {
           );
           committedPayload = null;
         } else if (!cloudHasContent && localHasContent && MIRAS_ALLOW_LOCAL_RESTORE_TO_EMPTY_CLOUD) {
-          committedPayload = cleanUndefined(localAtStart) as DatabaseState;
+          committedPayload = localAtStart;
           await this.writeCloudDatabaseState(committedPayload);
           this.unlockDatabaseGuard();
         } else if (!localHasContent && cloudHasContent) {
