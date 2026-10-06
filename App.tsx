@@ -15137,6 +15137,9 @@ ${rows
   // Load and refresh initial data
   useEffect(() => {
     const teacherEmail = activeTeacherEmail();
+    // Restored teacher sessions use the session effect, which prioritizes the
+    // cloud request. Do not parse the same large caches again during mount.
+    if (teacherEmail) return;
     try {
       const chaptersKey = `academicLabAvailableChapters:${teacherEmail || "anonymous"}`;
       const questionsKey = `academicLabQuestionBank:${teacherEmail || "anonymous"}`;
