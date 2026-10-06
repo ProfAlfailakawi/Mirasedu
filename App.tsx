@@ -5623,6 +5623,7 @@ export default function App() {
   const [auditLoad, setAuditLoad] = useState<{ key: string; status: "loading" | "ready" | "failed" }>({ key: "", status: "loading" });
   const [auditRetry, setAuditRetry] = useState(0);
   const auditWorkspaceActiveRef = useRef(false);
+  const personalWorkspaceSnapshotRef = useRef<any>(null);
   const auditWorkspaceCacheRef = useRef(new Map<string, { savedAt: number; payload: any }>());
   const auditWorkspaceFlightRef = useRef(createCloudSingleFlight<any>());
   const auditReadsRef = useRef(createCloudSingleFlight<Response>());
@@ -20738,9 +20739,30 @@ ${rows
       // an audit screen whose datasets belong to a different account.
       if (auditWorkspaceActiveRef.current) {
         auditWorkspaceActiveRef.current = false;
+        const personal = personalWorkspaceSnapshotRef.current;
+        if (personal?.email === activeTeacherEmail() &&
+          personal.sessionGeneration === cloudSessionGenRef.current &&
+          personal.mutationEpoch === teacherReadMutationEpoch &&
+          personal.token === readStoredSessionAuthToken("miras_teacher_session")) {
+          // Restore the last personal cloud snapshot before paint; refresh below.
+          applyTeacherSections(personal);
+          applyTeacherReports(personal.reports);
+          applyTeacherLogs(personal);
+          setJoinCodesList(personal.joinCodes);
+          setCodeIntegrity(personal.integrity);
+          setPasskeyTrustedDevices(personal.devices);
+        }
         void Promise.allSettled([fetchSections(), fetchReports(undefined, { quiet: true })]);
       }
       return;
+    }
+    if (!auditWorkspaceActiveRef.current && teacherCloudReady[activeTeacherEmail()]) {
+      personalWorkspaceSnapshotRef.current = {
+        email: activeTeacherEmail(), sessionGeneration: cloudSessionGenRef.current,
+        mutationEpoch: teacherReadMutationEpoch, token: readStoredSessionAuthToken("miras_teacher_session"),
+        sections: teacherSections, reports: overallReports, logs: systemLogs,
+        joinCodes: joinCodesList, integrity: codeIntegrity, devices: passkeyTrustedDevices,
+      };
     }
     auditWorkspaceActiveRef.current = true;
     const isCurrent = captureTeacherRead();
