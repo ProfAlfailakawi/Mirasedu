@@ -20212,7 +20212,11 @@ function joinCodeAuditOwner(code: any): string {
 }
 
 function teacherJoinCodesData(req: express.Request) {
-  const { targetEmail: teacherEmail, includeAll } = teacherAuditScope(req);
+  const audit = teacherAuditScope(req);
+  const teacherEmail = audit.targetEmail;
+  // Existing administrative inventory/export readers without a scope keep
+  // their full inventory. The UI always sends its explicit all/self/teacher scope.
+  const includeAll = audit.includeAll || (!String(req.query.scope || "").trim() && isAdminEmail(audit.viewerEmail));
   const includeRetired = String(req.query.includeRetired || "") === "1";
   // The code manager can request only recent activations while it is open.
   // This keeps live refreshes small even when the teacher owns thousands of codes.
