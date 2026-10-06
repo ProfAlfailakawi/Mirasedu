@@ -11414,8 +11414,11 @@ app.get("/api/teacher/activation-attempts", (req, res) => {
 
 app.get("/api/teacher/code-integrity", (req, res) => {
   // الهوية من الجلسة الموثّقة فقط: كان بريد فارغ يمنح عرض الأدمن الكامل لأي معلم.
-  const teacherEmail = verifiedTeacherEmailFromSession(req);
-  const adminView = isAdminEmail(teacherEmail);
+  const viewerEmail = verifiedTeacherEmailFromSession(req);
+  const scope = String(req.query.scope || "all").trim().toLowerCase();
+  const adminView = isAdminEmail(viewerEmail) && scope === "all";
+  const teacherEmail = isAdminEmail(viewerEmail) && scope !== "all" && scope !== "self"
+    ? scope : viewerEmail;
   const retired =
     typeof (dbInstance as any).getRetiredJoinCodes === "function"
       ? (dbInstance as any).getRetiredJoinCodes()
@@ -11431,26 +11434,18 @@ app.get("/api/teacher/code-integrity", (req, res) => {
   const attempts = dbInstance.getActivationAttempts();
   const scopedAttempts = attempts.filter((attempt: any) => {
     if (adminView) return true;
-    return (
-      sectionOwnerEmail(attempt.sectionCode).toLowerCase() === teacherEmail
-    );
+    const codeRecord = lookupCodes.find((code: any) =>
+      compactJoinCode(code.code) === compactJoinCode(attempt.normalizedCode || attempt.code || ""));
+    return attemptReportOwnerMatches(attempt, codeRecord, teacherEmail);
   });
-  const scopedCodes = liveCodes.filter(
-    (code: any) =>
-      adminView ||
-      sectionOwnerEmail(
-        code.studentSection || code.sectionCode || code.courseCode,
-      ).toLowerCase() === teacherEmail ||
-      joinCodeOwnerEmail(code) === teacherEmail,
-  );
-  const scopedLookupCodes = lookupCodes.filter(
-    (code: any) =>
-      adminView ||
-      sectionOwnerEmail(
-        code.studentSection || code.sectionCode || code.courseCode,
-      ).toLowerCase() === teacherEmail ||
-      joinCodeOwnerEmail(code) === teacherEmail,
-  );
+  const codeInScope = (code: any) => {
+    const course = code.resolvedCourseCode || code.studentSection || code.sectionCode || code.courseCode;
+    const owner = code.status === "used" && course && !isGenericJoinCourseCode(course)
+      ? sectionOwnerEmail(course).toLowerCase() : joinCodeOwnerEmail(code);
+    return adminView || owner === teacherEmail;
+  };
+  const scopedCodes = liveCodes.filter(codeInScope);
+  const scopedLookupCodes = lookupCodes.filter(codeInScope);
   const suspiciousCodes = scopedCodes
     .filter(
       (code: any) =>
@@ -12740,6 +12735,9 @@ function filterLogsForTeacher(email?: string) {
     const actorEmail = String(
       log.actorEmail || log.teacherEmail || "",
     ).toLowerCase();
+    const eventCourse = log.sectionCode || log.courseCode || log.studentSection;
+    if (eventCourse) return sectionOwnerEmail(eventCourse) === normalized;
+    if (actorEmail) return actorEmail === normalized;
     if (!log.studentId) {
       if (actorEmail) return actorEmail === normalized;
       return String(log.details || "")
@@ -22170,11 +22168,17 @@ app.post("/api/teacher/exercises/activate", (req, res) => {
 });
 
 // Get Audit Logs & Security warnings
-function teacherLogsData(teacherEmail: string) {
+function teacherLogsData(teacherEmail: string, selfOnly = false) {
   // سقف: أحدث ٣٠٠ سجل فقط. السجل ينمو بلا حدود مع الاستخدام الفعلي (كل دخول
   // /محاولة/تسليم = سجل جديد)، وإرسال آلاف السجلات في كل تحميل كان يبطّئ الجوال
   // بشكل متصاعد. أحدث ٣٠٠ يكفي للمتابعة الحيّة ويبقي الحمولة صغيرة وثابتة.
-  const all = withLiveStudentNames(filterLogsForTeacher(teacherEmail));
+  const source = filterLogsForTeacher(teacherEmail);
+  const all = withLiveStudentNames(selfOnly ? source.filter((log: any) => {
+    const course = log.sectionCode || log.courseCode || log.studentSection;
+    const owner = (course ? sectionOwnerEmail(course) : "") ||
+      String(log.actorEmail || log.teacherEmail || log.email || "");
+    return owner.toLowerCase() === teacherEmail.toLowerCase();
+  }) : source);
   const logs = Array.isArray(all)
     ? [...all]
         .sort(
@@ -22188,7 +22192,13 @@ function teacherLogsData(teacherEmail: string) {
 }
 
 app.get("/api/teacher/logs", (req, res) => {
-  return res.json({ logs: teacherLogsData(verifiedTeacherEmailFromSession(req)) });
+  const viewerEmail = verifiedTeacherEmailFromSession(req);
+  const scope = String(req.query.scope || "all").trim().toLowerCase();
+  const targetEmail = isAdminEmail(viewerEmail) && scope !== "all" && scope !== "self"
+    ? scope : viewerEmail;
+  // Apply the account scope before the recent-log limit, so other accounts
+  // cannot crowd this teacher's records out of the response.
+  return res.json({ logs: teacherLogsData(targetEmail, isAdminEmail(viewerEmail) && scope === "self") });
 });
 
 function teacherPasswordResetRequestsData(req: express.Request, teacherEmail: string) {

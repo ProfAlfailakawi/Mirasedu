@@ -5590,6 +5590,8 @@ export default function App() {
   );
   const [auditScopeEmail, setAuditScopeEmail] = useState("all");
   const [codesScopeEmail, setCodesScopeEmail] = useState("all");
+  const auditScopeRef = useRef(auditScopeEmail);
+  auditScopeRef.current = auditScopeEmail;
   const [allowedRosterOpen, setAllowedRosterOpen] = useState(true);
   const [manualStudentFormOpen, setManualStudentFormOpen] = useState(false);
   const [manualStudentLookupName, setManualStudentLookupName] = useState("");
@@ -12738,12 +12740,14 @@ export default function App() {
       .toLowerCase();
   const getTeacherUrlParams = (emailOverride?: string) => {
     const email = activeTeacherEmail(emailOverride);
-    // مصيبة خصوصية أُصلحت: includeAll=1 كان يجعل الأدمن (المالك) يجلب بيانات
-    // كل المعلمين (طلبة/تسليمات/أكواد/أقسام) فتظهر نتائج معلم آخر في بحث ⌘K.
-    // كل معلم — بما فيهم المالك — يرى بياناته فقط. (الحلّ الأصلي لـ«البحث لا
-    // يُظهر شيئاً» كان إصلاح انهيار TDZ، لا رؤية الكل؛ فلا حاجة لـincludeAll.)
+    // Administrative audit screens load the complete source; their account
+    // selector controls display and scoped server summaries.
     const p = new URLSearchParams();
     if (email) p.set("teacherEmail", email);
+    if (isMirasAdminEmail(email) && (teacherTab === "codes" || teacherTab === "analytics")) {
+      p.set("includeAll", "1");
+      p.set("scope", auditScopeEmail);
+    }
     const pb = p.toString();
     return pb ? `?${pb}` : "";
   };
@@ -13964,6 +13968,7 @@ export default function App() {
   };
 
   const fetchCodeIntegrity = async (emailOverride?: string) => {
+    const requestedScope = auditScopeRef.current;
     try {
       const email = emailOverride || teacherSession?.email || "";
       const teacherEmailParam = getTeacherUrlParams(email);
@@ -13975,7 +13980,7 @@ export default function App() {
         },
       );
       const d = await resp.json();
-      if (d.success) setCodeIntegrity(d);
+      if (d.success && requestedScope === auditScopeRef.current) setCodeIntegrity(d);
     } catch {}
   };
 
@@ -16124,6 +16129,7 @@ ${rows
   };
 
   const fetchLogs = async (emailOverride?: string) => {
+    const requestedScope = auditScopeRef.current;
     try {
       const email = emailOverride || teacherSession?.email || "";
       const teacherEmailParam = getTeacherUrlParams(email);
@@ -16131,7 +16137,7 @@ ${rows
         headers: teacherHeaders(email),
       });
       const d = await resp.json();
-      if (!resp.ok || !Array.isArray(d.logs)) return false;
+      if (!resp.ok || !Array.isArray(d.logs) || requestedScope !== auditScopeRef.current) return false;
       if (Array.isArray(d.logs)) {
         applyTeacherLogs(d);
       }
@@ -16154,7 +16160,7 @@ ${rows
   const fetchReports = async (emailOverride?: string, options: { quiet?: boolean; isCurrent?: () => boolean } = {}) => {
     try {
       const email = emailOverride || teacherSession?.email || "";
-      const resp = await fetch("/api/teacher/reports", {
+      const resp = await fetch(`/api/teacher/reports${getTeacherUrlParams(email)}`, {
         cache: "no-store",
         headers: teacherHeaders(email),
       });
@@ -20621,6 +20627,15 @@ ${rows
     if (teacherSession?.email) void fetchTrustedPasskeyDevices();
   }, [isAdminTeacher, teacherTab, passkeyDevicesOpen, teacherSession?.email]);
   useEffect(() => {
+    if (currentView !== "teacher_workspace" || !isAdminTeacher ||
+      (teacherTab !== "codes" && teacherTab !== "analytics")) return;
+    void Promise.allSettled([
+      fetchSections(), fetchReports(undefined, { quiet: true }),
+      fetchLogs(), fetchJoinCodes(), fetchCodeIntegrity(),
+    ]);
+  }, [currentView, teacherTab, auditScopeEmail, teacherSession?.email]);
+
+  useEffect(() => {
     if (teacherTab === "codes" && codesSubTab === "attempts") {
       void fetchActivationAttemptReport();
     }
@@ -20857,13 +20872,12 @@ ${rows
         isSameTeacherIdentity(courseOwnerEmail(sec.code), scopedOwnerEmail),
     )
     .map((sec: any) => sec.code);
-  const joinCodeOwnerEmail = (code: any) =>
-    String(
-      code.ownerEmail ||
-        code.createdByEmail ||
-        code.teacherEmail ||
-        courseOwnerEmail(code.studentSection || code.sectionCode || ""),
-    ).toLowerCase();
+  const joinCodeOwnerEmail = (code: any) => {
+    const course = code.resolvedCourseCode || code.studentSection || code.sectionCode || code.courseCode || "";
+    const issuedBy = code.ownerEmail || code.createdByEmail || code.teacherEmail;
+    return String((code.status === "used" && course ? courseOwnerEmail(course) : issuedBy) ||
+      (course ? courseOwnerEmail(course) : "")).toLowerCase();
+  };
   const studentBelongsToCourse = (student: any, courseCode: string) => {
     if (!courseCode) return true;
     const removedLinks = Array.isArray(student?.removedCourseLinks)
@@ -21043,6 +21057,8 @@ ${rows
     if (isAdminTeacher) {
       if (auditScopeEmail === "all") return true;
       const targetEmail = scopedOwnerEmail;
+      const eventCourse = log.sectionCode || log.courseCode || log.studentSection;
+      if (eventCourse) return isSameTeacherIdentity(courseOwnerEmail(eventCourse), targetEmail);
       if (!log.studentId) return isSameTeacherIdentity(actorEmail, targetEmail);
       const st = teacherStudents.find(
         (student: any) => String(student.id) === String(log.studentId),
