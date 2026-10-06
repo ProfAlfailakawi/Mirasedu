@@ -52,6 +52,12 @@ test('different students and genuinely different warning events remain in the ac
   const result=feed({localNotifications:['1','2'].map(studentId=>({id:'note'+studentId,userId:email,type:'exam_warning',title:'تنبيه نزاهة',createdAt:log.timestamp,data:{studentId,teacherEmail:email,notificationId:'event'+studentId}}))});
   assert.equal(result.length,2);assert.notEqual(result[0].key,result[1].key);
 });
+test('repeated rejected-code alerts for the same student are grouped with a count',()=>{
+ const rows=[50,51].map(minute=>({...log,id:`rejected-${minute}`,action:'محاولة كود مرفوضة',details:'محاولة دخول مرفوضة بعد اعتماد نقل الحساب لجهاز جديد — الرمز: LAB-UP5A-RPZB-XMMF',timestamp:`2026-10-06T12:${minute}:00Z`}));
+ const result=feed({systemLogs:rows});assert.equal(result.length,1);assert.equal(result[0].repeatCount,2);assert.match(result[0].body,/2 محاولات/);
+ assert.equal(feed({systemLogs:rows,teacherImportantReadKeys:new Set(['admin-log-rejected-50'])}).length,1);
+ assert.equal(feed({systemLogs:rows,teacherImportantReadKeys:new Set(['admin-log-rejected-50','admin-log-rejected-51'])}).length,0);
+});
 test('repeating an unresolved request keeps its read key and does not resurrect the same alert',()=>{
  const now=Date.now(),first={id:'first',studentId:'1',teacherEmail:email,sectionCode:course,status:'new',requestedAt:new Date(now-10000).toISOString(),expiresAt:new Date(now+3600000).toISOString()};
  const second={...first,id:'second',requestedAt:new Date(now-1000).toISOString()};

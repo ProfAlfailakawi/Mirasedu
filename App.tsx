@@ -12,6 +12,7 @@ import { cloudDataReady } from "./src/shared/cloud-data-ready";
 import { studentSessionIssuedAt, shouldApplyStudentLockSignal } from "./src/shared/student-lock-signal";
 import { countActivatedCourseStudents } from "./src/shared/course-activation-count";
 import { deviceAuditForDisplay } from "./src/shared/device-audit";
+import { sameTeacherIdentity } from "./src/shared/teacher-account-scope";
 import {
   useState,
   useEffect,
@@ -5590,7 +5591,6 @@ export default function App() {
     },
   );
   const [auditScopeEmail, setAuditScopeEmail] = useState("all");
-  const [codesScopeEmail, setCodesScopeEmail] = useState("all");
   const auditScopeRef = useRef(auditScopeEmail);
   auditScopeRef.current = auditScopeEmail;
   const teacherTabRef = useRef(teacherTab);
@@ -6037,6 +6037,7 @@ export default function App() {
   const [activationAttemptReport, setActivationAttemptReport] = useState<any[]>(
     [],
   );
+  const activationAttemptFetchSeqRef = useRef(0);
   const [activationAttemptBusy, setActivationAttemptBusy] = useState(false);
   const [activationAttemptExpandedGroups, setActivationAttemptExpandedGroups] =
     useState<Record<string, boolean>>({});
@@ -14076,6 +14077,9 @@ export default function App() {
 
   const fetchActivationAttemptReport = async () => {
     const email = activeTeacherEmail();
+    const requestSeq = ++activationAttemptFetchSeqRef.current;
+    const requestedScope = auditScopeRef.current;
+    const requestedTab = teacherTabRef.current;
     setActivationAttemptBusy(true);
     try {
       const params = new URLSearchParams();
@@ -14093,6 +14097,12 @@ export default function App() {
         },
       );
       const d = await resp.json().catch(() => ({}));
+      if (
+        requestSeq !== activationAttemptFetchSeqRef.current ||
+        requestedScope !== auditScopeRef.current ||
+        requestedTab !== teacherTabRef.current
+      )
+        return;
       if (resp.ok && Array.isArray(d.attempts)) {
         setActivationAttemptReport(d.attempts);
       } else {
@@ -14101,11 +14111,17 @@ export default function App() {
         );
       }
     } catch {
-      setActivationAttemptReport(
-        Array.isArray(codeIntegrity.attempts) ? codeIntegrity.attempts : [],
-      );
+      if (
+        requestSeq === activationAttemptFetchSeqRef.current &&
+        requestedScope === auditScopeRef.current &&
+        requestedTab === teacherTabRef.current
+      )
+        setActivationAttemptReport(
+          Array.isArray(codeIntegrity.attempts) ? codeIntegrity.attempts : [],
+        );
     } finally {
-      setActivationAttemptBusy(false);
+      if (requestSeq === activationAttemptFetchSeqRef.current)
+        setActivationAttemptBusy(false);
     }
   };
 
@@ -20618,11 +20634,18 @@ ${rows
     String(teacherSession?.role || "")
       .trim()
       .toLowerCase() === "admin";
-  const isSameTeacherIdentity = (a: any, b: any) => {
-    const aa = String(a || "").trim().toLowerCase();
-    const bb = String(b || "").trim().toLowerCase();
-    // دور المشرف صلاحية عرض فقط؛ لا يدمج هوية كل الأساتذة في هوية واحدة.
-    return Boolean(aa && bb && aa === bb);
+  const isSameTeacherIdentity = sameTeacherIdentity;
+  const handleAuditScopeChange = (scope: string) => {
+    if (scope === auditScopeRef.current) return;
+    // Clear scoped results immediately so a brief loading interval never shows
+    // the previous account's rows under the newly selected account.
+    auditScopeRef.current = scope;
+    setAuditScopeEmail(scope);
+    setActivationAttemptReport([]);
+    setCodeIntegrity(createEmptyMirasCodeIntegrity());
+    setPasskeyTrustedDevices([]);
+    setSystemLogs([]);
+    setCodesPage(1);
   };
   const isAdminTeacher = isMirasAdminEmail(teacherSession?.email);
   useEffect(() => {
@@ -40777,9 +40800,7 @@ ${rows
                       <select
                         value={auditScopeEmail}
                         onChange={(e) => {
-                          setAuditScopeEmail(e.target.value);
-                          setCodesScopeEmail(e.target.value);
-                          setCodesPage(1);
+                          handleAuditScopeChange(e.target.value);
                         }}
                         className="miras-super-scope-select"
                       >
@@ -44076,9 +44097,7 @@ ${rows
                       <select
                         value={auditScopeEmail}
                         onChange={(e) => {
-                          setAuditScopeEmail(e.target.value);
-                          setCodesScopeEmail(e.target.value);
-                          setCodesPage(1);
+                          handleAuditScopeChange(e.target.value);
                         }}
                         className="miras-super-scope-select"
                       >

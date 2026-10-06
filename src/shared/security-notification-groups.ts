@@ -1,4 +1,4 @@
-/** Group repeated honey-code alerts for display; retain every audit record. */
+/** Group repeated security alerts for display; retain every audit record. */
 export function groupSecurityNotifications<T extends { key: string; title?: string; body?: string; when?: string; readKeys?: string[] }>(items: T[]): Array<T & { repeatCount?: number }> {
   const windowMs = 15 * 60 * 1000;
   const result: Array<T & { repeatCount?: number }> = [];
@@ -7,7 +7,9 @@ export function groupSecurityNotifications<T extends { key: string; title?: stri
   const compact = (value: unknown) => String(value || '').replace(/\s+/g, ' ').trim();
   for (const item of [...items].sort((a, b) => timestamp(b) - timestamp(a))) {
     const at = timestamp(item);
-    if (!/مصيدة/.test(`${item.title || ''} ${item.body || ''}`) || !Number.isFinite(at)) {
+    const text = `${item.title || ''} ${item.body || ''}`;
+    const isRepeatedSecurityAlert = /مصيدة|دخول مرفوض يحتاج مراجعة/.test(text);
+    if (!isRepeatedSecurityAlert || !Number.isFinite(at)) {
       result.push(item);
       continue;
     }
