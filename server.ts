@@ -11888,7 +11888,10 @@ function teacherCodeIntegrityData(req: express.Request) {
 }
 app.get("/api/teacher/code-integrity", (req, res) => {
   setNoCache(res);
-  const { viewerEmail, scope } = teacherAuditScope(req);
+  const viewerEmail = verifiedTeacherEmailFromSession(req);
+  // Match the builder's legacy default exactly, so an omitted scope cannot
+  // populate the explicit personal-account cache with all-account counters.
+  const scope = String(req.query.scope || "all").trim().toLowerCase();
   return res.json(cachedTeacherAuditRead(`integrity:${viewerEmail}:${scope}`, () => teacherCodeIntegrityData(req)));
 });
 
