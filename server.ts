@@ -9372,6 +9372,13 @@ app.use(async (req, res, next) => {
   // challenge. It must not wait for unrelated database writes. Finish still
   // confirms the updated credential counter/device binding in Firestore.
   const readOnlyPasskeyStart = req.method === "POST" && req.path === "/api/auth/passkey/login/start";
+  // Metadata reads need no global write wait. Teacher lookup may repair a
+  // legacy record, so confirm any mutation it produces with the same targeted
+  // barrier used for login. Keep the initial cloud-sync gate above as well.
+  const readOnlyAuthMetadata = req.method === "POST" && (
+    req.path === "/api/auth/passkey/status" ||
+    req.path === "/api/auth/public-device/availability"
+  );
   if (req.method !== "GET" && req.url.startsWith("/api/") && !readOnlyPasskeyStart) {
     const loginResponse = req.path === "/api/auth/login" || req.path === "/api/auth/passkey/login/finish";
     const mutationVersionAtRequest = dbInstance.getMutationVersion();
@@ -9400,7 +9407,7 @@ app.use(async (req, res, next) => {
       // Confirm the writes produced by this login without waiting for later
       // traffic from other accounts. The same target is retained on retry.
       const responseMutationVersion = dbInstance.getMutationVersion();
-      const waitForResponseWrites = () => loginResponse
+      const waitForResponseWrites = () => (loginResponse || readOnlyAuthMetadata)
         ? (responseMutationVersion > mutationVersionAtRequest
           ? dbInstance.waitForMutationSync(responseMutationVersion)
           : Promise.resolve())
@@ -15781,7 +15788,7 @@ app.post("/api/students/:id/activate", (req, res) => {
 });
 
 // Reset Student Devices Limit Lock (by teacher)
-app.post("/api/students/:id/reset-devices", (req, res) => {
+app.post("/api/students/:id/reset-devices", async (req, res) => {
   const student = dbInstance.getStudents().find((s) => s.id === req.params.id);
   if (!student) return res.status(404).json({ error: "الطالب غير موجود" });
   const teacherEmail = teacherEmailFromRequest(req);
@@ -15843,6 +15850,17 @@ app.post("/api/students/:id/reset-devices", (req, res) => {
     isViolationWarning: false,
   });
 
+  try {
+    // Match reset-access: confirm this transfer's complete patch without
+    // waiting for later mutations from other accounts or a second global wait.
+    await dbInstance.persist();
+    const version = dbInstance.getMutationVersion();
+    await dbInstance.waitForMutationSync(version).catch(() => dbInstance.waitForMutationSync(version));
+    res.locals.cloudMutationConfirmed = true;
+  } catch (error) {
+    console.error("Legacy device transfer could not be confirmed:", error);
+    return res.status(503).json(cloudDurabilityErrorBody());
+  }
   return res.json({ success: true, devices: [], pendingDeviceTransfer: true });
 });
 
@@ -23937,7 +23955,6 @@ app.get("/api/learning-intelligence/policy", (_req, res) => {
 function teacherReportsData(teacherEmail: string, includeAll = false) {
   const students = dbInstance.getStudents();
   const allowed = dbInstance.getAllowedStudents();
-  const projects = dbInstance.getPersonalizedProjects();
   const submissions = dbInstance.getQuizSubmissions();
   const logs = dbInstance.getActivityLogs();
 
@@ -23975,23 +23992,25 @@ function teacherReportsData(teacherEmail: string, includeAll = false) {
         c.teacherEmail.toLowerCase() === teacherEmail.toLowerCase(),
     );
 
+  const teacherChapterIds = new Set(teacherChapters.map((chapter) => chapter.id));
+  const chapterQuizTotals = new Map<string, { attemptsCount: number; scorePercentTotal: number }>();
+  for (const quiz of submissions) {
+    if (!teacherChapterIds.has(quiz.chapterId)) continue;
+    const totals = chapterQuizTotals.get(quiz.chapterId) || { attemptsCount: 0, scorePercentTotal: 0 };
+    totals.attemptsCount += 1;
+    totals.scorePercentTotal += (quiz.score / quiz.totalPoints) * 100;
+    chapterQuizTotals.set(quiz.chapterId, totals);
+  }
   const chapterStats = teacherChapters.map((chapter) => {
-    const chapterQuizzes = submissions.filter(
-      (q) => q.chapterId === chapter.id,
-    );
+    const totals = chapterQuizTotals.get(chapter.id);
     const avgScore =
-      chapterQuizzes.length > 0
-        ? Math.floor(
-            chapterQuizzes.reduce(
-              (acc, q) => acc + (q.score / q.totalPoints) * 100,
-              0,
-            ) / chapterQuizzes.length,
-          )
+      totals && totals.attemptsCount > 0
+        ? Math.floor(totals.scorePercentTotal / totals.attemptsCount)
         : 80;
     return {
       chapterId: chapter.id,
       title: chapter.title,
-      attemptsCount: chapterQuizzes.length,
+      attemptsCount: totals?.attemptsCount || 0,
       averageScorePercent: avgScore,
     };
   });
@@ -24006,16 +24025,20 @@ function teacherReportsData(teacherEmail: string, includeAll = false) {
   const teacherSectionCodes = new Set(
     teacherSections.map((sec: any) => String(sec.code || "").toLowerCase()),
   );
+  const ownsCourseCache = new Map<string, boolean>();
   const ownsCourse = (courseCode: any) => {
     if (includeAll || !teacherEmail) return true;
     const code = String(courseCode || "").trim();
     if (!code) return false;
-    if (teacherSectionCodes.has(code.toLowerCase())) return true;
-    if (teacherOwnsCourseCode(code, teacherEmail)) return true;
-    return teacherSections.some((sec: any) => sectionCodeEquivalent(sec.code, code));
+    const cached = ownsCourseCache.get(code);
+    if (cached !== undefined) return cached;
+    const owns = teacherSectionCodes.has(code.toLowerCase()) ||
+      teacherOwnsCourseCode(code, teacherEmail) ||
+      teacherSections.some((sec: any) => sectionCodeEquivalent(sec.code, code));
+    ownsCourseCache.set(code, owns);
+    return owns;
   };
-  const reportStudents = dbInstance
-    .getStudents()
+  const reportStudents = students
     .map((student: any) => {
       const enrollments = getStudentEnrollmentDetails(student).filter((entry: any) =>
         ownsCourse(entry.courseCode || entry.sectionCode),
@@ -24032,8 +24055,7 @@ function teacherReportsData(teacherEmail: string, includeAll = false) {
     inactiveOrStruggling,
     chapterStats,
     students: reportStudents,
-    allowedStudents: dbInstance
-      .getAllowedStudents()
+    allowedStudents: allowed
       .filter((row: any) => ownsCourse(row.sectionCode || row.courseCode)),
   };
 }

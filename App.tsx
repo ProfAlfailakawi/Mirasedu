@@ -7901,17 +7901,11 @@ export default function App() {
     if (!activeStudent?.id) return false;
     setStudentWorkspaceLoadError("");
     try {
-      await refreshStudentLiveState(activeStudent);
-      const detailsResp = await fetch(`/api/students/${activeStudent.id}`, {
-        cache: "no-store",
-        headers: jsonHeaders({ auth: "student", session: activeStudent }),
-      });
-      const details = await detailsResp.json().catch(() => ({}));
-      if (!detailsResp.ok) throw new Error(details.error || "student-details");
-      if (details.projects && details.projects.length > 0)
-        setPersonalProject(details.projects[0]);
-      else setPersonalProject(null);
-      setStudentSubmissions(details.exerciseSubmissions || []);
+      // Share the session bootstrap: both authenticated reads start together,
+      // including when setting studentSession has already started the loader.
+      if (!(await loadStudentCloudData(activeStudent))) {
+        throw new Error("STUDENT_CLOUD_NOT_READY");
+      }
       return true;
     } catch {
       setStudentWorkspaceLoadError(
@@ -8690,16 +8684,21 @@ export default function App() {
       .toLowerCase();
 
     const loadTeacherDataOnSession = async () => {
+      const cloudLoad = loadTeacherCloudData(teacherEmail);
+      // The shared loader starts in a microtask. Start its cloud request before
+      // reading/parsing potentially large local chapter and question caches.
+      await Promise.resolve();
+      if (!active) return;
       try {
         const chKey = `academicLabAvailableChapters:${teacherEmail}`;
         const qKey = `academicLabQuestionBank:${teacherEmail}`;
         const cachedCh = localStorage.getItem(chKey);
         const cachedQ = localStorage.getItem(qKey);
-        if (active && cachedCh) setAvailableChapters(JSON.parse(cachedCh));
-        if (active && cachedQ) setTeacherQuestions(JSON.parse(cachedQ));
+        setAvailableChapters(cachedCh ? JSON.parse(cachedCh) : []);
+        setTeacherQuestions(cachedQ ? JSON.parse(cachedQ) : []);
       } catch {}
       try {
-        await loadTeacherCloudData(teacherEmail);
+        await cloudLoad;
       } catch (err) {
         console.error("Error loading teacher persistent details:", err);
       }
@@ -15299,30 +15298,31 @@ ${rows
   };
 
   const fetchQuestionBank = async (emailOverride?: string) => {
+    const email = String(emailOverride || teacherSession?.email || "").trim().toLowerCase();
+    if (!email) return;
+    const authToken = readStoredSessionAuthToken("miras_teacher_session");
+    const loadGen = cloudSessionGenRef.current;
+    const isCurrent = () => loadGen === cloudSessionGenRef.current &&
+      authToken === readStoredSessionAuthToken("miras_teacher_session");
     try {
-      const email = emailOverride || teacherSession?.email || "";
       const resp = await fetch("/api/teacher/question-bank", {
         cache: "no-store",
         headers: teacherHeaders(email),
       });
       const d = await resp.json();
-      if (d.questions) {
-        const questionsList = (
-          Array.isArray(d.questions) ? d.questions : []
-        ).filter(isLiveRecord);
-        setTeacherQuestions(questionsList);
-        if (d.revision)
-          setLiveSyncInfo((prev) => ({
-            ...prev,
-            revision: Number(d.revision),
-            lastSeen: new Date().toISOString(),
-          }));
-        try {
-          const email = activeTeacherEmail();
-          const questionsKey = `academicLabQuestionBank:${email || "anonymous"}`;
-          localStorage.setItem(questionsKey, JSON.stringify(questionsList));
-        } catch {}
-      }
+      if (!isCurrent() || !resp.ok || !Array.isArray(d.questions)) return;
+      const questionsList = d.questions.filter(isLiveRecord);
+      setTeacherQuestions(questionsList);
+      if (d.revision)
+        setLiveSyncInfo((prev) => ({
+          ...prev,
+          revision: Number(d.revision),
+          lastSeen: new Date().toISOString(),
+        }));
+      try {
+        const questionsKey = `academicLabQuestionBank:${email}`;
+        localStorage.setItem(questionsKey, JSON.stringify(questionsList));
+      } catch {}
     } catch (e) {}
   };
 
@@ -17181,16 +17181,10 @@ ${rows
         );
       }
 
-      try {
-        const chKey = `academicLabAvailableChapters:${teacherEmail}`;
-        const qKey = `academicLabQuestionBank:${teacherEmail}`;
-
-        const cachedCh = localStorage.getItem(chKey);
-        setAvailableChapters(cachedCh ? JSON.parse(cachedCh) : []);
-
-        const cachedQ = localStorage.getItem(qKey);
-        setTeacherQuestions(cachedQ ? JSON.parse(cachedQ) : []);
-      } catch {}
+      // The session effect hydrates this account's caches once, after the
+      // workspace request starts. Never carry a previous teacher's questions.
+      setAvailableChapters([]);
+      setTeacherQuestions([]);
 
       setJoinCodesList([]);
       setPasswordResetRequestsState([]);
