@@ -5592,6 +5592,8 @@ export default function App() {
   const [codesScopeEmail, setCodesScopeEmail] = useState("all");
   const auditScopeRef = useRef(auditScopeEmail);
   auditScopeRef.current = auditScopeEmail;
+  const teacherTabRef = useRef(teacherTab);
+  teacherTabRef.current = teacherTab;
   const [allowedRosterOpen, setAllowedRosterOpen] = useState(true);
   const [manualStudentFormOpen, setManualStudentFormOpen] = useState(false);
   const [manualStudentLookupName, setManualStudentLookupName] = useState("");
@@ -15283,12 +15285,15 @@ ${rows
   ) => {
     try {
       const email = activeTeacherEmail(emailOverride);
+      const requestedTab = teacherTabRef.current;
+      const requestedScope = auditScopeRef.current;
       const teacherEmailParam = getTeacherUrlParams(email);
       const resp = await fetch(`/api/teacher/sections${teacherEmailParam}`, {
         headers: teacherHeaders(email),
       });
       const d = await resp.json();
       if (!resp.ok) return false;
+      if (requestedTab !== teacherTabRef.current || requestedScope !== auditScopeRef.current) return false;
       if (d.sections) {
         applyTeacherSections(d, preferredCourseCode);
         return true;
@@ -16163,12 +16168,15 @@ ${rows
   const fetchReports = async (emailOverride?: string, options: { quiet?: boolean; isCurrent?: () => boolean } = {}) => {
     try {
       const email = emailOverride || teacherSession?.email || "";
+      const requestedTab = teacherTabRef.current;
+      const requestedScope = auditScopeRef.current;
       const resp = await fetch(`/api/teacher/reports${getTeacherUrlParams(email)}`, {
         cache: "no-store",
         headers: teacherHeaders(email),
       });
       const d = await resp.json();
       if (options.isCurrent && !options.isCurrent()) return false;
+      if (requestedTab !== teacherTabRef.current || requestedScope !== auditScopeRef.current) return false;
       if (!resp.ok) {
         if (resp.status === 401) return false;
         throw new Error(d?.error || "تعذر جلب بيانات السحابة.");
@@ -20624,11 +20632,11 @@ ${rows
     if (teacherSession?.email) void fetchTrustedPasskeyDevices();
   }, [isAdminTeacher, teacherTab, passkeyDevicesOpen, teacherSession?.email]);
   useEffect(() => {
-    if (currentView !== "teacher_workspace" || !isAdminTeacher ||
-      (teacherTab !== "codes" && teacherTab !== "analytics")) return;
+    if (currentView !== "teacher_workspace" || !isAdminTeacher) return;
     void Promise.allSettled([
       fetchSections(), fetchReports(undefined, { quiet: true }),
-      fetchLogs(), fetchJoinCodes(), fetchCodeIntegrity(),
+      ...(teacherTab === "codes" || teacherTab === "analytics"
+        ? [fetchLogs(), fetchJoinCodes(), fetchCodeIntegrity()] : []),
     ]);
   }, [currentView, teacherTab, auditScopeEmail, teacherSession?.email]);
 
@@ -20902,8 +20910,14 @@ ${rows
     // يمنع اختفاء الطلبة من حساب المعلم عند تغيير اسم أو رقم المقرر.
     return studentCodes.some((code: any) => courseCodesMatch(code, courseCode));
   };
+  const isAccountAuditView = isAdminTeacher && (teacherTab === "codes" || teacherTab === "analytics");
+  const courseInCurrentScope = (code: string) => isAccountAuditView
+    ? scopedOwnerEmail === "all" || isSameTeacherIdentity(courseOwnerEmail(code), scopedOwnerEmail)
+    : courseCodesMatch(code, activeCourseCode);
   const scopedTeacherStudents = teacherStudents.filter((student: any) =>
-    studentBelongsToCourse(student, activeCourseCode),
+    isAccountAuditView
+      ? scopedOwnerEmail === "all" || auditCourseCodes.some(code => studentBelongsToCourse(student, code))
+      : studentBelongsToCourse(student, activeCourseCode),
   );
   const allowedRosterForCourse = allowedStudentsText
     .split("\n")
@@ -20911,9 +20925,7 @@ ${rows
     .filter(
       (parts) =>
         parts.length >= 3 &&
-        (!activeCourseCode ||
-          String(parts[2]).toLowerCase() ===
-            String(activeCourseCode).toLowerCase()),
+        courseInCurrentScope(parts[2]),
     )
     .map(([id, name, sectionCode]) => {
       const registeredStudent = scopedTeacherStudents.find(
@@ -45628,7 +45640,7 @@ ${rows
                               </p>
                             </div>
                             <span className="inline-flex items-center justify-center gap-2 rounded-2xl bg-indigo-50 px-4 py-2 text-[11px] font-bold text-indigo-700">
-                              {teacherStudents.length} طالب
+                              {scopedTeacherStudents.length} طالب
                               <ChevronRight
                                 className={`h-3.5 w-3.5 transition-transform ${codesAccordion.manualActivation ? "-rotate-90" : "rotate-90"}`}
                               />
@@ -45663,7 +45675,7 @@ ${rows
                                 )}
                               </div>
                               <div className="grid grid-cols-1 xl:grid-cols-2 gap-3">
-                                {teacherStudents
+                                {scopedTeacherStudents
                                   .filter((student) => {
                                     const q = manualActivationSearch
                                       .trim()
@@ -45697,7 +45709,7 @@ ${rows
                                           .filter(Boolean)
                                           .map((code: any) => String(code).trim())
                                           .filter((code) =>
-                                            studentBelongsToCourse(student, code),
+                                            studentBelongsToCourse(student, code) && courseInCurrentScope(code),
                                           ),
                                       ),
                                     );

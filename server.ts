@@ -21337,7 +21337,7 @@ function teacherSectionsData(teacherEmail: string, includeAll = false) {
         !teacherEmail ||
         sectionOwnerEmail(sec.code) === teacherEmail,
     );
-  return sections.map((section) => ({ ...section, canEditCode: !courseHasStudents(section.code) }));
+  return sections.map((section) => ({ ...section, ownerEmail: sectionOwnerEmail(section.code), canEditCode: !courseHasStudents(section.code) }));
 }
 
 app.get("/api/teacher/sections", (req, res) => {
