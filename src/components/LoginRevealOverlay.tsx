@@ -16,7 +16,7 @@ import {
 // المنظومة نفَساً واحداً هادئاً ثم تتقدّم بلطف «داخل» اللوحة بينما ترتفع الستارة
 // — كشفٌ عبر البوابة لا تلاشٍ مسطّح. تُعرض مرة واحدة فقط بعد تسجيل الدخول
 // تحجب التفاعل مع اللوحة حتى تكتمل قراءة السحابة،
-// والحركة transform/opacity فقط حفاظاً على 60fps. المدة الكلية ~1.68 ثانية.
+// والحركة transform/opacity فقط؛ لا مدة انتظار إضافية بعد وصول بيانات السحابة.
 
 type RevealRole = "student" | "teacher";
 
@@ -73,7 +73,8 @@ export default function LoginRevealOverlay({
   const isTeacher = role === "teacher";
   const pieces = isTeacher ? TEACHER_PIECES : STUDENT_PIECES;
 
-  const mountedAtRef = useRef(Date.now());
+  const onDoneRef = useRef(onDone);
+  onDoneRef.current = onDone;
   // تقليل الحركة: شاشة ثابتة بلا حركة أو سفر شارات، وتغادر فور جاهزية البيانات.
   const [reduced] = useState(() => {
     try {
@@ -86,14 +87,11 @@ export default function LoginRevealOverlay({
   useEffect(() => {
     if (!ready) return;
     if (reduced) {
-      onDone();
+      onDoneRef.current();
       return;
     }
-    // أقل مدة عرض ١٫٢٥ ثانية، ثم نغادر فور جاهزية البيانات.
-    const wait = Math.max(0, 1250 - (Date.now() - mountedAtRef.current));
-    // مغادرة عند ~1.25 ثانية: تُقاس مواقع عناصر اللوحة الحقيقية (المرسومة أسفل
-    // الستارة) فتسافر إليها الشارات نفسها — «العنصر يتحوّل إلى مكانه» بدل
-    // الاختفاء. إزالة كاملة عند ~1.86 ثانية؛ لا تعليق أطول من ذلك.
+    // الجاهزية السحابية وحدها تحدد المغادرة؛ الحركة القصيرة لا تعيد تشغيل
+    // مؤقّتها عندما تصل تحديثات أخرى إلى اللوحة أو يتغير مرجع onDone.
     const t1 = window.setTimeout(() => {
       const next: Flight[] = pieces.map(({ target }, i) => {
         const el = pieceEls.current[i];
@@ -124,14 +122,14 @@ export default function LoginRevealOverlay({
       });
       setFlights(next);
       setLeaving(true);
-    }, wait);
-    const t2 = window.setTimeout(onDone, wait + 710);
+    }, 0);
+    const t2 = window.setTimeout(() => onDoneRef.current(), 180);
     return () => {
       window.clearTimeout(t1);
       window.clearTimeout(t2);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [onDone, role, ready, reduced]);
+  }, [role, ready, reduced]);
   const title = isTeacher ? "لوحة المعلم" : "مسارك الأكاديمي";
   const subtitle = isTeacher ? "تجهيز فصولك وأدواتك…" : "تجهيز رحلتك التعليمية…";
 
@@ -182,7 +180,7 @@ export default function LoginRevealOverlay({
         className="absolute inset-0 bg-gradient-to-b from-slate-50 via-white to-slate-100"
         initial={{ opacity: 1 }}
         animate={{ opacity: leaving ? 0 : 1 }}
-        transition={{ duration: 0.5, ease: easeLift }}
+        transition={{ duration: 0.18, ease: easeLift }}
         style={{ willChange: "opacity" }}
       >
         {/* عمق الستارة: نغمة قطرية بلون الدور + هالة علوية خافتة (طبقات ثابتة) */}
@@ -221,7 +219,7 @@ export default function LoginRevealOverlay({
             animate={leaving ? { scale: 1.14, opacity: 0 } : { scale: 1, opacity: 1 }}
             transition={
               leaving
-                ? { duration: 0.43, ease: easeLift }
+                ? { duration: 0.16, ease: easeLift }
                 : { duration: 0.55, delay: 0.32, ease: easeOut }
             }
             style={{ willChange: "transform, opacity" }}
@@ -253,7 +251,7 @@ export default function LoginRevealOverlay({
             }
             transition={
               leaving
-                ? { duration: 0.43, ease: easeLift }
+                ? { duration: 0.16, ease: easeLift }
                 : { duration: 0.65, delay: 0.42, ease: easeOut }
             }
             style={{ willChange: "transform, opacity" }}
@@ -304,12 +302,12 @@ export default function LoginRevealOverlay({
                 transition={
                   leaving
                     ? {
-                        duration: 0.56,
-                        delay: i * 0.04,
+                        duration: 0.16,
+                        delay: 0,
                         ease: easeLift,
                         opacity: flight
-                          ? { duration: 0.56, times: [0, 0.72, 1] }
-                          : { duration: 0.4 },
+                          ? { duration: 0.16, times: [0, 0.72, 1] }
+                          : { duration: 0.16 },
                       }
                     : {
                         duration: 0.72,

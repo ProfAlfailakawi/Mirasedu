@@ -81,6 +81,7 @@ run_group tests/flows.password-resets.mjs
 run_group tests/flows.grade-release.mjs
 run_group tests/flows.device-lock.mjs tests/seed-device-lock.cjs
 run_group tests/flows.public-device-login.mjs
+run_group tests/flows.cloud-workspace.mjs
 run_group tests/flows.authz-audit.mjs
 run_group tests/flows.demo-hosting.mjs
 node node_modules/.bin/tsx --test tests/general-code-reset.test.mjs || overall=1
@@ -92,6 +93,8 @@ node node_modules/.bin/tsx --test tests/student-lock-signal.test.ts || overall=1
 node node_modules/.bin/tsx --test tests/atomic-cloud-write.test.ts || overall=1
 node node_modules/.bin/tsx --test tests/cloud-mutation-barrier.test.ts || overall=1
 node node_modules/.bin/tsx --test tests/cloud-sync-listener.test.mjs || overall=1
+node node_modules/.bin/tsx --test tests/login-cloud-loaders.test.mjs || overall=1
+node node_modules/.bin/tsx --test tests/login-reveal-timing.test.mjs || overall=1
 node node_modules/.bin/tsx --test tests/cloud-data-ready.test.ts || overall=1
 node node_modules/.bin/tsx --test tests/cloud-readiness-probe.test.ts || overall=1
 node node_modules/.bin/tsx --test tests/password-reset-routing.test.ts || overall=1

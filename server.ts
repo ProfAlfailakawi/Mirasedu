@@ -9373,7 +9373,13 @@ app.use(async (req, res, next) => {
     console.error("⚠️ Initial cloud database sync failed before API request:", e);
   }
 
-  if (req.method !== "GET" && req.url.startsWith("/api/")) {
+  // Passkey start only reads credentials and creates a short-lived in-memory
+  // challenge. It must not wait for unrelated database writes. Finish still
+  // confirms the updated credential counter/device binding in Firestore.
+  const readOnlyPasskeyStart = req.method === "POST" && req.path === "/api/auth/passkey/login/start";
+  if (req.method !== "GET" && req.url.startsWith("/api/") && !readOnlyPasskeyStart) {
+    const loginResponse = req.path === "/api/auth/login" || req.path === "/api/auth/passkey/login/finish";
+    const mutationVersionAtRequest = dbInstance.getMutationVersion();
     // حارس دوام عام لكل عمليات التعديل: أي رد JSON ناجح لا يخرج للواجهة إلا بعد
     // تفريغ الدفعة المحلية وانتظار مزامنة Firestore. هذا يمنع حالة "ظهر ثم اختفى"
     // في المسارات التي لم تكن تستدعي waitForSync يدوياً، ويبقي أخطاء 4xx/5xx سريعة.
@@ -9396,9 +9402,17 @@ app.use(async (req, res, next) => {
         return originalJson(body);
       }
       cloudGuardedJson = true;
+      // Confirm the writes produced by this login without waiting for later
+      // traffic from other accounts. The same target is retained on retry.
+      const responseMutationVersion = dbInstance.getMutationVersion();
+      const waitForResponseWrites = () => loginResponse
+        ? (responseMutationVersion > mutationVersionAtRequest
+          ? dbInstance.waitForMutationSync(responseMutationVersion)
+          : Promise.resolve())
+        : dbInstance.waitForSync();
       // محاولة ثانية واحدة قبل إرجاع 503: أغلب الإخفاقات تأخّر عابر في الكتابة.
-      Promise.resolve(dbInstance.waitForSync())
-        .catch(() => dbInstance.waitForSync())
+      Promise.resolve(waitForResponseWrites())
+        .catch(() => waitForResponseWrites())
         .then(() => {
           try {
             if (!res.headersSent) originalJson(body);
@@ -21310,11 +21324,7 @@ function courseHasStudents(courseCode: string): boolean {
   );
 }
 
-app.get("/api/teacher/sections", (req, res) => {
-  setNoCache(res);
-  const teacherEmail = teacherEmailFromRequest(req);
-  const includeAll =
-    String(req.query.includeAll || "") === "1" && isAdminEmail(teacherEmail);
+function teacherSectionsData(teacherEmail: string, includeAll = false) {
   const sections = activeSections()
     .filter(
       (sec: any) =>
@@ -21322,7 +21332,14 @@ app.get("/api/teacher/sections", (req, res) => {
         !teacherEmail ||
         sectionOwnerEmail(sec.code) === teacherEmail,
     );
-  return res.json({ success: true, sections: sections.map((section) => ({ ...section, canEditCode: !courseHasStudents(section.code) })) });
+  return sections.map((section) => ({ ...section, canEditCode: !courseHasStudents(section.code) }));
+}
+
+app.get("/api/teacher/sections", (req, res) => {
+  setNoCache(res);
+  const teacherEmail = teacherEmailFromRequest(req);
+  const includeAll = String(req.query.includeAll || "") === "1" && isAdminEmail(teacherEmail);
+  return res.json({ success: true, sections: teacherSectionsData(teacherEmail, includeAll) });
 });
 
 app.post("/api/teacher/sections", (req, res) => {
@@ -22164,9 +22181,7 @@ app.post("/api/teacher/exercises/activate", (req, res) => {
 });
 
 // Get Audit Logs & Security warnings
-app.get("/api/teacher/logs", (req, res) => {
-  // الهوية من الجلسة الموثّقة فقط: كان بريد فارغ/منتحَل يكشف سجلات معلمين آخرين.
-  const teacherEmail = verifiedTeacherEmailFromSession(req);
+function teacherLogsData(teacherEmail: string) {
   // سقف: أحدث ٣٠٠ سجل فقط. السجل ينمو بلا حدود مع الاستخدام الفعلي (كل دخول
   // /محاولة/تسليم = سجل جديد)، وإرسال آلاف السجلات في كل تحميل كان يبطّئ الجوال
   // بشكل متصاعد. أحدث ٣٠٠ يكفي للمتابعة الحيّة ويبقي الحمولة صغيرة وثابتة.
@@ -22180,12 +22195,14 @@ app.get("/api/teacher/logs", (req, res) => {
         )
         .slice(0, 300)
     : all;
-  return res.json({ logs });
+  return logs;
+}
+
+app.get("/api/teacher/logs", (req, res) => {
+  return res.json({ logs: teacherLogsData(verifiedTeacherEmailFromSession(req)) });
 });
 
-app.get("/api/teacher/password-reset-requests", (req, res) => {
-  // الهوية من الجلسة الموثّقة فقط: منع كشف طلبات إعادة تعيين كلمات مرور معلم آخر.
-  const teacherEmail = verifiedTeacherEmailFromSession(req);
+function teacherPasswordResetRequestsData(req: express.Request, teacherEmail: string) {
   const requests = withLiveStudentNames(
     dbInstance
       .getPasswordResetRequests()
@@ -22205,7 +22222,11 @@ app.get("/api/teacher/password-reset-requests", (req, res) => {
         return publicPasswordResetRequest({ ...item, ...route });
       }),
   );
-  return res.json({ success: true, requests });
+  return requests;
+}
+
+app.get("/api/teacher/password-reset-requests", (req, res) => {
+  return res.json({ success: true, requests: teacherPasswordResetRequestsData(req, verifiedTeacherEmailFromSession(req)) });
 });
 
 app.post("/api/teacher/password-reset-requests/:id/resend", (req, res) => {
@@ -22658,8 +22679,7 @@ app.delete("/api/teacher/exams/:id", async (req, res) => {
   return res.json({ success: true, revision });
 });
 
-app.get("/api/teacher/projects", (req, res) => {
-  const teacherEmail = teacherEmailFromRequest(req);
+function teacherProjectsData(teacherEmail: string) {
   const projects = activeRuntimeTeacherProjects().filter((project: any) => {
     if (!teacherEmail || isAdminEmail(teacherEmail)) return true;
     const code = String(project.courseCode || "");
@@ -22669,7 +22689,11 @@ app.get("/api/teacher/projects", (req, res) => {
       String(project.createdBy || "").toLowerCase() === teacherEmail
     );
   });
-  return res.json({ success: true, projects });
+  return projects;
+}
+
+app.get("/api/teacher/projects", (req, res) => {
+  return res.json({ success: true, projects: teacherProjectsData(teacherEmailFromRequest(req)) });
 });
 
 app.post("/api/teacher/projects", async (req, res) => {
@@ -23911,9 +23935,7 @@ app.get("/api/learning-intelligence/policy", (_req, res) => {
 });
 
 // Get System Statistics and progress reports
-app.get("/api/teacher/reports", (req, res) => {
-  setNoCache(res);
-  try {
+function teacherReportsData(teacherEmail: string, includeAll = false) {
   const students = dbInstance.getStudents();
   const allowed = dbInstance.getAllowedStudents();
   const projects = dbInstance.getPersonalizedProjects();
@@ -23946,7 +23968,6 @@ app.get("/api/teacher/reports", (req, res) => {
       lastLogin: s.lastLoginDate,
     }));
 
-  const teacherEmail = teacherEmailFromRequest(req);
   const teacherChapters = dbInstance
     .getChapters()
     .filter(
@@ -23976,7 +23997,6 @@ app.get("/api/teacher/reports", (req, res) => {
     };
   });
 
-  const includeAll = String(req.query.includeAll || "") === "1" && isAdminEmail(teacherEmail);
   const teacherSections = activeSections()
     .filter(
       (sec: any) =>
@@ -24005,7 +24025,7 @@ app.get("/api/teacher/reports", (req, res) => {
     })
     .filter((student: any) => includeAll || !teacherEmail || student.enrollments.length > 0 || ownsCourse(student.sectionCode));
 
-  return res.json({
+  return {
     totalRegistered,
     totalAllowed,
     percentCompleted,
@@ -24016,7 +24036,15 @@ app.get("/api/teacher/reports", (req, res) => {
     allowedStudents: dbInstance
       .getAllowedStudents()
       .filter((row: any) => ownsCourse(row.sectionCode || row.courseCode)),
-  });
+  };
+}
+
+app.get("/api/teacher/reports", (req, res) => {
+  setNoCache(res);
+  try {
+    const teacherEmail = teacherEmailFromRequest(req);
+    const includeAll = String(req.query.includeAll || "") === "1" && isAdminEmail(teacherEmail);
+    return res.json(teacherReportsData(teacherEmail, includeAll));
   } catch (err: any) {
     console.error("teacher reports failed", err);
     return res.json({
@@ -24030,6 +24058,33 @@ app.get("/api/teacher/reports", (req, res) => {
       allowedStudents: [],
       warning: "تعذر تجميع تقرير الطلبة مؤقتاً دون استخدام بيانات محلية قديمة.",
     });
+  }
+});
+
+
+// One authenticated cloud read supplies every home dataset. Personal scope is
+// determined by the verified session even for administrators, never by a query.
+app.get("/api/teacher/workspace", (req, res) => {
+  setNoCache(res);
+  const started = performance.now();
+  const teacherEmail = verifiedTeacherEmailFromSession(req);
+  if (!teacherEmail) return res.status(401).json({ code: "TEACHER_SESSION_REQUIRED" });
+  try {
+    const payload = {
+      success: true,
+      teacherEmail,
+      sections: teacherSectionsData(teacherEmail),
+      exams: activeTeacherExams(),
+      projects: teacherProjectsData(teacherEmail),
+      requests: teacherPasswordResetRequestsData(req, teacherEmail),
+      logs: teacherLogsData(teacherEmail),
+      reports: teacherReportsData(teacherEmail),
+    };
+    res.setHeader("Server-Timing", `workspace;dur=${(performance.now() - started).toFixed(1)}`);
+    return res.json(payload);
+  } catch (error) {
+    console.error("teacher workspace cloud read failed", error);
+    return res.status(503).json({ success: false, code: "CLOUD_WORKSPACE_UNAVAILABLE" });
   }
 });
 

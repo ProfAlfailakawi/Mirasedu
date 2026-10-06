@@ -1,3 +1,5 @@
+import { createCloudSingleFlight, cloudSessionKey } from "./src/shared/cloud-single-flight";
+import { teacherWorkspaceReady } from "./src/shared/teacher-workspace-ready";
 import { deviceTransferCopy } from "./src/shared/device-transfer-copy";
 import { deviceReviewNotifications } from "./src/shared/device-review-notifications";
 import { probeCloudReadiness } from "./src/shared/cloud-readiness-probe";
@@ -6049,7 +6051,8 @@ export default function App() {
   // طرد الطالب أو مسح الجلسة، ويختفي تلقائياً عند أول تحديث ناجح.
   const [liveConnectionTrouble, setLiveConnectionTrouble] = useState(false);
   const liveStateFailStreakRef = useRef(0);
-  const studentLiveRefreshInFlightRef = useRef(false);
+  const studentLiveRefreshInFlightRef = useRef(createCloudSingleFlight<boolean>());
+  const studentCloudLoadInFlightRef = useRef(createCloudSingleFlight<boolean>());
   const codeTypingRef = useRef<Record<string, any>>({});
   const touchCodeTyping = (
     fieldName: string,
@@ -8039,7 +8042,7 @@ export default function App() {
   const [teacherCloudLoads, setTeacherCloudLoads] = useState(0);
   const [teacherCloudLoadSlow, setTeacherCloudLoadSlow] = useState(false);
   // جاهزية بيانات كل حساب (تُغلق بها شاشة الدخول الافتتاحية): لكل حساب على حدة.
-  const teacherCloudLoadInFlightRef = useRef(new Map<string, Promise<any>>());
+  const teacherCloudLoadInFlightRef = useRef(createCloudSingleFlight<boolean>());
   const [teacherCloudReady, setTeacherCloudReady] = useState<Record<string, true>>({});
   const [studentCloudReady, setStudentCloudReady] = useState<Record<string, true>>({});
   const [studentLoadRetry, setStudentLoadRetry] = useState(0);
@@ -8672,38 +8675,7 @@ export default function App() {
 
   useEffect(() => {
     if (!studentSession?.id) return;
-    let active = true;
-
-    const loadStudentDataOnSession = async () => {
-      try {
-        const liveReady = await refreshStudentLiveState(studentSession);
-        if (!liveReady || !active) return;
-
-        const detailsResp = await fetch(`/api/students/${studentSession.id}`, {
-          cache: "no-store",
-          headers: jsonHeaders({ auth: "student" }),
-        });
-        const details = await detailsResp.json().catch(() => ({}));
-        if (!detailsResp.ok) return;
-        if (!active) return;
-
-        if (details.projects && details.projects.length > 0)
-          setPersonalProject(details.projects[0]);
-        else if (detailsResp.ok) setPersonalProject(null);
-        setStudentSubmissions(details.exerciseSubmissions || []);
-        setStudentCloudReady((m) => ({ ...m, [String(studentSession.id)]: true }));
-      } catch (err) {
-        // Keep the last known project during a transient Safari/Hosting outage.
-        // The live poll retries and replaces this data after the connection returns.
-        console.warn("Student persistent details refresh deferred:", err);
-      }
-    };
-
-    loadStudentDataOnSession();
-
-    return () => {
-      active = false;
-    };
+    void loadStudentCloudData(studentSession);
   }, [studentSession?.id, studentSession?.authToken, studentLoadRetry]);
 
   useEffect(() => {
@@ -8724,7 +8696,6 @@ export default function App() {
       } catch {}
       try {
         await loadTeacherCloudData(teacherEmail);
-        if (active) syncTeacherStudentBridge(teacherEmail);
       } catch (err) {
         console.error("Error loading teacher persistent details:", err);
       }
@@ -8735,7 +8706,7 @@ export default function App() {
     return () => {
       active = false;
     };
-  }, [teacherSession?.email, currentView]);
+  }, [teacherSession?.email, teacherSession?.authToken, currentView]);
 
   // بعد ٥ ثوانٍ من الانتظار نشرح السبب: الخادم يستيقظ ويقرأ القاعدة كاملة.
   const teacherCloudSyncing = teacherCloudLoads > 0;
@@ -12776,9 +12747,14 @@ export default function App() {
   };
   const teacherHeaders = (emailOverride?: string) => {
     const email = activeTeacherEmail(emailOverride);
+    // Login stores the new credential before React renders the new session.
+    // Use that credential immediately so a shared initial read cannot send
+    // the previous session token and then wait for the six-second retry.
+    const token = readStoredSessionAuthToken("miras_teacher_session");
+    const headers = jsonHeaders({ auth: "teacher", ...(token ? { session: { authToken: token } } : {}) });
     return email
-      ? { ...jsonHeaders({ auth: "teacher" }), "x-teacher-email": email }
-      : jsonHeaders({ auth: "teacher" });
+      ? { ...headers, "x-teacher-email": email }
+      : headers;
   };
   const teacherScopedStorageKey = (key: string, emailOverride?: string) =>
     `${key}:${activeTeacherEmail(emailOverride) || "anonymous"}`;
@@ -13914,30 +13890,37 @@ export default function App() {
     return typeof value === "string" ? value : null;
   };
 
-  const fetchJoinCodes = async (emailOverride?: string) => {
+  const fetchJoinCodes = async (emailOverride?: string, options: { includeRetired?: boolean } = {}) => {
     const email = activeTeacherEmail(emailOverride);
+    const includeRetired = options.includeRetired !== false;
+    const loadGen = cloudSessionGenRef.current;
+    const token = readStoredSessionAuthToken("miras_teacher_session");
+    const isCurrent = () => loadGen === cloudSessionGenRef.current &&
+      token === readStoredSessionAuthToken("miras_teacher_session");
     const storageKey = teacherScopedStorageKey("academicLabJoinCodes", email);
     const loadedFromCloudBefore = joinCodesLoadedEmailRef.current === email;
     if (!loadedFromCloudBefore) setJoinCodesLoadState("loading");
     const markCloudLoadFailed = () => {
       if (!loadedFromCloudBefore) setJoinCodesLoadState("failed");
     };
-    let cachedCodes: any[] = [];
+    // Home only needs current codes; do not parse the multi-megabyte archive.
+    let cachedCodes: any[] = includeRetired ? [] : joinCodesList.filter(isRecentlyIssuedJoinCodeRecord);
     try {
-      const rawCached = localStorage.getItem(storageKey);
+      const rawCached = includeRetired ? localStorage.getItem(storageKey) : null;
       const parsedCached = rawCached ? JSON.parse(rawCached) : [];
-      cachedCodes = Array.isArray(parsedCached) ? parsedCached : [];
+      if (includeRetired) cachedCodes = Array.isArray(parsedCached) ? parsedCached : [];
     } catch {}
     try {
       const teacherEmailParam = getTeacherUrlParams(email);
-      const joinCodesQuery = teacherEmailParam
-        ? `${teacherEmailParam}&includeRetired=1`
-        : "?includeRetired=1";
+      const joinCodesQuery = includeRetired
+        ? (teacherEmailParam ? `${teacherEmailParam}&includeRetired=1` : "?includeRetired=1")
+        : teacherEmailParam;
       const resp = await fetch(`/api/teacher/join-codes${joinCodesQuery}`, {
         cache: "no-store",
         headers: teacherHeaders(email),
       });
       const d = await resp.json().catch(() => ({}));
+      if (!isCurrent()) return;
       if (!resp.ok || !Array.isArray(d.joinCodes)) {
         if (cachedCodes.length) {
           setJoinCodesList((prev) => mergeJoinCodeRecords(prev, cachedCodes));
@@ -13958,13 +13941,16 @@ export default function App() {
         scopedCodes,
         recentOptimisticCodes,
       );
-      setJoinCodesList(nextCodes);
+      setJoinCodesList((prev) => includeRetired ? nextCodes : mergeJoinCodeRecords(
+        nextCodes, prev.filter((item: any) => !isLiveJoinCodeRecord(item)),
+      ));
       joinCodesLoadedEmailRef.current = email;
       setJoinCodesLoadState("ready");
       try {
-        localStorage.setItem(storageKey, JSON.stringify(nextCodes));
+        if (includeRetired) localStorage.setItem(storageKey, JSON.stringify(nextCodes));
       } catch {}
     } catch (e) {
+      if (!isCurrent()) return;
       const liveCachedCodes = cachedCodes.filter(isLiveJoinCodeRecord);
       if (liveCachedCodes.length) {
         setJoinCodesList((prev) => mergeJoinCodeRecords(prev, liveCachedCodes));
@@ -13973,40 +13959,55 @@ export default function App() {
     }
   };
 
-  // تحميل بيانات لوحة المعلم كاملة مع تتبّع حالته لشريط «جارٍ التحميل من السحابة».
+  // قراءة سحابية واحدة لكل دخول؛ الطلبات المتزامنة تشترك في النتيجة الجارية فقط.
   const loadTeacherCloudData = (teacherEmail: string) => {
     const readyKey = String(teacherEmail || "").trim().toLowerCase();
+    const authToken = readStoredSessionAuthToken("miras_teacher_session");
     const loadGen = cloudSessionGenRef.current;
-    const flightKey = `${readyKey}:${loadGen}`;
-    const existing = teacherCloudLoadInFlightRef.current.get(flightKey);
-    if (existing) return existing;
-    setTeacherCloudLoads((n) => n + 1);
-    const pending = Promise.allSettled([
-      fetchSections(teacherEmail),
-      fetchTeacherExams(teacherEmail),
-      fetchTeacherProjects(teacherEmail),
-      fetchPasswordResetRequests(teacherEmail),
-      fetchReports(teacherEmail, { quiet: true }),
-      fetchLogs(teacherEmail),
-    ]).then((results) => {
-      setTeacherCloudLoads((n) => Math.max(0, n - 1));
-      if (
-        loadGen === cloudSessionGenRef.current &&
-        cloudDataReady(results, [0, 1, 2, 3, 4, 5])
-      )
-      {
+    const isCurrent = () => loadGen === cloudSessionGenRef.current &&
+      authToken === readStoredSessionAuthToken("miras_teacher_session");
+    return teacherCloudLoadInFlightRef.current.run(cloudSessionKey(readyKey, authToken, loadGen), async () => {
+      setTeacherCloudLoads((n) => n + 1);
+      try {
+        const resp = await fetch("/api/teacher/workspace", {
+          cache: "no-store",
+          headers: teacherHeaders(teacherEmail),
+        });
+        const d = await resp.json().catch(() => ({}));
+        if (!isCurrent()) return false;
+        // Hosting and API deploy separately. During a rolling deployment only,
+        // the previous API can serve 404/the app HTML for the new endpoint.
+        // Use its established cloud readers, with exactly the same ready gate.
+        const previousApi = resp.status === 404 ||
+          (resp.ok && String(resp.headers.get("content-type") || "").includes("text/html"));
+        if (previousApi) {
+          const results = await Promise.allSettled([
+            fetchSections(teacherEmail), fetchTeacherExams(teacherEmail),
+            fetchTeacherProjects(teacherEmail), fetchPasswordResetRequests(teacherEmail),
+            fetchReports(teacherEmail, { quiet: true }), fetchLogs(teacherEmail),
+          ]);
+          if (!isCurrent() || !cloudDataReady(results, [0, 1, 2, 3, 4, 5])) return false;
+        } else {
+          if (!resp.ok || !teacherWorkspaceReady(d, readyKey)) return false;
+          applyTeacherSections(d);
+          applyTeacherExams(d);
+          applyTeacherProjects(d);
+          applyPasswordResetRequests(d);
+          applyTeacherLogs(d);
+          applyTeacherReports(d.reports);
+        }
         setTeacherCloudReady((m) => ({ ...m, [readyKey]: true }));
-        // These tools do not supply the home metrics and must not delay entry.
+        // الأرشيف الثقيل يُقرأ عند فتح إدارة الأكواد؛ لا ينافس بيانات الدخول.
         void Promise.allSettled([
-          fetchJoinCodes(teacherEmail),
+          fetchJoinCodes(teacherEmail, { includeRetired: false }),
           fetchCodeIntegrity(teacherEmail),
           fetchQuestionBank(teacherEmail),
+          fetchTeacherSubmissions(undefined, undefined, teacherEmail),
         ]);
-      }
-      return results;
-    }).finally(() => teacherCloudLoadInFlightRef.current.delete(flightKey));
-    teacherCloudLoadInFlightRef.current.set(flightKey, pending);
-    return pending;
+        return true;
+      } catch { return false; }
+      finally { setTeacherCloudLoads((n) => Math.max(0, n - 1)); }
+    });
   };
 
   const fetchCodeIntegrity = async (emailOverride?: string) => {
@@ -15297,6 +15298,25 @@ ${rows
     }
   };
 
+  const applyTeacherSections = (d: any, preferredCourseCode?: string) => {
+    const sections = Array.isArray(d.sections) ? d.sections : [];
+    setTeacherSections(sections);
+    const preferred = String(preferredCourseCode || "").trim();
+    if (
+      preferred &&
+      sections.some((sec: any) => String(sec.code) === preferred)
+    ) {
+      setSelectedTeacherCourseCode(preferred);
+    } else if (
+      (!selectedTeacherCourseCode ||
+        !sections.some(
+          (sec: any) => sec.code === selectedTeacherCourseCode,
+        )) &&
+      sections[0]
+    )
+      setSelectedTeacherCourseCode(sections[0].code);
+  };
+
   const fetchSections = async (
     emailOverride?: string,
     preferredCourseCode?: string,
@@ -15310,22 +15330,7 @@ ${rows
       const d = await resp.json();
       if (!resp.ok) return false;
       if (d.sections) {
-        const sections = Array.isArray(d.sections) ? d.sections : [];
-        setTeacherSections(sections);
-        const preferred = String(preferredCourseCode || "").trim();
-        if (
-          preferred &&
-          sections.some((sec: any) => String(sec.code) === preferred)
-        ) {
-          setSelectedTeacherCourseCode(preferred);
-        } else if (
-          (!selectedTeacherCourseCode ||
-            !sections.some(
-              (sec: any) => sec.code === selectedTeacherCourseCode,
-            )) &&
-          sections[0]
-        )
-          setSelectedTeacherCourseCode(sections[0].code);
+        applyTeacherSections(d, preferredCourseCode);
         return true;
       }
       return false;
@@ -15363,6 +15368,18 @@ ${rows
     } catch (e) {}
   };
 
+  const applyTeacherExams = (d: any) => {
+    if (Array.isArray(d.exams)) {
+      setTeacherCreatedExams(d.exams.filter(isLiveRecord));
+      try {
+        localStorage.setItem(
+          "academicLabTeacherExams",
+          JSON.stringify(d.exams),
+        );
+      } catch {}
+    }
+  };
+
   const fetchTeacherExams = async (emailOverride?: string) => {
     const email = activeTeacherEmail(emailOverride);
     if (currentView === "teacher_workspace" && !email) {
@@ -15378,17 +15395,21 @@ ${rows
       });
       const d = await resp.json();
       if (!resp.ok || !Array.isArray(d.exams)) return false;
-      if (Array.isArray(d.exams)) {
-        setTeacherCreatedExams(d.exams.filter(isLiveRecord));
-        try {
-          localStorage.setItem(
-            "academicLabTeacherExams",
-            JSON.stringify(d.exams),
-          );
-        } catch {}
-      }
+      applyTeacherExams(d);
       return true;
     } catch (e) { return false; }
+  };
+
+  const applyTeacherProjects = (d: any) => {
+    if (Array.isArray(d.projects)) {
+      setTeacherProjects(d.projects.filter(isLiveRecord));
+      try {
+        localStorage.setItem(
+          "academicLabTeacherProjects",
+          JSON.stringify(d.projects),
+        );
+      } catch {}
+    }
   };
 
   const fetchTeacherProjects = async (emailOverride?: string) => {
@@ -15406,15 +15427,7 @@ ${rows
       });
       const d = await resp.json();
       if (!resp.ok || !Array.isArray(d.projects)) return false;
-      if (Array.isArray(d.projects)) {
-        setTeacherProjects(d.projects.filter(isLiveRecord));
-        try {
-          localStorage.setItem(
-            "academicLabTeacherProjects",
-            JSON.stringify(d.projects),
-          );
-        } catch {}
-      }
+      applyTeacherProjects(d);
       return true;
     } catch (e) { return false; }
   };
@@ -15492,11 +15505,7 @@ ${rows
     } catch {}
   };
 
-  const refreshStudentLiveState = async (sessionOverride?: any) => {
-    const activeStudentSession = sessionOverride || studentSession;
-    if (!activeStudentSession?.id) return false;
-    if (studentLiveRefreshInFlightRef.current) return false;
-    studentLiveRefreshInFlightRef.current = true;
+  const performStudentLiveStateRefresh = async (activeStudentSession: any, isCurrent: () => boolean) => {
     try {
       const params = new URLSearchParams({
         studentId: activeStudentSession.id,
@@ -15517,6 +15526,7 @@ ${rows
         }),
       });
       const d = await resp.json().catch(() => ({}));
+      if (!isCurrent()) return false;
       // وصلنا الخادم بنجاح: نصفّر عدّاد الفشل ونُخفي مؤشر الاتصال إن كان ظاهراً.
       liveStateFailStreakRef.current = 0;
       setLiveConnectionTrouble(false);
@@ -15759,9 +15769,49 @@ ${rows
         lastSeen: new Date().toISOString(),
       }));
       return false;
-    } finally {
-      studentLiveRefreshInFlightRef.current = false;
     }
+  };
+
+  const refreshStudentLiveState = (sessionOverride?: any) => {
+    const activeStudentSession = sessionOverride || studentSession;
+    if (!activeStudentSession?.id) return Promise.resolve(false);
+    const loadGen = cloudSessionGenRef.current;
+    const token = String(activeStudentSession.authToken || "");
+    const isCurrent = () => loadGen === cloudSessionGenRef.current &&
+      (!token || token === readStoredSessionAuthToken("miras_student_session"));
+    return studentLiveRefreshInFlightRef.current.run(cloudSessionKey(String(activeStudentSession.id), token, loadGen),
+      () => performStudentLiveStateRefresh(activeStudentSession, isCurrent));
+  };
+
+  const loadStudentCloudData = (session: any) => {
+    if (!session?.id) return Promise.resolve(false);
+    const loadGen = cloudSessionGenRef.current;
+    const token = String(session.authToken || "");
+    const isCurrent = () => loadGen === cloudSessionGenRef.current &&
+      token === readStoredSessionAuthToken("miras_student_session");
+    return studentCloudLoadInFlightRef.current.run(cloudSessionKey(String(session.id), token, loadGen), async () => {
+      const results = await Promise.allSettled([
+        refreshStudentLiveState(session),
+        (async () => {
+          const resp = await fetch(`/api/students/${session.id}`, {
+            cache: "no-store",
+            headers: jsonHeaders({ auth: "student", session }),
+          });
+          const details = await resp.json().catch(() => ({}));
+          if (!isCurrent() || !resp.ok || !Array.isArray(details.projects) || !Array.isArray(details.exerciseSubmissions)) return false;
+          setPersonalProject(details.projects[0] || null);
+          setStudentSubmissions(details.exerciseSubmissions);
+          return true;
+        })(),
+      ]);
+      if (!isCurrent() || !cloudDataReady(results, [0, 1])) return false;
+      setStudentCloudReady((m) => ({ ...m, [String(session.id)]: true }));
+      return true;
+    });
+  };
+
+  const applyPasswordResetRequests = (d: any) => {
+    setPasswordResetRequestsState(d.requests.filter((item: any) => !deletedPasswordResetIdsRef.current.has(String(item.id))));
   };
 
   const fetchPasswordResetRequests = async (emailOverride?: string) => {
@@ -15777,7 +15827,7 @@ ${rows
       );
       const d = await resp.json();
       if (!resp.ok || !Array.isArray(d.requests)) return false;
-      if (Array.isArray(d.requests)) setPasswordResetRequestsState(d.requests.filter((item: any) => !deletedPasswordResetIdsRef.current.has(String(item.id))));
+      applyPasswordResetRequests(d);
       return true;
     } catch (e) { return false; }
   };
@@ -16107,6 +16157,19 @@ ${rows
     }
   };
 
+  const applyTeacherLogs = (d: any) => {
+    // السجل السحابي هو مصدر الحقيقة بعد أي تهيئة. كان الدمج مع كاش
+    // localStorage القديم يُبقي أحداثاً محذوفة ظاهرة في العداد ثم لا يجد
+    // لها مقرراً حياً عند فتح القائمة، فتظهر القوائم بأرقام لكنها فارغة.
+    const liveLogs = d.logs.filter(
+      (log: any) => log && (log.id || log.timestamp || log.action),
+    );
+    setSystemLogs(liveLogs);
+    try {
+      localStorage.removeItem("academicLabLocalSystemLogs");
+    } catch {}
+  };
+
   const fetchLogs = async (emailOverride?: string) => {
     try {
       const email = emailOverride || teacherSession?.email || "";
@@ -16117,22 +16180,22 @@ ${rows
       const d = await resp.json();
       if (!resp.ok || !Array.isArray(d.logs)) return false;
       if (Array.isArray(d.logs)) {
-        // السجل السحابي هو مصدر الحقيقة بعد أي تهيئة. كان الدمج مع كاش
-        // localStorage القديم يُبقي أحداثاً محذوفة ظاهرة في العداد ثم لا يجد
-        // لها مقرراً حياً عند فتح القائمة، فتظهر القوائم بأرقام لكنها فارغة.
-        const liveLogs = d.logs.filter(
-          (log: any) => log && (log.id || log.timestamp || log.action),
-        );
-        setSystemLogs(liveLogs);
-        try {
-          localStorage.removeItem("academicLabLocalSystemLogs");
-        } catch {}
+        applyTeacherLogs(d);
       }
       return true;
     } catch (e) {
       console.error(e);
       return false;
     }
+  };
+
+  const applyTeacherReports = (d: any) => {
+    setOverallReports(d);
+    if (d.inactiveOrStruggling) setStrugglingReport(d.inactiveOrStruggling);
+    applyCloudRosterState(
+      Array.isArray(d.allowedStudents) ? d.allowedStudents : [],
+      Array.isArray(d.students) ? d.students : [],
+    );
   };
 
   const fetchReports = async (emailOverride?: string, options: { quiet?: boolean; isCurrent?: () => boolean } = {}) => {
@@ -16148,14 +16211,9 @@ ${rows
         if (resp.status === 401) return false;
         throw new Error(d?.error || "تعذر جلب بيانات السحابة.");
       }
-      if (!Array.isArray(d.students) || !Array.isArray(d.allowedStudents)) return false;
+      if (d.warning || !Array.isArray(d.students) || !Array.isArray(d.allowedStudents)) return false;
       if (d) {
-        setOverallReports(d);
-        if (d.inactiveOrStruggling) setStrugglingReport(d.inactiveOrStruggling);
-        applyCloudRosterState(
-          Array.isArray(d.allowedStudents) ? d.allowedStudents : [],
-          Array.isArray(d.students) ? d.students : [],
-        );
+        applyTeacherReports(d);
       }
       return true;
     } catch (e) {
@@ -17153,6 +17211,7 @@ ${rows
         } catch {}
         rememberMirasPasskeyUnlockNow();
       }
+      cloudSessionGenRef.current += 1;
       setTeacherCloudReady((prev) => { const next = { ...prev }; delete next[teacherEmail]; return next; });
       setTeacherSession(teacherWithAuth);
       if (method === "passkey") {
@@ -17190,9 +17249,7 @@ ${rows
       triggerLoginReveal("teacher");
       setCurrentView("teacher_workspace");
 
-      loadTeacherCloudData(teacherEmail).then(() =>
-        syncTeacherStudentBridge(teacherEmail),
-      );
+      void loadTeacherCloudData(teacherEmail);
       return;
     }
 
@@ -17217,6 +17274,7 @@ ${rows
         );
       } catch {}
       rememberMirasPasskeyUnlockNow();
+      cloudSessionGenRef.current += 1;
       setStudentCloudReady((prev) => { const next = { ...prev }; delete next[String(studentWithAuth.id)]; return next; });
       setStudentSession(studentWithAuth);
       if (Array.isArray(studentWithAuth.enrollments))
@@ -17252,19 +17310,9 @@ ${rows
       }
 
       try {
-        await refreshStudentLiveState(studentWithAuth);
-        const detailsResp = await fetch(`/api/students/${studentWithAuth.id}`, {
-          headers: jsonHeaders({ auth: "student", session: studentWithAuth }),
-        });
-        const details = await detailsResp.json();
-        if (details.projects && details.projects.length > 0)
-          setPersonalProject(details.projects[0]);
-        else setPersonalProject(null);
-        setStudentSubmissions(details.exerciseSubmissions || []);
+        await loadStudentCloudData(studentWithAuth);
       } catch (err) {
-        // A brief Safari/Hosting outage must not erase the last known project.
-        // The live-state poll will refresh it as soon as the connection returns.
-        console.warn("Student data refresh deferred after network recovery:", err);
+        console.warn("Student cloud load will retry after network recovery:", err);
       }
       return;
     }
@@ -20448,8 +20496,7 @@ ${rows
     setTeacherTab(tab);
     if (tab === "home") {
       reloadTeacherDashboard().catch(() => {});
-      fetchLogs().catch(() => {});
-      fetchJoinCodes().catch(() => {});
+      fetchJoinCodes(undefined, { includeRetired: false }).catch(() => {});
     }
     // تبويب الطلبة يعرض كشف الطلبة فقط (من التقارير)؛ كان يجلب أيضاً السجل (≈180KB)
     // وبنك الأسئلة بلا داعٍ عبر reloadTeacherDashboard. نكتفي بالتقارير ليخفّ فتحه.

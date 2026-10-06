@@ -52,7 +52,7 @@ function b64(value) {
   return Buffer.from(value).toString("base64url");
 }
 
-function assertionFor(options) {
+function assertionFor(options, signCount = 1) {
   const clientDataJSON = Buffer.from(
     JSON.stringify({
       type: "webauthn.get",
@@ -67,7 +67,7 @@ function assertionFor(options) {
     .digest();
   const flags = Buffer.from([0x05]); // user present + user verified
   const counter = Buffer.alloc(4);
-  counter.writeUInt32BE(1);
+  counter.writeUInt32BE(signCount);
   const authenticatorData = Buffer.concat([rpIdHash, flags, counter]);
   const signedData = Buffer.concat([
     authenticatorData,
@@ -340,5 +340,24 @@ check(
   logout.ok && /miras_session=/.test(logoutCookie) && /Max-Age=0/.test(logoutCookie),
   logoutCookie,
 );
+
+// The optimized normal passkey path still performs real signature, challenge,
+// user-verification and counter checks on both first and subsequent entries.
+for (const signCount of [2, 3]) {
+  const normalStart = await call("/api/auth/passkey/login/start", { role: "teacher" });
+  check(`normal entry ${signCount - 1} produces a verified-user challenge`,
+    normalStart.ok && !!normalStart.data.options?.challenge && normalStart.data.options.userVerification === "required");
+  const normalAssertion = assertionFor(normalStart.data.options, signCount);
+  const normalFinish = await call("/api/auth/passkey/login/finish", { response: normalAssertion });
+  check(`normal entry ${signCount - 1} verifies the signature and issues a teacher session`,
+    normalFinish.ok && normalFinish.data.success && normalFinish.data.teacher?.email === TEACHER && !!normalFinish.data.authToken,
+    `${normalFinish.status} ${JSON.stringify(normalFinish.data)}`);
+  const workspace = await fetch(BASE + "/api/teacher/workspace", { headers: {
+    authorization: `Bearer ${normalFinish.data.authToken}`, "x-miras-device-id": DEVICE,
+  }});
+  check(`normal entry ${signCount - 1} loads its cloud workspace`, workspace.ok);
+  const replay = await call("/api/auth/passkey/login/finish", { response: normalAssertion });
+  check(`normal entry ${signCount - 1} never accepts a replayed assertion`, !replay.ok);
+}
 
 done();
