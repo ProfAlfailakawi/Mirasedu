@@ -14489,8 +14489,20 @@ app.get("/api/auth/passkey/devices", (req, res) => {
   const teacherEmail = teacherEmailFromRequest(req);
   if (!teacherEmail)
     return res.status(401).json({ error: "سجّل الدخول بحساب المعلم." });
+  const isAdminViewer = isAdminEmail(teacherEmail);
+  const requestedScope = String(req.query.scope || "all").trim().toLowerCase();
+  const targetEmail = requestedScope === "self" ? teacherEmail : requestedScope;
   const devices = dbInstance.getPasskeyCredentials()
-    .filter((item: any) => teacherCanAccessPasskeyDevice(item, teacherEmail))
+    .filter((item: any) => {
+      if (!teacherCanAccessPasskeyDevice(item, teacherEmail)) return false;
+      if (!isAdminViewer || requestedScope === "all") return true;
+      if (!targetEmail || !targetEmail.includes("@")) return false;
+      if (item.role === "teacher") return String(item.userId || "").toLowerCase() === targetEmail;
+      const student = dbInstance.getStudents().find((row: any) => String(row.id) === String(item.userId));
+      if (!student) return false;
+      const courseCodes = getStudentDiscoveredCourseCodes(student);
+      return courseCodes.some((code: string) => sectionOwnerEmail(code).toLowerCase() === targetEmail);
+    })
     .map((item: any) => ({
     credentialId: item.credentialId,
     role: item.role,

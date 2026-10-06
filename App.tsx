@@ -18061,12 +18061,24 @@ ${rows
 
   const fetchTrustedPasskeyDevices = async () => {
     if (!teacherSession?.email) return;
+    const requestedScope = auditScopeRef.current;
+    const requestedTab = teacherTabRef.current;
     try {
-      const resp = await fetch("/api/auth/passkey/devices", {
+      const params = new URLSearchParams();
+      if (isAdminTeacher && (requestedTab === "codes" || requestedTab === "analytics")) {
+        params.set("scope", requestedScope);
+      }
+      const query = params.toString();
+      const resp = await fetch(`/api/auth/passkey/devices${query ? `?${query}` : ""}`, {
         cache: "no-store",
         headers: teacherHeaders(),
       });
       const data = await resp.json().catch(() => ({}));
+      if (
+        requestedScope !== auditScopeRef.current ||
+        requestedTab !== teacherTabRef.current
+      )
+        return;
       setPasskeyTrustedDevices(resp.ok && Array.isArray(data.devices) ? data.devices : []);
     } catch {}
   };
@@ -20607,11 +20619,10 @@ ${rows
       .trim()
       .toLowerCase() === "admin";
   const isSameTeacherIdentity = (a: any, b: any) => {
-    const aa = String(a || "").toLowerCase();
-    const bb = String(b || "").toLowerCase();
-    if (!aa || !bb) return false;
-    if (aa === bb) return true;
-    return isMirasAdminEmail(aa) && isMirasAdminEmail(bb);
+    const aa = String(a || "").trim().toLowerCase();
+    const bb = String(b || "").trim().toLowerCase();
+    // دور المشرف صلاحية عرض فقط؛ لا يدمج هوية كل الأساتذة في هوية واحدة.
+    return Boolean(aa && bb && aa === bb);
   };
   const isAdminTeacher = isMirasAdminEmail(teacherSession?.email);
   useEffect(() => {
@@ -20631,7 +20642,7 @@ ${rows
   }, [analyticsSubTab, codesSubTab]);
   useEffect(() => {
     if (teacherSession?.email) void fetchTrustedPasskeyDevices();
-  }, [isAdminTeacher, teacherTab, passkeyDevicesOpen, teacherSession?.email]);
+  }, [isAdminTeacher, teacherTab, passkeyDevicesOpen, auditScopeEmail, teacherSession?.email]);
   useEffect(() => {
     if (currentView !== "teacher_workspace" || !isAdminTeacher) return;
     void Promise.allSettled([
