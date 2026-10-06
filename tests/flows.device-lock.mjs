@@ -61,8 +61,10 @@ const asApp = { "x-miras-display-mode": "pwa" };
 const integrityAlertsFor = async (name) => {
   const r = await api("GET", "/api/notifications/inbox?userId=aa@test.kw&role=teacher", null, { jar: teacherJar, deviceToken: "t-notice" });
   return inbox(r)
+    .filter(n => String(n.type || n.data?.type || "") === "code_integrity")
+    .filter(n => n.data?.studentName ? n.data.studentName === name : String(n.body || n.message || "").includes(`للطالب ${name}:`) || String(n.body || n.message || "").startsWith(`${name}:`))
     .map((n) => `${n.title || ""} | ${n.body || n.message || ""}`)
-    .filter((t) => /نزاهة|مصيدة/.test(t) && t.includes(`للطالب ${name}:`));
+    ;
 };
 const activateFresh = async (id, name, deviceToken, ua, headers) => {
   await api("POST", "/api/teacher/upload-allowed", { sectionCode: "111", studentsList: [{ idNumber: id, name, sectionCode: "111" }] }, { jar: teacherJar, deviceToken: "t-notice" });
@@ -88,6 +90,7 @@ await (async () => {
   const other = await api("POST", "/api/auth/login", { idNumber: "5601", password: "GoodPass9" }, { deviceToken: "dev-android-other", ua: ANDROID_UA, headers: asBrowser });
   const otherAlerts = await integrityAlertsFor(name);
   check("D11) a genuinely different device is blocked AND still alerts the teacher", !other.ok && otherAlerts.length === 1, `${other.status} ${JSON.stringify(otherAlerts)}`);
+  check("D11b) browser mismatch notification states evidence without accusing copying or cheating", otherAlerts.length === 1 && /متصفح غير معتمد/.test(otherAlerts[0]) && !/منسوخ|غش/.test(otherAlerts[0]),JSON.stringify(otherAlerts));
 })();
 
 // D12: a student on a phone bound to another student — real code, so never a "code trap".

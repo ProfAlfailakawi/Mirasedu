@@ -1,4 +1,6 @@
-import { sameDeviceReviewIncident } from "./src/shared/device-review-notifications";
+import { sameDeviceReviewIncident, normalizeDeviceReviewReason } from "./src/shared/device-review-notifications";
+import { teacherOwnsNotification, currentPasswordResetNotification } from "./src/shared/teacher-notification-scope";
+import { notificationRole, notificationSignature, notificationEventIdentity } from "./src/shared/notification-identity";
 import { resolvePasswordResetRoute, passwordResetDeletionIds } from "./src/shared/password-reset-routing";
 import { recoverResetGeneralCode } from "./src/server/generalJoinCodes";
 import express from "express";
@@ -6534,6 +6536,8 @@ function notificationEventId(
     data.type || "",
     data.activityId || data.examId || data.projectId || data.submissionId || "",
     data.courseCode || data.sectionCode || "",
+    data.studentId || data.userId || "",
+    data.code || data.requestId || "",
     title,
     body,
     minuteBucket,
@@ -6590,19 +6594,17 @@ function queueNotificationAudit(
 }
 
 function notificationDispatchKey(target: any, eventData: Record<string, string>) {
-  const targetIdentity = String(
-    target?.role === "student"
-      ? target?.userId || ""
-      : target?.deviceToken || target?.token || target?.userId || "",
-  );
+  const role = notificationRole(target?.role);
+  const userId = String(target?.userId || target?.teacherEmail || "").trim().toLowerCase();
+  const targetIdentity = userId || String(target?.deviceToken || target?.token || "");
   const targetHash = crypto
     .createHash("sha256")
     .update(targetIdentity)
     .digest("hex")
     .slice(0, 20);
   return [
-    String(target?.role || ""),
-    String(target?.userId || ""),
+    role,
+    userId,
     targetHash,
     String(eventData.notificationId || ""),
   ].join(":");
@@ -6664,7 +6666,7 @@ function notifyUsers(
     // كانا يعرضان بانرين. نختار أحدث توكن، ويبقى جرس التطبيق متاحاً بكل الأجهزة.
     const byIdentity = new Map<string, any>();
     for (const t of deduped) {
-      const role = String((t as any).role || "").toLowerCase();
+      const role = notificationRole((t as any).role);
       const uid =
         role === "student"
           ? normalizeStudentId((t as any).userId)
@@ -6781,7 +6783,7 @@ function notifyUsers(
       const stored = rememberInAppNotification({
         userId: target.userId,
         role: target.role,
-        sectionCode: target.sectionCode,
+        sectionCode: target.role === "student" ? target.sectionCode : eventData.courseCode || eventData.sectionCode || "",
         title: safeTitle,
         body: safeBody,
         type: eventData.type || "push",
@@ -6845,6 +6847,21 @@ function isCriticalTeacherNotification(
   );
 }
 
+/** Personal notifications require an identifiable course owner; no admin fallback. */
+function teacherNotificationOwner(sectionCode?: string): string {
+  const raw = String(sectionCode || "").trim();
+  if (!raw) return "";
+  const sections = activeSections();
+  const exact = sections.find(section => String(section.code).toLowerCase() === raw.toLowerCase());
+  if (exact?.ownerEmail) return String(exact.ownerEmail).trim().toLowerCase();
+  const embedded = extractEmailFromSectionCode(raw);
+  if (embedded) return embedded.toLowerCase();
+  if (["TECH-A1", "TECH-B2"].includes(raw.toUpperCase())) return "ada.alenezi@paaet.edu.kw";
+  const owners = new Set(sections.filter(section => sectionDisplayCode(section.code).toLowerCase() === sectionDisplayCode(raw).toLowerCase())
+    .map(section => String(section.ownerEmail || extractEmailFromSectionCode(section.code)).trim().toLowerCase()).filter(Boolean));
+  return owners.size === 1 ? Array.from(owners)[0] : "";
+}
+
 function notifyTeachersForSection(
   sectionCode: string | undefined,
   title: string,
@@ -6856,17 +6873,30 @@ function notifyTeachersForSection(
   const safeBody = sanitizePublicMessageText(body) || "لديك تنبيه جديد.";
   const ownerEmail = data.type === "password_reset"
     ? String(data.teacherEmail || "").trim().toLowerCase()
-    : sectionOwnerEmail(sectionCode);
-  if (data.type === "password_reset" && !ownerEmail) return 0;
+    : teacherNotificationOwner(sectionCode);
+  if (!ownerEmail) return 0;
+  if (data.type === "password_reset" && data.studentId && dbInstance.getInAppNotifications().some((note: any) =>
+    String(note.type || note.data?.type || "") === "password_reset" &&
+    String(note.studentId || note.data?.studentId || "") === String(data.studentId) &&
+    teacherOwnsNotification(note, ownerEmail, teacherNotificationOwner, (a, b) => String(a || "").trim().toLowerCase() === String(b || "").trim().toLowerCase()) &&
+    currentPasswordResetNotification(note, dbInstance.getPasswordResetRequests()),
+  )) return 0;
+  const eventData: Record<string, string> = {
+    ...data,
+    teacherEmail: ownerEmail,
+    userId: ownerEmail,
+    targetRole: "teacher",
+    courseCode: String(sectionCode || data.courseCode || data.sectionCode || ""),
+    notificationId: notificationEventId(safeTitle, safeBody, data, `teacher:${ownerEmail}`),
+    sentAt: String(data.sentAt || new Date().toISOString()),
+  };
   const count = notifyUsers(
     (token) =>
       token.role !== "student" &&
-      (!ownerEmail ||
-        String(token.teacherEmail || token.userId).toLowerCase() ===
-          ownerEmail),
+      String(token.teacherEmail || token.userId).trim().toLowerCase() === ownerEmail,
     safeTitle,
     safeBody,
-    data,
+    eventData,
   );
   // ضمان جذري: أي تنبيه مهم للأستاذ (غش/نزاهة/مخالفة جهاز/كلمة مرور...) يجب أن
   // تبقى له نسخة داخلية في صندوق السيرفر — مصدر الحقيقة — حتى لو لم يكن لدى الأستاذ
@@ -6881,7 +6911,7 @@ function notifyTeachersForSection(
       title: safeTitle,
       body: safeBody,
       type: data.type || "teacher",
-      data: { ...data, teacherEmail: ownerEmail },
+      data: eventData,
     });
   }
   return count;
@@ -6999,19 +7029,8 @@ function studentEnrolledForNotifications(
 // (كما حدث مع "إعادة اختبار" — سجلان بنفس الميلي-ثانية) يمرّ منهما واحد فقط.
 const mirasRecentInAppKeys = new Map<string, number>();
 function rememberInAppNotification(item: any) {
-  const compact = (value: any) =>
-    String(value || "")
-      .replace(/\s+/g, " ")
-      .trim();
   try {
-    const dupKey = [
-      String(item.userId || "").toLowerCase(),
-      String(item.role || "").toLowerCase(),
-      compact(item.title),
-      compact(item.body),
-      String(item.type || item.data?.type || ""),
-      String(item.data?.activityId || item.data?.examId || ""),
-    ].join("|");
+    const dupKey = notificationSignature(item);
     const nowMs = Date.now();
     for (const [k, at] of mirasRecentInAppKeys) {
       if (nowMs - at > 15_000) mirasRecentInAppKeys.delete(k);
@@ -7052,41 +7071,13 @@ function rememberInAppNotification(item: any) {
   ) {
     return null;
   }
-  const signature = [
-    saved.userId,
-    saved.role,
-    saved.sectionCode,
-    saved.type,
-    compact(
-      (saved.data as any)?.activityId ||
-        (saved.data as any)?.examId ||
-        (saved.data as any)?.projectId ||
-        (saved.data as any)?.submissionId ||
-        "",
-    ),
-    compact(saved.title),
-    compact(saved.body),
-  ].join("|");
+  const signature = notificationSignature(saved);
   const now = new Date(saved.createdAt).getTime() || Date.now();
   const store = dbInstance.getInAppNotifications();
   const duplicate = store.find((old: any) => {
-    const oldSignature = [
-      String(old.userId || ""),
-      String(old.role || ""),
-      String(old.sectionCode || ""),
-      String(old.type || old.data?.type || "course"),
-      compact(
-        old.data?.activityId ||
-          old.data?.examId ||
-          old.data?.projectId ||
-          old.data?.submissionId ||
-          "",
-      ),
-      compact(old.title || "مِراس"),
-      compact(old.body || "لديك تنبيه جديد."),
-    ].join("|");
+    const oldSignature = notificationSignature(old);
     const oldTime = new Date(old.createdAt || 0).getTime() || 0;
-    return oldSignature === signature && Math.abs(now - oldTime) <= 15000;
+    return oldSignature === signature && (Boolean(notificationEventIdentity(saved)) || Math.abs(now - oldTime) <= 15000);
   });
   if (duplicate) return duplicate;
   dbInstance.addInAppNotification(saved);
@@ -8286,13 +8277,13 @@ function recordActivationAttempt(
     student: params.student,
   });
   const attemptSectionCode = String(
+    (params.foundCode as any)?.studentSection ||
+      (params.foundCode as any)?.sectionCode ||
+      (params.foundCode as any)?.courseCode ||
     req.body?.courseCode ||
       req.body?.sectionCode ||
       params.student?.sectionCode ||
       (params.student as any)?.studentSection ||
-      (params.foundCode as any)?.studentSection ||
-      (params.foundCode as any)?.sectionCode ||
-      (params.foundCode as any)?.courseCode ||
       "",
   ).trim();
   const hasRecentAlertIncident = dbInstance.getActivationAttempts().some((attempt: any) =>
@@ -8423,14 +8414,18 @@ function recordActivationAttempt(
     isViolationWarning: true,
   });
   if (params.student && attemptSectionCode && !hasRecentAlertIncident) {
+    const reason = normalizeDeviceReviewReason(params.reason);
+    const bindingMismatch = reason.includes("عدم تطابق بيانات ربط المتصفح المعتمد");
     notifyTeachersForSection(
       attemptSectionCode,
-      honeyCode ? "مصيدة كود" : "تنبيه نزاهة كود",
-      `محاولة مرفوضة للطالب ${params.student.name}: ${honeyCode ? "مصيدة كود غير مُصدر" : params.reason}`,
+      honeyCode ? "مصيدة كود" : bindingMismatch ? "محاولة دخول من متصفح غير معتمد" : "تنبيه نزاهة كود",
+      bindingMismatch ? `${params.student.name}: بيانات المتصفح في محاولة الدخول لم تطابق الربط المعتمد.` : `محاولة مرفوضة للطالب ${params.student.name}: ${honeyCode ? "مصيدة كود غير مُصدر" : reason}`,
       {
         type: "code_integrity",
         code: normalizeJoinCode(params.code),
         studentId: params.student.id,
+        studentName: params.student.name,
+        reason,
         link: "/",
       },
     );
@@ -10790,6 +10785,10 @@ app.get("/api/notifications/inbox", (req, res) => {
     .filter((item: any) => {
       const t = new Date(item.createdAt || item.updatedAt || item.data?.createdAt || item.data?.sentAt || 0).getTime();
       if (since && t <= since) return false;
+      if (role !== "student") {
+        if (!teacherOwnsNotification(item, userId, teacherNotificationOwner, (a, b) => String(a || "").trim().toLowerCase() === String(b || "").trim().toLowerCase())) return false;
+        if (!currentPasswordResetNotification(item, dbInstance.getPasswordResetRequests())) return false;
+      }
       if (role !== "student" && String(item.type || item.data?.type || "") === "password_reset") {
         const studentId = String(item.data?.studentId || item.studentId || "");
         const route = studentPasswordResetRoute(studentId);
@@ -10802,39 +10801,22 @@ app.get("/api/notifications/inbox", (req, res) => {
         item.userId &&
         userId &&
         String(item.userId).toLowerCase() === userId.toLowerCase() &&
-        (!itemRole || itemRole === role);
+        (!itemRole || notificationRole(itemRole) === notificationRole(role));
       if (
         role === "student" &&
         ["teacher", "admin", "superadmin", "super_admin"].includes(itemRole)
       )
         return false;
-      if (role === "admin" || role === "superadmin" || role === "super_admin") {
-        const itemUser = String(item.userId || item.data?.userId || "").toLowerCase();
-        const teacherEmail = String(item.teacherEmail || item.data?.teacherEmail || "").toLowerCase();
-        const isAdminDirected =
-          (itemUser && itemUser === userId.toLowerCase()) ||
-          (teacherEmail && teacherEmail === userId.toLowerCase()) ||
-          ["admin", "superadmin", "super_admin"].includes(itemRole);
-        const isRoutineTeacherAction = [
-          "course_opened",
-          "course_closed",
-          "course_updated",
-          "course_deleted",
-          "student_deleted",
-          "student_removed",
-          "exam_submission",
-          "project_submission",
-          "course_activated",
-          "code_used",
-          "student_registered",
-          "student_logged_in",
-          "course_student_suspended",
-          "course_student_reactivated",
-          "teacher_course_change",
+      if (role !== "student") {
+        return ![
+          "course_opened", "course_closed", "course_updated", "course_deleted",
+          "student_deleted", "student_removed", "exam_submission", "project_submission",
+          "course_activated", "code_used", "student_registered", "student_logged_in",
+          "course_student_suspended", "course_student_reactivated", "teacher_course_change",
           "teacher_student_change",
         ].includes(String(item.type || item.data?.type || "").toLowerCase());
-        return isAdminDirected && !isRoutineTeacherAction;
       }
+
       if (
         role === "student" &&
         shouldSuppressRoutineStudentNotification(
@@ -13808,7 +13790,7 @@ app.post("/api/auth/forgot-password", (req, res) => {
     route.sectionCode,
     "طلب استرجاع كلمة مرور",
     `${resetRequest.studentName} طلب رابط إعادة تعيين`,
-    { type: "password_reset", studentId: idNumber, link: "/", teacherEmail: route.teacherEmail, sectionCode: route.sectionCode },
+    { type: "password_reset", studentId: idNumber, requestId: resetRequest.id, link: "/", teacherEmail: route.teacherEmail, sectionCode: route.sectionCode },
   );
   if (student)
     notifyStudent(

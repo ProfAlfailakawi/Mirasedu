@@ -25,3 +25,12 @@ test('only latest request per student appears; other valid students stay visible
 test('expired requests do not appear as pending home actions',()=>{
   assert.equal(homePasswordResets([{studentId:'1',status:'new',teacherEmail:admin,expiresAt:'2020-01-01'}],admin,matches).length,0);
 });
+test('a recorded completed recovery resolves older duplicate alerts, while a later request stays pending',()=>{
+ const now=Date.now(),at=offset=>new Date(now+offset).toISOString();
+ const older={id:'older',studentId:'1',teacherEmail:admin,status:'new',requestedAt:at(-20000),expiresAt:at(3600000)};
+ const handled={...older,id:'handled',status:'handled',handledAt:at(-10000)};
+ assert.equal(homePasswordResets([older,handled],admin,matches).length,0);
+ const fresh={...older,id:'fresh',requestedAt:at(-1000)};
+ assert.deepEqual(homePasswordResets([older,handled,fresh],admin,matches).map(x=>x.id),['fresh']);
+ assert.equal(older.status,'new'); // notification display never changes account or token state
+});

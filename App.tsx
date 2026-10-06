@@ -1,9 +1,10 @@
 import { createCloudSingleFlight, cloudSessionKey } from "./src/shared/cloud-single-flight";
 import { teacherWorkspaceReady } from "./src/shared/teacher-workspace-ready";
 import { deviceTransferCopy } from "./src/shared/device-transfer-copy";
-import { deviceReviewNotifications } from "./src/shared/device-review-notifications";
+import { deviceReviewNotifications, deviceReviewPushNotifications } from "./src/shared/device-review-notifications";
 import { probeCloudReadiness } from "./src/shared/cloud-readiness-probe";
-import { teacherOwnsNotification, duplicatesCodeIntegrityLog } from "./src/shared/teacher-notification-scope";
+import { teacherOwnsNotification, duplicatesCodeIntegrityLog, pendingDeviceApprovalNotifications } from "./src/shared/teacher-notification-scope";
+import { notificationIdentity, notificationSignature } from "./src/shared/notification-identity";
 import { homePasswordResets } from "./src/shared/home-password-reset-requests";
 import { cloudDataReady } from "./src/shared/cloud-data-ready";
 import { studentSessionIssuedAt, shouldApplyStudentLockSignal } from "./src/shared/student-lock-signal";
@@ -12796,68 +12797,14 @@ export default function App() {
     setAllowedStudentsText(allowedRosterRowsToText(normalizedAllowed));
     setTeacherStudents(normalizedRegistered);
   };
-  const stableNotificationId = (n: any) => {
-    const data = n?.data || {};
-    const eventId =
-      n?.eventId ||
-      n?.examId ||
-      n?.activityId ||
-      data.eventId ||
-      data.examId ||
-      data.activityId ||
-      "";
-    const version = n?.updatedAt || data.updatedAt || n?.createdAt || "";
-    return String(
-      n?.id ||
-        n?.notificationId ||
-        (eventId
-          ? `calendar:${n?.type || data.type || "event"}:${eventId}:${version}`
-          : `${n?.title || "مِراس"}:${n?.body || n?.message || ""}:${version}`),
-    );
-  };
+  const stableNotificationId = notificationIdentity;
 
   const compactNotificationText = (value: any) =>
     String(value || "")
       .replace(/\s+/g, " ")
       .trim();
 
-  const stableNotificationSignature = (n: any) => {
-    const data = n?.data || {};
-    const eventId =
-      n?.eventId ||
-      n?.examId ||
-      n?.activityId ||
-      data.eventId ||
-      data.examId ||
-      data.activityId ||
-      "";
-    const course =
-      n?.courseCode ||
-      n?.sectionCode ||
-      data.courseCode ||
-      data.sectionCode ||
-      "";
-    // بصمة منع التكرار تعتمد على هوية الحدث (الدور + الطالب + المقرر + النوع +
-    // النشاط) وليست على نص الرسالة — فاختلاف بسيط في النص كان يسبب تكراراً.
-    // العنوان يُستخدم فقط كمميّز احتياطي حين لا يوجد معرّف حدث.
-    const student = compactNotificationText(
-      n?.userId || data.userId || data.studentId || n?.studentId || "",
-    ).toLowerCase();
-    const kind = compactNotificationText(
-      n?.kind || data.kind || "",
-    ).toLowerCase();
-    return [
-      compactNotificationText(
-        n?.targetRole || data.targetRole || "student",
-      ).toLowerCase(),
-      student,
-      compactNotificationText(course).toLowerCase(),
-      compactNotificationText(n?.type || data.type || "course").toLowerCase(),
-      kind,
-      compactNotificationText(eventId).toLowerCase() ||
-        compactNotificationText(n?.title || "مِراس"),
-    ].join("|");
-  };
+  const stableNotificationSignature = notificationSignature;
 
   const notificationCreatedTimeMs = (n: any) => {
     const data = n?.data || {};
@@ -13316,6 +13263,7 @@ export default function App() {
     return {
       ...n,
       id,
+      legacyNotificationId: n?.legacyNotificationId || n?.id || "",
       eventId:
         n?.eventId ||
         n?.examId ||
@@ -13690,8 +13638,8 @@ export default function App() {
               ? identity.userId
               : payload.data?.studentId,
           targetRole: identity.role === "student" ? "student" : identity.role,
-          courseCode: payload.data?.courseCode || identity.sectionCode,
-          sectionCode: payload.data?.sectionCode || identity.sectionCode,
+          courseCode: payload.data?.courseCode || (identity.role === "student" ? identity.sectionCode : ""),
+          sectionCode: payload.data?.sectionCode || payload.data?.courseCode || (identity.role === "student" ? identity.sectionCode : ""),
           type: payload.data?.type || "push",
           source: "fcm",
           data: {
@@ -13700,7 +13648,7 @@ export default function App() {
             userId: identity.userId,
             targetRole: identity.role,
           },
-          createdAt: new Date().toISOString(),
+          createdAt: payload.data?.sentAt || new Date().toISOString(),
         };
         mergeLocalNotifications(
           [fcmNotification],
@@ -27010,7 +26958,7 @@ ${rows
   const criticalTeacherNotifications = useMemo(() => {
     const timeValue = (item: any) =>
       new Date(
-        item?.requestedAt ||
+        item?.when || item?.requestedAt ||
           item?.timestamp ||
           item?.createdAt ||
           item?.updatedAt ||
@@ -27022,10 +26970,17 @@ ${rows
     const owns = (item: any) => teacherOwnsNotification(item, currentTeacherEmail, courseOwnerEmail, isSameTeacherIdentity);
     const ownAuditLogs = deviceAuditForDisplay(systemLogs.filter(owns));
     const ownSecurityLogs = deviceReviewNotifications(ownAuditLogs);
-    const ownDeviceProblems = deviceProblemAttempts.filter(owns);
+    const ownPushNotifications = deviceReviewPushNotifications(localNotifications
+      .map(normalizeLocalNotification)
+      .filter(notificationTargetsTeacher)
+      .filter((note: any) => !["password_reset", "password_reset_resend", "second_hand_device_approval"].includes(String(note.type || note.data?.type || "").toLowerCase()))
+      .filter((note: any) => !duplicatesCodeIntegrityLog(note, ownAuditLogs, timeValue)));
+    const ownDeviceProblems = pendingDeviceApprovalNotifications((codeIntegrity.attempts || []).filter(owns));
+    const ownPasswordResetRequests = homePasswordResets(passwordResetRequests, currentTeacherEmail, isSameTeacherIdentity, owns, Infinity);
     const items: any[] = [];
-    homePasswordResetRequests.forEach((req: any) => items.push({
-      key: `teacher-reset-${req.id || req.studentId || req.requestedAt}`,
+    ownPasswordResetRequests.forEach((req: any) => items.push({
+      key: `teacher-reset-${req.notificationGroupId || req.id || req.studentId || req.requestedAt}`,
+      readKeys: req.notificationReadKeys || [],
       title: "طلب استرجاع كلمة مرور",
       body: `${req.studentName || "طالب"} • الرقم: ${req.studentId || "-"} يطلب استرجاع كلمة المرور.`,
       when: req.requestedAt || req.timestamp || req.createdAt,
@@ -27080,6 +27035,7 @@ ${rows
       // 3. High risk security / Integrity warnings / Cheating from system logs (نزاهة وأمن عالية الخطورة)
       ownSecurityLogs
         .filter((log: any) => {
+          if (log.isViolationWarning === false) return false;
           const text = `${log.action || ""} ${log.details || ""} ${log.description || ""} ${log.message || ""}`;
           // Ignore ordinary teacher operations and regular entries
           if (
@@ -27112,6 +27068,7 @@ ${rows
             text.includes("مخالفة");
           items.push({
             key: log.deviceReviewGroupKey || `admin-log-${log.id || log.timestamp || log.createdAt}`,
+            readKeys: log.deviceReviewReadKeys || [],
             title: log.deviceReviewGroupKey ? "محاولة دخول من متصفح غير معتمد" : isCheating ? "نزاهة عالية الخطورة" : log.action === "محاولة كود مرفوضة" ? "دخول مرفوض يحتاج مراجعة" : "تنبيه أمني / صلاحيات",
             body: sanitizeCourseIdentifiersForDisplay(
               log.deviceReviewGroupKey
@@ -27119,7 +27076,7 @@ ${rows
                 : `${log.studentName || "مستخدم"} • ${logActionLabel(log.action) || "حدث أمني"} • ${log.details || ""}`,
             ),
             when: log.timestamp || log.createdAt,
-            tone: "rose",
+            tone: log.deviceReviewGroupKey ? "amber" : "rose",
             action: async () => {
               openTeacherTab("analytics");
               await fetchLogs();
@@ -27128,24 +27085,22 @@ ${rows
         });
 
       // 4. Custom/Explicit superadmin targeted alerts from localNotifications (FCM/Push)
-      localNotifications
-        .map(normalizeLocalNotification)
-        .filter(notificationTargetsTeacher)
+      ownPushNotifications
         .filter((note: any) => owns(note) || (!note?.studentId && !note?.data?.studentId && !note?.sectionCode && !note?.data?.sectionCode && String(note?.userId || note?.data?.userId || "").toLowerCase() === currentTeacherEmail))
         .filter((note: any) => {
-          if (duplicatesCodeIntegrityLog(note, ownAuditLogs, timeValue)) return false;
           const text = `${note.title || ""} ${note.body || ""}`.toLowerCase();
-          return /كود متداول|مشبوه|استخدام غير طبيعي|أمنية|صلاحيات|سوبر أدمن|إدارة|admin|superadmin/i.test(
+          return isCriticalTeacherInAppNotification(note) || /كود متداول|مشبوه|استخدام غير طبيعي|أمنية|صلاحيات|سوبر أدمن|إدارة|admin|superadmin/i.test(
             text,
           );
         })
         .forEach((note: any) => {
           items.push({
-            key: `admin-inapp-${stableNotificationId(note)}`,
+            key: note.deviceReviewGroupKey || `admin-inapp-${stableNotificationId(note)}`,
+            readKeys: note.deviceReviewReadKeys || [],
             title: note.title || "تنبيه إداري مهم",
             body: note.body || "هناك إجراء إداري يتطلب مراجعة السوبر أدمن.",
             when: note.updatedAt || note.createdAt || note.timestamp,
-            tone: "rose",
+            tone: note.deviceReviewGroupKey ? "amber" : "rose",
             action: () => openTeacherTab("codes"),
           });
         });
@@ -27209,21 +27164,6 @@ ${rows
           }
         }
       });
-
-      // 3. Students started but haven't submitted (طلبة بدأوا الاختبار ولم يسلّموا)
-      const liveSolvingStudents = livePulseStudentRows.filter(
-        (row: any) => row.activeSubmission,
-      );
-      if (liveSolvingStudents.length > 0) {
-        items.push({
-          key: "teacher-students-solving",
-          title: "طلبة بدأوا الاختبار ولم يسلموا",
-          body: `يوجد حاليًا ${liveSolvingStudents.length} طالب بمحاولات اختبار نشطة لم تسلم بعد في المتابعة الحية.`,
-          when: new Date().toISOString(),
-          tone: "amber",
-          action: () => openTeacherTab("home"),
-        });
-      }
 
       // 4. Project closes today or tomorrow with students who haven't submitted (مشروع يغلق اليوم أو غدًا ويوجد طلبة لم يسلّموا)
       const teacherProjs = teacherProjects.filter(
@@ -27293,30 +27233,10 @@ ${rows
         }
       });
 
-      // 6. Custom activation codes not yet activated (أكواد مخصصة لم تُفعّل بعد)
-      if (assignedNotActivatedCodes.length > 0) {
-        items.push({
-          key: "teacher-assigned-not-activated-codes",
-          title: "أكواد مخصصة لم تُفعّل",
-          body: `يوجد ${assignedNotActivatedCodes.length} كود مخصص لطلبة لم يتم تفعيلها حتى الآن في هذا المقرر.`,
-          when: new Date().toISOString(),
-          tone: "indigo",
-          action: () => openTeacherTab("codes"),
-        });
-      }
-
       // 7. Device needs review (جهاز يحتاج مراجعة)
       ownDeviceProblems.forEach((attempt: any) => {
         const isSecondHandApproval =
           String(attempt.approvalRequestType || "") === "second_hand_device";
-        // Filter for teacher's courses if any
-        const belongsToTeacher =
-          !activeCourseCode ||
-          String(
-            attempt.studentSection || attempt.sectionCode || "",
-          ).toLowerCase() === String(activeCourseCode).toLowerCase();
-
-        if (belongsToTeacher) {
           items.push({
             key: `teacher-device-${attempt.id || attempt.normalizedCode || attempt.timestamp}`,
             title: isSecondHandApproval
@@ -27335,7 +27255,6 @@ ${rows
               await fetchCodeIntegrity();
             },
           });
-        }
       });
 
       // 8. Suspicious entry, cheating, or forced exit (محاولة غش، خروج غير معتاد، نزاهة)
@@ -27358,18 +27277,6 @@ ${rows
           });
         });
 
-      // 9. Password reset requests (طلب استرجاع كلمة مرور)
-      homePasswordResetRequests.forEach((req: any) => {
-        items.push({
-          key: `teacher-reset-${req.id || req.studentId || req.requestedAt}`,
-          title: "طلب استرجاع كلمة مرور",
-          body: `${req.studentName || "طالب"} • الرقم: ${req.studentId || "-"} يطلب استرجاع كلمة المرور للتعميد.`,
-          when: req.requestedAt || req.timestamp || req.createdAt,
-          tone: "violet",
-          action: () => openTeacherTab("home"),
-        });
-      });
-
       // 10. Cloud sync or database limit issues (مشكلة حفظ ومزامنة سحابية)
       if (firestoreQuotaExceededState) {
         items.push({
@@ -27385,15 +27292,13 @@ ${rows
       // 10.5. تنبيهات داخلية وصلت من الخادم/FCM وتخص الأستاذ مباشرة.
       // نحافظ على فكرة الإشعارات الحالية، لكن نضمن أن الجرس داخل البرنامج يعرضها
       // ولا يكتفي بإشعار خارجي عابر.
-      localNotifications
-        .map(normalizeLocalNotification)
-        .filter(notificationTargetsTeacher)
+      ownPushNotifications
         .filter(isCriticalTeacherInAppNotification)
-        .filter((note: any) => !duplicatesCodeIntegrityLog(note, ownAuditLogs, timeValue))
         .forEach((note: any) => {
           const noteType = String(note.type || note.data?.type || "").toLowerCase();
           items.push({
-            key: `teacher-inapp-${stableNotificationId(note)}`,
+            key: note.deviceReviewGroupKey || `teacher-inapp-${stableNotificationId(note)}`,
+            readKeys: note.deviceReviewReadKeys || [],
             title: note.title || "تنبيه مهم",
             body: note.body || "هناك تنبيه يحتاج مراجعتك داخل مِراس.",
             when: note.updatedAt || note.createdAt || note.timestamp,
@@ -27409,6 +27314,7 @@ ${rows
       // 11. Security logs of high importance (حالة نزاهة أو أمان تحتاج مراجعة)
       ownSecurityLogs
         .filter((log: any) => {
+          if (log.isViolationWarning === false) return false;
           const text = `${log.action || ""} ${log.details || ""} ${log.description || ""} ${log.message || ""}`;
           if (
             /تسجيل دخول ناجح|تسليم عادي|تفعيل مقرر|دخول عادي/i.test(text) ||
@@ -27432,6 +27338,7 @@ ${rows
         .forEach((log: any) => {
           items.push({
             key: log.deviceReviewGroupKey || `teacher-log-${log.id || log.timestamp || log.createdAt}`,
+            readKeys: log.deviceReviewReadKeys || [],
             // رمز الحدث الخام (مثل TAB_SWITCH) لا يُعرض كعنوان؛ وصفه العربي في النص أدناه.
             title:
               log.deviceReviewGroupKey ? "محاولة دخول من متصفح غير معتمد" : (log.action && !/^[A-Z0-9_]+$/.test(String(log.action))
@@ -27443,7 +27350,7 @@ ${rows
                 : `${log.studentName || "طالب"} • ${log.details || ""}`,
             ),
             when: log.timestamp || log.createdAt,
-            tone: "rose",
+            tone: log.deviceReviewGroupKey ? "amber" : "rose",
             action: async () => {
               openTeacherTab("analytics");
               await fetchLogs();
@@ -27456,7 +27363,7 @@ ${rows
     const seen = new Set<string>();
     return items
       .filter((item) => {
-        if (seen.has(item.key) || teacherImportantReadKeys.has(item.key))
+        if (seen.has(item.key) || teacherImportantReadKeys.has(item.key) || item.readKeys?.some((key: string) => teacherImportantReadKeys.has(key)))
           return false;
         seen.add(item.key);
         return true;
@@ -27465,12 +27372,14 @@ ${rows
       .slice(0, 30);
   }, [
     homePasswordResetRequests,
+    passwordResetRequests,
     systemLogs,
     teacherSections,
     currentTeacherEmail,
     activeCourseExamSubmissions,
     scopedSystemLogs,
     deviceProblemAttempts,
+    codeIntegrity.attempts,
     livePulseStudentRows,
     activeCourseCode,
     teacherImportantReadKeys,

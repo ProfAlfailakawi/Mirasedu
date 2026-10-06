@@ -14,6 +14,8 @@ const requests=(r.data.requests || []).filter(x=>x.studentId==='1001' && x.statu
 check('owner receives both pending requests with correct ownership',requests.length===2 && requests.every(x=>x.teacherEmail===AA),JSON.stringify(r.data));
 const newest=requests.sort((a,b)=>Date.parse(b.requestedAt)-Date.parse(a.requestedAt))[0];
 if(newest) {
+ r=await api('GET',`/api/notifications/inbox?userId=${encodeURIComponent(AA)}&role=teacher`,undefined,{jar:owner});
+ check('owner personal inbox receives current own student reset',r.ok && (r.data.notifications || []).some(x=>x.type==='password_reset' && x.data?.studentId==='1001'),JSON.stringify(r.data));
  r=await api('DELETE',`/api/teacher/password-reset-requests/${newest.id}`,undefined,{jar:owner});
  check('delete confirms both old duplicate and selected request',r.ok && r.data.deletedIds?.length===2,JSON.stringify(r.data));
  r=await api('GET','/api/teacher/password-reset-requests',undefined,{jar:owner});
@@ -26,5 +28,5 @@ if(newest) {
 r=await api('GET',`/api/notifications/inbox?userId=${encodeURIComponent('ah.alfailakawi@paaet.edu.kw')}&role=admin`,undefined,{jar:admin});
 check('superadmin personal inbox excludes colleague student resets',r.ok && !(r.data.items || r.data.notifications || []).some(x=>x.type==='password_reset' && x.data?.studentId==='1001'),JSON.stringify(r.data));
 r=await api('GET',`/api/notifications/inbox?userId=${encodeURIComponent(AA)}&role=teacher`,undefined,{jar:owner});
-check('owner personal inbox receives own student reset',r.ok && (r.data.items || r.data.notifications || []).some(x=>x.type==='password_reset' && x.data?.studentId==='1001'),JSON.stringify(r.data));
+check('deleted recovery requests disappear from the personal inbox',r.ok && !(r.data.items || r.data.notifications || []).some(x=>x.type==='password_reset' && x.data?.studentId==='1001'),JSON.stringify(r.data));
 done();

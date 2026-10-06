@@ -1,0 +1,14 @@
+const fs = require('fs');
+const path = require('path');
+require('./seed.cjs');
+const file=path.join(__dirname,'..','data','db.json');
+const db=JSON.parse(fs.readFileSync(file,'utf8'));
+const admin='ah.alfailakawi@paaet.edu.kw',other='bb@test.kw',course='900-'+admin;
+db.sections.push({code:course,ownerEmail:admin,courseName:'مقرر الأدمن',isOpen:true});
+db.allowedStudents.push({idNumber:'1007',name:'طالب الأدمن',sectionCode:course,teacherEmail:admin});
+const now=Date.now(),at=ms=>new Date(now+ms).toISOString();
+db.passwordResetRequests=[{id:'current',studentId:'1007',teacherEmail:admin,sectionCode:course,status:'new',requestedAt:at(-5000),expiresAt:at(3600000)},{id:'expired',studentId:'1007',teacherEmail:admin,sectionCode:course,status:'new',requestedAt:at(-7200000),expiresAt:at(-3600000)},{id:'handled',studentId:'1007',teacherEmail:admin,sectionCode:course,status:'handled',requestedAt:at(-5000),expiresAt:at(3600000)}];
+const note=(id,userId,role,data={})=>({id,userId,role,type:'code_integrity',title:'تنبيه نزاهة',body:id,createdAt:at(-1000),data});
+db.inAppNotifications=[note('own-admin',admin,'admin',{courseCode:course}),note('own-teacher-role',admin,'teacher',{teacherEmail:admin}),note('foreign-admin-role',other,'admin',{courseCode:'111-'+other,teacherEmail:other}),note('foreign-misdirected',admin,'admin',{courseCode:'111-'+other,teacherEmail:admin}),note('ownerless-admin','','admin'),note('student-role',admin,'student',{teacherEmail:admin})];
+for(const requestId of ['current','expired','handled','deleted'])db.inAppNotifications.push({...note('reset-'+requestId,admin,'admin',{studentId:'1007',teacherEmail:admin,courseCode:course,requestId}),type:'password_reset'});
+fs.writeFileSync(file,JSON.stringify(db,null,2));

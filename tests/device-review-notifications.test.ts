@@ -7,6 +7,8 @@ test('four changing browser tokens produce one alert with a stable read key and 
  const result=group(rows);
  assert.equal(result.length,1);assert.equal(result[0].deviceReviewGroupKey,'device-review-first');assert.equal(result[0].deviceReviewCount,4);assert.equal(result[0].id,'m28');assert.equal(rows.length,4);
  assert.equal(group([...rows].reverse())[0].deviceReviewGroupKey,result[0].deviceReviewGroupKey);
+ assert.ok(result[0].deviceReviewReadKeys?.includes('admin-log-m27'));
+ assert.ok(result[0].deviceReviewReadKeys?.includes('teacher-log-first'));
 });
 test('different students, courses, codes, reasons and later incidents stay visible',()=>{
  for(const patch of [{studentId:'s2'},{sectionCode:'other-teacher@test'},{details:base.details.replace('ABCD','ZZZZ')},{details:'مصيدة كود غير مُصدر — الرمز: LAB-ABCD-EFGH-JKLM'},{timestamp:'2026-10-06T06:21:00Z'}])assert.equal(group([base,{...base,id:'second',...patch}]).length,2);

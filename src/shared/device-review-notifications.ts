@@ -19,8 +19,8 @@ export function sameDeviceReviewIncident(attempt: any, incident: any, now: numbe
   normalizeDeviceReviewReason(attempt.reason) === normalizeDeviceReviewReason(incident.reason) &&
   Number.isFinite(age) && age >= 0 && age < WINDOW_MS;
 }
-export function deviceReviewNotifications<T extends Record<string, any>>(logs: T[]): (T & {deviceReviewGroupKey?:string;deviceReviewCount?:number})[] {
- const groups: {key:string;first:number;latest:T;id:string;count:number}[]=[];
+export function deviceReviewNotifications<T extends Record<string, any>>(logs: T[]): (T & {deviceReviewGroupKey?:string;deviceReviewCount?:number;deviceReviewReadKeys?:string[]})[] {
+ const groups: {key:string;first:number;latest:T;id:string;count:number;readKeys:string[]}[]=[];
  const other:T[]=[];
  for(const log of [...logs].sort((a,b)=>time(a)-time(b))) {
   const normalized=normalizeDeviceReviewReason(log.details);
@@ -29,9 +29,31 @@ export function deviceReviewNotifications<T extends Record<string, any>>(logs: T
   if(log.action!=='محاولة كود مرفوضة' || !normalized.includes(BINDING_REASON) || !log.studentId || !code || !course || !Number.isFinite(time(log))) {other.push(log);continue;}
   const key=JSON.stringify([String(log.studentId),course,code,BINDING_REASON]);
   let group=groups.find(g=>g.key===key && time(log)-g.first<WINDOW_MS);
-  if(!group){group={key,first:time(log),latest:log,id:String(log.id || log.timestamp),count:0};groups.push(group);}
+  if(!group){group={key,first:time(log),latest:log,id:String(log.id || log.timestamp),count:0,readKeys:[]};groups.push(group);}
   group.latest=log;group.count++;
+  group.readKeys.push(`admin-log-${log.id || log.timestamp || log.createdAt}`,`teacher-log-${log.id || log.timestamp || log.createdAt}`);
  }
- return [...other,...groups.map(g=>({...g.latest,deviceReviewGroupKey:`device-review-${g.id}`,deviceReviewCount:g.count}))]
+ return [...other,...groups.map(g=>({...g.latest,deviceReviewGroupKey:`device-review-${g.id}`,deviceReviewCount:g.count,deviceReviewReadKeys:g.readKeys}))]
+  .sort((a,b)=>time(b)-time(a));
+}
+
+/** Older push copies can outlive the shorter audit page; group those too. */
+export function deviceReviewPushNotifications<T extends Record<string, any>>(notes: T[]): (T & {deviceReviewGroupKey?:string;deviceReviewReadKeys?:string[]})[] {
+ const groups:{key:string;first:number;latest:T;id:string;readKeys:string[]}[]=[];
+ const other:T[]=[];
+ for(const note of [...notes].sort((a,b)=>time(a)-time(b))) {
+  const data=note.data || {};
+  const reason=normalizeDeviceReviewReason(`${note.body || ''} ${data.reason || ''}`);
+  const code=cleanCode(note.code || data.code);
+  const student=String(note.studentId || data.studentId || '');
+  const scope=String(note.courseCode || note.sectionCode || data.courseCode || data.sectionCode || note.teacherEmail || data.teacherEmail || note.userId || data.userId || '').toLowerCase();
+  if(String(note.type || data.type || '')!=='code_integrity' || !reason.includes(BINDING_REASON) || !student || !code || !scope || !Number.isFinite(time(note))) {other.push(note);continue;}
+  const key=JSON.stringify([scope,student,code,BINDING_REASON]);
+  let group=groups.find(g=>g.key===key && time(note)-g.first<WINDOW_MS);
+  if(!group){group={key,first:time(note),latest:note,id:String(note.id || note.timestamp),readKeys:[]};groups.push(group);}
+  group.latest=note;
+  for(const id of [note.id,note.legacyNotificationId].filter(Boolean))group.readKeys.push(`admin-inapp-${id}`,`teacher-inapp-${id}`);
+ }
+ return [...other,...groups.map(g=>({...g.latest,title:'محاولة دخول من متصفح غير معتمد',body:`${g.latest.studentName || g.latest.data?.studentName || String(g.latest.body || '').match(/^محاولة مرفوضة للطالب (.+?):/)?.[1] || 'طالب'}: بيانات المتصفح في محاولة الدخول لم تطابق الربط المعتمد.`,deviceReviewGroupKey:`device-review-note-${g.id}`,deviceReviewReadKeys:g.readKeys}))]
   .sort((a,b)=>time(b)-time(a));
 }
