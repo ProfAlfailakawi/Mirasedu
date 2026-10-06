@@ -1985,6 +1985,11 @@ export class LocalDatabase {
     return this.mutationVersion;
   }
 
+  // Covers local writes AND snapshots received from another Cloud Run instance.
+  public getReadRevision(): string {
+    return `${this.mutationVersion}:${this.data.lastUpdated || 0}:${this.cloudSnapshotSequence}`;
+  }
+
   public async persist(immediate: boolean = true) {
     if (this.isDemo) {
       // The mutation counter still advances so cache keys that depend on it

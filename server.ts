@@ -11,6 +11,7 @@ import fs from "fs";
 import os from "os";
 import fileUpload from "express-fileupload";
 import crypto from "crypto";
+import { gzipSync } from "node:zlib";
 import dotenv from "dotenv";
 import QRCode from "qrcode";
 import { execFileSync, spawn } from "child_process";
@@ -3836,7 +3837,7 @@ function activatedCourseCodesForStudent(student: any, extraCourseCode?: any): st
   const activationCode = compactJoinCode(student?.activationCode || "");
   if (activationCode) {
     try {
-      dbInstance.getJoinCodes().forEach((jc: any) => {
+      (teacherReadIndex().codesByValue.get(activationCode) || []).forEach((jc: any) => {
         if (!isUsableJoinCodeRecord(jc)) return;
         if (compactJoinCode(jc?.code || "") === activationCode)
           add(joinCodeCourse(jc));
@@ -4312,7 +4313,7 @@ function getFreshJoinCodeForStudentCourse(student: any, courseCode: any, teacher
   if (!student || !course || !sid) return null;
   const expectedOwner = String(teacherEmail || sectionOwnerEmail(course) || "").trim().toLowerCase();
   return (
-    dbInstance.getJoinCodes().find((jc: any) => {
+    indexedStudentCodes(student).find((jc: any) => {
       if (!isUsableJoinCodeRecord(jc)) return false;
       const status = String(jc.status || "active").trim().toLowerCase();
       if (status !== "active") return false;
@@ -4333,7 +4334,7 @@ function studentHasCurrentRosterCourseLink(student: any, courseCode: any, teache
   const sid = normalizeStudentId(student?.id || student?.idNumber || student?.studentId);
   if (!student || !course || !sid) return false;
   const owner = String(teacherEmail || sectionOwnerEmail(course) || "").trim().toLowerCase();
-  return dbInstance.getAllowedStudents().some((row: any) => {
+  return indexedStudentRoster(student).some((row: any) => {
     if (!row || isSoftDeletedRecord(row)) return false;
     const rowId = normalizeStudentId(row.id || row.idNumber || row.studentId);
     if (rowId !== sid) return false;
@@ -4347,7 +4348,7 @@ function studentHasCurrentRosterCourseLink(student: any, courseCode: any, teache
 function studentHasOperationalUsedJoinCode(student: any, courseCode: any, teacherEmail?: any): boolean {
   const course = String(courseCode || "").trim();
   if (!student || !course) return false;
-  return dbInstance.getJoinCodes().some((jc: any) => {
+  return indexedStudentCodes(student).some((jc: any) => {
     if (!isUsableJoinCodeRecord(jc)) return false;
     const status = String(jc.status || "").toLowerCase();
     if (!["used", "active-used", "activated"].includes(status) && !String(jc.activatedAt || jc.usedAt || "").trim()) return false;
@@ -4646,12 +4647,47 @@ function deleteRetiredJoinCodeRecord(code: any) {
   return false;
 }
 
+const teacherReadIndexes = new WeakMap<object, any>();
+function teacherReadIndex() {
+  const students = dbInstance.getStudents();
+  const revision = dbInstance.getReadRevision();
+  const cached = teacherReadIndexes.get(students);
+  if (cached?.revision === revision) return cached;
+  const group = (rows: any[], keys: (row: any) => string[]) => {
+    const result = new Map<string, any[]>();
+    for (const row of rows) for (const key of new Set(keys(row).filter(Boolean))) {
+      const items = result.get(key);
+      if (items) items.push(row); else result.set(key, [row]);
+    }
+    return result;
+  };
+  const index = {
+    revision,
+    roster: group(dbInstance.getAllowedStudents(), row => [normalizeStudentId(row.idNumber || row.id || row.studentId), normalizeStudentId(row.id || row.idNumber || row.studentId)]),
+    codes: group(dbInstance.getJoinCodes(), row => [normalizeStudentId(row.assignedStudentId || row.studentId), normalizeStudentId(row.studentId), normalizeStudentId(row.usedByStudentId)]),
+    codesByValue: group(dbInstance.getJoinCodes(), row => [compactJoinCode(row.code)]),
+    submissions: group(dbInstance.getTeacherSubmissions(), row => [normalizeStudentId(row.studentId)]),
+    quizSubmissions: group(dbInstance.getQuizSubmissions(), row => [normalizeStudentId(row.studentId)]),
+    students: group(students, row => [normalizeStudentId(row.id || row.idNumber || row.studentId)]),
+    studentsByActivation: group(students, row => [compactJoinCode(row.activationCode)]),
+    studentPosition: new Map(students.map((student, position) => [student, position])),
+  };
+  teacherReadIndexes.set(students, index);
+  return index;
+}
+function indexedStudentCodes(student: any): any[] {
+  return teacherReadIndex().codes.get(normalizeStudentId(student?.id || student?.idNumber || student?.studentId)) || [];
+}
+function indexedStudentRoster(student: any): any[] {
+  return teacherReadIndex().roster.get(normalizeStudentId(student?.id || student?.idNumber || student?.studentId)) || [];
+}
+
 function getStudentRosterCourseCodes(student: any): string[] {
   const sid = normalizeStudentId(student?.id || student?.idNumber || student?.studentId);
   if (!sid) return [];
   const codes = new Set<string>();
   try {
-    dbInstance.getAllowedStudents().forEach((row: any) => {
+    indexedStudentRoster(student).forEach((row: any) => {
       if (normalizeStudentId(row.idNumber || row.id || row.studentId) !== sid) return;
       const course = String(row.sectionCode || row.studentSection || row.courseCode || "").trim();
       if (course && course.toLowerCase() !== "all") codes.add(course);
@@ -4682,7 +4718,7 @@ function getStudentDiscoveredCourseCodes(student: any, options: { includeRosterO
     getStudentRosterCourseCodes(student).forEach(add);
   }
   try {
-    dbInstance.getJoinCodes().forEach((jc: any) => {
+    indexedStudentCodes(student).forEach((jc: any) => {
       if (!isUsableJoinCodeRecord(jc)) return;
       if (
         normalizeStudentId(jc.assignedStudentId || jc.studentId) === sid ||
@@ -4692,7 +4728,7 @@ function getStudentDiscoveredCourseCodes(student: any, options: { includeRosterO
     });
   } catch {}
   try {
-    dbInstance.getTeacherSubmissions().forEach((sub: any) => {
+    (teacherReadIndex().submissions.get(sid) || []).forEach((sub: any) => {
       if (normalizeStudentId(sub.studentId) === sid)
         add(sub.courseCode || sub.sectionCode);
     });
@@ -4947,13 +4983,14 @@ function studentHasEnrollmentInCourse(student: any, courseCode: any): boolean {
     sectionCodeEquivalent(c, courseCode),
   );
 }
-function getStudentEnrollmentDetails(student: any) {
+function getStudentEnrollmentDetails(student: any, ownerFilter = "") {
   const rosterOnlyCodes = getStudentRosterCourseCodes(student);
   const allCodes = getStudentDiscoveredCourseCodes(student, { includeRosterOnly: true }).filter((courseCode) =>
     !!(resolveSectionForStudentGate(courseCode) || sectionForCourseCode(courseCode)),
   );
   const seen = new Set<string>();
   return allCodes
+    .filter(courseCode => !ownerFilter || teacherOwnsCourseCode(courseCode, ownerFilter))
     .map((courseCode) => {
       const sec: any = resolveSectionForStudentGate(courseCode) || sectionForCourseCode(courseCode);
       const teacherEmail = String(
@@ -7678,8 +7715,18 @@ function buildCodeCaseFile(code: any, attempts: any[]) {
   };
 }
 
+function firstJoinCodesByValue(codes: any[]) {
+  const index = new Map<string, any>();
+  for (const code of codes) {
+    const key = compactJoinCode(code.code);
+    if (!index.has(key)) index.set(key, code);
+  }
+  return index;
+}
+
 function buildBatchIntelligence(codes: any[], attempts: any[]) {
   const batches = new Map<string, any>();
+  const codesByValue = firstJoinCodesByValue(codes);
   for (const code of codes) {
     const batchId = resolveJoinCodeBatchId(code);
     const item = batches.get(batchId) || {
@@ -7721,9 +7768,7 @@ function buildBatchIntelligence(codes: any[], attempts: any[]) {
     const normalized = normalizeJoinCode(
       attempt.normalizedCode || attempt.code || "",
     );
-    const code = codes.find(
-      (c: any) => compactJoinCode(c.code) === compactJoinCode(normalized),
-    );
+    const code = codesByValue.get(compactJoinCode(normalized));
     const batchId = resolveAttemptBatchId(attempt, code);
     const item = batches.get(batchId) || {
       batchId,
@@ -7789,6 +7834,7 @@ function buildBatchIntelligence(codes: any[], attempts: any[]) {
 }
 
 function buildCollectiveTransferAlerts(codes: any[], attempts: any[]) {
+  const codesByValue = firstJoinCodesByValue(codes);
   const groups = new Map<string, any>();
   for (const attempt of attempts) {
     const reason = String(attempt.reason || "");
@@ -7804,9 +7850,7 @@ function buildCollectiveTransferAlerts(codes: any[], attempts: any[]) {
     const normalized = normalizeJoinCode(
       attempt.normalizedCode || attempt.code || "",
     );
-    const code = codes.find(
-      (c: any) => compactJoinCode(c.code) === compactJoinCode(normalized),
-    );
+    const code = codesByValue.get(compactJoinCode(normalized));
     const section = String(
       attempt.sectionCode ||
         code?.studentSection ||
@@ -7934,6 +7978,7 @@ function recommendCodeAction(input: {
 }
 
 function buildSeasonalCodeMemory(codes: any[], attempts: any[]) {
+  const codesByValue = firstJoinCodesByValue(codes);
   const buckets = new Map<string, any>();
   const sorted = attempts
     .slice()
@@ -7946,9 +7991,7 @@ function buildSeasonalCodeMemory(codes: any[], attempts: any[]) {
     const normalized = normalizeJoinCode(
       attempt.normalizedCode || attempt.code || "",
     );
-    const code = codes.find(
-      (c: any) => compactJoinCode(c.code) === compactJoinCode(normalized),
-    );
+    const code = codesByValue.get(compactJoinCode(normalized));
     const rawTerm =
       String(
         code?.semester ||
@@ -8055,14 +8098,13 @@ function buildSeasonalCodeMemory(codes: any[], attempts: any[]) {
 }
 
 function buildOutOfContextCodeAlerts(codes: any[], attempts: any[]) {
+  const codesByValue = firstJoinCodesByValue(codes);
   const alerts: any[] = [];
   for (const attempt of attempts) {
     const normalized = normalizeJoinCode(
       attempt.normalizedCode || attempt.code || "",
     );
-    const code = codes.find(
-      (c: any) => compactJoinCode(c.code) === compactJoinCode(normalized),
-    );
+    const code = codesByValue.get(compactJoinCode(normalized));
     if (!code) continue;
     const expectedSection = String(
       code.studentSection || code.sectionCode || "",
@@ -10951,9 +10993,7 @@ function codeWatermark(studentId: any, code: any): string {
 
 // قمع صحة الأكواد: أُصدر ← فُعّل ← أول دخول ← أول اختبار.
 function buildCodeHealthFunnel(scopedCodes: any[]): any {
-  const students = dbInstance.getStudents();
-  const quiz = dbInstance.getQuizSubmissions();
-  const teacherSubs = dbInstance.getTeacherSubmissions();
+  const index = teacherReadIndex();
   const chapterById = new Map<string, any>(dbInstance.getChapters().map(chapter => [String(chapter.id), chapter]));
   const examById = new Map<string, any>(dbInstance.getTeacherExams().map(exam => [String(exam.id), exam]));
   const issued = scopedCodes.length;
@@ -10965,7 +11005,7 @@ function buildCodeHealthFunnel(scopedCodes: any[]): any {
   usedCodes.forEach((c: any) => {
     const sid = normalizeStudentId(c.studentId || c.usedByStudentId);
     if (!sid) return;
-    const st: any = students.find((s: any) => normalizeStudentId(s.id) === sid);
+    const st: any = (index.students.get(sid) || []).find((s: any) => normalizeStudentId(s.id) === sid);
     if (
       st &&
       (st.lastLoginDate || (Array.isArray(st.devices) && st.devices.length > 0))
@@ -10980,8 +11020,8 @@ function buildCodeHealthFunnel(scopedCodes: any[]): any {
       return !!submissionCourse && sectionCodeEquivalent(submissionCourse, course);
     };
     const tookExam =
-      quiz.some((submission: any) => normalizeStudentId(submission.studentId) === sid && submissionMatchesCourse(submission, "quiz")) ||
-      teacherSubs.some((submission: any) => normalizeStudentId(submission.studentId) === sid &&
+      (index.quizSubmissions.get(sid) || []).some((submission: any) => normalizeStudentId(submission.studentId) === sid && submissionMatchesCourse(submission, "quiz")) ||
+      (index.submissions.get(sid) || []).some((submission: any) => normalizeStudentId(submission.studentId) === sid &&
         String(submission.kind || "") === "exam" && submissionMatchesCourse(submission, "exam"));
     if (tookExam) firstExam += 1;
   });
@@ -11353,7 +11393,7 @@ app.get("/api/teacher/activation-attempts", (req, res) => {
     : teacherEmail;
   const start = parseReportDateStart(req.query.from);
   const end = parseReportDateEnd(req.query.to);
-  const codes = dbInstance.getJoinCodes();
+  const codesByValue = firstJoinCodesByValue(dbInstance.getJoinCodes());
   const allowedRows = dbInstance.getAllowedStudents();
   const students = dbInstance.getStudents();
   const rawAttempts = dbInstance
@@ -11367,9 +11407,7 @@ app.get("/api/teacher/activation-attempts", (req, res) => {
     })
     .filter((attempt: any) => {
       if (isAdmin && scope === "all") return true;
-      const codeRecord = codes.find((code: any) =>
-        compactJoinCode(code.code) === compactJoinCode(attempt.normalizedCode || attempt.code || ""),
-      );
+      const codeRecord = codesByValue.get(compactJoinCode(attempt.normalizedCode || attempt.code || ""));
       return attemptReportOwnerMatches(attempt, codeRecord, targetEmail);
     });
   const keyOf = (attempt: any) => [
@@ -11388,9 +11426,7 @@ app.get("/api/teacher/activation-attempts", (req, res) => {
     )
     .map((attempt: any) => {
       const normalizedCode = normalizeJoinCode(attempt.normalizedCode || attempt.code || "");
-      const codeRecord = codes.find((code: any) =>
-        compactJoinCode(code.code) === compactJoinCode(normalizedCode),
-      );
+      const codeRecord = codesByValue.get(compactJoinCode(normalizedCode));
       const studentId = normalizeStudentId(
         attempt.linkedStudentId || attempt.studentId || attempt.targetStudentId || "",
       );
@@ -11431,8 +11467,35 @@ app.get("/api/teacher/activation-attempts", (req, res) => {
   return res.json({ success: true, attempts, summary });
 });
 
-app.get("/api/teacher/code-integrity", (req, res) => {
-  setNoCache(res);
+function teacherAuditScope(req: express.Request) {
+  const viewerEmail = verifiedTeacherEmailFromSession(req);
+  const admin = isAdminEmail(viewerEmail);
+  const requested = String(req.query.scope || (String(req.query.includeAll || "") === "1" ? "all" : "self")).trim().toLowerCase();
+  const scope = admin ? requested : "self";
+  return {
+    viewerEmail, scope,
+    includeAll: admin && scope === "all",
+    targetEmail: admin && scope !== "all" && scope !== "self" ? scope : viewerEmail,
+  };
+}
+
+// Results belong to one database/sandbox revision, actor, and scope. Mutations
+// and remote Firestore snapshots invalidate immediately; time windows age in 1s.
+const teacherAuditReadCache = new WeakMap<object, Map<string, { revision: string; expires: number; value: any }>>();
+function cachedTeacherAuditRead(key: string, read: () => any) {
+  const source = dbInstance.getStudents();
+  const revision = dbInstance.getReadRevision();
+  let entries = teacherAuditReadCache.get(source);
+  if (!entries) { entries = new Map(); teacherAuditReadCache.set(source, entries); }
+  const cached = entries.get(key);
+  if (cached && cached.revision === revision && cached.expires > Date.now()) return cached.value;
+  const value = read();
+  if (entries.size >= 24) entries.delete(entries.keys().next().value!);
+  entries.set(key, { revision: dbInstance.getReadRevision(), expires: Date.now() + 1000, value });
+  return value;
+}
+
+function teacherCodeIntegrityData(req: express.Request) {
   // الهوية من الجلسة الموثّقة فقط: كان بريد فارغ يمنح عرض الأدمن الكامل لأي معلم.
   const viewerEmail = verifiedTeacherEmailFromSession(req);
   const scope = String(req.query.scope || "all").trim().toLowerCase();
@@ -11764,7 +11827,7 @@ app.get("/api/teacher/code-integrity", (req, res) => {
   const adminMirasPulse = realAdminView ? buildMirasPulse(scopedCodes, scopedAttempts, adminHealth, adminCodeRadar, auditOwner) : undefined;
   const adminTrustMap = realAdminView ? buildTrustMap(scopedCodes, scopedAttempts, adminSharingGraph, adminCodeRadar) : undefined;
   const adminEventReplay = realAdminView ? buildEventReplay(scopedCodes, scopedAttempts, auditOwner) : undefined;
-  return res.json({
+  return {
     success: true,
     summary: {
       totalAttempts: scopedAttempts.length,
@@ -11821,7 +11884,12 @@ app.get("/api/teacher/code-integrity", (req, res) => {
     // صحة البيانات والشفاء الذاتي — مربوطة بجلسة السوبر أدمن الحقيقية (لا
     // بمعامل قابل للانتحال)، فلا تظهر لغير السوبر أدمن مهما كان معامل الاستعلام.
     dataHealth: isAdminEmail(teacherEmailFromRequest(req)) ? adminHealth : undefined,
-  });
+  };
+}
+app.get("/api/teacher/code-integrity", (req, res) => {
+  setNoCache(res);
+  const { viewerEmail, scope } = teacherAuditScope(req);
+  return res.json(cachedTeacherAuditRead(`integrity:${viewerEmail}:${scope}`, () => teacherCodeIntegrityData(req)));
 });
 
 const usedRollCallScans = new Set<string>();
@@ -12144,14 +12212,12 @@ function resolveJoinCodeCourseForDisplay(jc: any): { courseCode: string; courseN
   const linkedCode = compactJoinCode(jc?.code || "");
   let linkedStudent: any = null;
   if (linkedStudentId || linkedCode) {
-    linkedStudent = dbInstance.getStudents().find((student: any) => {
-      const sameStudent =
-        linkedStudentId &&
-        normalizeStudentId(student?.id || student?.idNumber || student?.studentId) === linkedStudentId;
-      const sameActivationCode =
-        linkedCode && compactJoinCode(student?.activationCode || "") === linkedCode;
-      return sameStudent || sameActivationCode;
-    });
+    const index = teacherReadIndex();
+    const candidates = [
+      ...(index.students.get(linkedStudentId) || []).slice(0, 1),
+      ...(index.studentsByActivation.get(linkedCode) || []).slice(0, 1),
+    ];
+    linkedStudent = candidates.sort((a, b) => index.studentPosition.get(a) - index.studentPosition.get(b))[0] || null;
   }
 
   if (linkedStudent) {
@@ -12171,7 +12237,7 @@ function resolveJoinCodeCourseForDisplay(jc: any): { courseCode: string; courseN
   }
 
   if (linkedStudentId) {
-    dbInstance.getAllowedStudents().forEach((row: any) => {
+    (teacherReadIndex().roster.get(linkedStudentId) || []).forEach((row: any) => {
       const rowId = normalizeStudentId(row?.idNumber || row?.id || row?.studentId);
       if (rowId !== linkedStudentId) return;
       addCandidate(
@@ -14498,20 +14564,20 @@ function teacherCanAccessPasskeyDevice(item: any, teacherEmail: string): boolean
   return Boolean(student && teacherCanManageStudent(student, teacherEmail));
 }
 
-app.get("/api/auth/passkey/devices", (req, res) => {
+function teacherPasskeyDevicesData(req: express.Request) {
   const teacherEmail = teacherEmailFromRequest(req);
-  if (!teacherEmail)
-    return res.status(401).json({ error: "سجّل الدخول بحساب المعلم." });
+  if (!teacherEmail) return { success: false, devices: [] };
   const isAdminViewer = isAdminEmail(teacherEmail);
   const requestedScope = String(req.query.scope || "all").trim().toLowerCase();
   const targetEmail = requestedScope === "self" ? teacherEmail : requestedScope;
+  const studentsById = new Map(dbInstance.getStudents().map((student: any) => [String(student.id), student]));
   const devices = dbInstance.getPasskeyCredentials()
     .filter((item: any) => {
       if (!teacherCanAccessPasskeyDevice(item, teacherEmail)) return false;
       if (!isAdminViewer || requestedScope === "all") return true;
       if (!targetEmail || !targetEmail.includes("@")) return false;
       if (item.role === "teacher") return String(item.userId || "").toLowerCase() === targetEmail;
-      const student = dbInstance.getStudents().find((row: any) => String(row.id) === String(item.userId));
+      const student = studentsById.get(String(item.userId));
       if (!student) return false;
       const courseCodes = getStudentDiscoveredCourseCodes(student);
       return courseCodes.some((code: string) => sectionOwnerEmail(code).toLowerCase() === targetEmail);
@@ -14528,7 +14594,12 @@ app.get("/api/auth/passkey/devices", (req, res) => {
     updatedAt: item.updatedAt,
     lastUsedAt: item.lastUsedAt,
   }));
-  return res.json({ success: true, devices });
+  return { success: true, devices };
+}
+app.get("/api/auth/passkey/devices", (req, res) => {
+  setNoCache(res);
+  if (!verifiedTeacherEmailFromSession(req)) return res.status(401).json({ error: "سجّل الدخول بحساب المعلم." });
+  return res.json(teacherPasskeyDevicesData(req));
 });
 
 app.delete("/api/auth/passkey/devices/:credentialId", (req, res) => {
@@ -20134,10 +20205,14 @@ app.post("/api/teacher/device-approval/:id/reject", (req, res) => {
   return res.json({ success: true, message: "تم رفض طلب اعتماد الجهاز." });
 });
 
-app.get("/api/teacher/join-codes", (req, res) => {
-  const teacherEmail = teacherEmailFromRequest(req);
-  const includeAll =
-    String(req.query.includeAll || "") === "1" && isAdminEmail(teacherEmail);
+function joinCodeAuditOwner(code: any): string {
+  const course = code.resolvedCourseCode || code.studentSection || code.sectionCode || code.courseCode;
+  return String(code.status || "").toLowerCase() === "used" && course && !isGenericJoinCourseCode(course)
+    ? sectionOwnerEmail(course).toLowerCase() : joinCodeOwnerEmail(code);
+}
+
+function teacherJoinCodesData(req: express.Request) {
+  const { targetEmail: teacherEmail, includeAll } = teacherAuditScope(req);
   const includeRetired = String(req.query.includeRetired || "") === "1";
   // The code manager can request only recent activations while it is open.
   // This keeps live refreshes small even when the teacher owns thousands of codes.
@@ -20168,7 +20243,7 @@ app.get("/api/teacher/join-codes", (req, res) => {
   ];
   const joinCodes = sourceCodes
     .filter((jc: any) => String(jc?.code || "").trim())
-    .filter((jc: any) => includeAll || canAccessJoinCode(jc, teacherEmail))
+    .filter((jc: any) => includeAll || joinCodeAuditOwner(jc) === teacherEmail)
     .filter((jc: any) =>
       !Number.isFinite(activatedSince) ||
       (Date.parse(String(jc?.activatedAt || "")) || 0) >= activatedSince,
@@ -20198,7 +20273,11 @@ app.get("/api/teacher/join-codes", (req, res) => {
             : courseNameFromCode(courseCode),
       };
     });
-  return res.json({ joinCodes });
+  return { joinCodes };
+}
+app.get("/api/teacher/join-codes", (req, res) => {
+  setNoCache(res);
+  return res.json(teacherJoinCodesData(req));
 });
 
 app.post("/api/teacher/join-codes/create", (req, res) => {
@@ -21367,9 +21446,8 @@ function teacherSectionsData(teacherEmail: string, includeAll = false) {
 
 app.get("/api/teacher/sections", (req, res) => {
   setNoCache(res);
-  const teacherEmail = teacherEmailFromRequest(req);
-  const includeAll = String(req.query.includeAll || "") === "1" && isAdminEmail(teacherEmail);
-  return res.json({ success: true, sections: teacherSectionsData(teacherEmail, includeAll) });
+  const { targetEmail, includeAll } = teacherAuditScope(req);
+  return res.json({ success: true, sections: teacherSectionsData(targetEmail, includeAll) });
 });
 
 app.post("/api/teacher/sections", (req, res) => {
@@ -24013,8 +24091,7 @@ function teacherReportsData(teacherEmail: string, includeAll = false) {
     .getChapters()
     .filter(
       (c) =>
-        c.teacherEmail &&
-        c.teacherEmail.toLowerCase() === teacherEmail.toLowerCase(),
+        includeAll || (c.teacherEmail && c.teacherEmail.toLowerCase() === teacherEmail.toLowerCase()),
     );
 
   const teacherChapterIds = new Set(teacherChapters.map((chapter) => chapter.id));
@@ -24063,34 +24140,38 @@ function teacherReportsData(teacherEmail: string, includeAll = false) {
     ownsCourseCache.set(code, owns);
     return owns;
   };
-  const reportStudents = students
+  // Discard foreign students BEFORE computing their full enrollment state.
+  const candidateStudents = includeAll ? students : students.filter((student: any) =>
+    getStudentDiscoveredCourseCodes(student, { includeRosterOnly: true }).some(ownsCourse));
+  const reportStudents = candidateStudents
     .map((student: any) => {
-      const enrollments = getStudentEnrollmentDetails(student).filter((entry: any) =>
+      const enrollments = getStudentEnrollmentDetails(student, includeAll ? "" : teacherEmail).filter((entry: any) =>
         ownsCourse(entry.courseCode || entry.sectionCode),
       );
       return { ...student, enrollments };
     })
     .filter((student: any) => includeAll || !teacherEmail || student.enrollments.length > 0 || ownsCourse(student.sectionCode));
 
+  const reportAllowed = allowed.filter((row: any) => ownsCourse(row.sectionCode || row.courseCode));
+  const reportStudentIds = new Set(reportStudents.map(student => student.id));
   return {
-    totalRegistered,
-    totalAllowed,
-    percentCompleted,
-    deviceViolationCount,
-    inactiveOrStruggling,
+    totalRegistered: reportStudents.length,
+    totalAllowed: reportAllowed.length,
+    percentCompleted: reportStudents.length ? Math.floor(reportStudents.reduce((sum, student) => sum + Number(student.progress || 0), 0) / reportStudents.length) : 0,
+    deviceViolationCount: logs.filter((log: any) => (log.action === "انتهاك الأجهزة" || log.isViolationWarning) &&
+      (includeAll || ownsCourse(log.sectionCode || log.courseCode || log.studentSection) || String(log.teacherEmail || log.actorEmail || "").toLowerCase() === teacherEmail)).length,
+    inactiveOrStruggling: inactiveOrStruggling.filter((student: any) => reportStudentIds.has(student.id)),
     chapterStats,
     students: reportStudents,
-    allowedStudents: allowed
-      .filter((row: any) => ownsCourse(row.sectionCode || row.courseCode)),
+    allowedStudents: reportAllowed,
   };
 }
 
 app.get("/api/teacher/reports", (req, res) => {
   setNoCache(res);
   try {
-    const teacherEmail = teacherEmailFromRequest(req);
-    const includeAll = String(req.query.includeAll || "") === "1" && isAdminEmail(teacherEmail);
-    return res.json(teacherReportsData(teacherEmail, includeAll));
+    const { targetEmail, includeAll } = teacherAuditScope(req);
+    return res.json(teacherReportsData(targetEmail, includeAll));
   } catch (err: any) {
     console.error("teacher reports failed", err);
     return res.json({
@@ -24107,6 +24188,41 @@ app.get("/api/teacher/reports", (req, res) => {
   }
 });
 
+
+app.get("/api/teacher/audit-workspace", (req, res) => {
+  setNoCache(res);
+  const started = performance.now();
+  const { viewerEmail, targetEmail, scope, includeAll } = teacherAuditScope(req);
+  if (!viewerEmail) return res.status(401).json({ error: "جلسة الأستاذ غير واضحة." });
+  if (scope !== "all" && scope !== "self" && !scope.includes("@")) return res.status(400).json({ error: "الحساب المحدد غير صحيح." });
+  const archive = String(req.query.includeRetired || "") === "1";
+  try {
+    const payload = cachedTeacherAuditRead(`workspace:${viewerEmail}:${scope}:${archive}`, () => ({
+      success: true, scope, ownerEmail: targetEmail, includeRetired: archive,
+      sections: teacherSectionsData(targetEmail, includeAll),
+      reports: teacherReportsData(targetEmail, includeAll),
+      logs: teacherLogsData(targetEmail, !includeAll && isAdminEmail(targetEmail)),
+      joinCodes: teacherJoinCodesData(req).joinCodes,
+      integrity: cachedTeacherAuditRead(`integrity:${viewerEmail}:${scope}`, () => teacherCodeIntegrityData(req)),
+      devices: teacherPasskeyDevicesData(req).devices,
+    }));
+    // Large all-account views travel compressed instead of several MB of JSON.
+    const json = JSON.stringify(payload);
+    res.setHeader("Content-Type", "application/json; charset=utf-8");
+    res.vary("Accept-Encoding");
+    if (/\bgzip\b/.test(String(req.headers["accept-encoding"] || "")) && Buffer.byteLength(json) > 1024) {
+      const compressed = gzipSync(json, { level: 4 });
+      res.setHeader("Content-Encoding", "gzip");
+      res.setHeader("Server-Timing", `audit;dur=${(performance.now() - started).toFixed(1)}`);
+      return res.end(compressed);
+    }
+    res.setHeader("Server-Timing", `audit;dur=${(performance.now() - started).toFixed(1)}`);
+    return res.end(json);
+  } catch (error: any) {
+    console.error("audit workspace failed", error?.message);
+    return res.status(503).json({ success: false, error: "تعذر تحميل بيانات الحساب المحدد." });
+  }
+});
 
 // One authenticated cloud read supplies every home dataset. Personal scope is
 // determined by the verified session even for administrators, never by a query.
