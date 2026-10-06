@@ -1,6 +1,7 @@
 import { planAtomicCloudWrite, commitAtomicCloudWrite, attemptOptimisticCloudCommit, canReuseCloudBaseline } from "../shared/atomic-cloud-write";
 import { waitForCloudMutation } from "../shared/cloud-mutation-barrier";
 import { preserveGeneralCodeOnReset } from "./generalJoinCodes";
+import { shouldRemoveFinishedPasswordReset } from "../shared/password-reset-retention";
 import { AsyncLocalStorage } from "node:async_hooks";
 import fs from "fs";
 import os from "os";
@@ -2842,7 +2843,11 @@ export class LocalDatabase {
     if (!this.data.passwordResetRequests) this.data.passwordResetRequests = [];
     const now = Date.now();
     let changed = false;
-    this.data.passwordResetRequests = this.data.passwordResetRequests.map((req) => {
+    this.data.passwordResetRequests = this.data.passwordResetRequests.filter((req) => {
+      if (!shouldRemoveFinishedPasswordReset(req, now)) return true;
+      changed = true;
+      return false;
+    }).map((req) => {
       if (req.status === "new" && new Date(req.expiresAt).getTime() <= now) {
         changed = true;
         return { ...req, status: "expired" };

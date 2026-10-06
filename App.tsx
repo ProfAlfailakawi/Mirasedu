@@ -6,6 +6,7 @@ import { probeCloudReadiness } from "./src/shared/cloud-readiness-probe";
 import { teacherOwnsNotification, duplicatesCodeIntegrityLog, pendingDeviceApprovalNotifications } from "./src/shared/teacher-notification-scope";
 import { notificationIdentity, notificationSignature } from "./src/shared/notification-identity";
 import { homePasswordResets } from "./src/shared/home-password-reset-requests";
+import { shouldRemoveFinishedPasswordReset } from "./src/shared/password-reset-retention";
 import { cloudDataReady } from "./src/shared/cloud-data-ready";
 import { studentSessionIssuedAt, shouldApplyStudentLockSignal } from "./src/shared/student-lock-signal";
 import { countActivatedCourseStudents } from "./src/shared/course-activation-count";
@@ -21052,6 +21053,7 @@ ${rows
     return st ? visibleCourseCodes.includes(st.sectionCode) : false;
   }));
   const passwordResetRequests = passwordResetRequestsState
+    .filter((req: any) => !shouldRemoveFinishedPasswordReset(req))
     .filter((req: any) => {
       if (isAdminTeacher && auditScopeEmail === "all") return true;
       const owner = String(req.teacherEmail || "").toLowerCase();
@@ -45656,16 +45658,7 @@ ${rows
                                           cleanStudentCourseName(courseDisplay, code) ||
                                           sectionDisplay ||
                                           "مقرر غير محدد";
-                                        const showCode =
-                                          !!sectionDisplay &&
-                                          sectionDisplay !== "-" &&
-                                          !hasArabicCourseLetters(sectionDisplay) &&
-                                          isCourseCodeLikeDisplay(sectionDisplay) &&
-                                          !isDuplicateCourseDisplay(sectionDisplay, displayName) &&
-                                          sectionDisplay.trim().toLowerCase() !== displayName.trim().toLowerCase() &&
-                                          !displayName.trim().toLowerCase().includes(sectionDisplay.trim().toLowerCase()) &&
-                                          !sectionDisplay.trim().toLowerCase().includes(displayName.trim().toLowerCase());
-                                        return { code, sectionDisplay, displayName, showCode };
+                                        return { code, displayName };
                                     });
                                     return (
                                       <div
@@ -45688,11 +45681,6 @@ ${rows
                                             <p className="mb-1 text-[11px] font-semibold text-slate-400">المقررات</p>
                                             {studentCourses.length ? studentCourses.map((course) => (
                                               <div key={course.code} className="border-t border-slate-100 py-1 first:border-0 first:pt-0 last:pb-0">
-                                                {course.showCode && (
-                                                  <p className="font-mono text-[11px] font-medium leading-4 text-indigo-500" dir="ltr">
-                                                    {course.sectionDisplay}
-                                                  </p>
-                                                )}
                                                 <p className="break-words text-[10px] font-medium leading-5 text-slate-600" title={course.displayName}>
                                                   {course.displayName}
                                                 </p>

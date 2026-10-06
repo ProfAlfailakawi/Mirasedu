@@ -100,6 +100,7 @@ node node_modules/.bin/tsx --test tests/cloud-data-ready.test.ts || overall=1
 node node_modules/.bin/tsx --test tests/cloud-readiness-probe.test.ts || overall=1
 node node_modules/.bin/tsx --test tests/password-reset-routing.test.ts || overall=1
 node node_modules/.bin/tsx --test tests/home-password-reset-requests.test.ts || overall=1
+node node_modules/.bin/tsx --test tests/password-reset-retention.test.ts || overall=1
 node node_modules/.bin/tsx --test tests/teacher-notification-scope.test.ts || overall=1
 node node_modules/.bin/tsx --test tests/notification-identity.test.ts || overall=1
 node node_modules/.bin/tsx --test tests/teacher-notification-delivery.test.mjs || overall=1
