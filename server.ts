@@ -5120,11 +5120,18 @@ function sectionStillExists(code: any): boolean {
   if (!c || c.toLowerCase() === "all") return true;
   return !!(resolveSectionForStudentGate(c) || sectionForCourseCode(c));
 }
-function computeDataHealth() {
-  const students = dbInstance.getStudents();
-  const studentIds = new Set(students.map((s: any) => normalizeStudentId(s.id)).filter(Boolean));
-  const codes = dbInstance.getJoinCodes();
-  const roster = dbInstance.getAllowedStudents();
+function computeDataHealth(scopeEmail = "") {
+  const allStudents = dbInstance.getStudents();
+  const students = scopeEmail ? allStudents.filter((student: any) =>
+    getStudentDiscoveredCourseCodes(student).some(course => teacherOwnsCourseCode(course, scopeEmail))) : allStudents;
+  // Referential integrity checks still resolve against the complete student registry.
+  const studentIds = new Set(allStudents.map((student: any) => normalizeStudentId(student.id)).filter(Boolean));
+  const codes = dbInstance.getJoinCodes().filter((code: any) => !scopeEmail ||
+    (String(code.status || "").toLowerCase() === "used"
+      ? teacherOwnsCourseCode(code.resolvedCourseCode || code.studentSection || code.sectionCode || code.courseCode, scopeEmail)
+      : joinCodeOwnerEmail(code) === scopeEmail));
+  const roster = dbInstance.getAllowedStudents().filter((row: any) => !scopeEmail ||
+    teacherOwnsCourseCode(row.sectionCode || row.studentSection || row.courseCode, scopeEmail));
 
   let ghostStudents = 0;
   let ghostRefs = 0;
@@ -10947,6 +10954,8 @@ function buildCodeHealthFunnel(scopedCodes: any[]): any {
   const students = dbInstance.getStudents();
   const quiz = dbInstance.getQuizSubmissions();
   const teacherSubs = dbInstance.getTeacherSubmissions();
+  const chapterById = new Map<string, any>(dbInstance.getChapters().map(chapter => [String(chapter.id), chapter]));
+  const examById = new Map<string, any>(dbInstance.getTeacherExams().map(exam => [String(exam.id), exam]));
   const issued = scopedCodes.length;
   const usedCodes = scopedCodes.filter(
     (c: any) => String(c.status || "").toLowerCase() === "used",
@@ -10962,13 +10971,18 @@ function buildCodeHealthFunnel(scopedCodes: any[]): any {
       (st.lastLoginDate || (Array.isArray(st.devices) && st.devices.length > 0))
     )
       firstLogin += 1;
+    const course = c.resolvedCourseCode || c.studentSection || c.sectionCode || c.courseCode;
+    const submissionMatchesCourse = (submission: any, kind: "quiz" | "exam") => {
+      const source = kind === "quiz"
+        ? chapterById.get(String(submission.chapterId))
+        : examById.get(String(submission.examId));
+      const submissionCourse = submission.courseCode || submission.sectionCode || source?.courseCode || source?.sectionCode;
+      return !!submissionCourse && sectionCodeEquivalent(submissionCourse, course);
+    };
     const tookExam =
-      quiz.some((s: any) => normalizeStudentId(s.studentId) === sid) ||
-      teacherSubs.some(
-        (s: any) =>
-          normalizeStudentId(s.studentId) === sid &&
-          String(s.kind || "") === "exam",
-      );
+      quiz.some((submission: any) => normalizeStudentId(submission.studentId) === sid && submissionMatchesCourse(submission, "quiz")) ||
+      teacherSubs.some((submission: any) => normalizeStudentId(submission.studentId) === sid &&
+        String(submission.kind || "") === "exam" && submissionMatchesCourse(submission, "exam"));
     if (tookExam) firstExam += 1;
   });
   const activated = usedCodes.length;
@@ -11174,16 +11188,16 @@ function buildSmartHealPreview(health: any) {
   };
 }
 
-function buildMirasPulse(scopedCodes: any[], scopedAttempts: any[], health: any, radar: any) {
+function buildMirasPulse(scopedCodes: any[], scopedAttempts: any[], health: any, radar: any, scopeEmail = "") {
   const activeCodes = scopedCodes.filter((c: any) => String(c.status || "active").toLowerCase() === "active").length;
   const stuckStudents = dbInstance.getStudents().filter((student: any) => {
-    const roster = getStudentRosterCourseCodes(student);
+    const roster = getStudentRosterCourseCodes(student).filter(course => !scopeEmail || teacherOwnsCourseCode(course, scopeEmail));
     if (!roster.length) return false;
     const active = getStudentActiveCourseCodes(student);
     return roster.some((course) => !active.some((a) => sectionCodeEquivalent(a, course)));
   }).length;
   const sensitiveExams = dbInstance.getTeacherExams().filter((exam: any) => {
-    if (!isActiveRecord(exam)) return false;
+    if (!isActiveRecord(exam) || (scopeEmail && !teacherOwnsCourseCode(exam.courseCode || exam.sectionCode, scopeEmail))) return false;
     const status = String((exam as any).status || (exam as any).visibility || "").toLowerCase();
     return status.includes("open") || status.includes("active") || (exam as any).isOpen === true || (exam as any).isPublished === true;
   }).length;
@@ -11237,14 +11251,14 @@ function buildTrustMap(scopedCodes: any[], scopedAttempts: any[], graph: any, ra
   return { dots: dots.slice(0, 28), counts: dots.reduce((acc: any, dot: any) => { acc[dot.tone] = (acc[dot.tone] || 0) + 1; return acc; }, {}) };
 }
 
-function buildEventReplay(scopedCodes: any[], scopedAttempts: any[]) {
+function buildEventReplay(scopedCodes: any[], scopedAttempts: any[], scopeEmail = "") {
   const events: any[] = [];
   const add = (type: string, label: string, at: any, payload: any = {}) => {
     const time = Date.parse(String(at || payload.timestamp || payload.createdAt || "")) || 0;
     events.push({ type, label, at: at || payload.timestamp || payload.createdAt || "", time, ...payload });
   };
   try {
-    dbInstance.getActivityLogs().forEach((log: any) => {
+    (scopeEmail ? teacherLogsData(scopeEmail, true) : dbInstance.getActivityLogs()).forEach((log: any) => {
       const action = String(log.action || log.details || "");
       if (!/(حذف|إضافة|اضاف|تفعيل|إعادة|اعادة|تنظيف|شفاء|كود|رمز)/.test(action)) return;
       add("log", action, log.timestamp || log.createdAt || log.date, {
@@ -11269,10 +11283,8 @@ function buildEventReplay(scopedCodes: any[], scopedAttempts: any[]) {
   return events.sort((a, b) => (b.time || 0) - (a.time || 0)).slice(0, 10).map(({ time, ...rest }) => rest);
 }
 
-function maybeRunSafeDataSweep() {
-  const health = computeDataHealth();
-  if (!health.totalIssues) return health;
-  return computeDataHealth();
+function maybeRunSafeDataSweep(scopeEmail = "") {
+  return computeDataHealth(scopeEmail);
 }
 
 function isRejectedActivationAttemptForReport(attempt: any): boolean {
@@ -11420,6 +11432,7 @@ app.get("/api/teacher/activation-attempts", (req, res) => {
 });
 
 app.get("/api/teacher/code-integrity", (req, res) => {
+  setNoCache(res);
   // الهوية من الجلسة الموثّقة فقط: كان بريد فارغ يمنح عرض الأدمن الكامل لأي معلم.
   const viewerEmail = verifiedTeacherEmailFromSession(req);
   const scope = String(req.query.scope || "all").trim().toLowerCase();
@@ -11745,12 +11758,13 @@ app.get("/api/teacher/code-integrity", (req, res) => {
     };
   };
   const realAdminView = isAdminEmail(teacherEmailFromRequest(req));
-  const adminHealth = realAdminView ? maybeRunSafeDataSweep() : undefined;
+  const auditOwner = adminView ? "" : teacherEmail;
+  const adminHealth = realAdminView ? maybeRunSafeDataSweep(auditOwner) : undefined;
   const adminCodeRadar = realAdminView ? buildCodeRadar(scopedCodes, scopedAttempts) : undefined;
   const adminSharingGraph = realAdminView ? buildSharingRingGraph(scopedAttempts, scopedCodes) : undefined;
-  const adminMirasPulse = realAdminView ? buildMirasPulse(scopedCodes, scopedAttempts, adminHealth, adminCodeRadar) : undefined;
+  const adminMirasPulse = realAdminView ? buildMirasPulse(scopedCodes, scopedAttempts, adminHealth, adminCodeRadar, auditOwner) : undefined;
   const adminTrustMap = realAdminView ? buildTrustMap(scopedCodes, scopedAttempts, adminSharingGraph, adminCodeRadar) : undefined;
-  const adminEventReplay = realAdminView ? buildEventReplay(scopedCodes, scopedAttempts) : undefined;
+  const adminEventReplay = realAdminView ? buildEventReplay(scopedCodes, scopedAttempts, auditOwner) : undefined;
   return res.json({
     success: true,
     summary: {

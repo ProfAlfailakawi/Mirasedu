@@ -83,7 +83,7 @@ run_group tests/flows.grade-release.mjs
 run_group tests/flows.device-lock.mjs tests/seed-device-lock.cjs
 run_group tests/flows.public-device-login.mjs
 run_group tests/flows.cloud-workspace.mjs
-run_group tests/flows.audit-scope.mjs
+run_group tests/flows.audit-scope.mjs tests/seed-audit-scope.cjs
 run_group tests/flows.authz-audit.mjs
 run_group tests/flows.demo-hosting.mjs
 node node_modules/.bin/tsx --test tests/general-code-reset.test.mjs || overall=1

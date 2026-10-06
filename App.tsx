@@ -54,7 +54,7 @@ const loadMirasWebAuthn = () => {
 };
 
 const createEmptyMirasCodeIntegrity = () => ({
-  success: true,
+  success: false,
   summary: {
     totalAttempts: 0,
     repeatedCodes: 0,
@@ -106,7 +106,7 @@ const createEmptyMirasCodeIntegrity = () => ({
   teacherReports: [],
   fairnessSummary: {},
   sessionConfidenceSummary: {},
-  codeHealthFunnel: [],
+  codeHealthFunnel: { issued: 0, activated: 0, firstLogin: 0, firstExam: 0 },
   ipClusterAlerts: [],
   dataHealth: { totalIssues: 0 },
 });
@@ -5595,6 +5595,15 @@ export default function App() {
   auditScopeRef.current = auditScopeEmail;
   const teacherTabRef = useRef(teacherTab);
   teacherTabRef.current = teacherTab;
+  // An epoch distinguishes all → self → all, even when the final key matches.
+  const auditContextRef = useRef({ key: "", epoch: 0 });
+  const auditContextKey = `${teacherSession?.email || ""}|${teacherTab}|${auditScopeEmail}`;
+  if (auditContextRef.current.key !== auditContextKey) {
+    auditContextRef.current = { key: auditContextKey, epoch: auditContextRef.current.epoch + 1 };
+  }
+  const [auditLoad, setAuditLoad] = useState<{ key: string; status: "loading" | "ready" | "failed" }>({ key: "", status: "loading" });
+  const [auditRetry, setAuditRetry] = useState(0);
+
   const [allowedRosterOpen, setAllowedRosterOpen] = useState(true);
   const [manualStudentFormOpen, setManualStudentFormOpen] = useState(false);
   const [manualStudentLookupName, setManualStudentLookupName] = useState("");
@@ -6034,9 +6043,8 @@ export default function App() {
     todayDateInputValue(),
   );
   const [activationAttemptSearch, setActivationAttemptSearch] = useState("");
-  const [activationAttemptReport, setActivationAttemptReport] = useState<any[]>(
-    [],
-  );
+  const [activationAttemptReport, setActivationAttemptReport] = useState<any[] | null>(null);
+  const [attemptLoad, setAttemptLoad] = useState({ key: "", status: "loading" });
   const activationAttemptFetchSeqRef = useRef(0);
   const [activationAttemptBusy, setActivationAttemptBusy] = useState(false);
   const [activationAttemptExpandedGroups, setActivationAttemptExpandedGroups] =
@@ -12741,6 +12749,17 @@ export default function App() {
     String(emailOverride || teacherSession?.email || "")
       .trim()
       .toLowerCase();
+  const captureTeacherRead = () => {
+    const epoch = auditContextRef.current.epoch;
+    const tab = teacherTabRef.current;
+    const scope = auditScopeRef.current;
+    const sessionGeneration = cloudSessionGenRef.current;
+    const token = readStoredSessionAuthToken("miras_teacher_session");
+    return () => epoch === auditContextRef.current.epoch &&
+      tab === teacherTabRef.current && scope === auditScopeRef.current &&
+      sessionGeneration === cloudSessionGenRef.current &&
+      token === readStoredSessionAuthToken("miras_teacher_session");
+  };
   const getTeacherUrlParams = (emailOverride?: string) => {
     const email = activeTeacherEmail(emailOverride);
     // Administrative audit screens load the complete source; their account
@@ -13852,9 +13871,10 @@ export default function App() {
   const fetchJoinCodes = async (emailOverride?: string, options: { includeRetired?: boolean; activatedSince?: string } = {}) => {
     const email = activeTeacherEmail(emailOverride);
     const includeRetired = options.includeRetired !== false;
+    const readIsCurrent = captureTeacherRead();
     const loadGen = cloudSessionGenRef.current;
     const token = readStoredSessionAuthToken("miras_teacher_session");
-    const isCurrent = () => loadGen === cloudSessionGenRef.current &&
+    const isCurrent = () => readIsCurrent() && loadGen === cloudSessionGenRef.current &&
       token === readStoredSessionAuthToken("miras_teacher_session");
     const storageKey = teacherScopedStorageKey("academicLabJoinCodes", email);
     const loadedFromCloudBefore = joinCodesLoadedEmailRef.current === email;
@@ -13881,13 +13901,13 @@ export default function App() {
         headers: teacherHeaders(email),
       });
       const d = await resp.json().catch(() => ({}));
-      if (!isCurrent()) return;
+      if (!isCurrent()) return false;
       if (!resp.ok || !Array.isArray(d.joinCodes)) {
         if (cachedCodes.length) {
           setJoinCodesList((prev) => mergeJoinCodeRecords(prev, cachedCodes));
         }
         markCloudLoadFailed();
-        return;
+        return false;
       }
       const scopedCodes = d.joinCodes.filter((item: any) =>
         String(item?.code || "").trim(),
@@ -13912,13 +13932,15 @@ export default function App() {
       try {
         if (includeRetired && !options.activatedSince) localStorage.setItem(storageKey, JSON.stringify(nextCodes));
       } catch {}
+      return true;
     } catch (e) {
-      if (!isCurrent()) return;
+      if (!isCurrent()) return false;
       const liveCachedCodes = cachedCodes.filter(isLiveJoinCodeRecord);
       if (liveCachedCodes.length) {
         setJoinCodesList((prev) => mergeJoinCodeRecords(prev, liveCachedCodes));
       }
       markCloudLoadFailed();
+      return false;
     }
   };
 
@@ -13952,12 +13974,14 @@ export default function App() {
           if (!isCurrent() || !cloudDataReady(results, [0, 1, 2, 3, 4, 5])) return false;
         } else {
           if (!resp.ok || !teacherWorkspaceReady(d, readyKey)) return false;
-          applyTeacherSections(d);
+          if (!["codes", "analytics"].includes(teacherTabRef.current)) applyTeacherSections(d);
           applyTeacherExams(d);
           applyTeacherProjects(d);
           applyPasswordResetRequests(d);
-          applyTeacherLogs(d);
-          applyTeacherReports(d.reports);
+          if (!["codes", "analytics"].includes(teacherTabRef.current)) {
+            applyTeacherLogs(d);
+            applyTeacherReports(d.reports);
+          }
         }
         setTeacherCloudReady((m) => ({ ...m, [readyKey]: true }));
         // الأرشيف الثقيل يُقرأ عند فتح إدارة الأكواد؛ لا ينافس بيانات الدخول.
@@ -13974,20 +13998,20 @@ export default function App() {
   };
 
   const fetchCodeIntegrity = async (emailOverride?: string) => {
-    const requestedScope = auditScopeRef.current;
+    const isCurrent = captureTeacherRead();
     try {
-      const email = emailOverride || teacherSession?.email || "";
-      const teacherEmailParam = getTeacherUrlParams(email);
-      const resp = await fetch(
-        `/api/teacher/code-integrity${teacherEmailParam}`,
-        {
-          cache: "no-store",
-          headers: teacherHeaders(email),
-        },
-      );
-      const d = await resp.json();
-      if (d.success && requestedScope === auditScopeRef.current) setCodeIntegrity(d);
-    } catch {}
+      const email = activeTeacherEmail(emailOverride);
+      const params = new URLSearchParams(getTeacherUrlParams(email).replace(/^\?/, ""));
+      params.set("scope", ["codes", "analytics"].includes(teacherTabRef.current) ? auditScopeRef.current : "self");
+      const resp = await fetch(`/api/teacher/code-integrity?${params}`, {
+        cache: "no-store", headers: teacherHeaders(email),
+      });
+      const data = await resp.json();
+      if (!isCurrent()) return false;
+      if (!resp.ok || !data.success || !Number.isFinite(data.codeHealthFunnel?.issued)) return false;
+      setCodeIntegrity(data);
+      return true;
+    } catch { return false; }
   };
 
   // شفاء ذاتي للبيانات بنقرة واحدة — للصلاحيات الإدارة. السيرفر يصلح الأشباح
@@ -14080,6 +14104,9 @@ export default function App() {
 
   const fetchActivationAttemptReport = async () => {
     const email = activeTeacherEmail();
+    const isReadCurrent = captureTeacherRead();
+    const key = `${auditContextKey}|${activationAttemptFromDate}|${activationAttemptToDate}`;
+    setAttemptLoad({ key, status: "loading" });
     const requestSeq = ++activationAttemptFetchSeqRef.current;
     const requestedScope = auditScopeRef.current;
     const requestedTab = teacherTabRef.current;
@@ -14101,27 +14128,20 @@ export default function App() {
       );
       const d = await resp.json().catch(() => ({}));
       if (
-        requestSeq !== activationAttemptFetchSeqRef.current ||
+        !isReadCurrent() || requestSeq !== activationAttemptFetchSeqRef.current ||
         requestedScope !== auditScopeRef.current ||
         requestedTab !== teacherTabRef.current
       )
         return;
       if (resp.ok && Array.isArray(d.attempts)) {
         setActivationAttemptReport(d.attempts);
+        setAttemptLoad({ key, status: "ready" });
       } else {
-        setActivationAttemptReport(
-          Array.isArray(codeIntegrity.attempts) ? codeIntegrity.attempts : [],
-        );
+        setAttemptLoad({ key, status: "failed" });
       }
     } catch {
-      if (
-        requestSeq === activationAttemptFetchSeqRef.current &&
-        requestedScope === auditScopeRef.current &&
-        requestedTab === teacherTabRef.current
-      )
-        setActivationAttemptReport(
-          Array.isArray(codeIntegrity.attempts) ? codeIntegrity.attempts : [],
-        );
+      if (isReadCurrent() && requestSeq === activationAttemptFetchSeqRef.current)
+        setAttemptLoad({ key, status: "failed" });
     } finally {
       if (requestSeq === activationAttemptFetchSeqRef.current)
         setActivationAttemptBusy(false);
@@ -15140,14 +15160,7 @@ ${rows
         );
         fetchReports();
         fetchLogs();
-        try {
-          // If we can reload report details or students list, do so
-          const repResp = await fetch("/api/teacher/reports", {
-            headers: teacherHeaders(),
-          });
-          const repD = await repResp.json();
-          if (repD.students) setTeacherStudents(repD.students);
-        } catch (ex) {}
+
       } else {
         setErrorMsg("فشل تفعيل الطالب يدوياً.");
       }
@@ -15303,6 +15316,7 @@ ${rows
     emailOverride?: string,
     preferredCourseCode?: string,
   ) => {
+    const isReadCurrent = captureTeacherRead();
     try {
       const email = activeTeacherEmail(emailOverride);
       const requestedTab = teacherTabRef.current;
@@ -15313,7 +15327,7 @@ ${rows
       });
       const d = await resp.json();
       if (!resp.ok) return false;
-      if (requestedTab !== teacherTabRef.current || requestedScope !== auditScopeRef.current) return false;
+      if (!isReadCurrent() || requestedTab !== teacherTabRef.current || requestedScope !== auditScopeRef.current) return false;
       if (d.sections) {
         applyTeacherSections(d, preferredCourseCode);
         return true;
@@ -16157,6 +16171,7 @@ ${rows
   };
 
   const fetchLogs = async (emailOverride?: string) => {
+    const isReadCurrent = captureTeacherRead();
     const requestedScope = auditScopeRef.current;
     try {
       const email = emailOverride || teacherSession?.email || "";
@@ -16165,7 +16180,7 @@ ${rows
         headers: teacherHeaders(email),
       });
       const d = await resp.json();
-      if (!resp.ok || !Array.isArray(d.logs) || requestedScope !== auditScopeRef.current) return false;
+      if (!isReadCurrent() || !resp.ok || !Array.isArray(d.logs) || requestedScope !== auditScopeRef.current) return false;
       if (Array.isArray(d.logs)) {
         applyTeacherLogs(d);
       }
@@ -16186,6 +16201,7 @@ ${rows
   };
 
   const fetchReports = async (emailOverride?: string, options: { quiet?: boolean; isCurrent?: () => boolean } = {}) => {
+    const isReadCurrent = captureTeacherRead();
     try {
       const email = emailOverride || teacherSession?.email || "";
       const requestedTab = teacherTabRef.current;
@@ -16196,7 +16212,7 @@ ${rows
       });
       const d = await resp.json();
       if (options.isCurrent && !options.isCurrent()) return false;
-      if (requestedTab !== teacherTabRef.current || requestedScope !== auditScopeRef.current) return false;
+      if (!isReadCurrent() || requestedTab !== teacherTabRef.current || requestedScope !== auditScopeRef.current) return false;
       if (!resp.ok) {
         if (resp.status === 401) return false;
         throw new Error(d?.error || "تعذر جلب بيانات السحابة.");
@@ -18079,7 +18095,8 @@ ${rows
   };
 
   const fetchTrustedPasskeyDevices = async () => {
-    if (!teacherSession?.email) return;
+    const isReadCurrent = captureTeacherRead();
+    if (!teacherSession?.email) return false;
     const requestedScope = auditScopeRef.current;
     const requestedTab = teacherTabRef.current;
     try {
@@ -18094,12 +18111,14 @@ ${rows
       });
       const data = await resp.json().catch(() => ({}));
       if (
-        requestedScope !== auditScopeRef.current ||
+        !isReadCurrent() || requestedScope !== auditScopeRef.current ||
         requestedTab !== teacherTabRef.current
       )
-        return;
-      setPasskeyTrustedDevices(resp.ok && Array.isArray(data.devices) ? data.devices : []);
-    } catch {}
+        return false;
+      if (!resp.ok || !Array.isArray(data.devices)) return false;
+      setPasskeyTrustedDevices(data.devices);
+      return true;
+    } catch { return false; }
   };
 
   const revokeTrustedPasskeyDevice = async (credentialId: string) => {
@@ -20489,6 +20508,7 @@ ${rows
     // الدوّارة بالدوران. إطلاق الطلبات بلا انتظار يعيد الاستجابة الفورية ويزيل
     // ذلك تماماً، مع بقاء نفس طلبات الجلب لكل تبويب كما هي.
     closeWorkspaceDrawers();
+    teacherTabRef.current = tab;
     setTeacherTab(tab);
     if (tab === "home") {
       reloadTeacherDashboard().catch(() => {});
@@ -20640,14 +20660,14 @@ ${rows
   const isSameTeacherIdentity = sameTeacherIdentity;
   const handleAuditScopeChange = (scope: string) => {
     if (scope === auditScopeRef.current) return;
-    // Clear scoped results immediately so a brief loading interval never shows
-    // the previous account's rows under the newly selected account.
     auditScopeRef.current = scope;
     setAuditScopeEmail(scope);
-    setActivationAttemptReport([]);
-    setCodeIntegrity(createEmptyMirasCodeIntegrity());
-    setPasskeyTrustedDevices([]);
-    setSystemLogs([]);
+    setActivationAttemptReport(null);
+    setAuditLoad({ key: "", status: "loading" });
+    setCodesFilterSearch("");
+    setCodesFilterStatus("all");
+    setManualActivationSearch("");
+    setActivationAttemptSearch("");
     setCodesPage(1);
   };
   const isAdminTeacher = isMirasAdminEmail(teacherSession?.email);
@@ -20671,12 +20691,40 @@ ${rows
   }, [isAdminTeacher, teacherTab, passkeyDevicesOpen, auditScopeEmail, teacherSession?.email]);
   useEffect(() => {
     if (currentView !== "teacher_workspace" || !isAdminTeacher) return;
-    void Promise.allSettled([
-      fetchSections(), fetchReports(undefined, { quiet: true }),
-      ...(teacherTab === "codes" || teacherTab === "analytics"
-        ? [fetchLogs(), fetchJoinCodes(), fetchCodeIntegrity()] : []),
-    ]);
-  }, [currentView, teacherTab, auditScopeEmail, teacherSession?.email]);
+    if (teacherTab !== "codes" && teacherTab !== "analytics") {
+      void Promise.allSettled([fetchSections(), fetchReports(undefined, { quiet: true })]);
+      return;
+    }
+    const isCurrent = captureTeacherRead();
+    const key = auditContextKey;
+    let cancelled = false;
+    setAuditLoad({ key, status: "loading" });
+    const refresh = async () => {
+      // These are the common sources of EVERY audit tab, including nested tabs.
+      const results = await Promise.allSettled([
+        fetchSections(), fetchReports(undefined, { quiet: true }),
+        fetchLogs(), fetchJoinCodes(), fetchCodeIntegrity(), fetchTrustedPasskeyDevices(),
+      ]);
+      if (cancelled || !isCurrent()) return;
+      const ready = results.every(result => result.status === "fulfilled" && result.value === true);
+      setAuditLoad({ key, status: ready ? "ready" : "failed" });
+    };
+    void refresh();
+    return () => { cancelled = true; };
+  }, [currentView, teacherTab, auditScopeEmail, teacherSession?.email, isAdminTeacher, auditRetry]);
+  const attemptContextKey = `${auditContextKey}|${activationAttemptFromDate}|${activationAttemptToDate}`;
+  const attemptsReady = teacherTab !== "codes" || codesSubTab !== "attempts" ||
+    (attemptLoad.key === attemptContextKey && attemptLoad.status === "ready");
+  const auditDataReady = (!isAdminTeacher || (auditLoad.key === auditContextKey && auditLoad.status === "ready")) && attemptsReady;
+  const renderAuditLoad = () => auditDataReady ? null : (
+    <div role="status" className="rounded-3xl border border-indigo-100 bg-white p-6 text-center text-sm font-bold text-slate-600">
+      {(auditLoad.key === auditContextKey && auditLoad.status === "failed") ||
+        (!attemptsReady && attemptLoad.key === attemptContextKey && attemptLoad.status === "failed") ? (
+        <><p>تعذر تحميل بيانات الحساب المحدد. أعد المحاولة.</p>
+          <button type="button" onClick={() => { setAuditRetry(n => n + 1); if (!attemptsReady) void fetchActivationAttemptReport(); }} className="mt-3 rounded-2xl bg-indigo-50 px-5 py-2 text-indigo-700">إعادة المحاولة</button></>
+      ) : <p>جارٍ تحميل بيانات الحساب المحدد…</p>}
+    </div>
+  );
 
   useEffect(() => {
     if (teacherTab === "codes" && codesSubTab === "attempts") {
@@ -20741,7 +20789,8 @@ ${rows
     visibleTeacherSections[0]?.code ||
     "";
   const joinCodeIssueCourseOptions = (
-    isAdminTeacher ? teacherSections : visibleTeacherSections
+    isAdminTeacher ? teacherSections.filter((sec: any) => auditScopeEmail === "all" ||
+      isSameTeacherIdentity(courseOwnerEmail(sec.code), auditScopeEmail === "self" ? teacherSession?.email : auditScopeEmail)) : visibleTeacherSections
   ).filter((sec: any) => String(sec?.code || "").trim());
   const selectedJoinCodeIssueCourse =
     joinCodeIssueCourseOptions.find((sec: any) =>
@@ -20881,12 +20930,13 @@ ${rows
       [
         MIRAS_PEER_OWNER_EMAIL,
         currentTeacherEmail,
+        ...teacherAccounts.map((account: any) => String(account?.email || "").trim().toLowerCase()),
         ...teacherSections.map((sec: any) =>
           courseOwnerEmail(sec.code).toLowerCase(),
         ),
       ].filter(Boolean),
     ),
-  ).filter((email) => String(email).includes("@") && !isMirasAdminEmail(email));
+  ).filter((email) => String(email).includes("@"));
   const teacherAccountLabel = (email: string) => {
     const e = String(email || "").toLowerCase();
     // كما أعلاه: بلا أسماء مضمّنة في حزمة العميل — الاسم يأتي من الخادم.
@@ -21602,11 +21652,7 @@ ${rows
   };
   const filteredActivationAttemptRows = useMemo(() => {
     const rawRows = (
-      activationAttemptReport.length
-        ? activationAttemptReport
-        : Array.isArray(codeIntegrity.attempts)
-          ? codeIntegrity.attempts
-          : []
+      activationAttemptReport ?? []
     ) as any[];
     const baseRows = rawRows
       .filter(isRejectedActivationAttempt)
@@ -40829,6 +40875,8 @@ ${rows
                       </select>
                     </div>
                   )}
+                  {renderAuditLoad()}
+                  <div hidden={!auditDataReady} className="space-y-5">
                   {analyticsSubTab === "summary" && (
                     <>
                       {(() => {
@@ -40864,12 +40912,12 @@ ${rows
                               </div>
                               <div className="grid min-w-full grid-cols-2 gap-2 sm:min-w-[34rem] sm:grid-cols-4">
                                 <DnaStat icon={<ClipboardList size={16} />} tone="slate" label="إجراء مطلوب" value={totalActionCount} />
-                                <DnaStat icon={<KeyRound size={16} />} tone="indigo" label="أكواد" value={codeActionCount} />
-                                <DnaStat icon={<Users size={16} />} tone="amber" label="طلبة" value={studentActionCount} />
+                                <DnaStat icon={<KeyRound size={16} />} tone="indigo" label="أكواد تحتاج مراجعة" value={codeActionCount} />
+                                <DnaStat icon={<Users size={16} />} tone="amber" label="طلبة يحتاجون متابعة" value={studentActionCount} />
                                 <DnaStat
                                   icon={<Layers size={16} />}
                                   tone="mint"
-                                  label="دفعات"
+                                  label="دفعات تحتاج مراجعة"
                                   value={
                                     /* العدّاد للمشرف فقط؛ وفي الصندوق التجريبي تُحسب القيمة من بياناته
                                         المعزولة وحدها (لا حساب حقيقي يصلها) فتُعرض للعارض أيضًا. */
@@ -44016,6 +44064,7 @@ ${rows
                         )}
                     </div>
                   )}
+                  </div>
                 </div>
               )}
 
@@ -44126,6 +44175,8 @@ ${rows
                       </select>
                     </div>
                   )}
+                  {renderAuditLoad()}
+                  <div hidden={!auditDataReady} className="space-y-5">
                   {codesSubTab === "health" && (
                     <>
                       {/* لوحة صحة الأكواد: قمع الإصدار ← التفعيل ← أول دخول ← أول اختبار + تنبيهات الشبكة الواحدة */}
@@ -45943,6 +45994,7 @@ ${rows
                       )}
                     </div>
                   )}
+                  </div>
                 </div>
               )}
               <div

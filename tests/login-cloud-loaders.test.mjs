@@ -37,7 +37,7 @@ test('first teacher entry shares one HTTP read and applies all six datasets befo
 async function teacherWithFetch(fetchAdapter, requiredRead=async()=>true) {
  // Assign before compilation so the adapter is bound just like the production fetch function.
  const gate={},applied=[],state={token:'credential-one',gen:{current:1}};
- const context={cloudSessionKey,teacherWorkspaceReady,cloudDataReady,
+ const context={cloudSessionKey,teacherWorkspaceReady,cloudDataReady,teacherTabRef:{current:"home"},
   readStoredSessionAuthToken:()=>state.token,cloudSessionGenRef:state.gen,
   teacherCloudLoadInFlightRef:{current:createCloudSingleFlight()},teacherHeaders:()=>({}),
   setTeacherCloudLoads:()=>{},setTeacherCloudReady:fn=>Object.assign(gate,fn(gate)),fetch:fetchAdapter,
@@ -138,5 +138,49 @@ test('rolling deployment uses the previous authenticated API only if all six clo
   assert.equal(await ready.load('teacher@test.kw'),true);assert.equal(reads,6);
   let readIndex=0;const failed=await teacherWithFetch(async()=>reply(),async()=>++readIndex!==4);
   assert.equal(await failed.load('teacher@test.kw'),false);assert.deepEqual(failed.gate,{});
+ }
+});
+
+
+test('a late personal bootstrap cannot overwrite an open administrative audit', async () => {
+ const reply = deferred();
+ const fixture = await teacherWithFetch(() => reply.promise);
+ const loading = fixture.load('teacher@test.kw');
+ await turn();
+ fixture.context.teacherTabRef.current = 'codes';
+ reply.resolve(new Response(JSON.stringify(payload('teacher@test.kw'))));
+ assert.equal(await loading, true);
+ assert.deepEqual(fixture.applied, ['Exams', 'Projects', 'Requests']);
+});
+
+test('audit reads reject old responses after all/self/all and tab or credential changes', async () => {
+ const context = { auditContextRef: { current: { epoch: 1 } }, teacherTabRef: { current: 'codes' },
+  auditScopeRef: { current: 'all' }, cloudSessionGenRef: { current: 1 },
+  readStoredSessionAuthToken: () => context.token, token: 'fixture-token' };
+ const capture = await compile(extract('captureTeacherRead', '\n  const getTeacherUrlParams'), 'captureTeacherRead', context);
+ const first = capture();
+ assert.equal(first(), true);
+ context.auditScopeRef.current = 'self'; context.auditContextRef.current.epoch++;
+ assert.equal(first(), false);
+ context.auditScopeRef.current = 'all'; context.auditContextRef.current.epoch++;
+ assert.equal(first(), false);
+ const second = capture(); assert.equal(second(), true);
+ context.teacherTabRef.current = 'home'; assert.equal(second(), false);
+ context.teacherTabRef.current = 'codes'; context.token = 'another-token'; assert.equal(second(), false);
+});
+
+test('integrity read validates counters and never turns a failed cloud read into zero data', async () => {
+ const start = source.indexOf('  const fetchCodeIntegrity = async (');
+ const snippet = source.slice(start, source.indexOf('\n  // شفاء ذاتي', start));
+ for (const data of [{ success: false }, { success: true }, { success: true, codeHealthFunnel: { issued: 0 } }]) {
+  const applied = [], context = { captureTeacherRead: () => () => true,
+   activeTeacherEmail: () => 'fixture@test.kw', getTeacherUrlParams: () => '?teacherEmail=fixture%40test.kw',
+   teacherTabRef: { current: 'codes' }, auditScopeRef: { current: 'self' }, teacherHeaders: () => ({}),
+   fetch: async url => { assert.equal(new URL(url, 'http://localhost').searchParams.get('scope'), 'self'); return new Response(JSON.stringify(data)); },
+   setCodeIntegrity: value => applied.push(value) };
+  const read = await compile(snippet, 'fetchCodeIntegrity', context);
+  const valid = data.success && Number.isFinite(data.codeHealthFunnel?.issued);
+  assert.equal(await read(), !!valid);
+  assert.equal(applied.length, valid ? 1 : 0);
  }
 });

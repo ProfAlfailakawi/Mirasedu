@@ -9,7 +9,8 @@ const opts = { jar, deviceToken: "admin-audit-scope" };
 const login = await api("POST", "/api/auth/login", { idNumber: admin, password }, opts);
 check("superadmin session is available", login.ok);
 
-for (const scope of ["all", "self", AA, BB]) {
+const snapshots = new Map();
+for (const scope of ["all", "self", AA, BB, "all", BB, "self", AA, "all"]) {
   const suffix = `?includeAll=1&scope=${encodeURIComponent(scope)}`;
   const [sections, reports, codes, integrity, attempts, logs, devices] = await Promise.all([
     api("GET", `/api/teacher/sections${suffix}`, null, opts),
@@ -28,10 +29,37 @@ for (const scope of ["all", "self", AA, BB]) {
     codes.ok && Array.isArray(codes.data.joinCodes));
   check(`${scope}: integrity endpoint returns scoped counters`,
     integrity.ok && integrity.data.success === true && Number.isFinite(integrity.data.summary?.totalAttempts));
+  const snapshot = {
+    issued: integrity.data.codeHealthFunnel?.issued,
+    activated: integrity.data.codeHealthFunnel?.activated,
+    healthCodes: integrity.data.dataHealth?.totals?.codes,
+    pulseAttempts: integrity.data.mirasPulse?.metrics?.activationAttempts,
+    attempts: attempts.data.attempts?.map(row => row.id).sort(),
+    devices: devices.data.devices?.map(row => row.credentialId).sort(),
+  };
+  check(`${scope}: real code counters stay nonzero after repeated selections`,
+    snapshot.issued > 0 && snapshot.activated > 0);
+  check(`${scope}: attempts and trusted devices are populated`,
+    snapshot.attempts?.length > 0 && snapshot.devices?.length > 0);
+  if (snapshots.has(scope)) check(`${scope}: revisiting the scope preserves exact counts and records`,
+    JSON.stringify(snapshot) === JSON.stringify(snapshots.get(scope)));
+  snapshots.set(scope, snapshot);
+  check(`${scope}: nested pulse and integrity counters use the same account`,
+    snapshot.pulseAttempts === integrity.data.summary.totalAttempts);
+  const owner = scope === "self" ? admin : scope;
+  if (scope !== "all") check(`${scope}: no foreign rejected attempts leak into the selected account`,
+    attempts.data.attempts.every(row => String(row.targetTeacherEmail || row.teacherEmail).toLowerCase() === owner));
   check(`${scope}: attempts/logs/devices endpoints remain valid`,
     attempts.ok && Array.isArray(attempts.data.attempts) && logs.ok && Array.isArray(logs.data.logs) && devices.ok && Array.isArray(devices.data.devices));
 }
 
+check("self and teacher filters do not show the all-account code total",
+  snapshots.get("all").issued > snapshots.get("self").issued && snapshots.get("all").issued > snapshots.get(BB).issued);
+check("all accounts includes every seeded rejected attempt", snapshots.get("all").attempts.length === 3);
+check("personal account includes exactly its own seeded attempt", snapshots.get("self").attempts.length === 1);
+check("nested data health includes only the selected account's codes",
+  snapshots.get("self").healthCodes === 2 && snapshots.get(BB).healthCodes === 4 &&
+  snapshots.get("all").healthCodes > snapshots.get("self").healthCodes);
 const allSections = await api("GET", "/api/teacher/sections?includeAll=1&scope=all", null, opts);
 check("all scope includes both fixture teachers before UI filtering",
   allSections.data.sections.some((s) => String(s.ownerEmail).toLowerCase() === AA) &&
