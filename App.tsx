@@ -14031,7 +14031,7 @@ export default function App() {
       const email = activeTeacherEmail(emailOverride);
       const params = new URLSearchParams(getTeacherUrlParams(email).replace(/^\?/, ""));
       params.set("scope", ["codes", "analytics"].includes(teacherTabRef.current) ? auditScopeRef.current : "self");
-      const resp = await fetchTeacherRead(`/api/teacher/code-integrity?${params}`, {
+      const resp = await fetch(`/api/teacher/code-integrity?${params}`, {
         cache: "no-store", headers: teacherHeaders(email),
       });
       const data = await resp.json();
