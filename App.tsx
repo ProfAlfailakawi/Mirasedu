@@ -26,6 +26,7 @@ import {
   useMemo,
   useDeferredValue,
   type ReactNode,
+  type CSSProperties,
 } from "react";
 import { createPortal } from "react-dom";
 import { motion, AnimatePresence } from "motion/react";
@@ -4366,7 +4367,7 @@ export default function App() {
     "teacher" | "heatmap" | "alerts" | "cases"
   >("teacher");
   const [codesSubTab, setCodesSubTab] = useState<
-    "health" | "generate" | "archive" | "manual" | "attempts" | "scope"
+    "health" | "generate" | "archive" | "manual" | "attempts" | "scope" | "devices"
   >("health");
   const [teacherDensityMode, setTeacherDensityMode] = useState<
     "compact" | "comfortable"
@@ -12124,7 +12125,7 @@ export default function App() {
     const normalized = String(email || "")
       .trim()
       .toLowerCase();
-    if (!normalized) return "اسم الدكتور غير محمّل";
+    if (!normalized) return "";
     const cleanName = (name: any) => {
       const text = String(name || "").trim();
       return text && !text.includes("@") ? text : "";
@@ -12170,7 +12171,7 @@ export default function App() {
     if (accountName) return accountName;
     // الاسم يُقرأ من بيانات الشعبة أو التسجيل أعلاه. لا تُضمَّن أسماء أو
     // بُرد حقيقية في حزمة العميل لأنها تُشحن إلى كل زائر.
-    return "اسم الدكتور غير محمّل";
+    return "";
   };
   const replaceStandaloneDisplayToken = (
     source: string,
@@ -14168,7 +14169,7 @@ export default function App() {
     }
   };
 
-  const lookupTeacherCode = async (rawCode = teacherCodeLookupInput) => {
+  const lookupTeacherCode = async (rawCode: string = teacherCodeLookupInput) => {
     const codeToLookup = String(rawCode || "").trim();
     if (!teacherSession?.email || teacherCodeLookupBusy || !codeToLookup) return;
     setTeacherCodeLookupBusy(true);
@@ -14186,7 +14187,14 @@ export default function App() {
         setTeacherCodeLookupMessage(payload.error || "تعذّر التحقق.");
         return;
       }
-      setTeacherCodeLookupResult(payload);
+      const cleanLabel = (value: any) => String(value || "")
+        .replace(/\s*[•·|—-]?\s*اسم الدكتور غير محم[ّ]?ل\s*/g, " ").trim();
+      setTeacherCodeLookupResult({
+        ...payload,
+        courseName: cleanLabel(payload.courseName),
+        sectionCode: cleanLabel(payload.sectionCode),
+        teacherName: cleanLabel(payload.teacherName),
+      });
     } catch {
       setTeacherCodeLookupMessage("تعذّر الاتصال.");
     } finally {
@@ -20747,6 +20755,11 @@ ${rows
   };
 
   const openTeacherTab = (tab: typeof teacherTab) => {
+    if (!isAdminTeacher && tab === "analytics") {
+      tab = "codes";
+      setCodesSubTab("devices");
+      setAnalyticsSubTab("accounts");
+    }
     // التنقل بين تبويبات لوحة الأستاذ يجب أن يكون فورياً وغير معلِّق (Non-blocking):
     // نبدّل التبويب فوراً ثم نطلق طلبات الجلب في الخلفية دون انتظار (await) ودون
     // أي قفل إعادة دخول. النسخة السابقة كانت async تنتظر كل طلب وتضع قفلاً على
@@ -20919,13 +20932,15 @@ ${rows
   };
   const isAdminTeacher = isMirasAdminEmail(teacherSession?.email);
   useEffect(() => {
-    if (!isAdminTeacher && analyticsSubTab === "admin") {
-      setAnalyticsSubTab("summary");
+    if (!teacherSession?.email) return;
+    if (isAdminTeacher && codesSubTab === "devices") setCodesSubTab("health");
+    if (!isAdminTeacher && analyticsSubTab !== "accounts") {
+      setAnalyticsSubTab("accounts");
     }
-    if (codesSubTab === "scope") {
-      setCodesSubTab("health");
+    if (codesSubTab === "scope" || (!isAdminTeacher && ["health", "attempts"].includes(codesSubTab))) {
+      setCodesSubTab(isAdminTeacher ? "health" : "archive");
     }
-  }, [analyticsSubTab, codesSubTab]);
+  }, [analyticsSubTab, codesSubTab, isAdminTeacher, teacherSession?.email]);
   useEffect(() => {
     if (!teacherWorkspaceInteractive || (isAdminTeacher && ["codes", "analytics"].includes(teacherTab))) return;
     const session = captureTeacherSession();
@@ -21045,6 +21060,11 @@ ${rows
   const attemptContextKey = `${auditContextKey}|${activationAttemptFromDate}|${activationAttemptToDate}`;
   const attemptsReady = teacherTab !== "codes" || codesSubTab !== "attempts" ||
     (attemptLoad.key === attemptContextKey && attemptLoad.status === "ready");
+  useEffect(() => {
+    if (currentView !== "teacher_workspace" || isAdminTeacher || teacherTab !== "codes" || codesSubTab !== "devices") return;
+    void fetchPasswordResetRequests();
+    void fetchTrustedPasskeyDevices();
+  }, [currentView, isAdminTeacher, teacherTab, codesSubTab]);
   const auditDataReady = (!isAdminTeacher || (auditLoad.key === auditContextKey && auditLoad.status === "ready")) && attemptsReady;
   const renderAuditLoad = () => auditDataReady ? null : (
     <div role="status" className="rounded-3xl border border-indigo-100 bg-white p-6 text-center text-sm font-bold text-slate-600">
@@ -21227,6 +21247,7 @@ ${rows
           if (isAdminTeacher) setAuditRetry(value => value + 1);
           else calls.push(fetchJoinCodes(), fetchCodeIntegrity());
           if (codesSubTab === "attempts") calls.push(fetchActivationAttemptReport());
+          if (codesSubTab === "devices") calls.push(fetchPasswordResetRequests(), fetchTrustedPasskeyDevices());
         }
         await Promise.allSettled(calls);
       } finally {
@@ -27082,7 +27103,7 @@ ${rows
       setCodesSubTab("attempts");
       void fetchActivationAttemptReport();
     } else {
-      setCodesSubTab("health");
+      setCodesSubTab(isAdminTeacher ? "health" : "devices");
       setPasswordResetRequestsOpen(true);
       void fetchPasswordResetRequests();
     }
@@ -27140,7 +27161,7 @@ ${rows
       );
     };
     return (
-      <div className="miras-teacher-nav-track teacher-orbit-dock-track miras-dock-v2">
+      <div className={`miras-teacher-nav-track teacher-orbit-dock-track miras-dock-v2 ${!isAdminTeacher ? "miras-teacher-six-nav" : ""}`}>
         {navItem({
           tab: "sections",
           label: "المقررات",
@@ -27212,7 +27233,7 @@ ${rows
             },
           },
         })}
-        {navItem({
+        {isAdminTeacher && navItem({
           tab: "analytics",
           label: "المتابعة",
           title: "مركز المتابعة",
@@ -27297,7 +27318,10 @@ ${rows
       setCodesSubTab(tab);
       if (extra === "single") setSingleCodeFormOpen(true);
       if (extra === "batch") setCodesBatchFormOpen(true);
-      if (extra === "reset") setPasswordResetRequestsOpen(true);
+      if (extra === "reset") {
+        if (!isAdminTeacher) setCodesSubTab("devices");
+        setPasswordResetRequestsOpen(true);
+      }
       if (extra === "qr") setActivationQrScannerOpen(true);
       if (extra === "manual") {
         setCodesAccordion((prev) => ({ ...prev, manualActivation: true }));
@@ -27340,7 +27364,7 @@ ${rows
       { key: "cmd-data-tools", type: "وجهة", title: "أدوات البيانات", meta: "نسخ • إصلاح • مزامنة • تقارير", hint: "أدوات الإدارة المتقدمة", tags: "ادوات البيانات نسخ احتياطي اصلاح مزامنة تقارير", actionLabel: "فتح", actionTone: "indigo", action: () => openAnalytics("dataTools") },
       { key: "cmd-security-modal", type: "إجراء", title: "قفل الأمان", meta: "تأكيد حساس • حماية • جلسة", hint: "يفتح نافذة الأمان عند الحاجة", tags: "قفل امان حماية security", actionLabel: "فتح", actionTone: "amber", action: () => setSecurityModalOpen(true) },
     ];
-    return targets;
+    return isAdminTeacher ? targets : targets.filter((item) => !["cmd-code-attempts", "cmd-code-health", "cmd-analytics", "cmd-integrity", "cmd-network", "cmd-audit", "cmd-data-tools"].includes(item.key));
   };
   const teacherSmartSearchResults = useMemo(() => {
     try {
@@ -31084,6 +31108,40 @@ ${rows
       </div>
     );
   };
+
+
+  const renderTeacherCodeLookupPanel = () => (
+    <section className="rounded-3xl border border-indigo-100 bg-white/90 p-4 shadow-sm sm:p-5" aria-label="التحقق من الكود">
+                        <div className="flex flex-wrap items-center gap-2" dir="rtl">
+                          <label className="flex h-11 min-w-[180px] flex-1 items-center rounded-2xl border border-slate-200 bg-slate-50 px-3">
+                            <input dir="ltr" autoCapitalize="characters" spellCheck={false} value={teacherCodeLookupInput} onChange={(event) => setTeacherCodeLookupInput(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter") void lookupTeacherCode(); }} className="min-w-0 flex-1 bg-transparent text-right text-xs font-semibold text-slate-800 outline-none" placeholder="أدخل الكود" aria-label="أدخل الكود للتحقق" />
+                          </label>
+                          <button type="button" onClick={() => void startActivationQrScanner("code-lookup")} className="inline-flex h-11 w-11 items-center justify-center rounded-2xl border border-indigo-100 bg-indigo-50 text-indigo-700 transition hover:bg-indigo-100" title="مسح QR بالكاميرا" aria-label="مسح QR بالكاميرا">
+                            <Camera className="h-5 w-5" />
+                          </button>
+                          <button type="button" onClick={() => void lookupTeacherCode()} disabled={teacherCodeLookupBusy || !teacherCodeLookupInput.trim()} className="inline-flex h-11 items-center gap-2 rounded-2xl bg-indigo-600 px-4 text-xs font-bold text-white shadow-sm disabled:opacity-60">
+                            <Search className={`h-4 w-4 ${teacherCodeLookupBusy ? "animate-pulse" : ""}`} />
+                            {teacherCodeLookupBusy ? "يتحقق" : "تحقق"}
+                          </button>
+                        </div>
+                        {teacherCodeLookupMessage && <p className="mt-3 text-right text-xs font-semibold text-rose-600" dir="rtl">{teacherCodeLookupMessage}</p>}
+                        {teacherCodeLookupResult && (
+                          <article data-miras-literal="true" className="mt-3 overflow-hidden rounded-3xl border border-indigo-100 bg-gradient-to-br from-white via-white to-indigo-50/60 shadow-sm" dir="rtl">
+                            <div className="flex flex-wrap items-center justify-between gap-3 border-b border-indigo-50 px-4 py-3">
+                              <div className="flex items-center gap-2"><span className="grid h-9 w-9 place-items-center rounded-2xl bg-indigo-50 text-indigo-600"><Key className="h-4 w-4" /></span><code dir="ltr" className="font-mono text-xs font-black tracking-wide text-indigo-700">{teacherCodeLookupResult.code}</code></div>
+                              <span className={`rounded-full px-3 py-1.5 text-[10px] font-black ${String(teacherCodeLookupResult.state).includes("صالح") || String(teacherCodeLookupResult.state).includes("مُفعّل") ? "bg-emerald-50 text-emerald-700" : "bg-amber-50 text-amber-700"}`}>{teacherCodeLookupResult.state}</span>
+                            </div>
+                            <div className="grid gap-2 p-3 sm:grid-cols-2">
+                              <div className="rounded-2xl bg-white/90 px-3 py-2.5 sm:col-span-2"><span className="block text-[9px] font-bold text-slate-400">الطالب</span><p className="mt-1 text-xs font-black text-slate-900">{teacherCodeLookupResult.studentName || "غير مرتبط بطالب"}</p><div className="mt-1 flex flex-wrap gap-2 text-[10px] font-semibold text-slate-500">{teacherCodeLookupResult.studentId && <span>جامعي: <bdi className="font-mono">{teacherCodeLookupResult.studentId}</bdi></span>}{teacherCodeLookupResult.civilId && <span>مدني: <bdi className="font-mono">{teacherCodeLookupResult.civilId}</bdi></span>}</div></div>
+                              <div className="rounded-2xl bg-white/90 px-3 py-2.5"><span className="block text-[9px] font-bold text-slate-400">المقرر / الشعبة</span><p className="mt-1 text-[11px] font-bold text-slate-800">{teacherCodeLookupResult.courseName}{teacherCodeLookupResult.sectionCode && stripOwnerEmailFromCourseCode(teacherCodeLookupResult.sectionCode) !== teacherCodeLookupResult.courseName ? ` • ${stripOwnerEmailFromCourseCode(teacherCodeLookupResult.sectionCode)}` : ""}</p></div>
+                              {teacherCodeLookupResult.semester && <div className="rounded-2xl bg-white/90 px-3 py-2.5"><span className="block text-[9px] font-bold text-slate-400">الفصل</span><p className="mt-1 text-[11px] font-bold text-slate-800">{teacherCodeLookupResult.semester}</p></div>}
+                              {teacherCodeLookupResult.teacherName && <div className="rounded-2xl bg-white/90 px-3 py-2.5 sm:col-span-2"><span className="block text-[9px] font-bold text-slate-400">الأستاذ</span><p className="mt-1 text-[11px] font-bold text-slate-800">{teacherCodeLookupResult.teacherName}</p></div>}
+                            </div>
+                          </article>
+                        )}
+                      </section>
+  );
+
 
   return (
     <div
@@ -36946,9 +37004,9 @@ ${rows
                 <button type="button" onClick={() => openCodesQuickShortcut("manual")} className="flex w-full items-center justify-between rounded-2xl px-3 py-2.5 text-[11px] font-bold text-slate-700 hover:bg-indigo-50 hover:text-indigo-700">
                   <span>تفعيل طالب</span><CheckCircle className="h-4 w-4" />
                 </button>
-                <button type="button" onClick={() => openCodesQuickShortcut("attempts")} className="flex w-full items-center justify-between rounded-2xl px-3 py-2.5 text-[11px] font-bold text-slate-700 hover:bg-amber-50 hover:text-amber-700">
+                {isAdminTeacher && (<button type="button" onClick={() => openCodesQuickShortcut("attempts")} className="flex w-full items-center justify-between rounded-2xl px-3 py-2.5 text-[11px] font-bold text-slate-700 hover:bg-amber-50 hover:text-amber-700">
                   <span>سجل المحاولات</span><ShieldAlert className="h-4 w-4" />
-                </button>
+                </button>)}
                 <button type="button" onClick={() => openCodesQuickShortcut("reset")} className="flex w-full items-center justify-between rounded-2xl px-3 py-2.5 text-[11px] font-bold text-slate-700 hover:bg-rose-50 hover:text-rose-700">
                   <span>طلبات الاسترجاع</span><Key className="h-4 w-4" />
                 </button>
@@ -37040,7 +37098,7 @@ ${rows
                     {demoBusy ? <MirasLoader size={18} role="current" label="" /> : <Eye className="h-5 w-5" />}
                   </button>
                 )}
-                {!isAdminTeacher && (
+                {(
                   <button
                     type="button"
                     title={theme === "dark" ? "الوضع النهاري" : "الوضع الليلي"}
@@ -37396,7 +37454,7 @@ ${rows
                             {demoBusy ? <MirasLoader size={18} role="current" label="" /> : <Eye className="h-5 w-5" />}
                           </button>
                         )}
-                        {!isAdminTeacher && (
+                        {(
                           <button
                             type="button"
                             title={theme === "dark" ? "الوضع النهاري" : "الوضع الليلي"}
@@ -41507,10 +41565,11 @@ ${rows
               )}
 
               {/* 5. SECURITY DISCOVERIES AND LOGS */}
-              {teacherTab === "analytics" && (
-                <div className="space-y-5 p-3 sm:p-6 lg:p-8">
-                  {(() => {
-                    const analyticsTabs = [
+              {(() => {
+  const renderTeacherAnalyticsPanel = (embedded = false) => (
+<div className={embedded ? "space-y-5" : "space-y-5 p-3 sm:p-6 lg:p-8"}>
+                  {!embedded && (() => {
+                    const analyticsTabs = ([
                       {
                         id: "summary",
                         label: "ملخص",
@@ -41555,7 +41614,7 @@ ${rows
                             Icon: RefreshCw,
                             count: dbResetStatus ? 1 : 0,
                           },
-                    ] as const;
+                    ] as const).filter((tab) => isAdminTeacher || tab.id === "accounts");
                     const activeTab =
                       analyticsTabs.find((tab) => tab.id === analyticsSubTab) ||
                       analyticsTabs[0];
@@ -41569,7 +41628,7 @@ ${rows
                               {activeTab.label}
                             </h2>
                           </div>
-                          <div className="miras-inner-tabs" role="tablist">
+                          {analyticsTabs.length > 1 && <div className="miras-inner-tabs" role="tablist">
                             {analyticsTabs.map((tab) => (
                               <button
                                 key={tab.id}
@@ -41587,7 +41646,7 @@ ${rows
                                 />
                               </button>
                             ))}
-                          </div>
+                          </div>}
                         </div>
                       </div>
                     );
@@ -44828,13 +44887,17 @@ ${rows
                   )}
                   </div>)}
                 </div>
-              )}
+  );
+
+                return (<>
+              {teacherTab === "analytics" && renderTeacherAnalyticsPanel()}
 
               {/* 6. JOIN LAB CODES MANAGER */}
               {teacherTab === "codes" && (
                 <div className="space-y-5 p-3 sm:p-6 lg:p-8">
                   {(() => {
-                    const codeTabs = [
+                    const codeTabs = ([
+                      { id: "devices", label: "الأجهزة", Icon: Fingerprint, count: actionablePasswordResetRequests.length },
                       {
                         id: "health",
                         label: "الصحة",
@@ -44867,7 +44930,7 @@ ${rows
                         Icon: UserCheck,
                         count: scopedTeacherStudents.length,
                       },
-                    ] as const;
+                    ] as const).filter((tab) => isAdminTeacher ? tab.id !== "devices" : (tab.id !== "health" && tab.id !== "attempts"));
                     const activeTab =
                       codeTabs.find((tab) => tab.id === codesSubTab) ||
                       codeTabs[0];
@@ -44879,7 +44942,7 @@ ${rows
                               {activeTab.label}
                             </h2>
                           </div>
-                          <div className="miras-inner-tabs" role="tablist">
+                          <div className="miras-inner-tabs" role="tablist" style={{ "--miras-tab-count": codeTabs.length } as CSSProperties}>
                             {codeTabs.map((tab) => (
                               <button
                                 key={tab.id}
@@ -44938,37 +45001,11 @@ ${rows
                   )}
                   {renderAuditLoad()}
                   {auditDataReady && (<div className="space-y-5">
+                  {!isAdminTeacher && codesSubTab === "devices" && renderTeacherAnalyticsPanel(true)}
+                  {codesSubTab === "archive" && renderTeacherCodeLookupPanel()}
                   {codesSubTab === "health" && (
                     <>
-                      <section className="rounded-3xl border border-indigo-100 bg-white/90 p-4 shadow-sm sm:p-5" aria-label="التحقق من الكود">
-                        <div className="flex flex-wrap items-center gap-2" dir="rtl">
-                          <label className="flex h-11 min-w-[180px] flex-1 items-center rounded-2xl border border-slate-200 bg-slate-50 px-3">
-                            <input value={teacherCodeLookupInput} onChange={(event) => setTeacherCodeLookupInput(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter") void lookupTeacherCode(); }} className="min-w-0 flex-1 bg-transparent text-right text-xs font-semibold text-slate-800 outline-none" placeholder="أدخل الكود" aria-label="أدخل الكود للتحقق" />
-                          </label>
-                          <button type="button" onClick={() => void startActivationQrScanner("code-lookup")} className="inline-flex h-11 w-11 items-center justify-center rounded-2xl border border-indigo-100 bg-indigo-50 text-indigo-700 transition hover:bg-indigo-100" title="مسح QR بالكاميرا" aria-label="مسح QR بالكاميرا">
-                            <Camera className="h-5 w-5" />
-                          </button>
-                          <button type="button" onClick={lookupTeacherCode} disabled={teacherCodeLookupBusy || !teacherCodeLookupInput.trim()} className="inline-flex h-11 items-center gap-2 rounded-2xl bg-indigo-600 px-4 text-xs font-bold text-white shadow-sm disabled:opacity-60">
-                            <Search className={`h-4 w-4 ${teacherCodeLookupBusy ? "animate-pulse" : ""}`} />
-                            {teacherCodeLookupBusy ? "يتحقق" : "تحقق"}
-                          </button>
-                        </div>
-                        {teacherCodeLookupMessage && <p className="mt-3 text-right text-xs font-semibold text-rose-600" dir="rtl">{teacherCodeLookupMessage}</p>}
-                        {teacherCodeLookupResult && (
-                          <article className="mt-3 overflow-hidden rounded-3xl border border-indigo-100 bg-gradient-to-br from-white via-white to-indigo-50/60 shadow-sm" dir="rtl">
-                            <div className="flex flex-wrap items-center justify-between gap-3 border-b border-indigo-50 px-4 py-3">
-                              <div className="flex items-center gap-2"><span className="grid h-9 w-9 place-items-center rounded-2xl bg-indigo-50 text-indigo-600"><Key className="h-4 w-4" /></span><code dir="ltr" className="font-mono text-xs font-black tracking-wide text-indigo-700">{teacherCodeLookupResult.code}</code></div>
-                              <span className={`rounded-full px-3 py-1.5 text-[10px] font-black ${String(teacherCodeLookupResult.state).includes("صالح") || String(teacherCodeLookupResult.state).includes("مُفعّل") ? "bg-emerald-50 text-emerald-700" : "bg-amber-50 text-amber-700"}`}>{teacherCodeLookupResult.state}</span>
-                            </div>
-                            <div className="grid gap-2 p-3 sm:grid-cols-2">
-                              <div className="rounded-2xl bg-white/90 px-3 py-2.5 sm:col-span-2"><span className="block text-[9px] font-bold text-slate-400">الطالب</span><p className="mt-1 text-xs font-black text-slate-900">{teacherCodeLookupResult.studentName || "غير مرتبط بطالب"}</p><div className="mt-1 flex flex-wrap gap-2 text-[10px] font-semibold text-slate-500">{teacherCodeLookupResult.studentId && <span>جامعي: <bdi className="font-mono">{teacherCodeLookupResult.studentId}</bdi></span>}{teacherCodeLookupResult.civilId && <span>مدني: <bdi className="font-mono">{teacherCodeLookupResult.civilId}</bdi></span>}</div></div>
-                              <div className="rounded-2xl bg-white/90 px-3 py-2.5"><span className="block text-[9px] font-bold text-slate-400">المقرر / الشعبة</span><p className="mt-1 text-[11px] font-bold text-slate-800">{teacherCodeLookupResult.courseName}{teacherCodeLookupResult.sectionCode && teacherCodeLookupResult.sectionCode !== teacherCodeLookupResult.courseName ? ` • ${teacherCodeLookupResult.sectionCode}` : ""}</p></div>
-                              {teacherCodeLookupResult.semester && <div className="rounded-2xl bg-white/90 px-3 py-2.5"><span className="block text-[9px] font-bold text-slate-400">الفصل</span><p className="mt-1 text-[11px] font-bold text-slate-800">{teacherCodeLookupResult.semester}</p></div>}
-                              {teacherCodeLookupResult.teacherName && <div className="rounded-2xl bg-white/90 px-3 py-2.5 sm:col-span-2"><span className="block text-[9px] font-bold text-slate-400">الأستاذ</span><p className="mt-1 text-[11px] font-bold text-slate-800">{teacherCodeLookupResult.teacherName}</p></div>}
-                            </div>
-                          </article>
-                        )}
-                      </section>
+                      {isAdminTeacher && renderTeacherCodeLookupPanel()}
                       {!isAdminTeacher && (
                         <section className="rounded-3xl border border-indigo-100 bg-white/90 p-4 shadow-sm sm:p-5" aria-label="سجل أكواد الأستاذ">
                           <div className="flex flex-wrap items-center justify-between gap-3" dir="rtl">
@@ -46809,6 +46846,8 @@ ${rows
                   </div>)}
                 </div>
               )}
+                </>);
+              })()}
               <div
                 className="miras-teacher-bottom-safe-spacer"
                 aria-hidden="true"
