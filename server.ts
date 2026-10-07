@@ -20324,14 +20324,12 @@ app.get("/api/teacher/join-codes", (req, res) => {
   return res.json(teacherJoinCodesData(req));
 });
 
-// Read-only teacher scan: includes retained history so semester cleanup can
-// remove course data without erasing the permanent activation-code ledger.
+// Read-only teacher-owned code inventory; exact cross-teacher verification is
+// handled by the POST endpoint below and never returns a foreign code list.
 app.get("/api/teacher/code-scan", (req, res) => {
   setNoCache(res);
   const teacherEmail = verifiedTeacherEmailFromSession(req);
   if (!teacherEmail) return res.status(401).json({ success: false, error: "سجّل الدخول من جديد." });
-  // The scan is a teacher-scoped classroom tool. Super-admin views and scopes
-  // are intentionally left on their existing screens and endpoints.
   if (isAdminEmail(teacherEmail)) return res.status(403).json({ success: false, error: "الفحص متاح من حساب الأستاذ." });
 
   const current = dbInstance.getJoinCodes().filter((code: any) => String(code?.code || "").trim());
@@ -20342,15 +20340,7 @@ app.get("/api/teacher/code-scan", (req, res) => {
   const records = [...current, ...retired];
   const students = new Map<string, any>();
   for (const student of dbInstance.getStudents()) students.set(normalizeStudentId(student.id), student);
-  const rosterById = new Map<string, any[]>();
-  for (const row of dbInstance.getAllowedStudents()) {
-    const id = normalizeStudentId(row.idNumber || (row as any).id || (row as any).studentId);
-    if (!id) continue;
-    const group = rosterById.get(id) || [];
-    group.push(row);
-    rosterById.set(id, group);
-  }
-  const teacher = dbInstance.getTeachers().find((item: any) => String(item.email || "").toLowerCase() === teacherEmail);
+  const teacherName = String(dbInstance.getTeachers().find((item: any) => String(item.email || "").toLowerCase() === teacherEmail)?.name || teacherEmail);
   const ownsCode = (code: any) => {
     const course = String(code.resolvedCourseCode || code.studentSection || code.sectionCode || code.courseCode || "").trim();
     const legacyOwner = String(code.ownerEmail || code.createdByEmail || "").toLowerCase();
@@ -20362,35 +20352,92 @@ app.get("/api/teacher/code-scan", (req, res) => {
       : legacyOwner || joinCodeOwnerEmail(code);
     return owner === teacherEmail;
   };
-  const codes = records.filter(ownsCode)
-    .map((code: any) => {
+  const codes = records.filter(ownsCode).map((code: any) => {
       const sectionCode = String(code.resolvedCourseCode || code.studentSection || code.sectionCode || code.courseCode || "").trim();
       const resolved = resolveJoinCodeCourseForDisplay(code);
       const courseCode = String(resolved.courseCode || sectionCode || "").trim();
       const studentId = normalizeStudentId(code.usedByStudentId || code.studentId || code.assignedStudentId || "");
       const student = students.get(studentId);
-      const rosterRow = (rosterById.get(studentId) || []).find((row: any) => !courseCode || courseCodeMatchesForTeacher(row.sectionCode || row.courseCode, courseCode, teacherEmail));
       const codeStatus = String(code.status || "active").toLowerCase();
       const archived = isArchivedJoinCodeRecord(code) || retired.includes(code);
       const activated = codeStatus === "used" || !!code.activatedAt || !!code.usedByStudentId || !!code.studentId;
       const window = joinCodeWindowStatus(code);
       const state = archived ? activated ? "مُفعّل • أرشيف" : "أرشيف" : activated ? "مُفعّل" : isSoftDeletedRecord(code) || ["revoked", "disabled", "deleted"].includes(codeStatus) ? "موقوف" : codeStatus === "expired" || (!window.ok && window.reason.includes("انتهت")) ? "منتهي" : !window.ok ? "لم يبدأ" : isJoinCodeTemporarilyFrozen(code) ? "موقوف مؤقتاً" : codeStatus === "active" ? "صالح" : "غير صالح";
-      const civilId = String(student?.civilId || student?.nationalId || student?.nationalID || (rosterRow as any)?.civilId || (rosterRow as any)?.nationalId || "").trim();
+      const civilId = String(student?.civilId || student?.nationalId || student?.nationalID || "").trim();
       return {
         code: String(code.code), state,
-        studentName: String(student?.name || code.studentName || code.assignedStudentName || rosterRow?.name || "غير مرتبط"),
+        studentName: String(student?.name || code.studentName || code.assignedStudentName || "غير مرتبط"),
         studentId: studentId || "",
         civilId,
         courseName: String(resolved.courseName || code.courseName || code.resolvedCourseName || (courseCode ? courseNameFromCode(courseCode) : "مقرر عام")),
         sectionCode: courseCode,
         semester: String(code.semester || code.academicTerm || ""),
-        teacherName: String(teacher?.name || teacherEmail),
+        teacherName,
         createdAt: String(code.createdAt || code.issuedAt || ""),
       };
     })
     .sort((a: any, b: any) => String(a.studentName).localeCompare(String(b.studentName), "ar") || String(a.courseName).localeCompare(String(b.courseName), "ar"));
   const summary = codes.reduce((counts: any, row: any) => { counts[row.state] = (counts[row.state] || 0) + 1; return counts; }, {});
   return res.json({ success: true, scannedAt: new Date().toISOString(), total: codes.length, summary, codes });
+});
+
+// Exact, authenticated code lookup across active and retired ledgers. This is
+// deliberately a single-code lookup: it never exposes another teacher's list.
+const teacherExactCodeScanRateLimit = rateLimit({
+  windowMs: 60 * 1000,
+  max: 20,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { success: false, error: "محاولات كثيرة. حاول بعد قليل." },
+});
+app.post("/api/teacher/code-scan", teacherExactCodeScanRateLimit, (req, res) => {
+  setNoCache(res);
+  const requesterEmail = verifiedTeacherEmailFromSession(req);
+  if (!requesterEmail) return res.status(401).json({ success: false, error: "سجّل الدخول من جديد." });
+  const compact = compactJoinCode(req.body?.code || "");
+  if (!compact) return res.status(400).json({ success: false, error: "أدخل الكود." });
+
+  const current = dbInstance.getJoinCodes().filter((row: any) => compactJoinCode(row?.code) === compact);
+  const retired = typeof (dbInstance as any).getRetiredJoinCodes === "function"
+    ? (dbInstance as any).getRetiredJoinCodes().filter((row: any) => compactJoinCode(row?.code) === compact)
+    : [];
+  const code = current[0] || retired[0];
+  if (!code) return res.status(404).json({ success: false, notFound: true, error: "الكود غير موجود." });
+
+  const isRetired = !current.length || isArchivedJoinCodeRecord(code) || retired.some((row: any) => row === code);
+  const studentId = normalizeStudentId(code.usedByStudentId || code.studentId || code.assignedStudentId || "");
+  const student: any = studentId
+    ? dbInstance.getStudents().find((row: any) => normalizeStudentId(row.id) === studentId)
+    : null;
+  const resolved = resolveJoinCodeCourseForDisplay(code);
+  const courseCode = String(resolved.courseCode || code.resolvedCourseCode || code.activatedCourseCode || code.studentSection || code.sectionCode || code.courseCode || "").trim();
+  const storedCourseName = String(resolved.courseName || code.courseName || code.resolvedCourseName || code.activatedCourseName || "").trim();
+  const ownerEmail = String(code.ownerEmail || code.createdByEmail || joinCodeOwnerEmail(code) || joinCodeAuditOwner(code) || "").trim().toLowerCase();
+  const issuer = dbInstance.getTeachers().find((row: any) => String(row.email || "").trim().toLowerCase() === ownerEmail);
+  const status = String(code.status || "active").toLowerCase();
+  const activated = status === "used" || !!code.activatedAt || !!code.usedByStudentId || !!code.studentId;
+  const window = joinCodeWindowStatus(code);
+  const state = isRetired
+    ? activated ? "مُفعّل • مؤرشف" : "مؤرشف"
+    : activated ? "مُفعّل"
+      : isSoftDeletedRecord(code) || ["revoked", "disabled", "deleted"].includes(status) ? "موقوف"
+        : status === "expired" || (!window.ok && window.reason.includes("انتهت")) ? "منتهي"
+          : !window.ok ? "لم يبدأ"
+            : isJoinCodeTemporarilyFrozen(code) ? "موقوف مؤقتاً"
+              : status === "active" ? "صالح • غير مستخدم" : "غير صالح";
+  const civilId = String(student?.civilId || student?.nationalId || student?.nationalID || code.civilId || code.nationalId || "").trim();
+  return res.json({
+    success: true,
+    code: String(code.code || normalizeJoinCode(req.body?.code)),
+    state,
+    studentName: String(student?.name || code.usedByStudentName || code.studentName || code.assignedStudentName || "").trim(),
+    studentId,
+    civilId,
+    courseName: storedCourseName || (courseCode ? courseNameFromCode(courseCode) : "مقرر عام"),
+    sectionCode: courseCode,
+    semester: String(code.semester || code.academicTerm || code.term || "").trim(),
+    teacherName: String(issuer?.name || code.ownerName || code.createdByName || ownerEmail || "غير معروف").trim(),
+  });
 });
 
 app.post("/api/teacher/join-codes/create", (req, res) => {

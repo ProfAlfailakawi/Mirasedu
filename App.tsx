@@ -6097,9 +6097,16 @@ export default function App() {
   const [teacherCodeScan, setTeacherCodeScan] = useState<any>(null);
   const [teacherCodeScanBusy, setTeacherCodeScanBusy] = useState(false);
   const [teacherCodeScanSearch, setTeacherCodeScanSearch] = useState("");
+  const [teacherCodeLookupInput, setTeacherCodeLookupInput] = useState("");
+  const [teacherCodeLookupResult, setTeacherCodeLookupResult] = useState<any>(null);
+  const [teacherCodeLookupMessage, setTeacherCodeLookupMessage] = useState("");
+  const [teacherCodeLookupBusy, setTeacherCodeLookupBusy] = useState(false);
   useEffect(() => {
     setTeacherCodeScan(null);
     setTeacherCodeScanSearch("");
+    setTeacherCodeLookupInput("");
+    setTeacherCodeLookupResult(null);
+    setTeacherCodeLookupMessage("");
   }, [teacherSession?.email]);
   const [activationAttemptFromDate, setActivationAttemptFromDate] = useState(
     () => {
@@ -14123,6 +14130,31 @@ export default function App() {
       setErrorMsg("تعذّر الاتصال لفحص الأكواد.");
     } finally {
       setTeacherCodeScanBusy(false);
+    }
+  };
+
+  const lookupTeacherCode = async () => {
+    if (!teacherSession?.email || teacherCodeLookupBusy || !teacherCodeLookupInput.trim()) return;
+    setTeacherCodeLookupBusy(true);
+    setTeacherCodeLookupMessage("");
+    setTeacherCodeLookupResult(null);
+    try {
+      const response = await fetch("/api/teacher/code-scan", {
+        method: "POST",
+        cache: "no-store",
+        headers: { "Content-Type": "application/json", ...teacherHeaders(teacherSession.email) },
+        body: JSON.stringify({ code: teacherCodeLookupInput.trim() }),
+      });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok || !payload.success) {
+        setTeacherCodeLookupMessage(payload.error || "تعذّر التحقق.");
+        return;
+      }
+      setTeacherCodeLookupResult(payload);
+    } catch {
+      setTeacherCodeLookupMessage("تعذّر الاتصال.");
+    } finally {
+      setTeacherCodeLookupBusy(false);
     }
   };
 
@@ -44631,8 +44663,31 @@ ${rows
                   {auditDataReady && (<div className="space-y-5">
                   {codesSubTab === "health" && (
                     <>
+                      <section className="rounded-3xl border border-indigo-100 bg-white/90 p-4 shadow-sm sm:p-5" aria-label="التحقق من الكود">
+                        <div className="flex flex-wrap items-center gap-2" dir="rtl">
+                          <label className="flex h-11 min-w-[180px] flex-1 items-center rounded-2xl border border-slate-200 bg-slate-50 px-3">
+                            <input value={teacherCodeLookupInput} onChange={(event) => setTeacherCodeLookupInput(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter") void lookupTeacherCode(); }} className="min-w-0 flex-1 bg-transparent text-right text-xs font-semibold text-slate-800 outline-none" placeholder="أدخل الكود" aria-label="أدخل الكود للتحقق" />
+                          </label>
+                          <button type="button" onClick={lookupTeacherCode} disabled={teacherCodeLookupBusy || !teacherCodeLookupInput.trim()} className="inline-flex h-11 items-center gap-2 rounded-2xl bg-indigo-600 px-4 text-xs font-bold text-white shadow-sm disabled:opacity-60">
+                            <Search className={`h-4 w-4 ${teacherCodeLookupBusy ? "animate-pulse" : ""}`} />
+                            {teacherCodeLookupBusy ? "يتحقق" : "تحقق"}
+                          </button>
+                        </div>
+                        {teacherCodeLookupMessage && <p className="mt-3 text-right text-xs font-semibold text-rose-600" dir="rtl">{teacherCodeLookupMessage}</p>}
+                        {teacherCodeLookupResult && (
+                          <article className="mt-3 rounded-2xl border border-slate-100 bg-slate-50/80 p-3" dir="rtl">
+                            <div className="flex flex-wrap items-center justify-between gap-2">
+                              <span className={`rounded-full px-3 py-1 text-[10px] font-bold ${String(teacherCodeLookupResult.state).includes("صالح") || String(teacherCodeLookupResult.state).includes("مُفعّل") ? "bg-emerald-50 text-emerald-700" : "bg-amber-50 text-amber-700"}`}>{teacherCodeLookupResult.state}</span>
+                              <code dir="ltr" className="font-mono text-xs font-black text-indigo-700">{teacherCodeLookupResult.code}</code>
+                            </div>
+                            {teacherCodeLookupResult.studentName ? <p className="mt-2 text-right text-xs font-bold text-slate-900">{teacherCodeLookupResult.studentName}{teacherCodeLookupResult.studentId ? <span className="mr-2 font-mono font-semibold text-slate-500">جامعي: {teacherCodeLookupResult.studentId}</span> : null}{teacherCodeLookupResult.civilId ? <span className="mr-2 font-mono font-semibold text-slate-500">مدني: {teacherCodeLookupResult.civilId}</span> : null}</p> : <p className="mt-2 text-right text-xs font-semibold text-slate-600">لا يرتبط بطالب</p>}
+                            <p className="mt-1 text-right text-[10px] font-medium text-slate-600">{teacherCodeLookupResult.courseName}{teacherCodeLookupResult.sectionCode ? ` • ${teacherCodeLookupResult.sectionCode}` : ""}{teacherCodeLookupResult.semester ? ` • ${teacherCodeLookupResult.semester}` : ""}</p>
+                            <p className="mt-1 text-right text-[10px] text-slate-500">الأستاذ: {teacherCodeLookupResult.teacherName}</p>
+                          </article>
+                        )}
+                      </section>
                       {!isAdminTeacher && (
-                        <section className="rounded-3xl border border-indigo-100 bg-white/90 p-4 shadow-sm sm:p-5" aria-label="فحص أكواد الأستاذ">
+                        <section className="rounded-3xl border border-indigo-100 bg-white/90 p-4 shadow-sm sm:p-5" aria-label="سجل أكواد الأستاذ">
                           <div className="flex flex-wrap items-center justify-between gap-3" dir="rtl">
                             <div className="flex min-w-0 items-center gap-3">
                               <span className="grid h-10 w-10 shrink-0 place-items-center rounded-2xl bg-indigo-50 text-indigo-600"><Search className="h-5 w-5" /></span>
