@@ -3704,11 +3704,11 @@ function createSebLaunchFromActivatedSession(req: express.Request) {
     activeReturnException ||
       isExamReturnedForStudent(checked.exam.id, checked.student.id),
   );
-  if (checked.exam.open && new Date(checked.exam.open).getTime() > now)
+  if (checked.exam.open && mirasDateStartMs(checked.exam.open) > now)
     return { error: "لم يبدأ وقت إتاحة هذا الاختبار بعد.", status: 403 } as any;
   if (
     checked.exam.close &&
-    new Date(checked.exam.close).getTime() + 24 * 60 * 60 * 1000 < now &&
+    mirasDeadlineEndMs(checked.exam.close) < now &&
     !teacherAuthorizedSebReturn
   )
     return { error: "انتهى وقت إتاحة هذا الاختبار.", status: 403 } as any;
@@ -16038,13 +16038,13 @@ function resolveExamLockSubject(req: express.Request, res: express.Response) {
     return null;
   }
   const now = Date.now();
-  if (exam.open && new Date(exam.open).getTime() > now) {
+  if (exam.open && mirasDateStartMs(exam.open) > now) {
     res.status(403).json({ error: "لم يبدأ وقت إتاحة هذا الاختبار بعد." });
     return null;
   }
   if (
     exam.close &&
-    new Date(exam.close).getTime() + 24 * 60 * 60 * 1000 < now &&
+    mirasDeadlineEndMs(exam.close) < now &&
     !teacherAuthorizedSebReturn
   ) {
     res.status(403).json({ error: "انتهى وقت إتاحة هذا الاختبار." });
@@ -16219,13 +16219,13 @@ app.get("/api/quizzes/generate", (req, res) => {
         });
     }
     const now = Date.now();
-    if (officialExam.open && new Date(officialExam.open).getTime() > now)
+    if (officialExam.open && mirasDateStartMs(officialExam.open) > now)
       return res
         .status(403)
         .json({ error: "لم يبدأ وقت إتاحة هذا الاختبار بعد." });
     if (
       officialExam.close &&
-      new Date(officialExam.close).getTime() + 24 * 60 * 60 * 1000 < now &&
+      mirasDeadlineEndMs(officialExam.close) < now &&
       !teacherAuthorizedSebReturn
     )
       return res.status(403).json({ error: "انتهى وقت إتاحة هذا الاختبار." });
@@ -16905,13 +16905,13 @@ app.post("/api/quizzes/submit", (req, res) => {
         .json({ error: "لا يمكن تسليم هذا الاختبار خارج Safe Exam Browser." });
     }
     const now = Date.now();
-    if (officialExam.open && new Date(officialExam.open).getTime() > now)
+    if (officialExam.open && mirasDateStartMs(officialExam.open) > now)
       return res
         .status(403)
         .json({ error: "لم يبدأ وقت إتاحة هذا الاختبار بعد." });
     if (
       officialExam.close &&
-      new Date(officialExam.close).getTime() + 24 * 60 * 60 * 1000 < now &&
+      mirasDeadlineEndMs(officialExam.close) < now &&
       !teacherAuthorizedSebReturn
     )
       return res.status(403).json({ error: "انتهى وقت إتاحة هذا الاختبار." });
@@ -17706,10 +17706,27 @@ function mirasDeadlineEndMs(value: any): number {
     if (code >= 0x06f0 && code <= 0x06f9) return String(code - 0x06f0);
     return ch;
   });
-  const dateOnly = normalized.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  const dateOnly = normalized.match(
+    /^(\d{4})-(\d{2})-(\d{2})(?:T00:00(?::00(?:\.000)?)?(?:Z|\+00:00)?)?$/,
+  );
   if (dateOnly) {
     const [, y, m, d] = dateOnly;
-    return new Date(Number(y), Number(m) - 1, Number(d), 23, 59, 59, 999).getTime();
+    return Date.UTC(Number(y), Number(m) - 1, Number(d), 20, 59, 59, 999);
+  }
+  const parsed = new Date(normalized).getTime();
+  return Number.isFinite(parsed) ? parsed : 0;
+}
+function mirasDateStartMs(value: any): number {
+  const normalized = String(value || "").trim().replace(/[٠-٩۰-۹]/g, (ch) => {
+    const code = ch.charCodeAt(0);
+    return String(code >= 0x06f0 ? code - 0x06f0 : code - 0x0660);
+  });
+  const dateOnly = normalized.match(
+    /^(\d{4})-(\d{2})-(\d{2})(?:T00:00(?::00(?:\.000)?)?(?:Z|\+00:00)?)?$/,
+  );
+  if (dateOnly) {
+    const [, y, m, d] = dateOnly;
+    return Date.UTC(Number(y), Number(m) - 1, Number(d), -3, 0, 0, 0);
   }
   const parsed = new Date(normalized).getTime();
   return Number.isFinite(parsed) ? parsed : 0;
@@ -18813,10 +18830,9 @@ app.post("/api/projects/submit", (req, res) => {
       });
   }
 
-  // لا يُوسم التسليم بأنه متأخر إلا بعد نهاية يوم الإغلاق،
-  // وليس بمجرد تجاوز موعد التسليم الأولي أثناء نافذة الإتاحة.
+  // يبقى التسليم مقبولاً حتى الإغلاق، ويبدأ وسم «متأخر» بعد موعد التسليم.
   const projectLateDeadlineMs = mirasDeadlineEndMs(
-    project.closeDate || project.dueDate || "",
+    project.dueDate || project.closeDate || "",
   );
   const projectSubmittedLate = !!(
     projectLateDeadlineMs &&
@@ -23415,20 +23431,33 @@ app.post("/api/student/submissions", (req, res) => {
   let courseCode = String(
     incoming.courseCode || incoming.sectionCode || "",
   ).trim();
-  if (!courseCode && kind === "project") {
+  let matchedProject: any = null;
+  if (kind === "project") {
     const projectId = String(
       incoming.activityId || incoming.projectId || incoming.id || "",
     )
       .replace(/^project-/, "")
       .split("-")[0]
       .trim();
-    const matchedProject = activeRuntimeTeacherProjects().find((project: any) =>
+    matchedProject = activeRuntimeTeacherProjects().find((project: any) =>
       String(project.id || "") === projectId ||
       String(incoming.activityId || "") === String(project.id || ""),
     );
-    courseCode = String(
-      matchedProject?.courseCode || matchedProject?.sectionCode || "",
-    ).trim();
+    if (!courseCode) {
+      courseCode = String(
+        matchedProject?.courseCode || matchedProject?.sectionCode || "",
+      ).trim();
+    }
+    if (matchedProject) {
+      const closeMs = mirasDeadlineEndMs(
+        matchedProject.closeDate || matchedProject.dueDate || "",
+      );
+      if (closeMs && Date.now() > closeMs) {
+        return res.status(403).json({
+          error: "انتهى وقت التسليم. أرسل المشروع قبل نهاية تاريخ الإغلاق.",
+        });
+      }
+    }
   }
   if (courseCode && isStudentSuspendedInCourse(student, courseCode)) {
     return res.status(403).json({
@@ -23462,6 +23491,9 @@ app.post("/api/student/submissions", (req, res) => {
     returnExceptionGrantedAt: undefined,
     returnExceptionByEmail: undefined,
     status: safeStatus,
+    submittedLate: kind === "project" && matchedProject
+      ? Date.now() > mirasDeadlineEndMs(matchedProject.dueDate || "")
+      : Boolean(incoming.submittedLate),
     submittedAt: incoming.submittedAt || nowIso,
     updatedAt: nowIso,
   };

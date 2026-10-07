@@ -205,20 +205,27 @@ const mirasDeadlineEndMs = (value: any) => {
   const raw = String(value || "").trim();
   if (!raw) return 0;
   const normalized = normalizeArabicIndicDigits(raw);
-  const dateOnly = normalized.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  const dateOnly = normalized.match(
+    /^(\d{4})-(\d{2})-(\d{2})(?:T00:00(?::00(?:\.000)?)?(?:Z|\+00:00)?)?$/,
+  );
   if (dateOnly) {
     const [, y, m, d] = dateOnly;
-    return new Date(
-      Number(y),
-      Number(m) - 1,
-      Number(d),
-      23,
-      59,
-      59,
-      999,
-    ).getTime();
+    // Project due/close dates are Kuwait calendar days on every device/server.
+    return Date.UTC(Number(y), Number(m) - 1, Number(d), 20, 59, 59, 999);
   }
   const parsed = new Date(normalized).getTime();
+  return Number.isFinite(parsed) ? parsed : 0;
+};
+const mirasDateStartMs = (value: any) => {
+  const raw = normalizeArabicIndicDigits(String(value || "").trim());
+  const dateOnly = raw.match(
+    /^(\d{4})-(\d{2})-(\d{2})(?:T00:00(?::00(?:\.000)?)?(?:Z|\+00:00)?)?$/,
+  );
+  if (dateOnly) {
+    const [, y, m, d] = dateOnly;
+    return Date.UTC(Number(y), Number(m) - 1, Number(d), -3, 0, 0, 0);
+  }
+  const parsed = new Date(raw).getTime();
   return Number.isFinite(parsed) ? parsed : 0;
 };
 const mirasIsPastDeadline = (value: any, now = Date.now()) => {
@@ -1629,8 +1636,8 @@ const MirasRatioRing = ({ done, total }: { done: number; total: number }) => {
 
 // شريط رفيع لمرور الوقت بين فتح النشاط وإغلاقه (من تاريخي الفتح والإغلاق الظاهرين أصلاً).
 const MirasWindowBar = ({ open, close }: { open?: any; close?: any }) => {
-  const o = open ? new Date(open).getTime() : NaN;
-  const c = close ? new Date(close).getTime() : NaN;
+  const o = open ? mirasDateStartMs(open) : NaN;
+  const c = close ? mirasDeadlineEndMs(close) : NaN;
   if (!Number.isFinite(o) || !Number.isFinite(c) || c <= o) return null;
   const pct = Math.max(0, Math.min(100, Math.round(((Date.now() - o) / (c - o)) * 100)));
   return (
@@ -22444,7 +22451,7 @@ ${rows
   const isExamClosed = (exam: any) =>
     !!exam?.close && mirasIsPastDeadline(exam.close);
   const isProjectClosed = (project: any) =>
-    !!project?.closeDate && mirasIsPastDeadline(project.closeDate);
+    mirasIsPastDeadline(project?.closeDate || project?.dueDate);
   const isReturnExceptionActive = (submission: any) => {
     const until = new Date(submission?.returnExceptionUntil || 0).getTime();
     return (
@@ -22497,11 +22504,12 @@ ${rows
     const deadlineValue =
       kind === "exam" || kind === "quiz"
         ? activity?.close || sub?.close || sub?.closeDate || sub?.dueDate
-        : activity?.closeDate ||
+        : activity?.dueDate ||
+          sub?.dueDate ||
+          activity?.closeDate ||
           activity?.close ||
           sub?.closeDate ||
           sub?.close ||
-          activity?.dueDate ||
           sub?.dueDate;
     const deadlineMs = mirasDeadlineEndMs(deadlineValue);
     if (!deadlineMs || !Number.isFinite(deadlineMs)) return true;
@@ -22541,7 +22549,7 @@ ${rows
     pendingReturnSubmission?.kind,
   ]);
   const isExamNotOpen = (exam: any) =>
-    !!exam?.open && new Date(exam.open).getTime() > Date.now();
+    !!exam?.open && mirasDateStartMs(exam.open) > Date.now();
   const questionCategoryOptions = Array.from(
     new Map([
       // أولاً: أسماء احتياطية مشتقة من أسئلة البنك. نستخدم المعرّف داخلياً فقط،
@@ -26076,10 +26084,10 @@ ${rows
   );
   const isExamOpenNow = (exam: any) => {
     const now = Date.now();
-    const open = exam.open ? new Date(exam.open).getTime() : 0;
-    const close = exam.close ? new Date(exam.close).getTime() : 0;
+    const open = exam.open ? mirasDateStartMs(exam.open) : 0;
+    const close = exam.close ? mirasDeadlineEndMs(exam.close) : 0;
     return (
-      (!open || open <= now) && (!close || close + 24 * 60 * 60 * 1000 >= now)
+      (!open || open <= now) && (!close || close >= now)
     );
   };
   const examSubmissionBuckets = useMemo(() => {
@@ -26125,7 +26133,7 @@ ${rows
       hasActiveLivePulseExam &&
       examDayExams.some((exam: any) => {
         const now = Date.now();
-        const close = exam.close ? new Date(exam.close).getTime() : 0;
+        const close = exam.close ? mirasDeadlineEndMs(exam.close) : 0;
         // يظهر النبض أيضًا لاختبار مُعاد ضمن نافذة استثناء نشطة حتى لو انتهى وقته
         // الأصلي، فيبقى ضبط الكاميرا للطالب المُعاد له متاحًا في النبض.
         return !close || close >= now || examHasLiveIssue(exam);
@@ -26204,8 +26212,8 @@ ${rows
     const examWindowsById = new Map<string, { open: number; close: number }>();
     examById.forEach((exam: any, examId: string) => {
       examWindowsById.set(examId, {
-        open: exam.open ? new Date(exam.open).getTime() || 0 : 0,
-        close: exam.close ? new Date(exam.close).getTime() || 0 : 0,
+        open: exam.open ? mirasDateStartMs(exam.open) || 0 : 0,
+        close: exam.close ? mirasDeadlineEndMs(exam.close) || 0 : 0,
       });
     });
     const activeExamWindows = Array.from(examWindowsById.values());
@@ -27247,13 +27255,6 @@ ${rows
       .replace(/\s+/g, " ")
       .trim();
 
-  // Notice IDs can change when feeds reload or alerts are regrouped. Keep a
-  // semantic read key too, so a notice marked read stays dismissed.
-  const teacherNotificationReadFingerprint = (item: any) =>
-    `teacher-notice-content:${normalizeTeacherCommandText(
-      `${item?.title || ""}|${item?.body || ""}`,
-    )}`;
-
   const teacherCommandNeedles = (value: any) =>
     normalizeTeacherCommandText(value)
       .split(" ")
@@ -28084,12 +28085,30 @@ ${rows
         });
     }
 
-    // Deduplicate and filter read keys
+    // Deduplicate and filter read keys. Keep the fingerprint in each row so
+    // click handlers persist the same stable semantic key.
+    const teacherNotificationReadFingerprint = (item: any) =>
+      `teacher-notice-content:${String(`${item?.title || ""}|${item?.body || ""}`)
+        .replace(/[٠-٩۰-۹]/g, (digit) => {
+          const code = digit.charCodeAt(0);
+          return String(code >= 0x06f0 ? code - 0x06f0 : code - 0x0660);
+        })
+        .toLowerCase()
+        .replace(/[ًٌٍَُِّْـ]/g, "")
+        .replace(/[إأآا]/g, "ا")
+        .replace(/ى/g, "ي")
+        .replace(/ة/g, "ه")
+        .replace(/[.,،:؛!?؟()\[\]{}"'`~|\\/]+/g, " ")
+        .replace(/\s+/g, " ")
+        .trim()}`;
     const seen = new Set<string>();
     return groupSecurityNotifications(items)
+      .map((item) => ({
+        ...item,
+        readFingerprint: teacherNotificationReadFingerprint(item),
+      }))
       .filter((item) => {
-        const stableReadKey = teacherNotificationReadFingerprint(item);
-        if (seen.has(item.key) || teacherImportantReadKeys.has(item.key) || teacherImportantReadKeys.has(stableReadKey) || (item.readKeys?.length && (item.repeatCount
+        if (seen.has(item.key) || teacherImportantReadKeys.has(item.key) || teacherImportantReadKeys.has(item.readFingerprint) || (item.readKeys?.length && (item.repeatCount
           ? item.readKeys.every((key: string) => teacherImportantReadKeys.has(key))
           : item.readKeys.some((key: string) => teacherImportantReadKeys.has(key)))))
           return false;
@@ -28213,7 +28232,7 @@ ${rows
       next.add(key);
       const item = criticalTeacherNotifications.find(item => item.key === key);
       if (item) {
-        next.add(teacherNotificationReadFingerprint(item));
+        next.add(item.readFingerprint);
         item.readKeys?.forEach((readKey: string) => next.add(readKey));
       }
       persistTeacherImportantReadKeys(next);
@@ -28224,7 +28243,7 @@ ${rows
   const markAllTeacherImportantNotificationsRead = () => {
     setTeacherImportantReadKeys((prev) => {
       const next = new Set<string>(prev);
-      criticalTeacherNotifications.forEach((item: any) => { next.add(item.key); next.add(teacherNotificationReadFingerprint(item)); item.readKeys?.forEach((key: string) => next.add(key)); });
+      criticalTeacherNotifications.forEach((item: any) => { next.add(item.key); next.add(item.readFingerprint); item.readKeys?.forEach((key: string) => next.add(key)); });
       persistTeacherImportantReadKeys(next);
       return next;
     });
@@ -35978,7 +35997,7 @@ ${rows
                                     </span>
                                     <span aria-hidden="true">·</span>
                                     <span className="font-mono">
-                                      إغلاق: {examCloseDateText}
+                                      آخر موعد: {examCloseDateText}
                                     </span>
                                   </div>
                                   <h3 className="line-clamp-2 text-[14px] font-bold leading-5 text-slate-950 sm:text-[15px]">
@@ -36533,12 +36552,18 @@ ${rows
                                       </span>
                                     </div>
                                     <div className="rounded-2xl bg-slate-50 p-4 text-xs font-bold text-slate-600">
-                                      إغلاق التسليم:{" "}
+                                      آخر موعد للقبول:{" "}
                                       <span className="font-black text-rose-700">
                                         {formatKwDate(project.closeDate)}
                                       </span>
                                     </div>
                                   </div>
+                                  {mirasIsPastDeadline(project.dueDate) && !isProjectClosed(project) && (
+                                    <div className="mt-3 flex items-center gap-2 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-xs font-bold leading-5 text-amber-900">
+                                      <Clock className="h-4 w-4 shrink-0" aria-hidden="true" />
+                                      فات موعد التسليم؛ يمكنك الإرسال حتى {formatKwDate(project.closeDate)}، وسيُسجّل متأخرًا.
+                                    </div>
+                                  )}
                                   {project.description &&
                                     String(project.description).trim() !==
                                       "مشروع مقرر معتمد من الأستاذ ويمكن تسليمه من صفحة المشروع." && (
@@ -36674,12 +36699,11 @@ ${rows
                                           projectSubmissionInFlightRef.current = true;
                                           const nowIso =
                                             new Date().toISOString();
-                                          // لا يُوسم التسليم بأنه متأخر إلا بعد نهاية يوم الإغلاق،
-                                          // وليس بمجرد تجاوز موعد التسليم الأولي أثناء نافذة الإتاحة.
+                                          // يقبل التسليم حتى الإغلاق، ويبدأ وصف «متأخر» بعد الاستحقاق.
                                           const projectLateDeadlineMs =
                                             mirasDeadlineEndMs(
-                                              project.closeDate ||
-                                                project.dueDate ||
+                                              project.dueDate ||
+                                                project.closeDate ||
                                                 "",
                                             );
                                           const submittedLate = !!(
@@ -39694,6 +39718,7 @@ ${rows
                           </label>
                           <label className="text-[10px] font-bold text-slate-500">
                             موعد التسليم
+                            <span className="mt-1 block text-[9px] font-medium leading-4 text-slate-400">بعده يُسجّل التسليم متأخرًا</span>
                             <input
                               type="date"
                               value={projectDraft.dueDate}
@@ -39707,7 +39732,8 @@ ${rows
                             />
                           </label>
                           <label className="text-[10px] font-bold text-slate-500">
-                            إغلاق التسليم
+                            آخر موعد لقبول التسليم
+                            <span className="mt-1 block text-[9px] font-medium leading-4 text-slate-400">يُقبل حتى نهاية هذا اليوم</span>
                             <input
                               type="date"
                               value={projectDraft.closeDate}
@@ -40091,7 +40117,8 @@ ${rows
                                 />
                               </label>
                               <label className="text-[11px] font-bold text-slate-600">
-                                تاريخ بداية الإتاحة
+                                بداية الاختبار
+                                <span className="mt-1 block text-[9px] font-medium leading-4 text-slate-400">يبدأ ظهوره للطلبة في هذا اليوم</span>
                                 <input
                                   type="date"
                                   value={examDraft.open}
@@ -40105,7 +40132,8 @@ ${rows
                                 />
                               </label>
                               <label className="text-[11px] font-bold text-slate-600">
-                                تاريخ نهاية الإتاحة
+                                آخر موعد للاختبار
+                                <span className="mt-1 block text-[9px] font-medium leading-4 text-slate-400">يُغلق الاختبار بنهاية هذا اليوم</span>
                                 <input
                                   type="date"
                                   value={examDraft.close}
@@ -47300,26 +47328,31 @@ ${rows
           className="fixed inset-0 z-50 flex items-end justify-center bg-slate-950/50 p-4 backdrop-blur-sm animate-fade-in sm:items-center"
           role="dialog"
           aria-modal="true"
-          aria-label="ثبّت مِراس قبل إنشاء الحساب"
+          aria-label="اختر طريقة استخدام مِراس"
         >
-          <div className="w-full max-w-md space-y-5 rounded-[var(--miras-r-xl)] border border-slate-200 bg-white p-6 text-right shadow-premium-lg animate-scale-up">
+          <div className="w-full max-w-md space-y-4 rounded-[var(--miras-r-xl)] border border-slate-200 bg-white p-5 text-right shadow-premium-lg animate-scale-up">
             <div className="space-y-2 text-center">
-              <span className="mx-auto flex h-14 w-14 items-center justify-center rounded-3xl border border-indigo-100 bg-indigo-50 text-indigo-600">
-                <Smartphone className="h-6 w-6" aria-hidden="true" />
+              <span className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl border border-indigo-100 bg-indigo-50 text-indigo-600">
+                <Smartphone className="h-5 w-5" aria-hidden="true" />
               </span>
-              <h3 className="text-lg font-black text-slate-950">
-                ثبّت مِراس أولاً
-              </h3>
-              <p className="text-xs font-bold leading-6 text-slate-600">
-                حسابك يُربط بالمكان الذي تفعّله منه. ثبّت التطبيق، ثم افتح مِراس
-                من الشاشة الرئيسية وأنشئ حسابك هناك.
-              </p>
-              {installGate === "card" && (
-                <p className="text-xs font-bold leading-6 text-indigo-700">
-                  بعد التثبيت امسح الكود من زر الكاميرا داخل التطبيق؛ الكود
-                  الممسوح هنا لا ينتقل إليه.
-                </p>
-              )}
+              <h3 className="text-lg font-black text-slate-950">كيف تود استخدام مِراس؟</h3>
+              <p className="text-xs font-bold text-slate-600">اختر التطبيق أو أكمل من المتصفح.</p>
+            </div>
+            <div className="flex items-center gap-2 rounded-2xl border border-emerald-100 bg-emerald-50 px-3 py-2.5 text-xs font-black text-emerald-800">
+              <CheckCircle2 className="h-4 w-4 shrink-0" aria-hidden="true" />
+              يعمل في البيت والجامعة؛ لا يلزم البقاء في مكان محدد.
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              <div className="rounded-2xl border border-indigo-100 bg-indigo-50/60 p-3 text-center">
+                <span className="mx-auto mb-1.5 flex h-8 w-8 items-center justify-center rounded-xl bg-white text-indigo-600"><Smartphone className="h-4 w-4" aria-hidden="true" /></span>
+                <b className="block text-[11px] text-slate-900">التطبيق</b>
+                <span className="mt-1 block text-[10px] leading-4 text-slate-500">تثبيت اختياري؛ فعّل الحساب من التطبيق</span>
+              </div>
+              <div className="rounded-2xl border border-slate-200 bg-slate-50 p-3 text-center">
+                <span className="mx-auto mb-1.5 flex h-8 w-8 items-center justify-center rounded-xl bg-white text-slate-600"><QrCode className="h-4 w-4" aria-hidden="true" /></span>
+                <b className="block text-[11px] text-slate-900">المتصفح</b>
+                <span className="mt-1 block text-[10px] leading-4 text-slate-500">أكمل مباشرة من هذا الجهاز</span>
+              </div>
             </div>
             <button
               type="button"
@@ -47330,7 +47363,7 @@ ${rows
               className="dna-btnp flex w-full cursor-pointer items-center justify-center gap-2 py-3"
             >
               <Download className="h-4 w-4" aria-hidden="true" />
-              ثبّت مِراس
+              أريد استخدام التطبيق
             </button>
             <div className="space-y-2 border-t border-slate-100 pt-4">
               <button
@@ -47348,8 +47381,7 @@ ${rows
                 أكمل من المتصفح
               </button>
               <p className="text-center text-[11px] font-bold leading-5 text-amber-700">
-                حسابك سيُربط بهذا المتصفح، ولن تفتحه من التطبيق لاحقاً إلا
-                بموافقة الأستاذ.
+                اختر الجهاز الذي ستستخدمه؛ لا يمكن نقل الحساب إلى جهاز آخر إلا بموافقة الأستاذ.
               </p>
             </div>
           </div>
