@@ -5958,6 +5958,14 @@ export default function App() {
   const [publicDeviceAvailability, setPublicDeviceAvailability] = useState<
     "idle" | "checking" | "available" | "unavailable"
   >("idle");
+  // خيارات الدخول قبل تسجيل الجلسة: لا نعرض بصمة إلا بعد تأكيد الخادم أنها
+  // مفعّلة لهذا الحساب، ونخفي إنشاء الحساب إذا كان الطالب مسجلاً بالفعل.
+  const [loginAccountOptions, setLoginAccountOptions] = useState<{
+    key: string;
+    checking: boolean;
+    exists: boolean;
+    passkeyEnabled: boolean;
+  } | null>(null);
   const [publicDeviceLogin, setPublicDeviceLogin] = useState<any>({
     phase: "idle",
   });
@@ -17579,6 +17587,82 @@ ${rows
     shouldShowPasskeyLockScreen,
   ]);
 
+  useEffect(() => {
+    if (currentView !== "signup" || shouldShowPasskeyLockScreen) {
+      setLoginAccountOptions(null);
+      return;
+    }
+    const lockedIdentity = showCompactPasskeyLogin
+      ? activeLocalPasskeyLock
+      : null;
+    const role = instructorMode
+      ? "teacher"
+      : lockedIdentity?.role === "student"
+        ? "student"
+        : "student";
+    const identity = String(
+      lockedIdentity?.userId ||
+        (instructorMode
+          ? loginForm.idNumber
+          : normalizeArabicDigits(loginForm.idNumber).replace(/\D/g, "")) ||
+        "",
+    )
+      .trim()
+      .toLowerCase();
+    const minimumLength = role === "student" ? 4 : 4;
+    const key = `${role}:${identity}`;
+    if (!identity || identity.length < minimumLength) {
+      setLoginAccountOptions(null);
+      return;
+    }
+    const controller = new AbortController();
+    setLoginAccountOptions({
+      key,
+      checking: true,
+      exists: false,
+      passkeyEnabled: false,
+    });
+    const timer = window.setTimeout(async () => {
+      try {
+        const response = await fetch("/api/auth/passkey/status", {
+          method: "POST",
+          cache: "no-store",
+          signal: controller.signal,
+          headers: jsonHeaders({ auth: "none" }),
+          body: JSON.stringify({ role, userId: identity }),
+        });
+        const data = await response.json().catch(() => ({}));
+        if (controller.signal.aborted) return;
+        setLoginAccountOptions({
+          key,
+          checking: false,
+          exists: response.ok && data.success === true,
+          passkeyEnabled: response.ok && data.enabled === true,
+        });
+      } catch {
+        if (!controller.signal.aborted)
+          setLoginAccountOptions({
+            key,
+            checking: false,
+            exists: false,
+            passkeyEnabled: false,
+          });
+      }
+    }, 320);
+    return () => {
+      window.clearTimeout(timer);
+      controller.abort();
+    };
+  }, [
+    loginForm.idNumber,
+    currentView,
+    instructorMode,
+    shouldShowPasskeyLockScreen,
+    showCompactPasskeyLogin,
+    activeLocalPasskeyLock?.userId,
+    activeLocalPasskeyLock?.role,
+  ]);
+
   const cancelPublicDeviceLogin = async (close = true) => {
     const active = publicDeviceLogin;
     if (close) setPublicDeviceLogin({ phase: "idle" });
@@ -24732,7 +24816,7 @@ ${rows
         body: JSON.stringify({
           userId: studentSession.id,
           role: "student",
-          keys: Array.from(keys).slice(-400),
+          keys: Array.from(keys).slice(-5000),
         }),
         keepalive: true,
       }).catch(() => undefined);
@@ -27163,6 +27247,13 @@ ${rows
       .replace(/\s+/g, " ")
       .trim();
 
+  // Notice IDs can change when feeds reload or alerts are regrouped. Keep a
+  // semantic read key too, so a notice marked read stays dismissed.
+  const teacherNotificationReadFingerprint = (item: any) =>
+    `teacher-notice-content:${normalizeTeacherCommandText(
+      `${item?.title || ""}|${item?.body || ""}`,
+    )}`;
+
   const teacherCommandNeedles = (value: any) =>
     normalizeTeacherCommandText(value)
       .split(" ")
@@ -27997,7 +28088,8 @@ ${rows
     const seen = new Set<string>();
     return groupSecurityNotifications(items)
       .filter((item) => {
-        if (seen.has(item.key) || teacherImportantReadKeys.has(item.key) || (item.readKeys?.length && (item.repeatCount
+        const stableReadKey = teacherNotificationReadFingerprint(item);
+        if (seen.has(item.key) || teacherImportantReadKeys.has(item.key) || teacherImportantReadKeys.has(stableReadKey) || (item.readKeys?.length && (item.repeatCount
           ? item.readKeys.every((key: string) => teacherImportantReadKeys.has(key))
           : item.readKeys.some((key: string) => teacherImportantReadKeys.has(key)))))
           return false;
@@ -28046,7 +28138,7 @@ ${rows
     try {
       localStorage.setItem(
         `miras_teacher_important_read_${teacherKey}`,
-        JSON.stringify(Array.from(keys).slice(-240)),
+        JSON.stringify(Array.from(keys)),
       );
     } catch (e) {
       console.error("Error saving teacher important notifications", e);
@@ -28059,7 +28151,7 @@ ${rows
         body: JSON.stringify({
           userId: teacherKey,
           role: "teacher",
-          keys: Array.from(keys).slice(-240),
+          keys: Array.from(keys),
         }),
         keepalive: true,
       }).catch(() => undefined);
@@ -28119,7 +28211,11 @@ ${rows
     setTeacherImportantReadKeys((prev) => {
       const next = new Set<string>(prev);
       next.add(key);
-      criticalTeacherNotifications.find(item => item.key === key)?.readKeys?.forEach((readKey: string) => next.add(readKey));
+      const item = criticalTeacherNotifications.find(item => item.key === key);
+      if (item) {
+        next.add(teacherNotificationReadFingerprint(item));
+        item.readKeys?.forEach((readKey: string) => next.add(readKey));
+      }
       persistTeacherImportantReadKeys(next);
       return next;
     });
@@ -28128,7 +28224,7 @@ ${rows
   const markAllTeacherImportantNotificationsRead = () => {
     setTeacherImportantReadKeys((prev) => {
       const next = new Set<string>(prev);
-      criticalTeacherNotifications.forEach((item: any) => { next.add(item.key); item.readKeys?.forEach((key: string) => next.add(key)); });
+      criticalTeacherNotifications.forEach((item: any) => { next.add(item.key); next.add(teacherNotificationReadFingerprint(item)); item.readKeys?.forEach((key: string) => next.add(key)); });
       persistTeacherImportantReadKeys(next);
       return next;
     });
@@ -30858,6 +30954,25 @@ ${rows
     !dismissedOnboarding[studentOnboardingKey] &&
     !isOnboardingDone(studentOnboardingKey);
   const isStudentMessageSurface = currentView !== "teacher_workspace";
+  const loginLookupRole = instructorMode ? "teacher" : "student";
+  const loginLookupIdentity = String(
+    showCompactPasskeyLogin && activeLocalPasskeyLock?.userId
+      ? activeLocalPasskeyLock.userId
+      : instructorMode
+        ? loginForm.idNumber
+        : normalizeArabicDigits(loginForm.idNumber).replace(/\D/g, ""),
+  )
+    .trim()
+    .toLowerCase();
+  const loginLookupKey = `${loginLookupRole}:${loginLookupIdentity}`;
+  const loginAccountStateIsCurrent =
+    loginAccountOptions?.key === loginLookupKey &&
+    loginAccountOptions.checking === false;
+  const canShowLoginPasskey =
+    loginAccountStateIsCurrent && loginAccountOptions?.passkeyEnabled === true;
+  const shouldShowCreateAccount =
+    instructorMode ||
+    !(loginAccountStateIsCurrent && loginAccountOptions?.exists === true);
   const isTransientActivationCameraMessage = (message: any) =>
     /تعذر تشغيل الكاميرا|تعذّر تشغيل الكاميرا|العدسة لم تجهز|camera-video-not-ready|NotReadable|TrackStart|Overconstrained|AbortError|Could not start video source|camera-unavailable/i.test(
       String(message || ""),
@@ -30868,7 +30983,12 @@ ${rows
         simplifyMirasMessage(successMsg, "success"),
       );
   const visibleErrorMsg =
-    isStudentMessageSurface && isTransientActivationCameraMessage(errorMsg)
+    currentView === "signup" &&
+    /صيغة الملف|الصيغ المتاحة|unsupported file|file format/i.test(
+      String(errorMsg || ""),
+    )
+      ? ""
+      : isStudentMessageSurface && isTransientActivationCameraMessage(errorMsg)
       ? ""
       : isTransientActivationConnectivityMessage(errorMsg)
         ? ""
@@ -33349,6 +33469,7 @@ ${rows
                     <div className="miras-passkey-shield-card miras-passkey-shield-card--minimal rounded-[var(--miras-r-xl)] border border-emerald-100/80 bg-gradient-to-br from-white via-emerald-50/70 to-indigo-50/40 px-5 py-8 text-center miras-shadow-2">
                       <div className="flex flex-col items-center gap-6">
                         <div className="flex items-center justify-center gap-6">
+                          {canShowLoginPasskey && (
                           <button
                             type="button"
                             title="الدخول بالبصمة"
@@ -33368,6 +33489,7 @@ ${rows
                               <Fingerprint className="h-9 w-9" />
                             )}
                           </button>
+                          )}
 
                           <button
                             type="button"
@@ -33518,7 +33640,7 @@ ${rows
                         </button>
                           <span className="miras-login-action-label text-[11px] font-bold text-slate-500" aria-hidden="true">تسجيل الدخول</span>
                         </div>
-                        <div className="miras-login-action flex flex-col items-center gap-1.5">
+                        {canShowLoginPasskey && <div className="miras-login-action flex flex-col items-center gap-1.5">
                         <button
                           type="button"
                           title="الدخول بالبصمة"
@@ -33539,7 +33661,8 @@ ${rows
                           )}
                         </button>
                           <span className="miras-login-action-label text-[11px] font-bold text-slate-500" aria-hidden="true">الدخول بالبصمة</span>
-                        </div>
+                        </div>}
+                        {shouldShowCreateAccount && (
                         <div className="miras-login-action flex flex-col items-center gap-1.5">
                         <button
                           type="button"
@@ -33552,6 +33675,7 @@ ${rows
                         </button>
                           <span className="miras-login-action-label text-[11px] font-bold text-slate-500" aria-hidden="true">إنشاء حساب جديد</span>
                         </div>
+                        )}
                       </div>
                       {passkeyStatus && (
                         <div className="rounded-2xl border border-emerald-100 bg-emerald-50 px-4 py-3 text-center text-[11px] font-bold text-emerald-700">
@@ -36880,6 +37004,29 @@ ${rows
                 >
                   <Home className="h-5 w-5" />
                 </button>
+                {demoEnabled && !demoActive && (
+                  <button
+                    type="button"
+                    title="معاينة حساب الطالب التجريبي"
+                    aria-label="معاينة حساب الطالب التجريبي"
+                    onClick={() => void enterDemo("student")}
+                    disabled={demoBusy}
+                    className="miras-zero-action-btn text-indigo-700 disabled:opacity-60"
+                  >
+                    {demoBusy ? <MirasLoader size={18} role="current" label="" /> : <Eye className="h-5 w-5" />}
+                  </button>
+                )}
+                {!isAdminTeacher && (
+                  <button
+                    type="button"
+                    title={theme === "dark" ? "الوضع النهاري" : "الوضع الليلي"}
+                    aria-label={theme === "dark" ? "الوضع النهاري" : "الوضع الليلي"}
+                    onClick={toggleTheme}
+                    className="miras-zero-action-btn"
+                  >
+                    {theme === "dark" ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
+                  </button>
+                )}
                 {/* زر تفعيل البصمة سقط من الرأس المختصر عند إعادة تصميم واجهة
                     الجوال (v5)، فبقي ظاهراً على الشاشات العريضة ومختفياً على
                     الهاتف لنفس الحساب. نعيده هنا بنفس شرط الرأس الكلاسيكي. */}
@@ -37213,6 +37360,29 @@ ${rows
                         >
                           <Home className="h-5 w-5" />
                         </button>
+                        {demoEnabled && !demoActive && (
+                          <button
+                            type="button"
+                            title="معاينة حساب الطالب التجريبي"
+                            aria-label="معاينة حساب الطالب التجريبي"
+                            onClick={() => void enterDemo("student")}
+                            disabled={demoBusy}
+                            className="student-icon-btn text-indigo-700 relative bg-gradient-to-br from-white to-indigo-50 border-indigo-100 transition-all duration-200 disabled:opacity-60"
+                          >
+                            {demoBusy ? <MirasLoader size={18} role="current" label="" /> : <Eye className="h-5 w-5" />}
+                          </button>
+                        )}
+                        {!isAdminTeacher && (
+                          <button
+                            type="button"
+                            title={theme === "dark" ? "الوضع النهاري" : "الوضع الليلي"}
+                            aria-label={theme === "dark" ? "الوضع النهاري" : "الوضع الليلي"}
+                            onClick={toggleTheme}
+                            className="student-icon-btn text-slate-700 relative bg-gradient-to-br from-white to-slate-50 border-slate-200 transition-all duration-200"
+                          >
+                            {theme === "dark" ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
+                          </button>
+                        )}
                         {!isAppStandalone && (
                           <button
                             title="تثبيت منصة مِراس على هذا الجهاز"
@@ -37329,18 +37499,6 @@ ${rows
 
               {teacherTab === "home" && (
                 <div className="miras-teacher-home-panel pt-0 p-3 sm:p-6 lg:p-8 space-y-5">
-                  {demoEnabled && !demoActive && (
-                    <div className="flex flex-wrap items-center justify-between gap-3 rounded-3xl border border-indigo-100 bg-gradient-to-l from-indigo-50/90 via-white to-sky-50/70 px-4 py-3 shadow-sm" dir="rtl">
-                      <div className="flex min-w-0 items-center gap-3">
-                        <span className="grid h-10 w-10 shrink-0 place-items-center rounded-2xl bg-indigo-100 text-indigo-700"><FlaskConical className="h-5 w-5" /></span>
-                        <div className="min-w-0 text-right"><p className="text-xs font-black text-slate-900">عرض الطالب</p><p className="mt-0.5 text-[10px] font-medium text-slate-500">بيانات تجريبية للتجربة والشرح</p></div>
-                      </div>
-                      <button type="button" disabled={demoBusy} onClick={() => void enterDemo("student")} className="inline-flex h-10 items-center gap-2 rounded-2xl bg-indigo-600 px-4 text-xs font-bold text-white shadow-sm transition hover:bg-indigo-700 disabled:opacity-60">
-                        {demoBusy ? <MirasLoader size={15} role="current" label="" /> : <Play className="h-4 w-4" />}
-                        افتح الديمو
-                      </button>
-                    </div>
-                  )}
                   <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-6">
                     <TeacherMetricCard
                       label="عدد المقررات"

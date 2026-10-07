@@ -10599,7 +10599,7 @@ app.post("/api/notifications/mark-seen", (req, res) => {
   const userId = String(req.body?.userId || "").trim();
   const role = String(req.body?.role || "").trim();
   const keys = Array.isArray(req.body?.keys)
-    ? req.body.keys.map((k: any) => String(k || "")).filter(Boolean).slice(0, 400)
+    ? req.body.keys.map((k: any) => String(k || "")).filter(Boolean).slice(-5000)
     : [];
   if (!userId || !role)
     return res.status(400).json({ error: "بيانات صندوق الإشعارات ناقصة." });
@@ -20402,10 +20402,27 @@ app.post("/api/teacher/code-scan", teacherExactCodeScanRateLimit, (req, res) => 
   const retired = typeof (dbInstance as any).getRetiredJoinCodes === "function"
     ? (dbInstance as any).getRetiredJoinCodes().filter((row: any) => compactJoinCode(row?.code) === compact)
     : [];
-  const code = current[0] || retired[0];
+  // Older student records can retain the activated code even when a legacy
+  // cleanup omitted its code-ledger row. Keep exact verification useful from
+  // that durable association instead of incorrectly reporting "not found".
+  const linkedStudent = !current.length && !retired.length
+    ? dbInstance.getStudents().find((row: any) =>
+        compactJoinCode(row?.activationCode || "") === compact,
+      )
+    : null;
+  const linkedStudentData = linkedStudent as any;
+  const code = current[0] || retired[0] || (linkedStudent ? {
+    code: String(linkedStudentData.activationCode || req.body?.code || ""),
+    status: "used",
+    usedByStudentId: linkedStudentData.id,
+    usedByStudentName: linkedStudentData.name,
+    sectionCode: getStudentActiveCourseCodes(linkedStudentData)[0] || linkedStudentData.sectionCode || linkedStudentData.studentSection || "",
+    courseName: linkedStudentData.courseName || "",
+    semester: linkedStudentData.semester || "",
+  } : null);
   if (!code) return res.status(404).json({ success: false, notFound: true, error: "الكود غير موجود." });
 
-  const isRetired = !current.length || isArchivedJoinCodeRecord(code) || retired.some((row: any) => row === code);
+  const isRetired = !linkedStudent && (!current.length || isArchivedJoinCodeRecord(code) || retired.some((row: any) => row === code));
   const studentId = normalizeStudentId(code.usedByStudentId || code.studentId || code.assignedStudentId || "");
   const student: any = studentId
     ? dbInstance.getStudents().find((row: any) => normalizeStudentId(row.id) === studentId)
@@ -20418,6 +20435,20 @@ app.post("/api/teacher/code-scan", teacherExactCodeScanRateLimit, (req, res) => 
     .find((value: string) => value && !/اسم الدكتور غير محمل|غير محمل|غير معروف/i.test(value)) || "";
   const ownerEmail = String(code.ownerEmail || code.createdByEmail || joinCodeOwnerEmail(code) || joinCodeAuditOwner(code) || "").trim().toLowerCase();
   const issuer = dbInstance.getTeachers().find((row: any) => String(row.email || "").trim().toLowerCase() === ownerEmail);
+  const studentCourses = student ? getStudentActiveCourseCodes(student) : [];
+  const relevantStudentCourse = studentCourses.find((value: string) =>
+    courseCode && sectionCodeEquivalent(value, courseCode),
+  ) || (studentCourses.length === 1 ? studentCourses[0] : "");
+  const liveCourseOwner = relevantStudentCourse ? sectionOwnerEmail(relevantStudentCourse).trim().toLowerCase() : "";
+  const liveCourseTeacher = liveCourseOwner
+    ? dbInstance.getTeachers().find((row: any) => String(row.email || "").trim().toLowerCase() === liveCourseOwner)
+    : null;
+  const scannedTeacherName = String(liveCourseTeacher?.name || (relevantStudentCourse ? publicTeacherNameForEmail(liveCourseOwner) : "")).trim();
+  const cleanScanLabel = (value: any) => String(value || "")
+    .replace(/\s*[•·|—-]?\s*اسم الدكتور غير محمّل\s*/gi, " ")
+    .replace(/\s*[•·|—-]?\s*اسم الدكتور غير محمل\s*/gi, " ")
+    .replace(/\s{2,}/g, " ")
+    .trim();
   const status = String(code.status || "active").toLowerCase();
   const activated = status === "used" || !!code.activatedAt || !!code.usedByStudentId || !!code.studentId;
   const window = joinCodeWindowStatus(code);
@@ -20437,11 +20468,11 @@ app.post("/api/teacher/code-scan", teacherExactCodeScanRateLimit, (req, res) => 
     studentName: String(student?.name || code.usedByStudentName || code.studentName || code.assignedStudentName || "").trim(),
     studentId,
     civilId,
-    courseName: storedCourseName || (courseCode && !/اسم الدكتور غير محمل|غير محمل|غير معروف/i.test(courseNameFromCode(courseCode)) ? courseNameFromCode(courseCode) : courseCode || "مقرر عام"),
+    courseName: cleanScanLabel(storedCourseName || (courseCode && !/اسم الدكتور غير محمّل|اسم الدكتور غير محمل|غير محمل|غير معروف/i.test(courseNameFromCode(courseCode)) ? courseNameFromCode(courseCode) : courseCode || "مقرر عام")),
     sectionCode: courseCode,
     semester: String(code.semester || code.academicTerm || code.term || "").trim(),
-    teacherName: [issuer?.name, code.ownerName, code.createdByName]
-      .map((value: any) => String(value || "").trim())
+    teacherName: [scannedTeacherName, issuer?.name, code.ownerName, code.createdByName]
+      .map((value: any) => cleanScanLabel(value))
       .find((value: string) => value && !/اسم الدكتور غير محمل|غير محمل|غير معروف/i.test(value)) || "",
   });
 });

@@ -3481,7 +3481,7 @@ export class LocalDatabase {
     if (!uk) return;
     const capped = Array.from(
       new Set((keys || []).map((k) => String(k || "")).filter(Boolean)),
-    ).slice(-400);
+    ).slice(-5000);
     (this.data.notificationSeenKeys as any)[uk] = {
       keys: capped,
       updatedAt: new Date().toISOString(),
