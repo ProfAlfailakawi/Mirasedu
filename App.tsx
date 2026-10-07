@@ -6094,6 +6094,13 @@ export default function App() {
   const [codeIntegrity, setCodeIntegrity] = useState<any>(() =>
     createEmptyMirasCodeIntegrity(),
   );
+  const [teacherCodeScan, setTeacherCodeScan] = useState<any>(null);
+  const [teacherCodeScanBusy, setTeacherCodeScanBusy] = useState(false);
+  const [teacherCodeScanSearch, setTeacherCodeScanSearch] = useState("");
+  useEffect(() => {
+    setTeacherCodeScan(null);
+    setTeacherCodeScanSearch("");
+  }, [teacherSession?.email]);
   const [activationAttemptFromDate, setActivationAttemptFromDate] = useState(
     () => {
       const d = new Date();
@@ -14096,6 +14103,27 @@ export default function App() {
       setCodeIntegrity(data);
       return true;
     } catch { return false; }
+  };
+
+  const runTeacherCodeScan = async () => {
+    if (!teacherSession?.email || isAdminTeacher || teacherCodeScanBusy) return;
+    setTeacherCodeScanBusy(true);
+    try {
+      const response = await fetch("/api/teacher/code-scan", {
+        cache: "no-store",
+        headers: teacherHeaders(teacherSession.email),
+      });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok || !payload.success || !Array.isArray(payload.codes)) {
+        setErrorMsg(payload.error || "تعذّر فحص الأكواد. أعد المحاولة.");
+        return;
+      }
+      setTeacherCodeScan(payload);
+    } catch {
+      setErrorMsg("تعذّر الاتصال لفحص الأكواد.");
+    } finally {
+      setTeacherCodeScanBusy(false);
+    }
   };
 
   // شفاء ذاتي للبيانات بنقرة واحدة — للصلاحيات الإدارة. السيرفر يصلح الأشباح
@@ -25575,7 +25603,7 @@ ${rows
       ungradedAttemptIds(candidates).map((id) => [id, true]),
     ) as Record<string, boolean>;
     setSelectedSubmissionIds(next);
-    setSuccessMsg(`تم تحديد ${Object.keys(next).length} محاولة مكتملة بلا درجة سابقة.`);
+    setSuccessMsg(`تم تحديد ${Object.keys(next).length}.`);
   };
 
   // تنقّل شاشة "حل الطالب الكامل": يحصر الحركة داخل نفس المشروع ونفس المقرر،
@@ -36885,14 +36913,19 @@ ${rows
                 <div
                   role="status"
                   aria-live="polite"
-                  className="pointer-events-none fixed left-1/2 z-[190] inline-flex h-10 -translate-x-1/2 items-center gap-2 rounded-full border border-indigo-100 bg-white/95 px-4 text-[11px] font-bold text-indigo-700 shadow-lg backdrop-blur-xl transition-transform"
+                  aria-label={teacherPullRefreshing ? "جارٍ التحديث" : "تحديث"}
+                  className="pointer-events-none fixed left-1/2 z-[190] grid h-11 w-11 place-items-center rounded-full border border-indigo-100 bg-white/95 text-indigo-700 shadow-lg backdrop-blur-xl"
                   style={{
-                    top: "calc(var(--miras-teacher-header-space, 5.35rem) + env(safe-area-inset-top, 0px))",
-                    transform: `translate(-50%, ${Math.max(0, teacherPullDistance - 40)}px)`,
+                    top: teacherPullRefreshing ? "50%" : "calc(var(--miras-teacher-header-space, 5.35rem) + env(safe-area-inset-top, 0px))",
+                    transform: teacherPullRefreshing
+                      ? "translate(-50%, -50%)"
+                      : `translate(-50%, ${Math.max(0, teacherPullDistance - 40)}px)`,
                   }}
                 >
-                  <RotateCw className={`h-4 w-4 ${teacherPullRefreshing ? "animate-spin" : ""}`} />
-                  {teacherPullRefreshing ? "جارٍ التحديث" : teacherPullDistance >= 68 ? "أفلت للتحديث" : "اسحب للتحديث"}
+                  <RotateCw
+                    className={`h-5 w-5 ${teacherPullRefreshing ? "animate-spin" : ""}`}
+                    style={!teacherPullRefreshing ? { transform: `rotate(${Math.min(teacherPullDistance, 68) * 4}deg)` } : undefined}
+                  />
                 </div>
               )}
               {firestoreQuotaExceededState && (
@@ -37933,9 +37966,9 @@ ${rows
                               type="button"
                               onClick={selectOnlyUngradedAttemptedSubmissions}
                               className="rounded-full border border-indigo-200 bg-white px-3 py-1.5 text-[11px] font-bold text-indigo-700 hover:bg-indigo-50"
-                              title="يحدد من أكمل محاولة ولم تُرصد له درجة فقط"
+                              title="لمن أكملوا بلا درجة"
                             >
-                              تحديد من حلّوا بلا درجة
+                              تحديد بلا درجة
                             </button>
                           </div>
                           <div className="mx-auto max-w-md">
@@ -44598,6 +44631,60 @@ ${rows
                   {auditDataReady && (<div className="space-y-5">
                   {codesSubTab === "health" && (
                     <>
+                      {!isAdminTeacher && (
+                        <section className="rounded-3xl border border-indigo-100 bg-white/90 p-4 shadow-sm sm:p-5" aria-label="فحص أكواد الأستاذ">
+                          <div className="flex flex-wrap items-center justify-between gap-3" dir="rtl">
+                            <div className="flex min-w-0 items-center gap-3">
+                              <span className="grid h-10 w-10 shrink-0 place-items-center rounded-2xl bg-indigo-50 text-indigo-600"><Search className="h-5 w-5" /></span>
+                              <div className="text-right">
+                                <h3 className="text-sm font-black text-slate-900">فحص الأكواد</h3>
+                                <p className="mt-1 text-[10px] font-medium text-slate-500">كل الفصول</p>
+                              </div>
+                            </div>
+                            <button type="button" onClick={runTeacherCodeScan} disabled={teacherCodeScanBusy} className="inline-flex h-10 items-center gap-2 rounded-2xl bg-indigo-600 px-4 text-xs font-bold text-white shadow-sm transition hover:bg-indigo-700 disabled:opacity-60" aria-label="فحص أكواد المقررات">
+                              <RotateCw className={`h-4 w-4 ${teacherCodeScanBusy ? "animate-spin" : ""}`} />
+                              {teacherCodeScanBusy ? "يفحص" : teacherCodeScan ? "إعادة" : "فحص"}
+                            </button>
+                          </div>
+                          {teacherCodeScan && (
+                            <div className="mt-4 space-y-3" dir="rtl">
+                              <div className="flex flex-wrap items-center gap-2 text-[10px] font-bold">
+                                <span className="rounded-full bg-slate-100 px-3 py-1.5 text-slate-700">{Number(teacherCodeScan.total || 0).toLocaleString("en-US")} كود</span>
+                                {Object.entries(teacherCodeScan.summary || {}).map(([label, count]: [string, any]) => (
+                                  <span key={label} className={`rounded-full px-3 py-1.5 ${label === "صالح" || label === "مُفعّل" ? "bg-emerald-50 text-emerald-700" : "bg-amber-50 text-amber-700"}`}>{label} {Number(count).toLocaleString("en-US")}</span>
+                                ))}
+                              </div>
+                              <label className="flex h-10 items-center gap-2 rounded-2xl border border-slate-200 bg-slate-50 px-3 text-slate-400">
+                                <Search className="h-4 w-4" />
+                                <input value={teacherCodeScanSearch} onChange={(event) => setTeacherCodeScanSearch(event.target.value)} className="min-w-0 flex-1 bg-transparent text-right text-xs font-medium text-slate-700 outline-none" placeholder="بحث بالاسم أو الرقم أو الكود" />
+                              </label>
+                              <div className="max-h-[50vh] space-y-2 overflow-y-auto overscroll-contain pr-0.5">
+                                {(teacherCodeScan.codes || []).filter((row: any) => {
+                                  const q = normalizeArabicDigits(teacherCodeScanSearch).trim().toLowerCase();
+                                  return !q || [row.studentName, row.studentId, row.code, row.courseName, row.sectionCode, row.semester].some((value: any) => normalizeArabicDigits(String(value || "")).toLowerCase().includes(q));
+                                }).map((row: any) => (
+                                  <article key={`${row.code}:${row.sectionCode}`} className="grid grid-cols-1 gap-2 rounded-2xl border border-slate-100 bg-slate-50/70 p-3 sm:grid-cols-[1fr_auto] sm:items-center" dir="rtl">
+                                    <div className="min-w-0 text-right">
+                                      <p className="truncate text-xs font-black text-slate-900">{row.studentName}{row.civilId ? <span className="mr-2 font-mono text-[10px] font-semibold text-slate-500">مدني: {row.civilId}</span> : null}{row.studentId ? <span className="mr-2 font-mono text-[10px] font-semibold text-slate-500">جامعي: {row.studentId}</span> : null}</p>
+                                      <p className="mt-1 truncate text-[10px] font-medium text-slate-500">{row.courseName}{row.sectionCode ? ` • ${row.sectionCode}` : ""}{row.semester ? ` • ${row.semester}` : ""}</p>
+                                      <p className="mt-1 truncate text-[10px] text-slate-400">{row.teacherName}</p>
+                                    </div>
+                                    <div className="flex items-center justify-between gap-2 sm:flex-col sm:items-end">
+                                      <code dir="ltr" className="rounded-lg bg-white px-2 py-1 font-mono text-[10px] font-bold text-indigo-700">{row.code}</code>
+                                      <span className={`rounded-full px-2.5 py-1 text-[10px] font-bold ${row.state === "صالح" || row.state === "مُفعّل" ? "bg-emerald-50 text-emerald-700" : "bg-amber-50 text-amber-700"}`}>{row.state}</span>
+                                    </div>
+                                  </article>
+                                ))}
+                                {teacherCodeScan.codes.length === 0 && <p className="rounded-2xl bg-slate-50 p-4 text-center text-xs font-semibold text-slate-500">لا توجد أكواد.</p>}
+                                {teacherCodeScan.codes.length > 0 && !teacherCodeScan.codes.some((row: any) => {
+                                  const q = normalizeArabicDigits(teacherCodeScanSearch).trim().toLowerCase();
+                                  return !q || [row.studentName, row.studentId, row.code, row.courseName, row.sectionCode, row.semester].some((value: any) => normalizeArabicDigits(String(value || "")).toLowerCase().includes(q));
+                                }) && <p className="rounded-2xl bg-slate-50 p-4 text-center text-xs font-semibold text-slate-500">لا توجد مطابقة.</p>}
+                              </div>
+                            </div>
+                          )}
+                        </section>
+                      )}
                       {/* لوحة صحة الأكواد: قمع الإصدار ← التفعيل ← أول دخول ← أول اختبار + تنبيهات الشبكة الواحدة */}
                       {(() => {
                         const f = codeIntegrity.codeHealthFunnel || {};

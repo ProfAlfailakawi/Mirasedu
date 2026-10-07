@@ -11479,7 +11479,7 @@ app.get("/api/teacher/activation-attempts", (req, res) => {
           "",
       ).trim();
       const allowed = allowedRows.find((row: any) => {
-        const sid = normalizeStudentId(row.idNumber || row.id || row.studentId);
+        const sid = normalizeStudentId(row.idNumber || (row as any).id || (row as any).studentId);
         if (sid !== studentId) return false;
         if (!sectionCode) return true;
         return allowedStudentMatchesCourse(row, sid, sectionCode, sectionOwnerEmail(sectionCode));
@@ -20322,6 +20322,75 @@ function teacherJoinCodesData(req: express.Request) {
 app.get("/api/teacher/join-codes", (req, res) => {
   setNoCache(res);
   return res.json(teacherJoinCodesData(req));
+});
+
+// Read-only teacher scan: includes retained history so semester cleanup can
+// remove course data without erasing the permanent activation-code ledger.
+app.get("/api/teacher/code-scan", (req, res) => {
+  setNoCache(res);
+  const teacherEmail = verifiedTeacherEmailFromSession(req);
+  if (!teacherEmail) return res.status(401).json({ success: false, error: "سجّل الدخول من جديد." });
+  // The scan is a teacher-scoped classroom tool. Super-admin views and scopes
+  // are intentionally left on their existing screens and endpoints.
+  if (isAdminEmail(teacherEmail)) return res.status(403).json({ success: false, error: "الفحص متاح من حساب الأستاذ." });
+
+  const current = dbInstance.getJoinCodes().filter((code: any) => String(code?.code || "").trim());
+  const currentKeys = new Set(current.map((code: any) => compactJoinCode(code.code)));
+  const retired = typeof (dbInstance as any).getRetiredJoinCodes === "function"
+    ? (dbInstance as any).getRetiredJoinCodes().filter((code: any) => String(code?.code || "").trim() && !currentKeys.has(compactJoinCode(code.code)))
+    : [];
+  const records = [...current, ...retired];
+  const students = new Map<string, any>();
+  for (const student of dbInstance.getStudents()) students.set(normalizeStudentId(student.id), student);
+  const rosterById = new Map<string, any[]>();
+  for (const row of dbInstance.getAllowedStudents()) {
+    const id = normalizeStudentId(row.idNumber || (row as any).id || (row as any).studentId);
+    if (!id) continue;
+    const group = rosterById.get(id) || [];
+    group.push(row);
+    rosterById.set(id, group);
+  }
+  const teacher = dbInstance.getTeachers().find((item: any) => String(item.email || "").toLowerCase() === teacherEmail);
+  const ownsCode = (code: any) => {
+    const course = String(code.resolvedCourseCode || code.studentSection || code.sectionCode || code.courseCode || "").trim();
+    const legacyOwner = String(code.ownerEmail || code.createdByEmail || "").toLowerCase();
+    // For active courses, the course owner owns an already-used code. Once the
+    // course is removed, fall back to the permanent original owner on the code.
+    const activeCourse = course && !isGenericJoinCourseCode(course) && sectionStillExists(course);
+    const owner = String(code.status || "").toLowerCase() === "used" && activeCourse
+      ? joinCodeAuditOwner(code)
+      : legacyOwner || joinCodeOwnerEmail(code);
+    return owner === teacherEmail;
+  };
+  const codes = records.filter(ownsCode)
+    .map((code: any) => {
+      const sectionCode = String(code.resolvedCourseCode || code.studentSection || code.sectionCode || code.courseCode || "").trim();
+      const resolved = resolveJoinCodeCourseForDisplay(code);
+      const courseCode = String(resolved.courseCode || sectionCode || "").trim();
+      const studentId = normalizeStudentId(code.usedByStudentId || code.studentId || code.assignedStudentId || "");
+      const student = students.get(studentId);
+      const rosterRow = (rosterById.get(studentId) || []).find((row: any) => !courseCode || courseCodeMatchesForTeacher(row.sectionCode || row.courseCode, courseCode, teacherEmail));
+      const codeStatus = String(code.status || "active").toLowerCase();
+      const archived = isArchivedJoinCodeRecord(code) || retired.includes(code);
+      const activated = codeStatus === "used" || !!code.activatedAt || !!code.usedByStudentId || !!code.studentId;
+      const window = joinCodeWindowStatus(code);
+      const state = archived ? activated ? "مُفعّل • أرشيف" : "أرشيف" : activated ? "مُفعّل" : isSoftDeletedRecord(code) || ["revoked", "disabled", "deleted"].includes(codeStatus) ? "موقوف" : codeStatus === "expired" || (!window.ok && window.reason.includes("انتهت")) ? "منتهي" : !window.ok ? "لم يبدأ" : isJoinCodeTemporarilyFrozen(code) ? "موقوف مؤقتاً" : codeStatus === "active" ? "صالح" : "غير صالح";
+      const civilId = String(student?.civilId || student?.nationalId || student?.nationalID || (rosterRow as any)?.civilId || (rosterRow as any)?.nationalId || "").trim();
+      return {
+        code: String(code.code), state,
+        studentName: String(student?.name || code.studentName || code.assignedStudentName || rosterRow?.name || "غير مرتبط"),
+        studentId: studentId || "",
+        civilId,
+        courseName: String(resolved.courseName || code.courseName || code.resolvedCourseName || (courseCode ? courseNameFromCode(courseCode) : "مقرر عام")),
+        sectionCode: courseCode,
+        semester: String(code.semester || code.academicTerm || ""),
+        teacherName: String(teacher?.name || teacherEmail),
+        createdAt: String(code.createdAt || code.issuedAt || ""),
+      };
+    })
+    .sort((a: any, b: any) => String(a.studentName).localeCompare(String(b.studentName), "ar") || String(a.courseName).localeCompare(String(b.courseName), "ar"));
+  const summary = codes.reduce((counts: any, row: any) => { counts[row.state] = (counts[row.state] || 0) + 1; return counts; }, {});
+  return res.json({ success: true, scannedAt: new Date().toISOString(), total: codes.length, summary, codes });
 });
 
 app.post("/api/teacher/join-codes/create", (req, res) => {
