@@ -29,6 +29,13 @@ const proj = await api("POST", "/api/teacher/projects",
   { id: PROJECT_ID, title: "مشروع تسليم الطالب", courseCode: S_A1, status: "published", points: 10 },
   { jar: tjar, deviceToken: tdev });
 check("S0b) project published", proj.ok && proj.data.success !== false, `${proj.status} ${JSON.stringify(proj.data).slice(0, 140)}`);
+const projRetry = await api("POST", "/api/teacher/projects",
+  { id: PROJECT_ID, title: "مشروع تسليم الطالب", courseCode: S_A1, status: "published", points: 10 },
+  { jar: tjar, deviceToken: tdev });
+const projectList = await api("GET", "/api/teacher/projects", null, { jar: tjar, deviceToken: tdev });
+check("S0b2) retrying project creation with same ID remains one project",
+  projRetry.ok && (projectList.data.projects || []).filter((p) => String(p.id) === PROJECT_ID).length === 1,
+  JSON.stringify(projectList.data.projects).slice(0, 180));
 
 // student 1001 session (device-locked to TOK)
 const sjar = makeJar();
@@ -75,6 +82,10 @@ await (async () => {
   check("SS4c) teacherGradeOverride forced false", sub.teacherGradeOverride === false, JSON.stringify(sub).slice(0, 180));
   check("SS4d) student-set 'returned' status neutralized", String(sub.status || "") !== RETURNED_STATUS, `status=${sub.status}`);
   check("SS4e) submission bound to the session student", String(sub.studentId || "") === SID, `studentId=${sub.studentId}`);
+  const retry = await api("POST", "/api/student/submissions", base({
+    answerText: "حل الطالب بعد إعادة المحاولة", submittedAt: new Date().toISOString(),
+  }), { jar: sjar, deviceToken: TOK });
+  check("SS4f) retry with the same submission ID updates one record", retry.ok && String(retry.data.submission?.id) === SUB_ID, JSON.stringify(retry.data).slice(0, 160));
 })();
 
 // SS5: the student's work reaches the teacher's unified submissions view.
@@ -84,6 +95,7 @@ await (async () => {
   check("SS5a) teacher sees the student's submission", !!row, JSON.stringify(live.data.submissions).slice(0, 200));
   check("SS5b) it carries no student-set grade in the teacher view", !!row && String(row.grade ?? "") === "", JSON.stringify(row).slice(0, 200));
   check("SS5c) the student's answer text is preserved", !!row && String(row.answerText || "").includes("حل الطالب"), JSON.stringify(row).slice(0, 200));
+  check("SS5d) retry does not create a duplicate", (live.data.submissions || []).filter((s) => String(s.id) === SUB_ID).length === 1, JSON.stringify(live.data.submissions).slice(0, 240));
 })();
 
 done();

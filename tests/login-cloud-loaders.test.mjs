@@ -5,6 +5,7 @@ import { transform } from 'esbuild';
 import { createCloudSingleFlight, cloudSessionKey } from '../src/shared/cloud-single-flight.ts';
 import { teacherWorkspaceReady } from '../src/shared/teacher-workspace-ready.ts';
 import { cloudDataReady } from '../src/shared/cloud-data-ready.ts';
+import { shouldApplySubmissionCourseResponse } from '../src/shared/submission-fetch-scope.ts';
 
 // Execute the actual App loaders, with network/state adapters and no browser,
 // credentials, Firebase, or production data. No copied loader implementation.
@@ -264,6 +265,8 @@ test('post-paint submissions bootstrap reads every teacher course and scoped ref
  let submissions = [];
  const context = { captureTeacherSession: () => ({ email: 'teacher@test.kw', isCurrent: () => true }),
   teacherHeaders: () => ({}), studentSession: null, activeCourseCode: 'course-a', isLiveRecord: () => true,
+  activeSubmissionCourseRef: { current: 'course-a' },
+  shouldApplySubmissionCourseResponse,
   applyReturnedSubmissionOverrides: rows => rows, courseCodesMatch: (a, b) => a === b,
   setTeacherSubmissions: update => { submissions = update(submissions); },
   fetch: async url => {
@@ -283,15 +286,17 @@ test('post-paint submissions bootstrap reads every teacher course and scoped ref
 
 test('scoped submission polling waits for the initial all-course snapshot', async () => {
  const start = source.indexOf('  useEffect(() => {\n    if (\n      currentView !== "teacher_workspace" ||\n      !["home", "submissions", "questions"].includes(teacherTab)');
- const endMarker = '\n  }, [currentView, teacherTab, activeCourseCode, teacherSession?.email, teacherSession?.authToken, teacherWorkspaceInteractive]);';
+ const endMarker = '\n  }, [\n    currentView, teacherTab, activeCourseCode, teacherSession?.email,\n    teacherSession?.authToken, teacherWorkspaceInteractive, submissionSubTab,\n    selectedSubmissionActivityId, submissionStatusFilter,\n  ]);';
  const effect = source.slice(start, source.indexOf(endMarker, start) + endMarker.length);
  const scheduler = await paintScheduler(), initial = deferred(), calls = [];
  const session = { email: 'teacher@test.kw', token: 'fixture-token', isCurrent: () => true };
  const context = { currentView: 'teacher_workspace', teacherTab: 'home', activeCourseCode: 'course-a', teacherWorkspaceInteractive: true,
+  submissionSubTab: 'projects', selectedSubmissionActivityId: null, submissionStatusFilter: null,
   teacherSession: { email: session.email, authToken: session.token }, captureTeacherSession: () => session,
   teacherSubmissionInitialReadRef: { current: { key: cloudSessionKey(session.email, session.token, 1), promise: initial.promise } },
   cloudSessionKey, cloudSessionGenRef: { current: 1 }, scheduleAfterWorkspacePaint: scheduler.schedule,
-  document: { visibilityState: 'visible' }, window: { setInterval: () => 1, clearInterval: () => {} },
+  document: { visibilityState: 'visible', addEventListener: () => {}, removeEventListener: () => {} },
+  window: { setInterval: () => 1, clearInterval: () => {}, addEventListener: () => {}, removeEventListener: () => {} },
   fetchTeacherSubmissions: async (...args) => calls.push(args), useEffect: callback => callback() };
  const mount = await compile(`const mountPoll = () => { ${effect} };`, 'mountPoll', context);
  mount(); scheduler.frame(); scheduler.frame(); scheduler.tasks();

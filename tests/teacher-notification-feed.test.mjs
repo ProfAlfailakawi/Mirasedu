@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import { transform } from 'esbuild';
 import { teacherOwnsNotification, duplicatesCodeIntegrityLog, pendingDeviceApprovalNotifications } from '../src/shared/teacher-notification-scope.ts';
-import { deviceReviewNotifications, deviceReviewPushNotifications } from '../src/shared/device-review-notifications.ts';
+import { deviceReviewNotifications, deviceReviewPushNotifications, hideResolvedActivationAlerts } from '../src/shared/device-review-notifications.ts';
 import { deviceAuditForDisplay } from '../src/shared/device-audit.ts';
 import { homePasswordResets } from '../src/shared/home-password-reset-requests.ts';
 import { notificationIdentity } from '../src/shared/notification-identity.ts';
@@ -17,7 +17,7 @@ const {code}=await transform(source.slice(begin,end),{loader:'tsx'});
 const execute=new Function('context','with(context){'+code+';return criticalTeacherNotifications;}');
 function feed(patch={}){
   const owns=item=>teacherOwnsNotification(item,email,value=>String(value).split('-').slice(1).join('-'),(a,b)=>String(a).toLowerCase()===String(b).toLowerCase());
-  const values={useMemo:callback=>callback(),groupSecurityNotifications,teacherOwnsNotification,duplicatesCodeIntegrityLog,pendingDeviceApprovalNotifications,deviceReviewNotifications,deviceReviewPushNotifications,deviceAuditForDisplay,homePasswordResets,currentTeacherEmail:email,courseOwnerEmail:value=>String(value).split('-').slice(1).join('-'),isSameTeacherIdentity:(a,b)=>String(a).toLowerCase()===String(b).toLowerCase(),isAdminTeacher:true,systemLogs:[],deviceProblemAttempts:[],codeIntegrity:{attempts:[]},passwordResetRequests:[],homePasswordResetRequests:[],teacherImportantReadKeys:new Set(),localNotifications:[],teacherCreatedExams:[],teacherProjects:[],teacherStudents:[],teacherSubmissions:[],activeCourseExamSubmissions:[],livePulseStudentRows:[],assignedNotActivatedCodes:[],firestoreQuotaExceededState:false,activeCourseCode:'',teacherSession:{email},normalizeLocalNotification:item=>item,notificationTargetsTeacher:owns,isCriticalTeacherInAppNotification:note=>['code_integrity','exam_warning','password_reset','second_hand_device_approval'].includes(note.type),stableNotificationId:notificationIdentity,sanitizeCourseIdentifiersForDisplay:x=>x,logActionLabel:x=>x,openTeacherTab:()=>{},studentBelongsToCourse:()=>false,...patch};
+  const values={useMemo:callback=>callback(),groupSecurityNotifications,teacherOwnsNotification,duplicatesCodeIntegrityLog,pendingDeviceApprovalNotifications,deviceReviewNotifications,deviceReviewPushNotifications,hideResolvedActivationAlerts,deviceAuditForDisplay,homePasswordResets,currentTeacherEmail:email,courseOwnerEmail:value=>String(value).split('-').slice(1).join('-'),isSameTeacherIdentity:(a,b)=>String(a).toLowerCase()===String(b).toLowerCase(),isAdminTeacher:true,systemLogs:[],deviceProblemAttempts:[],codeIntegrity:{attempts:[]},passwordResetRequests:[],homePasswordResetRequests:[],teacherImportantReadKeys:new Set(),localNotifications:[],teacherCreatedExams:[],teacherProjects:[],teacherStudents:[],teacherSubmissions:[],activeCourseExamSubmissions:[],livePulseStudentRows:[],assignedNotActivatedCodes:[],firestoreQuotaExceededState:false,activeCourseCode:'',teacherSession:{email},normalizeLocalNotification:item=>item,notificationTargetsTeacher:owns,isCriticalTeacherInAppNotification:note=>['code_integrity','exam_warning','password_reset','second_hand_device_approval'].includes(note.type),stableNotificationId:notificationIdentity,sanitizeCourseIdentifiersForDisplay:x=>x,logActionLabel:x=>x,openTeacherTab:()=>{},studentBelongsToCourse:()=>false,...patch};
   return execute(new Proxy(values,{has:()=>true,get:(target,key)=>key===Symbol.unscopables?undefined:(key in target?target[key]:globalThis[key])}));
 }
 const log={id:'one',studentId:'1',sectionCode:course,studentName:'طالب',action:'محاولة كود مرفوضة',details:'محاولة دخول بتوكن منسوخ دون سر المتصفح الأصلي — الرمز: LAB-AAAA-BBBB-CCCC',timestamp:'2026-10-06T00:21:00Z',isViolationWarning:true};
@@ -64,4 +64,10 @@ test('repeating an unresolved request keeps its read key and does not resurrect 
  const result=feed({passwordResetRequests:[first,second]});assert.equal(result.length,1);assert.equal(result[0].key,'teacher-reset-first');
  assert.equal(feed({passwordResetRequests:[first,second],teacherImportantReadKeys:new Set(['teacher-reset-first'])}).length,0);
  assert.equal(feed({passwordResetRequests:[{...first,status:'handled'},second]}).length,1);
+});
+test('successful activation removes only the outdated failed-code alert from the bell',()=>{
+ const failed={...log,details:'مصيدة كود غير مُصدر — الرمز: LAB-AAAA-BBBB-CCCC',timestamp:'2026-10-06T00:21:00Z'};
+ const success={id:'activated',studentId:log.studentId,studentName:log.studentName,sectionCode:course,action:'تفعيل مقرر إضافي',details:'تم تفعيل المقرر',timestamp:'2026-10-06T00:45:00Z',isViolationWarning:false};
+ assert.equal(feed({systemLogs:[failed,success]}).length,0);
+ assert.equal(feed({systemLogs:[failed]}).length,1);
 });

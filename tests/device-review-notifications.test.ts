@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {deviceReviewNotifications as group,sameDeviceReviewIncident as same} from '../src/shared/device-review-notifications';
+import {deviceReviewNotifications as group,sameDeviceReviewIncident as same,hideResolvedActivationAlerts} from '../src/shared/device-review-notifications';
 const base={id:'first',studentId:'s1',sectionCode:'c-teacher@test',action:'محاولة كود مرفوضة',details:'رفض دخول لعدم تطابق بيانات ربط المتصفح المعتمد؛ يحتاج مراجعة — الرمز: LAB-ABCD-EFGH-JKLM',timestamp:'2026-10-06T00:21:00Z'};
 test('four changing browser tokens produce one alert with a stable read key and latest time',()=>{
  const rows=[base,...[22,27,28].map(minute=>({...base,id:`m${minute}`,timestamp:`2026-10-06T00:${minute}:00Z`,deviceToken:`different-${minute}`}))];
@@ -28,4 +28,18 @@ test('push suppression tolerates changing tokens but does not authorize them',()
  for(const patch of [{studentId:'s2'},{sectionCode:'different'},{code:'LAB-OTHER'},{reason:'جهاز مختلف'},{studentId:''}])assert.equal(same(attempt,{...incident,...patch},now),false);
  assert.equal(same(attempt,incident,now+6*60*60*1000),false);
  assert.equal(same(attempt,incident,Date.parse(base.timestamp)-1),false);
+});
+test('successful same-course activation within one hour clears only the alert, not the audit row',()=>{
+ const activation={id:'ok',studentId:'s1',sectionCode:base.sectionCode,action:'تفعيل مقرر إضافي',timestamp:'2026-10-06T00:45:00Z'};
+ const rows=[base,activation,{...base,id:'other',studentId:'s2'},{...base,id:'old',timestamp:'2026-10-05T22:00:00Z'}];
+ const visible=hideResolvedActivationAlerts(rows);
+ assert.deepEqual(visible.map(row=>row.id),['ok','other','old']);
+ assert.equal(rows.length,4);
+});
+test('unrelated course, failed activation, and activation after one hour preserve the alert',()=>{
+ for(const patch of [{sectionCode:'other@test'},{action:'تفعيل يدوي'},{timestamp:'2026-10-06T01:22:00Z'}]){
+  const failed={...base,timestamp:'2026-10-06T00:21:00Z'};
+  const success={id:'ok',studentId:'s1',sectionCode:base.sectionCode,action:'تفعيل مقرر إضافي',timestamp:'2026-10-06T00:45:00Z',...patch};
+  assert.equal(hideResolvedActivationAlerts([failed,success]).some(row=>row.id===failed.id),true);
+ }
 });

@@ -759,6 +759,8 @@ export interface PasswordResetRequest {
   handledAt?: string;
   usedAt?: string;
   lastSentAt?: string;
+  teacherApprovedAnyDeviceAt?: string;
+  teacherApprovedBy?: string;
 }
 
 export interface NotificationToken {

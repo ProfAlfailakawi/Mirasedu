@@ -60,7 +60,7 @@ const db = {
   ],
   students: [
     {
-      id: "1001", name: "طالب أول", email: "1001@paaet.edu.kw", sectionCode: S_A1, studentSection: S_A1,
+      id: "1001", studentNumber: "9009", name: "طالب أول", email: "1001@paaet.edu.kw", sectionCode: S_A1, studentSection: S_A1,
       semester: "الفصل الأول 2026", passwordHash: sha256pw("pass1001"),
       isPaid: true, isActivated: true, activationCode: "LAB-1111-0001",
       // already-corrupted ghost data: two codes whose section no longer exists

@@ -2,9 +2,34 @@ const WINDOW_MS = 6 * 60 * 60 * 1000;
 const cleanCode = (value: any) => String(value || '').replace(/[^a-z0-9]/gi, '').toUpperCase();
 const time = (item: any) => Date.parse(String(item.timestamp || item.createdAt || ''));
 const BINDING_REASON = 'عدم تطابق بيانات ربط المتصفح المعتمد';
+const ONE_HOUR_MS = 60 * 60 * 1000;
 export function normalizeDeviceReviewReason(value: any) {
  return String(value || '').replace('محاولة دخول بتوكن منسوخ دون سر المتصفح الأصلي', BINDING_REASON)
   .replace('رفض دخول لعدم تطابق بيانات ربط المتصفح المعتمد؛ يحتاج مراجعة', BINDING_REASON);
+}
+
+/** Keep the audit trail intact, but hide a failed activation alert after the
+ * same student successfully activates that course within an hour. */
+export function hideResolvedActivationAlerts<T extends Record<string, any>>(
+ logs: T[],
+): T[] {
+ const successful = logs.filter(log =>
+  ['تسجيل حساب', 'تفعيل مقرر إضافي'].includes(String(log.action || '')),
+ );
+ return logs.filter(log => {
+  if (String(log.action || '') !== 'محاولة كود مرفوضة') return true;
+  const studentId = String(log.studentId || '');
+  const course = String(log.sectionCode || log.courseCode || '').toLowerCase();
+  const failedAt = time(log);
+  if (!studentId || !Number.isFinite(failedAt)) return true;
+  return !successful.some(activation => {
+   const activatedAt = time(activation);
+   const activationCourse = String(activation.sectionCode || activation.courseCode || '').toLowerCase();
+   return String(activation.studentId || '') === studentId &&
+    (!course || !activationCourse || course === activationCourse) &&
+    activatedAt >= failedAt && activatedAt - failedAt <= ONE_HOUR_MS;
+  });
+ });
 }
 /** Alert grouping does not grant access or remove the underlying security audit. */
 export function sameDeviceReviewIncident(attempt: any, incident: any, now: number) {

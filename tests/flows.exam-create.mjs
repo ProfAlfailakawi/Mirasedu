@@ -55,6 +55,9 @@ await (async () => {
   const r = await api("POST", "/api/teacher/exams", examBody(), { jar: tjar, deviceToken: tdev });
   check("E1a) valid exam created", r.ok && r.data.success === true, `${r.status} ${JSON.stringify(r.data).slice(0, 160)}`);
   check("E1b) response returns the saved exam on S_A1", String(r.data.exam?.id) === EXAM_ID && String(r.data.exam?.courseCode).toLowerCase() === S_A1, JSON.stringify(r.data.exam).slice(0, 160));
+  const retry = await api("POST", "/api/teacher/exams", examBody(), { jar: tjar, deviceToken: tdev });
+  const live = await api("GET", "/api/live/student-state?studentId=1001", null, { jar: sjar, deviceToken: TOK });
+  check("E1c) retrying the same create ID is idempotent", retry.ok && examsOf(live).filter((id) => id === EXAM_ID).length === 1, JSON.stringify(examsOf(live)));
 })();
 
 // E2: it now appears in the enrolled student's live state.

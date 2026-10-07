@@ -5582,6 +5582,18 @@ function normalizeStudentId(value: any): string {
     .replace(/[^0-9]/g, "");
 }
 
+const studentUniversityIdAliases = (student: any) =>
+  [student?.id, student?.idNumber, student?.studentId, student?.studentNumber]
+    .map(normalizeStudentId)
+    .filter(Boolean);
+const findStudentByUniversityId = (value: any) => {
+  const normalized = normalizeStudentId(value);
+  if (!normalized) return undefined;
+  return dbInstance.getStudents().find((student: any) =>
+    studentUniversityIdAliases(student).includes(normalized),
+  );
+};
+
 // ── الاسم الحيّ كمصدر وحيد للحقيقة ──────────────────────────────────────
 // سجل الطالب (students) هو المرجع. أي كائن يحمل studentId (تسليم، سجل، طلب)
 // يُختم باسم الطالب الحالي عند القراءة، فلا نعتمد على الاسم المنسوخ القديم.
@@ -13832,9 +13844,12 @@ app.post("/api/teacher/change-my-password", teacherCredentialRateLimit, (req, re
 });
 
 function studentPasswordResetRoute(studentId: string) {
+  const normalized = normalizeStudentId(studentId);
   return resolvePasswordResetRoute(
-    dbInstance.getStudents().find(s => String(s.id) === String(studentId)),
-    dbInstance.getAllowedStudents().filter(s => String(s.idNumber) === String(studentId)),
+    findStudentByUniversityId(normalized),
+    dbInstance.getAllowedStudents().filter((student: any) =>
+      studentUniversityIdAliases(student).includes(normalized),
+    ),
     activeSections(), dbInstance.getJoinCodes(), sectionDisplayCode,
   );
 }
@@ -13843,12 +13858,10 @@ app.post("/api/auth/forgot-password", (req, res) => {
   const idNumber = normalizeStudentId(req.body?.idNumber);
   if (!/^\d{4,}$/.test(idNumber))
     return res.status(400).json({ error: "أدخل الرقم الجامعي بشكل صحيح." });
-  const student = dbInstance
-    .getStudents()
-    .find((s: any) => String(s.id) === idNumber);
+  const student = findStudentByUniversityId(idNumber);
   const allowed = dbInstance
     .getAllowedStudents()
-    .find((s: any) => String(s.idNumber) === idNumber);
+    .find((s: any) => studentUniversityIdAliases(s).includes(idNumber));
   const route = studentPasswordResetRoute(idNumber);
   const resetToken = crypto.randomBytes(24).toString("hex");
   const verificationCode = makeJoinCode(
@@ -13942,9 +13955,7 @@ app.post("/api/auth/reset-password", (req, res) => {
       .status(410)
       .json({ error: "رابط إعادة التعيين منتهي أو تم استخدامه سابقاً." });
   }
-  const student = dbInstance
-    .getStudents()
-    .find((s: any) => String(s.id) === String(requestItem.studentId));
+  const student = findStudentByUniversityId(requestItem.studentId);
   if (!student)
     return res
       .status(404)
@@ -13952,7 +13963,7 @@ app.post("/api/auth/reset-password", (req, res) => {
   const currentFingerprint = getRequestDeviceFingerprint(req);
   const currentDeviceToken = getRequestDeviceToken(req);
   const activationCode = (student as any).activationCode;
-  if (activationCode && isUnifiedJoinCode(activationCode)) {
+  if (!requestItem.teacherApprovedAnyDeviceAt && activationCode && isUnifiedJoinCode(activationCode)) {
     const activationRecord = dbInstance
       .getJoinCodes()
       .find(
@@ -13980,7 +13991,7 @@ app.post("/api/auth/reset-password", (req, res) => {
           .status(403)
           .json({
             error:
-              "لا يمكن تغيير كلمة المرور من جهاز مختلف. افتح رابط الاسترجاع من نفس الجهاز الذي استخدمت فيه كود التفعيل.",
+              "الرابط مرتبط بجهاز التفعيل. اطلب من أستاذك إصدار رابط استرجاع لأي جهاز؛ لا يتغير جهازك الموثوق.",
           });
       }
       if (
@@ -13998,7 +14009,7 @@ app.post("/api/auth/reset-password", (req, res) => {
           .status(403)
           .json({
             error:
-              "لا يمكن تغيير كلمة المرور من جهاز مختلف. افتح رابط الاسترجاع من نفس الجهاز الذي استخدمت فيه كود التفعيل.",
+              "الرابط مرتبط بجهاز التفعيل. اطلب من أستاذك إصدار رابط استرجاع لأي جهاز؛ لا يتغير جهازك الموثوق.",
           });
       }
     }
@@ -22388,7 +22399,8 @@ app.post("/api/teacher/password-reset-requests/:id/resend", (req, res) => {
     .find((requestItem: any) => requestItem.id === req.params.id);
   if (!item) return res.status(404).json({ error: "طلب الاسترجاع غير موجود." });
   const teacherEmail = teacherEmailFromRequest(req);
-  if (teacherEmail && !canAccessPasswordResetRequest(item, teacherEmail))
+  if (!teacherEmail) return res.status(401).json({ error: "سجّل الدخول بحساب المعلّم أولاً." });
+  if (!canAccessPasswordResetRequest(item, teacherEmail))
     return res.status(403).json({ error: "لا تملك صلاحية إدارة هذا الطلب." });
   const lastSentAt = new Date();
   const expiresAt = new Date(lastSentAt.getTime() + 60 * 60 * 1000);
@@ -22417,6 +22429,10 @@ app.post("/api/teacher/password-reset-requests/:id/resend", (req, res) => {
     resetToken,
     resetLink,
     verificationCode,
+    // موافقة الأستاذ تمنح رابط هذا الطلب فقط صلاحية العمل من أي جهاز؛ لا
+    // تغيّر جهاز التفعيل أو قائمة الأجهزة الموثوقة، ولا تتجاوز قفل تسجيل الدخول.
+    teacherApprovedAnyDeviceAt: lastSentAt.toISOString(),
+    teacherApprovedBy: (teacherEmail || "").toLowerCase(),
     lastSentAt: lastSentAt.toISOString(),
     expiresAt: expiresAt.toISOString(),
   } as any;
@@ -22464,9 +22480,7 @@ app.post(
       return res
         .status(400)
         .json({ error: "كلمة المرور الجديدة يجب ألا تقل عن 6 خانات ولا تكون افتراضية." });
-    const student = dbInstance
-      .getStudents()
-      .find((s: any) => String(s.id) === String(item.studentId));
+    const student = findStudentByUniversityId(item.studentId);
     if (!student)
       return res
         .status(404)

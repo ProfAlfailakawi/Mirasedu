@@ -2,7 +2,7 @@ import { groupSecurityNotifications } from "./src/shared/security-notification-g
 import { createCloudSingleFlight, cloudSessionKey } from "./src/shared/cloud-single-flight";
 import { teacherWorkspaceReady } from "./src/shared/teacher-workspace-ready";
 import { deviceTransferCopy } from "./src/shared/device-transfer-copy";
-import { deviceReviewNotifications, deviceReviewPushNotifications } from "./src/shared/device-review-notifications";
+import { deviceReviewNotifications, deviceReviewPushNotifications, hideResolvedActivationAlerts } from "./src/shared/device-review-notifications";
 import { probeCloudReadiness } from "./src/shared/cloud-readiness-probe";
 import { teacherOwnsNotification, duplicatesCodeIntegrityLog, pendingDeviceApprovalNotifications } from "./src/shared/teacher-notification-scope";
 import { notificationIdentity, notificationSignature } from "./src/shared/notification-identity";
@@ -11,6 +11,10 @@ import { shouldRemoveFinishedPasswordReset } from "./src/shared/password-reset-r
 import { cloudDataReady } from "./src/shared/cloud-data-ready";
 import { studentSessionIssuedAt, shouldApplyStudentLockSignal } from "./src/shared/student-lock-signal";
 import { countActivatedCourseStudents } from "./src/shared/course-activation-count";
+import { gradeActivityColumnTitle, ungradedAttemptIds } from "./src/shared/submission-grading-selection";
+import { retryableCreateAttempt } from "./src/shared/retryable-create";
+import { shouldApplySubmissionCourseResponse } from "./src/shared/submission-fetch-scope";
+import { dateInputValueInTimeZone } from "./src/shared/date-input";
 import { deviceAuditForDisplay } from "./src/shared/device-audit";
 import { sameTeacherIdentity } from "./src/shared/teacher-account-scope";
 import {
@@ -122,11 +126,7 @@ const createEmptyMirasReportSnapshot = () => ({
 });
 
 const todayDateInputValue = () => {
-  const now = new Date();
-  const yyyy = now.getFullYear();
-  const mm = String(now.getMonth() + 1).padStart(2, "0");
-  const dd = String(now.getDate()).padStart(2, "0");
-  return `${yyyy}-${mm}-${dd}`;
+  return dateInputValueInTimeZone(new Date(), "Asia/Kuwait");
 };
 
 const MIRAS_ALLOWED_SUBMISSION_EXTENSIONS = [
@@ -943,6 +943,8 @@ const simplifyStudentMessage = (
     return "سجّل الدخول من الجهاز الجديد لإكمال النقل.";
   if (any("تعذر التحقق من الجهاز", "معرّف الجهاز", "معرف الجهاز"))
     return "تعذر التحقق من الجهاز. أعد فتح مِراس.";
+  if (any("الرابط مرتبط بجهاز التفعيل"))
+    return "اطلب رابط استرجاع من معلّمك؛ جهازك الموثوق لن يتغير.";
   if (any("يجب الدخول من الجهاز الأصلي")) return "ادخل من الجهاز الأصلي";
   if (
     any(
@@ -4169,6 +4171,8 @@ export default function App() {
     | "codes"
     | "submissions"
   >("home");
+  const [teacherPullDistance, setTeacherPullDistance] = useState(0);
+  const [teacherPullRefreshing, setTeacherPullRefreshing] = useState(false);
   useEffect(() => {
     if (currentView !== "teacher_workspace") return;
     // يُسكت مؤقتاً رد فعل التمرير على إعادة الضبط البرمجية أدناه (راجع تعريف
@@ -5157,6 +5161,7 @@ export default function App() {
   };
   const [selectedSubmissionActivityId, setSelectedSubmissionActivityId] =
     useState<string | null>(null);
+  const activeSubmissionCourseRef = useRef("");
   const [bulkGradeInput, setBulkGradeInput] = useState("");
   const [selectedSubmissionIds, setSelectedSubmissionIds] = useState<
     Record<string, boolean>
@@ -5606,11 +5611,13 @@ export default function App() {
   const emptyProjectDraft = {
     title: "مشروع تطبيقي جديد",
     points: "100",
-    dueDate: "2026-06-27",
-    closeDate: "2026-06-30",
+    dueDate: todayDateInputValue(),
+    closeDate: todayDateInputValue(),
     description: "",
   };
   const [projectDraft, setProjectDraft] = useState(emptyProjectDraft);
+  const projectCreateRequestRef = useRef<{ signature: string; id: string; busy: boolean } | null>(null);
+  const projectSubmissionInFlightRef = useRef(false);
   const [editingProjectId, setEditingProjectId] = useState<string | null>(null);
   const [teacherProjects, setTeacherProjects] = useState<any[]>([]);
   const [teacherSubmissions, setTeacherSubmissions] = useState<any[]>([]);
@@ -10926,21 +10933,26 @@ export default function App() {
     setUploadPhase("securing");
     let completeData: any = null;
     let completeResponse: Response | null = null;
-    for (let attempt = 0; attempt < 4; attempt += 1) {
-      completeResponse = await fetch(
-        "/api/submissions/upload-session/complete",
-        {
-          method: "POST",
-          headers: uploadHeaders,
-          body: JSON.stringify({ completionToken: session.completionToken }),
-        },
-      );
-      completeData = await completeResponse.json().catch(() => ({}));
-      if (completeResponse.ok && completeData?.success) break;
-      if (completeResponse.status !== 409) break;
-      await new Promise((resolve) =>
-        window.setTimeout(resolve, 500 * (attempt + 1)),
-      );
+    for (let attempt = 0; attempt < 5; attempt += 1) {
+      try {
+        completeResponse = await fetch(
+          "/api/submissions/upload-session/complete",
+          {
+            method: "POST",
+            headers: uploadHeaders,
+            body: JSON.stringify({ completionToken: session.completionToken }),
+          },
+        );
+        completeData = await completeResponse.json().catch(() => ({}));
+        if (completeResponse.ok && completeData?.success) break;
+        if (completeResponse.status < 500 && completeResponse.status !== 409) break;
+      } catch {
+        completeResponse = null;
+      }
+      if (attempt < 4)
+        await new Promise((resolve) =>
+          window.setTimeout(resolve, Math.min(4000, 500 * 2 ** attempt)),
+        );
     }
     if (!completeResponse?.ok || !completeData?.success) {
       throw new Error(
@@ -14997,8 +15009,8 @@ ${rows
       }
       setSuccessMsg(
         freshLink
-          ? "تم إنشاء رابط جديد صالح لمدة ساعة ونسخه للذاكرة."
-          : "تم إنشاء رابط جديد صالح لمدة ساعة.",
+          ? "رابط استرجاع لأي جهاز نُسخ؛ صالح لساعة ولمرة واحدة."
+          : "أُصدر رابط استرجاع لأي جهاز؛ صالح لساعة ولمرة واحدة.",
       );
     } catch {
       setErrorMsg("تعذر إعادة إرسال الرابط حالياً.");
@@ -15501,6 +15513,7 @@ ${rows
         studentSession?.sectionCode ||
         activeCourseCode ||
         "";
+      const requestedCourse = String(ccode || "").trim();
       if (sid) params.set("studentId", sid);
       if (ccode) params.set("courseCode", ccode);
       const resp = await fetch(
@@ -15509,6 +15522,9 @@ ${rows
       );
       const d = await resp.json().catch(() => ({}));
       if (!session.isCurrent() || !resp.ok) return false;
+      // تجاهل رد مقرر سابق وصل بعد أن غيّر الأستاذ المقرر.
+      const latestCourse = activeSubmissionCourseRef.current;
+      if (!options.allCourses && !shouldApplySubmissionCourseResponse(requestedCourse, latestCourse, courseCodesMatch)) return false;
       if (Array.isArray(d.submissions)) {
         const liveSubmissions = d.submissions.filter(isLiveRecord);
         setTeacherSubmissions((prev) => {
@@ -17185,8 +17201,8 @@ ${rows
   };
 
   const handleResetPasswordWithToken = async () => {
-    if (!passwordResetToken || resetNewPassword.length < 4) {
-      setErrorMsg("اكتب كلمة مرور جديدة لا تقل عن 4 خانات.");
+    if (!passwordResetToken || resetNewPassword.length < 6) {
+      setErrorMsg("اكتب كلمة مرور جديدة لا تقل عن 6 خانات.");
       return;
     }
     if (resetNewPassword !== resetConfirmPassword) {
@@ -20925,6 +20941,7 @@ ${rows
     selectedTeacherCourseCode ||
     visibleTeacherSections[0]?.code ||
     "";
+  activeSubmissionCourseRef.current = String(activeCourseCode || "").trim();
   const joinCodeIssueCourseOptions = (
     isAdminTeacher ? teacherSections.filter((sec: any) => auditScopeEmail === "all" ||
       isSameTeacherIdentity(courseOwnerEmail(sec.code), auditScopeEmail === "self" ? teacherSession?.email : auditScopeEmail)) : visibleTeacherSections
@@ -20975,12 +20992,119 @@ ${rows
       void refresh();
       id = window.setInterval(refresh, 5000);
     });
+    const refreshWhenVisible = () => {
+      if (document.visibilityState === "visible") void refresh();
+    };
+    document.addEventListener("visibilitychange", refreshWhenVisible);
+    window.addEventListener("focus", refreshWhenVisible);
     return () => {
       active = false;
       cancelStart();
       window.clearInterval(id);
+      document.removeEventListener("visibilitychange", refreshWhenVisible);
+      window.removeEventListener("focus", refreshWhenVisible);
     };
-  }, [currentView, teacherTab, activeCourseCode, teacherSession?.email, teacherSession?.authToken, teacherWorkspaceInteractive]);
+  }, [
+    currentView, teacherTab, activeCourseCode, teacherSession?.email,
+    teacherSession?.authToken, teacherWorkspaceInteractive, submissionSubTab,
+    selectedSubmissionActivityId, submissionStatusFilter,
+  ]);
+
+  useEffect(() => {
+    if (
+      currentView !== "teacher_workspace" ||
+      !teacherWorkspaceInteractive ||
+      readMirasDisplayMode() !== "pwa"
+    ) return;
+    const main = document.querySelector<HTMLElement>(".teacher-command-main");
+    if (!main) return;
+    let startY = 0;
+    let pulling = false;
+    let refreshing = false;
+    let distance = 0;
+
+    const refreshVisibleScreen = async () => {
+      if (refreshing) return;
+      refreshing = true;
+      setTeacherPullRefreshing(true);
+      try {
+        const calls: Promise<any>[] = [fetchInAppNotifications()];
+        if (teacherTab === "home") {
+          calls.push(reloadTeacherDashboard(), fetchJoinCodes(undefined, { includeRetired: false }));
+        } else if (teacherTab === "students") {
+          calls.push(fetchReports());
+        } else if (teacherTab === "submissions") {
+          calls.push(fetchReports(), fetchTeacherProjects(teacherSession?.email), fetchTeacherExams(teacherSession?.email));
+          calls.push(fetchTeacherSubmissions(undefined, activeCourseCode, teacherSession?.email));
+        } else if (teacherTab === "textbook") {
+          calls.push(fetchChapters());
+        } else if (teacherTab === "questions") {
+          calls.push(fetchQuestionBank(), fetchTeacherProjects(teacherSession?.email), fetchTeacherExams(teacherSession?.email));
+        } else if (teacherTab === "sections") {
+          calls.push(fetchSections());
+        } else if (teacherTab === "analytics") {
+          if (isAdminTeacher) setAuditRetry(value => value + 1);
+          else calls.push(fetchLogs());
+          if (analyticsSubTab === "integrity" && integrityFocus === "reports") calls.push(fetchActivationAttemptReport());
+        } else if (teacherTab === "codes") {
+          if (isAdminTeacher) setAuditRetry(value => value + 1);
+          else calls.push(fetchJoinCodes(), fetchCodeIntegrity());
+          if (codesSubTab === "attempts") calls.push(fetchActivationAttemptReport());
+        }
+        await Promise.allSettled(calls);
+      } finally {
+        refreshing = false;
+        setTeacherPullRefreshing(false);
+        setTeacherPullDistance(0);
+      }
+    };
+
+    const onStart = (event: TouchEvent) => {
+      if (refreshing || main.scrollTop > 1 || event.touches.length !== 1) return;
+      const target = event.target as Element | null;
+      if (target?.closest("input,textarea,select,button,[role='dialog'],[data-no-pull-refresh='true']")) return;
+      startY = event.touches[0].clientY;
+      pulling = true;
+      distance = 0;
+    };
+    const onMove = (event: TouchEvent) => {
+      if (!pulling || !event.touches.length) return;
+      const delta = event.touches[0].clientY - startY;
+      if (delta <= 0) {
+        pulling = false;
+        setTeacherPullDistance(0);
+        return;
+      }
+      if (delta < 8) return;
+      event.preventDefault();
+      distance = Math.min(88, Math.round(delta * 0.56));
+      setTeacherPullDistance(distance);
+    };
+    const onEnd = () => {
+      if (!pulling) return;
+      pulling = false;
+      if (distance >= 68) void refreshVisibleScreen();
+      else setTeacherPullDistance(0);
+    };
+    const onCancel = () => {
+      pulling = false;
+      distance = 0;
+      if (!refreshing) setTeacherPullDistance(0);
+    };
+
+    main.addEventListener("touchstart", onStart, { passive: true });
+    main.addEventListener("touchmove", onMove, { passive: false });
+    main.addEventListener("touchend", onEnd, { passive: true });
+    main.addEventListener("touchcancel", onCancel, { passive: true });
+    return () => {
+      main.removeEventListener("touchstart", onStart);
+      main.removeEventListener("touchmove", onMove);
+      main.removeEventListener("touchend", onEnd);
+      main.removeEventListener("touchcancel", onCancel);
+      setTeacherPullDistance(0);
+    };
+  }, [currentView, teacherWorkspaceInteractive, teacherTab, activeCourseCode,
+    teacherSession?.email, isAdminTeacher, analyticsSubTab, integrityFocus, codesSubTab]);
 
   useEffect(() => {
     closeWorkspaceDrawers();
@@ -21432,6 +21556,7 @@ ${rows
         </button>
         {isOpen && (
           <div className="border-t border-amber-50 px-3.5 pb-3 pt-2">
+            <p className="mb-2 text-[10px] font-medium text-slate-500">رابط مؤقت لمرة واحدة، يعمل من أي جهاز ولا يغيّر الجهاز الموثوق.</p>
             <div className="grid grid-cols-2 gap-2 text-[10px] font-bold text-slate-500 sm:grid-cols-4">
               <div className="rounded-2xl bg-slate-50 px-3 py-2"><span className="block text-slate-400">الرقم</span><span className="mt-1 block font-mono text-slate-900">{req.studentId || "-"}</span></div>
               <div className="rounded-2xl bg-slate-50 px-3 py-2"><span className="block text-slate-400">المقرر</span><span className="mt-1 block truncate text-slate-700">{courseLabelForResetRequest(req)}</span></div>
@@ -21441,7 +21566,7 @@ ${rows
             <div className="mt-3 flex flex-wrap justify-end gap-2 border-t border-slate-100 pt-3">
               <button type="button" onClick={() => { setJoinQrModalCode(""); setPasswordResetQrLink(req.resetLink); }} disabled={!req.resetLink || ["used", "expired", "cancelled", "revoked"].includes(status) || (req.expiresAt && new Date(req.expiresAt).getTime() <= Date.now())} title="QR تغيير كلمة المرور" aria-label="QR تغيير كلمة المرور" className="inline-flex h-10 w-10 items-center justify-center rounded-2xl border border-indigo-100 bg-indigo-50 text-indigo-700 transition-colors hover:bg-indigo-100 disabled:text-slate-300 disabled:bg-slate-50"><QrCode className="h-4 w-4" /></button>
               <button onClick={() => copyResetLinkToClipboard(req.resetLink)} title="نسخ الرابط" aria-label="نسخ الرابط" className="inline-flex h-10 w-10 items-center justify-center rounded-2xl bg-slate-900 text-white shadow-sm transition-colors hover:bg-indigo-600"><Link2 className="h-4 w-4" /></button>
-              <button onClick={() => resendPasswordResetLink(req.id)} title="إعادة إرسال" aria-label="إعادة إرسال" className="inline-flex h-10 w-10 items-center justify-center rounded-2xl border border-indigo-100 bg-indigo-50 text-indigo-700 transition-colors hover:bg-indigo-100"><RotateCw className="h-4 w-4" /></button>
+              <button onClick={() => resendPasswordResetLink(req.id)} title="إصدار رابط آمن لأي جهاز ونسخه" aria-label="إصدار رابط استرجاع لأي جهاز" className="inline-flex h-10 w-10 items-center justify-center rounded-2xl border border-indigo-100 bg-indigo-50 text-indigo-700 transition-colors hover:bg-indigo-100"><RotateCw className="h-4 w-4" /></button>
               <button onClick={() => manualPasswordReset(req)} title="تغيير يدوي" aria-label="تغيير يدوي" className="inline-flex h-10 w-10 items-center justify-center rounded-2xl border border-emerald-100 bg-emerald-50 text-emerald-700 transition-colors hover:bg-emerald-100"><PencilLine className="h-4 w-4" /></button>
               <button onClick={() => completePasswordResetRequest(req.id)} title="مكتمل" aria-label="مكتمل" className="inline-flex h-10 w-10 items-center justify-center rounded-2xl border border-slate-200 bg-slate-50 text-slate-700 transition-colors hover:bg-slate-100"><CheckCircle2 className="h-4 w-4" /></button>
               <button onClick={() => deletePasswordResetRequest(req.id)} title="حذف" aria-label="حذف" className="inline-flex h-10 w-10 items-center justify-center rounded-2xl border border-red-100 bg-red-50 text-red-700 transition-colors hover:bg-red-100"><Trash2 className="h-4 w-4" /></button>
@@ -22709,7 +22834,12 @@ ${rows
     if (isStudentExamMirror) return normalized;
 
     try {
-      const resp = await fetch(
+      let resp: Response | null = null;
+      let d: any = {};
+      const maxAttempts = routeToStudentEndpoint ? 5 : 1;
+      for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
+       try {
+        resp = await fetch(
         routeToStudentEndpoint
           ? "/api/student/submissions"
           : "/api/teacher/submissions",
@@ -22722,9 +22852,18 @@ ${rows
               : jsonHeaders({ auth: "none" }),
           body: JSON.stringify(normalized),
         },
-      );
-      const d = await resp.json().catch(() => ({}));
-      if (!resp.ok || d.success === false) {
+        );
+        d = await resp.json().catch(() => ({}));
+       } catch (requestError) {
+        if (attempt + 1 >= maxAttempts) throw requestError;
+        await new Promise((resolve) => window.setTimeout(resolve, Math.min(3000, 300 * 2 ** attempt)));
+        continue;
+       }
+       if (resp.ok && d.success !== false) break;
+       if (routeToStudentEndpoint && resp.status >= 500 && attempt + 1 < maxAttempts) {
+        await new Promise((resolve) => window.setTimeout(resolve, Math.min(3000, 300 * 2 ** attempt)));
+        continue;
+       }
         throw new Error(
           extractApiErrorReason(
             { ...d, status: resp.status },
@@ -22732,6 +22871,7 @@ ${rows
           ),
         );
       }
+      if (!resp?.ok || d.success === false) throw new Error("تعذر تأكيد حفظ التسليم.");
       const savedSubmission = d.submission
         ? { ...normalized, ...d.submission }
         : normalized;
@@ -25306,7 +25446,7 @@ ${rows
       "الرقم الجامعي",
       "اسم الطالب",
       ...activities.map(
-        (a) => `${a.kind === "exam" ? "اختبار" : "مشروع"}: ${a.title}`,
+        (a) => gradeActivityColumnTitle(a.kind, a.title),
       ),
     ];
     const rows = Array.from(students.entries())
@@ -25409,6 +25549,34 @@ ${rows
             liveRadarStateForSubmission(sub).key === submissionStatusFilter,
         )
       : drilledSubmissions;
+
+  const selectOnlyUngradedAttemptedSubmissions = () => {
+    const candidates = filteredDrilledSubmissions.map((sub: any) => {
+      const status = String(sub.status || "").trim().toLowerCase();
+      const returned = isTeacherReturnedSubmission(sub);
+      const inProgress = isExamInProgressSubmission(sub) ||
+        isDisconnectedInProgressSubmission(sub) ||
+        /مسودة|لم يبدأ|قيد الحل|جاري الرفع|uploading|in.progress|not.started/.test(status);
+      const hasGrade = !returned && !!(
+        sub.teacherGradeOverride || teacherVisibleGradeText(sub) ||
+        isSubmissionGradeOfficiallyRecorded(sub) || isTimeExpiredRecordedSubmission(sub)
+      );
+      const hasWork = !!(
+        returned || sub.submittedAt || sub.resubmittedAt || sub.gradedAt ||
+        sub.serverSubmissionId || (Array.isArray(sub.attachments) && sub.attachments.length) ||
+        (sub.answers && Object.keys(sub.answers).length) || String(sub.answerText || "").trim()
+      );
+      return {
+        id: String(sub.id || ""), hasWork, hasGrade, inProgress,
+        cheating: isCheatingAttemptSubmission(sub), returned,
+      };
+    });
+    const next = Object.fromEntries(
+      ungradedAttemptIds(candidates).map((id) => [id, true]),
+    ) as Record<string, boolean>;
+    setSelectedSubmissionIds(next);
+    setSuccessMsg(`تم تحديد ${Object.keys(next).length} محاولة مكتملة بلا درجة سابقة.`);
+  };
 
   // تنقّل شاشة "حل الطالب الكامل": يحصر الحركة داخل نفس المشروع ونفس المقرر،
   // ويعرض كل طلبة المقرر مع تمييز من لديه تسليم فعلي لهذا المشروع.
@@ -27304,7 +27472,10 @@ ${rows
 
     const owns = (item: any) => teacherOwnsNotification(item, currentTeacherEmail, courseOwnerEmail, isSameTeacherIdentity);
     const ownAuditLogs = deviceAuditForDisplay(systemLogs.filter(owns));
-    const ownSecurityLogs = deviceReviewNotifications(ownAuditLogs);
+    // تبقى المحاولة في السجل الأمني، لكن لا تبقى في الجرس بعد نجاح الطالب في
+    // تفعيل المقرر نفسه خلال ساعة؛ هذا يزيل تنبيهًا انتهت حاجته دون حذف الأثر.
+    const activeSecurityAlerts = hideResolvedActivationAlerts(ownAuditLogs);
+    const ownSecurityLogs = deviceReviewNotifications(activeSecurityAlerts);
     const ownPushNotifications = deviceReviewPushNotifications(localNotifications
       .map(normalizeLocalNotification)
       .filter(notificationTargetsTeacher)
@@ -27401,14 +27572,16 @@ ${rows
             text.includes("غش") ||
             text.includes("مصيدة") ||
             text.includes("مخالفة");
+          const studentLabel = log.studentName || "طالب";
+          const studentNumber = log.studentId ? ` • ${log.studentId}` : "";
           items.push({
             key: log.deviceReviewGroupKey || `admin-log-${log.id || log.timestamp || log.createdAt}`,
             readKeys: log.deviceReviewReadKeys || [],
             title: log.deviceReviewGroupKey ? "محاولة دخول من متصفح غير معتمد" : isCheating ? "نزاهة عالية الخطورة" : log.action === "محاولة كود مرفوضة" ? "دخول مرفوض يحتاج مراجعة" : "تنبيه أمني / صلاحيات",
             body: sanitizeCourseIdentifiersForDisplay(
               log.deviceReviewGroupKey
-                ? `${log.studentName || "طالب"} • الحساب مسجل؛ بيانات المتصفح في محاولة الدخول لم تطابق الربط المعتمد.`
-                : `${log.studentName || "مستخدم"} • ${logActionLabel(log.action) || "حدث أمني"} • ${log.details || ""}`,
+                ? `${studentLabel}${studentNumber} • جهاز غير معتمد`
+                : `${studentLabel}${studentNumber} • ${isCheating ? "حالة نزاهة تحتاج مراجعة" : logActionLabel(log.action) || "محاولة دخول مرفوضة"}`,
             ),
             when: log.timestamp || log.createdAt,
             tone: log.deviceReviewGroupKey ? "amber" : "rose",
@@ -30156,8 +30329,19 @@ ${rows
       );
       return;
     }
+    const projectSignature = JSON.stringify({
+      title: projectDraft.title.trim(), points, dueDate: projectDraft.dueDate,
+      closeDate: projectDraft.closeDate, description: projectDraft.description.trim(),
+      courseCode: activeCourseCode, owner: teacherSession?.email || "local-teacher",
+    });
+    let pendingCreate = projectCreateRequestRef.current;
+    if (pendingCreate?.busy) return;
+    pendingCreate = retryableCreateAttempt(pendingCreate, projectSignature, "proj", () =>
+      crypto.randomUUID?.() || `${Date.now()}-${Math.random().toString(36).slice(2)}`,
+    );
+    projectCreateRequestRef.current = pendingCreate;
     const project = {
-      id: `proj-${Date.now()}`,
+      id: pendingCreate.id,
       ...projectDraft,
       dueDate: projectDraft.dueDate,
       closeDate: projectDraft.closeDate,
@@ -30167,6 +30351,7 @@ ${rows
       createdAt: new Date().toISOString(),
       status: "published",
     };
+    pendingCreate.busy = true;
     try {
       const resp = await fetch("/api/teacher/projects", {
         method: "POST",
@@ -30188,7 +30373,12 @@ ${rows
     } catch {
       setErrorMsg("تعذر الاتصال بالخادم لإنشاء المشروع.");
       return;
+    } finally {
+      if (projectCreateRequestRef.current?.id === project.id) {
+        projectCreateRequestRef.current.busy = false;
+      }
     }
+    if (projectCreateRequestRef.current?.id === project.id) projectCreateRequestRef.current = null;
     setProjectDraft(emptyProjectDraft);
     setProjectBuilderOpen(false);
     pushLocalCourseNotification(
@@ -30250,6 +30440,7 @@ ${rows
   };
 
   const createLocalExamBusyRef = useRef(0);
+  const examCreateRequestRef = useRef<{ signature: string; id: string; busy: boolean } | null>(null);
   const createLocalExam = async () => {
     // حارس الضغط المزدوج: نقرتان سريعتان (شائعة على الجوال) كانتا تنشئان اختبارين
     // بمعرّفين مختلفين. نمنع أي استدعاء ثانٍ خلال ١.٥ ثانية.
@@ -30417,8 +30608,20 @@ ${rows
       );
       return;
     }
+    const examSignature = JSON.stringify({
+      title: examDraft.title.trim(), points, questionsCount, timerMinutes,
+      open: examDraft.open, close: examDraft.close, courseCode: activeCourseCode,
+      selectedCategories, questionPoolCount: poolCount,
+      owner: teacherSession?.email || "local-teacher",
+    });
+    let pendingExamCreate = examCreateRequestRef.current;
+    if (pendingExamCreate?.busy) return;
+    pendingExamCreate = retryableCreateAttempt(pendingExamCreate, examSignature, "exam", () =>
+      crypto.randomUUID?.() || `${Date.now()}-${Math.random().toString(36).slice(2)}`,
+    );
+    examCreateRequestRef.current = pendingExamCreate;
     const exam = {
-      id: `exam-${Date.now()}`,
+      id: pendingExamCreate.id,
       title: examDraft.title.trim(),
       points: points,
       questionsCount: questionsCount,
@@ -30462,6 +30665,7 @@ ${rows
       createdBy: teacherSession?.email || "local-teacher",
       createdAt: new Date().toISOString(),
     };
+    pendingExamCreate.busy = true;
     try {
       const resp = await fetch("/api/teacher/exams", {
         method: "POST",
@@ -30483,7 +30687,10 @@ ${rows
     } catch {
       setErrorMsg("تعذر الاتصال بالخادم لإنشاء الاختبار.");
       return;
+    } finally {
+      if (examCreateRequestRef.current?.id === exam.id) examCreateRequestRef.current.busy = false;
     }
+    if (examCreateRequestRef.current?.id === exam.id) examCreateRequestRef.current = null;
     setEditingExamId(null);
     setExamBuilderOpen(false);
     pushLocalCourseNotification(
@@ -36213,6 +36420,8 @@ ${rows
                                             );
                                             return;
                                           }
+                                          if (projectSubmissionInFlightRef.current) return;
+                                          projectSubmissionInFlightRef.current = true;
                                           const nowIso =
                                             new Date().toISOString();
                                           // لا يُوسم التسليم بأنه متأخر إلا بعد نهاية يوم الإغلاق،
@@ -36281,6 +36490,8 @@ ${rows
                                                 "تسليم المشروع",
                                               ),
                                             );
+                                          } finally {
+                                            projectSubmissionInFlightRef.current = false;
                                           }
                                         }}
                                         className={`mt-3 inline-flex h-14 w-14 items-center justify-center rounded-2xl text-white shadow-sm transition ${isUploading ? "cursor-not-allowed bg-slate-300 text-slate-600" : "bg-indigo-600 hover:bg-indigo-700"}`}
@@ -36670,6 +36881,20 @@ ${rows
             </div>
 
             <main className="teacher-command-main miras-teacher-v5-main mx-auto flex w-full max-w-7xl flex-col px-3 pb-3 pt-0 sm:px-6 lg:px-8">
+              {(teacherPullDistance > 0 || teacherPullRefreshing) && (
+                <div
+                  role="status"
+                  aria-live="polite"
+                  className="pointer-events-none fixed left-1/2 z-[190] inline-flex h-10 -translate-x-1/2 items-center gap-2 rounded-full border border-indigo-100 bg-white/95 px-4 text-[11px] font-bold text-indigo-700 shadow-lg backdrop-blur-xl transition-transform"
+                  style={{
+                    top: "calc(var(--miras-teacher-header-space, 5.35rem) + env(safe-area-inset-top, 0px))",
+                    transform: `translate(-50%, ${Math.max(0, teacherPullDistance - 40)}px)`,
+                  }}
+                >
+                  <RotateCw className={`h-4 w-4 ${teacherPullRefreshing ? "animate-spin" : ""}`} />
+                  {teacherPullRefreshing ? "جارٍ التحديث" : teacherPullDistance >= 68 ? "أفلت للتحديث" : "اسحب للتحديث"}
+                </div>
+              )}
               {firestoreQuotaExceededState && (
                 <div
                   role="alert"
@@ -37700,10 +37925,18 @@ ${rows
                       )}
                       <div className="rounded-[var(--miras-r-xl)] border border-indigo-100 bg-gradient-to-br from-indigo-50/70 via-white to-emerald-50/40 p-4 miras-shadow-2">
                         <div className="mx-auto max-w-3xl space-y-3 text-center">
-                          <div>
+                          <div className="flex flex-wrap items-center justify-center gap-2">
                             <h3 className="text-sm font-bold text-slate-900">
                               رصد درجات لمجموعة
                             </h3>
+                            <button
+                              type="button"
+                              onClick={selectOnlyUngradedAttemptedSubmissions}
+                              className="rounded-full border border-indigo-200 bg-white px-3 py-1.5 text-[11px] font-bold text-indigo-700 hover:bg-indigo-50"
+                              title="يحدد من أكمل محاولة ولم تُرصد له درجة فقط"
+                            >
+                              تحديد من حلّوا بلا درجة
+                            </button>
                           </div>
                           <div className="mx-auto max-w-md">
                             <input
