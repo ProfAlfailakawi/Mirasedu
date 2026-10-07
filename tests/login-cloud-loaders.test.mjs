@@ -173,7 +173,7 @@ test('integrity read validates counters and never turns a failed cloud read into
  const start = source.indexOf('  const fetchCodeIntegrity = async (');
  const snippet = source.slice(start, source.indexOf('\n  // شفاء ذاتي', start));
  for (const data of [{ success: false }, { success: true }, { success: true, codeHealthFunnel: { issued: 0 } }]) {
-  const applied = [], context = { captureTeacherRead: () => () => true,
+  const applied = [], context = { captureTeacherRead: () => () => true, captureTeacherSession: () => ({ isCurrent: () => true }),
    activeTeacherEmail: () => 'fixture@test.kw', getTeacherUrlParams: () => '?teacherEmail=fixture%40test.kw',
    teacherTabRef: { current: 'codes' }, auditScopeRef: { current: 'self' }, teacherHeaders: () => ({}),
    fetch: async url => { assert.equal(new URL(url, 'http://localhost').searchParams.get('scope'), 'self'); return new Response(JSON.stringify(data)); },
@@ -183,4 +183,152 @@ test('integrity read validates counters and never turns a failed cloud read into
   assert.equal(await read(), !!valid);
   assert.equal(applied.length, valid ? 1 : 0);
  }
+});
+
+const paintScheduler = async () => {
+ let nextId = 0;
+ const frames = new Map(), timers = new Map();
+ const window = {
+  requestAnimationFrame: callback => { const id = ++nextId; frames.set(id, callback); return id; },
+  cancelAnimationFrame: id => frames.delete(id),
+  setTimeout: callback => { const id = ++nextId; timers.set(id, callback); return id; },
+  clearTimeout: id => timers.delete(id),
+ };
+ const start = source.indexOf('const scheduleAfterWorkspacePaint = (');
+ const snippet = source.slice(start, source.indexOf('\nasync function mirasFetchWithRecovery', start));
+ const schedule = await compile(snippet, 'scheduleAfterWorkspacePaint', { window });
+ const flush = map => { const pending = [...map.values()]; map.clear(); pending.forEach(callback => callback()); };
+ return { schedule, frame: () => flush(frames), tasks: () => flush(timers) };
+};
+
+test('optional workspace work starts after a painted frame and can be cancelled at every stage', async () => {
+ for (const cancelAt of ['before-first-frame', 'between-frames', 'before-task', 'never']) {
+  const scheduler = await paintScheduler(); let calls = 0;
+  const cancel = scheduler.schedule(() => calls++);
+  assert.equal(calls, 0);
+  if (cancelAt === 'before-first-frame') cancel();
+  scheduler.frame(); assert.equal(calls, 0);
+  if (cancelAt === 'between-frames') cancel();
+  scheduler.frame(); assert.equal(calls, 0);
+  if (cancelAt === 'before-task') cancel();
+  scheduler.tasks(); assert.equal(calls, cancelAt === 'never' ? 1 : 0);
+ }
+});
+
+test('teacher login waits only for mandatory workspace data and does not start heavy secondary reads', async () => {
+ const fixture = await teacherWithFetch(async () => new Response(JSON.stringify(payload('teacher@test.kw'))));
+ const secondary = [];
+ for (const name of ['fetchJoinCodes', 'fetchCodeIntegrity', 'fetchQuestionBank', 'fetchTeacherSubmissions']) {
+  fixture.context[name] = async () => secondary.push(name);
+ }
+ // Recompile with these actual adapters because the first loader captured its original context values.
+ const load = await compile(extract('loadTeacherCloudData', '\n  const fetchCodeIntegrity'), 'loadTeacherCloudData', fixture.context);
+ assert.equal(await load('teacher@test.kw'), true);
+ assert.equal(fixture.gate['teacher@test.kw'], true);
+ assert.deepEqual(secondary, []);
+});
+
+test('optional login readers wait for an interactive teacher workspace and reject a queued old session', async () => {
+ const start = source.indexOf('  useEffect(() => {\n    if (!teacherWorkspaceInteractive) return;');
+ const end = source.indexOf('\n  }, [teacherWorkspaceInteractive, teacherSession?.email, teacherSession?.authToken]);', start);
+ const effect = source.slice(start, end + '\n  }, [teacherWorkspaceInteractive, teacherSession?.email, teacherSession?.authToken]);'.length);
+ for (const scenario of ['waiting', 'ready', 'old-session', 'audit']) {
+  const scheduler = await paintScheduler(), calls = [];
+  let current = true;
+  const context = { teacherWorkspaceInteractive: scenario !== 'waiting', teacherSession: { email: 'teacher@test.kw', authToken: 'fixture-token', role: 'admin' },
+   captureTeacherSession: () => ({ token: 'fixture-token', isCurrent: () => current }), scheduleAfterWorkspacePaint: scheduler.schedule,
+   cloudSessionKey, cloudSessionGenRef: { current: 1 }, teacherSubmissionInitialReadRef: { current: null },
+   teacherTabRef: { current: scenario === 'audit' ? 'codes' : 'home' }, localStorage: { getItem: () => null },
+   setAvailableChapters: () => {}, setTeacherQuestions: () => {}, setMirasRadarAllowed: () => {},
+   useEffect: fn => fn() };
+  for (const name of ['fetchTeacherSubmissions', 'fetchJoinCodes', 'fetchCodeIntegrity', 'fetchMirasRadar', 'loadTeacherAccounts', 'fetchTrustedPasskeyDevices']) {
+   context[name] = async () => calls.push(name);
+  }
+  const mount = await compile(`const mountOptional = () => { ${effect} };`, 'mountOptional', context);
+  mount(); assert.deepEqual(calls, []);
+  scheduler.frame(); scheduler.frame(); assert.deepEqual(calls, []);
+  if (scenario === 'old-session') current = false;
+  scheduler.tasks();
+  const expected = scenario === 'ready' ? ['fetchTeacherSubmissions', 'fetchJoinCodes', 'fetchCodeIntegrity', 'fetchMirasRadar', 'loadTeacherAccounts'] :
+   scenario === 'audit' ? ['fetchTeacherSubmissions', 'fetchMirasRadar', 'loadTeacherAccounts'] : [];
+  assert.deepEqual(calls, expected, scenario);
+ }
+});
+
+test('post-paint submissions bootstrap reads every teacher course and scoped refresh preserves the other courses', async () => {
+ const start = source.indexOf('  const fetchTeacherSubmissions = async (');
+ const snippet = source.slice(start, source.indexOf('\n  const performStudentLiveStateRefresh', start));
+ const queries = [];
+ const first = { id: 'one', studentId: 'student-a', courseCode: 'course-a' };
+ const second = { id: 'two', studentId: 'student-b', courseCode: 'course-b' };
+ let submissions = [];
+ const context = { captureTeacherSession: () => ({ email: 'teacher@test.kw', isCurrent: () => true }),
+  teacherHeaders: () => ({}), studentSession: null, activeCourseCode: 'course-a', isLiveRecord: () => true,
+  applyReturnedSubmissionOverrides: rows => rows, courseCodesMatch: (a, b) => a === b,
+  setTeacherSubmissions: update => { submissions = update(submissions); },
+  fetch: async url => {
+   const query = new URL(url, 'http://localhost').searchParams; queries.push(query);
+   return new Response(JSON.stringify({ submissions: queries.length === 1 ? [first, second] : [{ ...first, score: 95 }] }));
+  } };
+ const read = await compile(snippet, 'fetchTeacherSubmissions', context);
+ await read(undefined, undefined, 'teacher@test.kw', { allCourses: true });
+ assert.equal(queries[0].has('courseCode'), false);
+ assert.equal(queries[0].has('studentId'), false);
+ assert.deepEqual(submissions, [first, second]);
+ await read(undefined, 'course-a', 'teacher@test.kw');
+ assert.equal(queries[1].get('courseCode'), 'course-a');
+ assert.deepEqual(submissions.find(row => row.id === 'two'), second);
+ assert.equal(submissions.find(row => row.id === 'one').score, 95);
+});
+
+test('scoped submission polling waits for the initial all-course snapshot', async () => {
+ const start = source.indexOf('  useEffect(() => {\n    if (\n      currentView !== "teacher_workspace" ||\n      !["home", "submissions", "questions"].includes(teacherTab)');
+ const endMarker = '\n  }, [currentView, teacherTab, activeCourseCode, teacherSession?.email, teacherSession?.authToken, teacherWorkspaceInteractive]);';
+ const effect = source.slice(start, source.indexOf(endMarker, start) + endMarker.length);
+ const scheduler = await paintScheduler(), initial = deferred(), calls = [];
+ const session = { email: 'teacher@test.kw', token: 'fixture-token', isCurrent: () => true };
+ const context = { currentView: 'teacher_workspace', teacherTab: 'home', activeCourseCode: 'course-a', teacherWorkspaceInteractive: true,
+  teacherSession: { email: session.email, authToken: session.token }, captureTeacherSession: () => session,
+  teacherSubmissionInitialReadRef: { current: { key: cloudSessionKey(session.email, session.token, 1), promise: initial.promise } },
+  cloudSessionKey, cloudSessionGenRef: { current: 1 }, scheduleAfterWorkspacePaint: scheduler.schedule,
+  document: { visibilityState: 'visible' }, window: { setInterval: () => 1, clearInterval: () => {} },
+  fetchTeacherSubmissions: async (...args) => calls.push(args), useEffect: callback => callback() };
+ const mount = await compile(`const mountPoll = () => { ${effect} };`, 'mountPoll', context);
+ mount(); scheduler.frame(); scheduler.frame(); scheduler.tasks();
+ assert.deepEqual(calls, []);
+ initial.resolve(true); await turn();
+ assert.deepEqual(calls, [[undefined, 'course-a', 'teacher@test.kw']]);
+});
+
+test('teacher-only readers skip guests and student sessions, and discard stale teacher responses', async () => {
+ const ranges = [
+  ['fetchTeacherExams', '\n  const applyTeacherProjects', 'exams'],
+  ['fetchTeacherProjects', '\n  const fetchTeacherSubmissions', 'projects'],
+  ['fetchTeacherSubmissions', '\n  const performStudentLiveStateRefresh', 'submissions'],
+ ];
+ for (const [name, end, field] of ranges) {
+  const start = source.indexOf(`  const ${name} = async (`);
+  const snippet = source.slice(start, source.indexOf(end, start));
+  let calls = 0, active = false, credential = false;
+  const context = { captureTeacherSession: () => credential ? { email: 'teacher@test.kw', isCurrent: () => active } : null,
+   teacherHeaders: () => ({}), studentSession: null, activeCourseCode: '',
+   fetch: async () => { calls++; return new Response(JSON.stringify({ [field]: [] })); },
+   applyTeacherExams: () => assert.fail('stale exams applied'), applyTeacherProjects: () => assert.fail('stale projects applied'),
+   setTeacherSubmissions: () => assert.fail('stale submissions applied') };
+  const read = await compile(snippet, name, context);
+  assert.equal(await read(), false); assert.equal(calls, 0, name);
+  credential = true;
+  assert.equal(await read(), false); assert.equal(calls, 1, name);
+ }
+});
+
+test('teacher session captures require identity and token, then invalidate on logout or account switch', async () => {
+ const context = { email: '', token: '', activeTeacherEmail: email => email || context.email,
+  readStoredSessionAuthToken: () => context.token, cloudSessionGenRef: { current: 1 } };
+ const capture = await compile(extract('captureTeacherSession', '\n  const captureTeacherRead'), 'captureTeacherSession', context);
+ assert.equal(capture(), null);
+ context.email = 'teacher@test.kw'; assert.equal(capture(), null);
+ context.token = 'first-token'; const first = capture(); assert.equal(first.isCurrent(), true);
+ context.token = 'second-token'; assert.equal(first.isCurrent(), false);
+ const second = capture(); context.cloudSessionGenRef.current++; assert.equal(second.isCurrent(), false);
 });

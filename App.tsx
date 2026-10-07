@@ -2942,6 +2942,23 @@ const mirasDirectApiFallbackInput = (
 const mirasDelay = (ms: number) =>
   new Promise<void>((resolve) => window.setTimeout(resolve, ms));
 
+const scheduleAfterWorkspacePaint = (task: () => void) => {
+  let cancelled = false;
+  let secondFrame = 0;
+  let timer = 0;
+  const firstFrame = window.requestAnimationFrame(() => {
+    secondFrame = window.requestAnimationFrame(() => {
+      timer = window.setTimeout(() => { if (!cancelled) task(); }, 0);
+    });
+  });
+  return () => {
+    cancelled = true;
+    window.cancelAnimationFrame(firstFrame);
+    window.cancelAnimationFrame(secondFrame);
+    window.clearTimeout(timer);
+  };
+};
+
 async function mirasFetchWithRecovery(
   input: RequestInfo | URL,
   init?: RequestInit,
@@ -5725,8 +5742,11 @@ export default function App() {
         : { role: "guest", userId: "" };
   }, [teacherSession, studentSession]);
   const fetchMirasRadar = async () => {
+    const session = captureTeacherSession();
+    if (!session) return;
     try {
       const resp = await fetch("/api/monitor/errors", { headers: teacherHeaders() });
+      if (!session.isCurrent()) return;
       if (resp.status === 403) {
         setMirasRadarAllowed(false);
         return;
@@ -5739,7 +5759,7 @@ export default function App() {
           headers: teacherHeaders(),
         });
         const auditData = await auditResp.json().catch(() => ({}));
-        if (auditResp.ok && auditData?.success) {
+        if (session.isCurrent() && auditResp.ok && auditData?.success) {
           setMirasNotificationAuditData({
             items: auditData.items || [],
             stats: auditData.stats || null,
@@ -5753,9 +5773,7 @@ export default function App() {
     if (!teacherSession) {
       setMirasRadarAllowed(false);
       setMirasRadarOpen(false);
-      return;
     }
-    void fetchMirasRadar();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [teacherSession?.email, teacherSession?.id]);
   // تحديث حيّ كل ٣٠ث أثناء فتح اللوحة.
@@ -8090,6 +8108,7 @@ export default function App() {
   const [teacherCloudLoadSlow, setTeacherCloudLoadSlow] = useState(false);
   // جاهزية بيانات كل حساب (تُغلق بها شاشة الدخول الافتتاحية): لكل حساب على حدة.
   const teacherCloudLoadInFlightRef = useRef(createCloudSingleFlight<boolean>());
+  const teacherSubmissionInitialReadRef = useRef<{ key: string; promise: Promise<unknown> } | null>(null);
   const [teacherCloudReady, setTeacherCloudReady] = useState<Record<string, true>>({});
   const [studentCloudReady, setStudentCloudReady] = useState<Record<string, true>>({});
   const [studentLoadRetry, setStudentLoadRetry] = useState(0);
@@ -8727,41 +8746,19 @@ export default function App() {
 
   useEffect(() => {
     if (!teacherSession?.email || currentView !== "teacher_workspace") return;
-    let active = true;
     const teacherEmail = String(teacherSession.email || "")
       .trim()
       .toLowerCase();
-
-    const loadTeacherDataOnSession = async () => {
-      const cloudLoad = loadTeacherCloudData(teacherEmail);
-      // The shared loader starts in a microtask. Start its cloud request before
-      // reading/parsing potentially large local chapter and question caches.
-      await Promise.resolve();
-      if (!active) return;
-      try {
-        const chKey = `academicLabAvailableChapters:${teacherEmail}`;
-        const qKey = `academicLabQuestionBank:${teacherEmail}`;
-        const cachedCh = localStorage.getItem(chKey);
-        const cachedQ = localStorage.getItem(qKey);
-        setAvailableChapters(cachedCh ? JSON.parse(cachedCh) : []);
-        setTeacherQuestions(cachedQ ? JSON.parse(cachedQ) : []);
-      } catch {}
-      try {
-        await cloudLoad;
-      } catch (err) {
-        console.error("Error loading teacher persistent details:", err);
-      }
-    };
-
-    loadTeacherDataOnSession();
-
-    return () => {
-      active = false;
-    };
+    setTeacherSubmissions((previous) => previous.length ? [] : previous);
+    teacherSubmissionInitialReadRef.current = null;
+    void loadTeacherCloudData(teacherEmail);
   }, [teacherSession?.email, teacherSession?.authToken, currentView]);
 
   // بعد ٥ ثوانٍ من الانتظار نشرح السبب: الخادم يستيقظ ويقرأ القاعدة كاملة.
   const teacherCloudSyncing = teacherCloudLoads > 0;
+  const teacherWorkspaceInteractive = currentView === "teacher_workspace" &&
+    !!teacherSession?.email && !loginRevealRole &&
+    !!teacherCloudReady[String(teacherSession.email).trim().toLowerCase()];
   // عند الخروج (أي مسار) نُصفّر جاهزية البيانات وعلم عرض الشاشة الافتتاحية، فيمرّ
   // كل دخول جديد بنفس الشاشة وينتظر بياناته بدل أن يُعاد استخدام جاهزية قديمة.
   useEffect(() => {
@@ -8849,6 +8846,37 @@ export default function App() {
     const timer = window.setTimeout(() => setTeacherCloudLoadSlow(true), 5000);
     return () => window.clearTimeout(timer);
   }, [teacherCloudSyncing]);
+
+  useEffect(() => {
+    if (!teacherWorkspaceInteractive) return;
+    const email = String(teacherSession.email).trim().toLowerCase();
+    const session = captureTeacherSession(email);
+    if (!session) return;
+    // Let the ready home screen paint before starting optional monitoring reads.
+    // The question bank and chapters have their own readers when opened.
+    return scheduleAfterWorkspacePaint(() => {
+      if (!session.isCurrent()) return;
+      try {
+        const chapters = localStorage.getItem(`academicLabAvailableChapters:${email}`);
+        if (chapters && teacherTabRef.current !== "textbook") setAvailableChapters(JSON.parse(chapters));
+        const questions = localStorage.getItem(`academicLabQuestionBank:${email}`);
+        if (questions && teacherTabRef.current !== "questions") setTeacherQuestions(JSON.parse(questions));
+      } catch {}
+      const auditTab = ["codes", "analytics"].includes(teacherTabRef.current);
+      const admin = String(teacherSession.role) === "admin";
+      if (!admin) setMirasRadarAllowed(false);
+      // Dock badges and command search need every course, before scoped polling.
+      const submissions = fetchTeacherSubmissions(undefined, undefined, email, { allCourses: true });
+      teacherSubmissionInitialReadRef.current = {
+        key: cloudSessionKey(email, session.token, cloudSessionGenRef.current), promise: submissions,
+      };
+      void Promise.allSettled([
+        submissions,
+        ...(!auditTab ? [fetchJoinCodes(email, { includeRetired: false }), fetchCodeIntegrity(email)] : []),
+        ...(admin ? [fetchMirasRadar(), loadTeacherAccounts()] : []),
+      ]);
+    });
+  }, [teacherWorkspaceInteractive, teacherSession?.email, teacherSession?.authToken]);
 
   useEffect(() => {
     if (!quizScoreResult || !isSafeExamBrowserSession()) return;
@@ -12786,6 +12814,14 @@ export default function App() {
     String(emailOverride || teacherSession?.email || "")
       .trim()
       .toLowerCase();
+  const captureTeacherSession = (emailOverride?: string) => {
+    const email = activeTeacherEmail(emailOverride);
+    const token = readStoredSessionAuthToken("miras_teacher_session");
+    if (!email || !token) return null;
+    const generation = cloudSessionGenRef.current;
+    return { email, token, isCurrent: () => generation === cloudSessionGenRef.current &&
+      token === readStoredSessionAuthToken("miras_teacher_session") };
+  };
   const captureTeacherRead = () => {
     const epoch = auditContextRef.current.epoch;
     const tab = teacherTabRef.current;
@@ -13910,6 +13946,7 @@ export default function App() {
 
   const fetchJoinCodes = async (emailOverride?: string, options: { includeRetired?: boolean; activatedSince?: string } = {}) => {
     const email = activeTeacherEmail(emailOverride);
+    if (!captureTeacherSession(email)) return false;
     const includeRetired = options.includeRetired !== false;
     const readIsCurrent = captureTeacherRead();
     const loadGen = cloudSessionGenRef.current;
@@ -14024,13 +14061,6 @@ export default function App() {
           }
         }
         setTeacherCloudReady((m) => ({ ...m, [readyKey]: true }));
-        // الأرشيف الثقيل يُقرأ عند فتح إدارة الأكواد؛ لا ينافس بيانات الدخول.
-        void Promise.allSettled([
-          fetchJoinCodes(teacherEmail, { includeRetired: false }),
-          fetchCodeIntegrity(teacherEmail),
-          fetchQuestionBank(teacherEmail),
-          fetchTeacherSubmissions(undefined, undefined, teacherEmail),
-        ]);
         return true;
       } catch { return false; }
       finally { setTeacherCloudLoads((n) => Math.max(0, n - 1)); }
@@ -14038,6 +14068,8 @@ export default function App() {
   };
 
   const fetchCodeIntegrity = async (emailOverride?: string) => {
+    const session = captureTeacherSession(emailOverride);
+    if (!session) return false;
     const isCurrent = captureTeacherRead();
     try {
       const email = activeTeacherEmail(emailOverride);
@@ -15231,7 +15263,7 @@ ${rows
   }, []);
 
   useEffect(() => {
-    if (!teacherSession?.email || currentView !== "teacher_workspace" || !teacherCloudReady[String(teacherSession.email).trim().toLowerCase()]) return;
+    if (!teacherWorkspaceInteractive) return;
     let refreshing = false;
     const refresh = async () => {
       if (refreshing) return;
@@ -15248,7 +15280,7 @@ ${rows
       window.clearInterval(timer);
       window.removeEventListener("focus", refresh);
     };
-  }, [teacherSession?.email, currentView, teacherCloudReady]);
+  }, [teacherSession?.email, teacherWorkspaceInteractive]);
 
   // Sync state helpers
   const fetchChapters = async () => {
@@ -15411,30 +15443,20 @@ ${rows
   const applyTeacherExams = (d: any) => {
     if (Array.isArray(d.exams)) {
       setTeacherCreatedExams(d.exams.filter(isLiveRecord));
-      try {
-        localStorage.setItem(
-          "academicLabTeacherExams",
-          JSON.stringify(d.exams),
-        );
-      } catch {}
     }
   };
 
   const fetchTeacherExams = async (emailOverride?: string) => {
-    const email = activeTeacherEmail(emailOverride);
-    if (currentView === "teacher_workspace" && !email) {
-      console.warn(
-        "[BRIDGE_DEBUG] Skipped fetchTeacherExams because no email is active in teacher view",
-      );
-      return;
-    }
+    const session = captureTeacherSession(emailOverride);
+    if (!session) return false;
+    const email = session.email;
     try {
       const resp = await fetch(`/api/teacher/exams?t=${Date.now()}`, {
         cache: "no-store",
         headers: teacherHeaders(email),
       });
       const d = await resp.json();
-      if (!resp.ok || !Array.isArray(d.exams)) return false;
+      if (!session.isCurrent() || !resp.ok || !Array.isArray(d.exams)) return false;
       applyTeacherExams(d);
       return true;
     } catch (e) { return false; }
@@ -15443,30 +15465,20 @@ ${rows
   const applyTeacherProjects = (d: any) => {
     if (Array.isArray(d.projects)) {
       setTeacherProjects(d.projects.filter(isLiveRecord));
-      try {
-        localStorage.setItem(
-          "academicLabTeacherProjects",
-          JSON.stringify(d.projects),
-        );
-      } catch {}
     }
   };
 
   const fetchTeacherProjects = async (emailOverride?: string) => {
-    const email = activeTeacherEmail(emailOverride);
-    if (currentView === "teacher_workspace" && !email) {
-      console.warn(
-        "[BRIDGE_DEBUG] Skipped fetchTeacherProjects because no email is active in teacher view",
-      );
-      return;
-    }
+    const session = captureTeacherSession(emailOverride);
+    if (!session) return false;
+    const email = session.email;
     try {
       const resp = await fetch("/api/teacher/projects", {
         cache: "no-store",
         headers: teacherHeaders(email),
       });
       const d = await resp.json();
-      if (!resp.ok || !Array.isArray(d.projects)) return false;
+      if (!session.isCurrent() || !resp.ok || !Array.isArray(d.projects)) return false;
       applyTeacherProjects(d);
       return true;
     } catch (e) { return false; }
@@ -15476,18 +15488,15 @@ ${rows
     studentIdOverride?: string,
     courseCodeOverride?: string,
     emailOverride?: string,
+    options: { allCourses?: boolean } = {},
   ) => {
-    const email = activeTeacherEmail(emailOverride);
-    if (currentView === "teacher_workspace" && !email) {
-      console.warn(
-        "[BRIDGE_DEBUG] Skipped fetchTeacherSubmissions because no email is active in teacher view",
-      );
-      return;
-    }
+    const session = captureTeacherSession(emailOverride);
+    if (!session) return false;
+    const email = session.email;
     try {
       const params = new URLSearchParams();
-      const sid = studentIdOverride || studentSession?.id || "";
-      const ccode =
+      const sid = options.allCourses ? "" : studentIdOverride || studentSession?.id || "";
+      const ccode = options.allCourses ? "" :
         courseCodeOverride ||
         studentSession?.sectionCode ||
         activeCourseCode ||
@@ -15499,6 +15508,7 @@ ${rows
         { cache: "no-store", headers: teacherHeaders(email) },
       );
       const d = await resp.json().catch(() => ({}));
+      if (!session.isCurrent() || !resp.ok) return false;
       if (Array.isArray(d.submissions)) {
         const liveSubmissions = d.submissions.filter(isLiveRecord);
         setTeacherSubmissions((prev) => {
@@ -17272,6 +17282,8 @@ ${rows
       // workspace request starts. Never carry a previous teacher's questions.
       setAvailableChapters([]);
       setTeacherQuestions([]);
+      setTeacherSubmissions([]);
+      teacherSubmissionInitialReadRef.current = null;
 
       setJoinCodesList([]);
       setPasswordResetRequestsState([]);
@@ -17299,6 +17311,8 @@ ${rows
         sessionStorage.removeItem(MIRAS_PUBLIC_TEACHER_SESSION_KEY);
       } catch {}
       setTeacherSession(null);
+      setTeacherSubmissions([]);
+      teacherSubmissionInitialReadRef.current = null;
       const studentWithAuth = {
         ...data.student,
         authToken:
@@ -19790,9 +19804,7 @@ ${rows
     }
   }, [currentView, teacherSession]);
   const reloadTeacherDashboard = async (emailOverride?: string) => {
-    // كانت هذه الطلبات تُنتظر بالتسلسل (reports ثم logs ٣٦٤ك ثم config ثم
-    // questionBank) فيتراكم زمنها؛ وهي مستقلة تماماً فنشغّلها بالتوازي لتقليل زمن
-    // تحميل اللوحة إلى زمن أبطأ طلب فقط بدل مجموعها.
+    // Personal dashboard readers are independent; the question page owns its bank read.
     const email = emailOverride || teacherSession?.email || "";
     const refreshQuota = async () => {
       try {
@@ -19808,7 +19820,6 @@ ${rows
     const results = await Promise.allSettled([
       fetchReports(email),
       fetchLogs(email),
-      fetchQuestionBank(email),
       refreshQuota(),
     ]);
     return cloudDataReady(results, [0, 1]);
@@ -19829,11 +19840,14 @@ ${rows
   };
 
   const loadTeacherAccounts = async () => {
+    const session = captureTeacherSession();
+    if (!session) return;
     try {
       const resp = await fetch("/api/admin/teachers", {
         headers: teacherHeaders(),
       });
       const data = await resp.json().catch(() => ({}));
+      if (!session.isCurrent()) return;
       if (!resp.ok) {
         setTeacherAccounts([]);
         return;
@@ -19842,7 +19856,7 @@ ${rows
         Array.isArray(data?.teachers) ? data.teachers : [],
       );
     } catch {
-      setTeacherAccounts([]);
+      if (session.isCurrent()) setTeacherAccounts([]);
     }
   };
 
@@ -20712,13 +20726,6 @@ ${rows
   };
   const isAdminTeacher = isMirasAdminEmail(teacherSession?.email);
   useEffect(() => {
-    // نحمّل قائمة الأساتذة للمشرف دائماً حتى تظهر أسماؤهم في فلتر الحسابات.
-    if (isAdminTeacher) {
-      loadTeacherAccounts();
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isAdminTeacher, teacherSession?.email]);
-  useEffect(() => {
     if (!isAdminTeacher && analyticsSubTab === "admin") {
       setAnalyticsSubTab("summary");
     }
@@ -20727,11 +20734,14 @@ ${rows
     }
   }, [analyticsSubTab, codesSubTab]);
   useEffect(() => {
-    // The common audit loader owns these reads; opening a disclosure needs no new request.
-    if (teacherSession?.email && !(isAdminTeacher && ["codes", "analytics"].includes(teacherTab))) {
-      void fetchTrustedPasskeyDevices();
-    }
-  }, [isAdminTeacher, teacherTab, teacherSession?.email]);
+    if (!teacherWorkspaceInteractive || (isAdminTeacher && ["codes", "analytics"].includes(teacherTab))) return;
+    const session = captureTeacherSession();
+    if (!session) return;
+    // Audit owns its device list; personal views refresh after their first paint.
+    return scheduleAfterWorkspacePaint(() => {
+      if (session.isCurrent()) void fetchTrustedPasskeyDevices();
+    });
+  }, [isAdminTeacher, teacherTab, teacherSession?.email, teacherSession?.authToken, teacherWorkspaceInteractive]);
   useLayoutEffect(() => {
     if (currentView !== "teacher_workspace" || !isAdminTeacher) return;
     if (teacherTab !== "codes" && teacherTab !== "analytics") {
@@ -20934,14 +20944,20 @@ ${rows
     if (
       currentView !== "teacher_workspace" ||
       !["home", "submissions", "questions"].includes(teacherTab) ||
-      !activeCourseCode
+      !activeCourseCode || !teacherWorkspaceInteractive
     )
       return;
     let refreshing = false;
+    let active = true;
     const refresh = async () => {
-      if (refreshing) return;
+      if (!active || refreshing || document.visibilityState === "hidden") return;
       refreshing = true;
       try {
+        const session = captureTeacherSession();
+        if (!session) return;
+        const initial = teacherSubmissionInitialReadRef.current;
+        if (initial?.key === cloudSessionKey(session.email, session.token, cloudSessionGenRef.current)) await initial.promise;
+        if (!active || !session.isCurrent()) return;
         await fetchTeacherSubmissions(
           undefined,
           activeCourseCode,
@@ -20951,13 +20967,20 @@ ${rows
         refreshing = false;
       }
     };
-    refresh();
     // تحديث دوري بسيط لشاشة التسليمات وبطاقات الاختبارات لإظهار دخول/خروج
     // الطلاب من الاختبارات فور حدوثه دون الحاجة لتبديل التبويب أو إعادة
     // تحميل الصفحة.
-    const id = window.setInterval(refresh, 5000);
-    return () => window.clearInterval(id);
-  }, [currentView, teacherTab, activeCourseCode, teacherSession?.email]);
+    let id = 0;
+    const cancelStart = scheduleAfterWorkspacePaint(() => {
+      void refresh();
+      id = window.setInterval(refresh, 5000);
+    });
+    return () => {
+      active = false;
+      cancelStart();
+      window.clearInterval(id);
+    };
+  }, [currentView, teacherTab, activeCourseCode, teacherSession?.email, teacherSession?.authToken, teacherWorkspaceInteractive]);
 
   useEffect(() => {
     closeWorkspaceDrawers();

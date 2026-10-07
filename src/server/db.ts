@@ -1123,11 +1123,14 @@ export class LocalDatabase {
       throw new Error("Invalid cloud mutation version.");
     }
     if (!dbFS || this.isDemo) return this.waitForSync();
-    this.flushLocalSave();
-    await this.reattemptDatabaseGuardIfCooldownPassed();
+    // Cloud acknowledgment is authoritative; keep the full local cache write
+    // scheduled outside this request's critical path. Local-only mode still
+    // flushes through waitForSync above.
+    if (this.databaseGuardLocked) await this.reattemptDatabaseGuardIfCooldownPassed();
     if (firestoreQuotaExceeded || this.databaseGuardLocked) {
       throw new Error("Cloud mutation cannot be confirmed while database writes are blocked.");
     }
+    if (this.committedMutationVersion >= version) return;
     this.urgentCloudWaiters += 1;
     try {
       await waitForCloudMutation(version, {
@@ -1999,7 +2002,10 @@ export class LocalDatabase {
       this.data.lastUpdated = Math.max(Date.now(), Number(this.data.lastUpdated || 0) + 1);
       return;
     }
-    await this.reattemptDatabaseGuardIfCooldownPassed();
+    // Most callers intentionally do not await persist(). Register their writes
+    // before an endpoint captures its response mutation version. Only actual
+    // guard recovery needs to suspend this synchronous registration path.
+    if (this.databaseGuardLocked) await this.reattemptDatabaseGuardIfCooldownPassed();
     if (this.databaseGuardLocked && !MIRAS_ALLOW_EMPTY_FIRESTORE_INIT && !MIRAS_ALLOW_LOCAL_RESTORE_TO_EMPTY_CLOUD) {
       console.error(
         `🛑 ${MIRAS_DATABASE_GUARD_CODE}: blocked persist while database guard is locked. ${this.databaseGuardReason}`,
@@ -2094,7 +2100,10 @@ export class LocalDatabase {
       let optimisticConflict = false;
 
       const knownRevision = this.knownCloudMetaRevision;
-      if (this.urgentCloudWaiters > 0 && knownRevision &&
+      // Small background writes use the same conditional atomic commit as
+      // urgent writes, so a transfer need not queue behind entity+metadata
+      // round trips. Stale revisions retain the full reread/merge fallback.
+      if (knownRevision &&
           knownRevision.stamp === Number(baseAtStart.lastUpdated || 0) &&
           databaseHasMeaningfulContent(baseAtStart) && !this.databaseGuardLocked) {
         const optimistic = localAtStart;

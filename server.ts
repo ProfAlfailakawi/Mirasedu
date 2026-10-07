@@ -4246,7 +4246,9 @@ function latestStudentCourseActivationTime(student: any, courseCode: any, teache
     });
   }
   try {
-    dbInstance.getJoinCodes().forEach((jc: any) => {
+    // Only this student's linked records can contribute an activation time.
+    // Keep the existing status, owner and course checks after the lookup.
+    indexedStudentCodes(student).forEach((jc: any) => {
       const status = String(jc?.status || "").toLowerCase();
       if (!["used", "active-used", "activated"].includes(status)) return;
       if (!joinCodeMatchesStudentCourseIgnoringRemoval(jc, student, course, teacherEmail)) return;
@@ -4275,12 +4277,15 @@ function joinCodeMatchesStudentCourseIgnoringRemoval(
 function isStudentCourseRemoved(student: any, courseCode: any, teacherEmail?: any): boolean {
   const course = String(courseCode || "").trim();
   if (!student || !course) return false;
-  const latestActivation = latestStudentCourseActivationTime(student, course, teacherEmail);
+  let latestActivation: number | undefined;
   return canonicalStudentRemovedCourseLinks(student).some((entry: any) => {
     if (!entry || entry.restoredAt || entry.isRestored === true || entry.status === "restored") return false;
     const removedCourse = entry.courseCode || entry.sectionCode || entry.studentSection;
     const entryTeacher = entry.teacherEmail || entry.ownerEmail || entry.removedBy || teacherEmail;
     if (!courseMatchesRemovalTarget(removedCourse, course, entryTeacher || teacherEmail)) return false;
+    // Most memberships have no removal marker. Read their activation history
+    // only when it can change the result, once even if aliases repeat a marker.
+    latestActivation ??= latestStudentCourseActivationTime(student, course, teacherEmail);
     const removedAt = Date.parse(String(entry.removedAt || entry.deletedAt || "")) || 0;
     // لو أعادت مزامنة سحابية متأخرة علامة حذف قديمة، لا يجوز لها إسقاط دورة
     // تفعيل أحدث. الحذف يبقى نافذاً فقط إن كان أحدث من آخر كود مُفعّل.
@@ -4655,9 +4660,12 @@ function teacherReadIndex() {
   if (cached?.revision === revision) return cached;
   const group = (rows: any[], keys: (row: any) => string[]) => {
     const result = new Map<string, any[]>();
-    for (const row of rows) for (const key of new Set(keys(row).filter(Boolean))) {
-      const items = result.get(key);
-      if (items) items.push(row); else result.set(key, [row]);
+    for (const row of rows) {
+      if (!row) continue;
+      for (const key of new Set(keys(row).filter(Boolean))) {
+        const items = result.get(key);
+        if (items) items.push(row); else result.set(key, [row]);
+      }
     }
     return result;
   };
@@ -9406,6 +9414,7 @@ app.post("/api/convert-data-to-pdf", convertRateLimit, async (req: any, res: any
 // مع بقاء flushCloudSoon بعد الرد كشبكة أمان للمسارات غير JSON. الهدف: لا يظهر
 // سجل في الواجهة إلا وهو محفوظ/مجدول للدوام السحابي، فلا يختفي بعد التحديث.
 app.use(async (req, res, next) => {
+  const requestStartedAt = performance.now();
   if (/^\/api\/teacher\/students\/[^/]+\/reset-access$/.test(req.path)) {
     res.locals.deviceTransferStartedAt = performance.now();
   }
@@ -9429,8 +9438,8 @@ app.use(async (req, res, next) => {
     req.path === "/api/auth/public-device/availability"
   );
   if (req.method !== "GET" && req.url.startsWith("/api/") && !readOnlyPasskeyStart) {
-    const loginResponse = req.path === "/api/auth/login" || req.path === "/api/auth/passkey/login/finish";
     const mutationVersionAtRequest = dbInstance.getMutationVersion();
+    res.locals.cloudMutationVersionAtRequest = mutationVersionAtRequest;
     // حارس دوام عام لكل عمليات التعديل: أي رد JSON ناجح لا يخرج للواجهة إلا بعد
     // تفريغ الدفعة المحلية وانتظار مزامنة Firestore. هذا يمنع حالة "ظهر ثم اختفى"
     // في المسارات التي لم تكن تستدعي waitForSync يدوياً، ويبقي أخطاء 4xx/5xx سريعة.
@@ -9453,20 +9462,32 @@ app.use(async (req, res, next) => {
         return originalJson(body);
       }
       cloudGuardedJson = true;
-      // Confirm the writes produced by this login without waiting for later
-      // traffic from other accounts. The same target is retained on retry.
+      // Confirm this response's writes. Waiting for the entire database to stop
+      // changing starves submissions, passkey registration and notifications
+      // while other students are active. Retain the same target on retry.
       const responseMutationVersion = dbInstance.getMutationVersion();
-      const waitForResponseWrites = () => (loginResponse || readOnlyAuthMetadata)
-        ? (responseMutationVersion > mutationVersionAtRequest
-          ? dbInstance.waitForMutationSync(responseMutationVersion)
-          : Promise.resolve())
-        : dbInstance.waitForSync();
+      const cloudWaitStartedAt = performance.now();
+      const waitForResponseWrites = () => responseMutationVersion > mutationVersionAtRequest
+        ? dbInstance.waitForMutationSync(responseMutationVersion)
+        : (!readOnlyAuthMetadata && dbInstance.isDatabaseGuardLocked()
+          ? dbInstance.waitForSync()
+          : Promise.resolve());
       // محاولة ثانية واحدة قبل إرجاع 503: أغلب الإخفاقات تأخّر عابر في الكتابة.
       Promise.resolve(waitForResponseWrites())
         .catch(() => waitForResponseWrites())
         .then(() => {
           try {
-            if (!res.headersSent) originalJson(body);
+            if (!res.headersSent) {
+              const cloudMs = performance.now() - cloudWaitStartedAt;
+              const totalMs = performance.now() - requestStartedAt;
+              const timing = `response-cloud;dur=${cloudMs.toFixed(1)}, response-total;dur=${totalMs.toFixed(1)}`;
+              const previousTiming = String(res.getHeader("Server-Timing") || "");
+              res.setHeader("Server-Timing", previousTiming ? `${previousTiming}, ${timing}` : timing);
+              if (req.path === "/api/auth/login" || req.path === "/api/auth/passkey/login/finish") {
+                console.info(JSON.stringify({ event: "auth_response_timing", path: req.path, cloudMs: Math.round(cloudMs), totalMs: Math.round(totalMs) }));
+              }
+              originalJson(body);
+            }
           } catch (e) {
             console.error("⚠️ Failed to send guarded JSON response:", e);
           }
@@ -9518,7 +9539,12 @@ function cloudDurabilityErrorBody() {
 
 async function ensureDurableSync(res: express.Response): Promise<boolean> {
   try {
-    await dbInstance.waitForSync();
+    const version = dbInstance.getMutationVersion();
+    if (version > Number(res.locals.cloudMutationVersionAtRequest ?? -1)) {
+      await dbInstance.waitForMutationSync(version);
+    } else if (dbInstance.isDatabaseGuardLocked()) {
+      await dbInstance.waitForSync();
+    }
     return true;
   } catch (error) {
     console.error("⚠️ Cloud durability sync failed inside API route:", error);
