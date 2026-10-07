@@ -979,6 +979,14 @@ export function createDemoDatabaseState(liveTeachers: Teacher[]): DatabaseState 
   for (const st of students) {
     if (st.id === DEMO_STUDENT_ID) st.devices = [];
   }
+  const demoStudent = students.find((st) => st.id === DEMO_STUDENT_ID)!;
+  const inAppNotifications = [
+    { id: "demo_note_exam", userId: demoStudent.id, studentId: demoStudent.id, role: "student", sectionCode: demoStudent.sectionCode, title: "اختبار متاح", body: "اختبار الفصل الثاني متاح الآن. لديك ٤٥ دقيقة لإكماله.", type: "exam_available", createdAt: ago(0), read: false, data: { type: "exam_available", studentId: demoStudent.id, courseCode: demoStudent.sectionCode } },
+    { id: "demo_note_project", userId: demoStudent.id, studentId: demoStudent.id, role: "student", sectionCode: demoStudent.sectionCode, title: "مشروع جديد", body: "أُضيف مشروع تصميم وحدة تعليمية رقمية. موعد التسليم بعد ٦ أيام.", type: "project_new", createdAt: ago(1), read: false, data: { type: "project_new", studentId: demoStudent.id, courseCode: demoStudent.sectionCode } },
+    { id: "demo_note_grade", userId: demoStudent.id, studentId: demoStudent.id, role: "student", sectionCode: demoStudent.sectionCode, title: "درجة منشورة", body: "نُشرت درجتك في اختبار أسس تقنيات التعليم.", type: "grade_published", createdAt: ago(2), read: false, data: { type: "grade_published", studentId: demoStudent.id, courseCode: demoStudent.sectionCode } },
+    { id: "demo_note_feedback", userId: demoStudent.id, studentId: demoStudent.id, role: "student", sectionCode: demoStudent.sectionCode, title: "ملاحظات على التسليم", body: "أضاف الأستاذ ملاحظات على مشروعك. افتح التسليم لمراجعتها.", type: "submission_returned", createdAt: ago(3), read: true, data: { type: "submission_returned", studentId: demoStudent.id, courseCode: demoStudent.sectionCode } },
+    { id: "demo_note_security", userId: demoStudent.id, studentId: demoStudent.id, role: "student", title: "حسابك محمي", body: "تم التحقق من جهازك بنجاح. لا يلزم أي إجراء.", type: "account_security", createdAt: ago(4), read: true, data: { type: "account_security", studentId: demoStudent.id } },
+  ];
 
   return {
     lastUpdated: Date.now(),
@@ -1004,7 +1012,7 @@ export function createDemoDatabaseState(liveTeachers: Teacher[]): DatabaseState 
     passwordResetRequests,
     activationAttempts,
     notificationTokens: [],
-    inAppNotifications: [],
+    inAppNotifications,
     passkeyCredentials: [],
   };
 }

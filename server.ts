@@ -11490,6 +11490,7 @@ app.get("/api/teacher/activation-attempts", (req, res) => {
         linkedStudentId: student?.id || allowed?.idNumber || studentId || attempt.studentId || "",
         linkedStudentName:
           student?.name || allowed?.name || attempt.studentName || attempt.targetStudentName || "",
+        linkedStudentLastLoginAt: String(student?.lastLoginDate || ""),
         linkedSectionCode: sectionCode,
         linkedSectionName: courseNameFromCode(sectionCode) || sectionDisplayCode(sectionCode) || "مقرر غير محدد",
         attemptCount: counts.get(keyOf(attempt)) || 1,
@@ -20410,8 +20411,11 @@ app.post("/api/teacher/code-scan", teacherExactCodeScanRateLimit, (req, res) => 
     ? dbInstance.getStudents().find((row: any) => normalizeStudentId(row.id) === studentId)
     : null;
   const resolved = resolveJoinCodeCourseForDisplay(code);
-  const courseCode = String(resolved.courseCode || code.resolvedCourseCode || code.activatedCourseCode || code.studentSection || code.sectionCode || code.courseCode || "").trim();
-  const storedCourseName = String(resolved.courseName || code.courseName || code.resolvedCourseName || code.activatedCourseName || "").trim();
+  const rawCourseCode = String(resolved.courseCode || code.resolvedCourseCode || code.activatedCourseCode || code.studentSection || code.sectionCode || code.courseCode || "").trim();
+  const courseCode = /اسم الدكتور غير محمل|غير محمل|غير معروف/i.test(rawCourseCode) ? "" : rawCourseCode;
+  const storedCourseName = [resolved.courseName, code.courseName, code.resolvedCourseName, code.activatedCourseName]
+    .map((value: any) => String(value || "").trim())
+    .find((value: string) => value && !/اسم الدكتور غير محمل|غير محمل|غير معروف/i.test(value)) || "";
   const ownerEmail = String(code.ownerEmail || code.createdByEmail || joinCodeOwnerEmail(code) || joinCodeAuditOwner(code) || "").trim().toLowerCase();
   const issuer = dbInstance.getTeachers().find((row: any) => String(row.email || "").trim().toLowerCase() === ownerEmail);
   const status = String(code.status || "active").toLowerCase();
@@ -20433,10 +20437,12 @@ app.post("/api/teacher/code-scan", teacherExactCodeScanRateLimit, (req, res) => 
     studentName: String(student?.name || code.usedByStudentName || code.studentName || code.assignedStudentName || "").trim(),
     studentId,
     civilId,
-    courseName: storedCourseName || (courseCode ? courseNameFromCode(courseCode) : "مقرر عام"),
+    courseName: storedCourseName || (courseCode && !/اسم الدكتور غير محمل|غير محمل|غير معروف/i.test(courseNameFromCode(courseCode)) ? courseNameFromCode(courseCode) : courseCode || "مقرر عام"),
     sectionCode: courseCode,
     semester: String(code.semester || code.academicTerm || code.term || "").trim(),
-    teacherName: String(issuer?.name || code.ownerName || code.createdByName || ownerEmail || "غير معروف").trim(),
+    teacherName: [issuer?.name, code.ownerName, code.createdByName]
+      .map((value: any) => String(value || "").trim())
+      .find((value: string) => value && !/اسم الدكتور غير محمل|غير محمل|غير معروف/i.test(value)) || "",
   });
 });
 

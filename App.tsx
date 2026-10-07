@@ -3605,11 +3605,13 @@ export default function App() {
     void refreshDemoState();
   }, [refreshDemoState]);
 
-  const enterDemo = useCallback(async () => {
+  const enterDemo = useCallback(async (initialRole: "teacher" | "student" = "teacher") => {
     setDemoBusy(true);
+    let demoCreated = false;
     try {
       const response = await fetch("/api/demo/enter", { method: "POST" });
       if (!response.ok) throw new Error("demo unavailable");
+      demoCreated = true;
       /*
        * الصندوق وحده لا يُدخل أحداً.
        *
@@ -3628,15 +3630,27 @@ export default function App() {
        * فتضيع نسبة الطلب إلى صندوقه — ويُقذف الزائر إلى شاشة الدخول فور دخوله.
        * والمعرّف المحفوظ هنا هو ما يرسله `installDemoTransport` في ترويسة مع كل
        * نداء بعد إعادة التحميل. التفصيل في `src/shared/demo-transport.ts`.
-       */
+      */
       rememberDemoSessionId(payload?.sessionId);
-      const demoTeacher = payload?.teacher;
-      if (demoTeacher?.authToken) {
+      let identity = payload?.teacher;
+      if (initialRole === "student") {
+        const roleResponse = await fetch("/api/demo/role", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ role: "student" }),
+        });
+        const rolePayload = await roleResponse.json().catch(() => ({} as any));
+        if (!roleResponse.ok || !rolePayload?.student?.authToken) throw new Error("demo student unavailable");
+        identity = rolePayload.student;
+      }
+      if (identity?.authToken) {
         try {
           const previous = localStorage.getItem("miras_teacher_session");
           if (previous) sessionStorage.setItem(MIRAS_PRE_DEMO_TEACHER_SESSION, previous);
           else sessionStorage.removeItem(MIRAS_PRE_DEMO_TEACHER_SESSION);
-          localStorage.setItem("miras_teacher_session", JSON.stringify(demoTeacher));
+          localStorage.removeItem("miras_teacher_session");
+          localStorage.removeItem("miras_student_session");
+          localStorage.setItem(initialRole === "student" ? "miras_student_session" : "miras_teacher_session", JSON.stringify(identity));
         } catch {
           /* تخزين محجوب: الصندوق يبقى، والدخول يتعذّر — ولا يُكسر شيء. */
         }
@@ -3645,6 +3659,11 @@ export default function App() {
       // تبقى ممسكة بصفوف من الحالة السابقة.
       window.location.reload();
     } catch {
+      if (demoCreated) {
+        try { await fetch("/api/demo/exit", { method: "POST" }); } catch {}
+        forgetDemoSessionId();
+        try { sessionStorage.removeItem(MIRAS_PRE_DEMO_TEACHER_SESSION); } catch {}
+      }
       setDemoBusy(false);
     }
   }, []);
@@ -5967,6 +5986,7 @@ export default function App() {
   >(null);
   const [passkeyTrustedDevices, setPasskeyTrustedDevices] = useState<any[]>([]);
   const [passkeyDevicesOpen, setPasskeyDevicesOpen] = useState(false);
+  const [trustedDeviceSearch, setTrustedDeviceSearch] = useState("");
   const [passkeyRecoveryRole, setPasskeyRecoveryRole] = useState<
     "student" | "teacher"
   >("student");
@@ -7810,7 +7830,7 @@ export default function App() {
   const [activationQrScannerStatus, setActivationQrScannerStatus] =
     useState("");
   const [activationQrScannerTarget, setActivationQrScannerTarget] = useState<
-    "signup-code" | "join-lab"
+    "signup-code" | "join-lab" | "code-lookup"
   >("join-lab");
   const [activationQrCourseTarget, setActivationQrCourseTarget] = useState("");
   const activationQrVideoRef = useRef<HTMLVideoElement | null>(null);
@@ -7824,7 +7844,7 @@ export default function App() {
   // الالتقاط، لأن حلقة المسح تُنشأ في render واحد بينما setState للهدف لا ينعكس
   // إلا في render تالٍ — فيقع الكود في أول مسحة في الحقل الخطأ (مثلاً يذهب إلى
   // joinCodeInput بدل otpInput في شاشة التفعيل) فتظهر رسالة النجاح دون تعبئة.
-  const activationQrTargetRef = useRef<"signup-code" | "join-lab">("join-lab");
+  const activationQrTargetRef = useRef<"signup-code" | "join-lab" | "code-lookup">("join-lab");
   const activationQrCourseTargetRef = useRef("");
   const activationQrCodeDetectedRef = useRef(false);
   const activationQrCameraStartingRef = useRef(false);
@@ -14133,8 +14153,9 @@ export default function App() {
     }
   };
 
-  const lookupTeacherCode = async () => {
-    if (!teacherSession?.email || teacherCodeLookupBusy || !teacherCodeLookupInput.trim()) return;
+  const lookupTeacherCode = async (rawCode = teacherCodeLookupInput) => {
+    const codeToLookup = String(rawCode || "").trim();
+    if (!teacherSession?.email || teacherCodeLookupBusy || !codeToLookup) return;
     setTeacherCodeLookupBusy(true);
     setTeacherCodeLookupMessage("");
     setTeacherCodeLookupResult(null);
@@ -14143,7 +14164,7 @@ export default function App() {
         method: "POST",
         cache: "no-store",
         headers: { "Content-Type": "application/json", ...teacherHeaders(teacherSession.email) },
-        body: JSON.stringify({ code: teacherCodeLookupInput.trim() }),
+        body: JSON.stringify({ code: codeToLookup }),
       });
       const payload = await response.json().catch(() => ({}));
       if (!response.ok || !payload.success) {
@@ -16408,6 +16429,11 @@ ${rows
     if (target === "signup-code") {
       touchCodeTyping("signup-code", code, true);
       setOtpInput(code);
+    } else if (target === "code-lookup") {
+      setTeacherCodeLookupInput(code);
+      setTeacherCodeLookupMessage("");
+      setTeacherCodeLookupResult(null);
+      window.setTimeout(() => void lookupTeacherCode(code), 0);
     } else if (courseTarget) {
       touchCodeTyping(`course-${courseTarget}`, code, true);
       setCourseActivationInputs((prev) => ({
@@ -16426,7 +16452,7 @@ ${rows
     // امسح أي توست خطأ سابق حتى لا يبقى ظاهراً فوق رسالة النجاح.
     setActivationQrScannerStatus("");
     setErrorMsg("");
-    setSuccessMsg("تم التقاط كود التفعيل من QR بنجاح.");
+    if (target !== "code-lookup") setSuccessMsg("تم التقاط الكود.");
     return true;
   };
 
@@ -16568,7 +16594,7 @@ ${rows
   };
 
   const startActivationQrScanner = async (
-    target: "signup-code" | "join-lab",
+    target: "signup-code" | "join-lab" | "code-lookup",
     courseCodeTarget = "",
   ) => {
     setErrorMsg("");
@@ -21545,6 +21571,10 @@ ${rows
   const passwordResetRequests = passwordResetRequestsState
     .filter((req: any) => !shouldRemoveFinishedPasswordReset(req))
     .filter((req: any) => {
+      const requestedAt = new Date(req.requestedAt || req.timestamp || 0).getTime();
+      return !Number.isFinite(requestedAt) || Date.now() - requestedAt <= 24 * 60 * 60 * 1000;
+    })
+    .filter((req: any) => {
       if (isAdminTeacher && auditScopeEmail === "all") return true;
       const owner = String(req.teacherEmail || "").toLowerCase();
       if (isAdminTeacher) return isSameTeacherIdentity(owner, scopedOwnerEmail);
@@ -21552,8 +21582,8 @@ ${rows
     })
     .sort(
       (a: any, b: any) =>
-        new Date(b.requestedAt || 0).getTime() -
-        new Date(a.requestedAt || 0).getTime(),
+        new Date(b.requestedAt || b.timestamp || 0).getTime() -
+        new Date(a.requestedAt || a.timestamp || 0).getTime(),
     );
 
   const passwordResetStatusLabel = (status: any) =>
@@ -21570,6 +21600,12 @@ ${rows
     .filter((req: any) => !isFinishedPasswordResetRequest(req))
     .slice(0, 4);
   const homePasswordResetRequests = homePasswordResets(passwordResetRequests, currentTeacherEmail, isSameTeacherIdentity, (request: any) => !!request.sectionCode && isSameTeacherIdentity(courseOwnerEmail(request.sectionCode), currentTeacherEmail));
+  const filteredTrustedDevices = passkeyTrustedDevices.filter((device: any) => {
+    const query = normalizeArabicDigits(trustedDeviceSearch).trim().toLowerCase();
+    if (!query) return true;
+    return [device.userName, device.userId, device.deviceLabel, device.deviceType, device.role]
+      .some((value: any) => normalizeArabicDigits(String(value || "")).toLowerCase().includes(query));
+  });
 
   const renderPasswordResetRequest = (req: any) => {
     const key = req.id || `${req.studentId}-${req.timestamp}`;
@@ -21616,6 +21652,7 @@ ${rows
         </button>
         {isOpen && (
           <div className="border-t border-amber-50 px-3.5 pb-3 pt-2">
+            <div className="mb-2 flex justify-start"><button type="button" onClick={() => setOpenAuditGroups((prev) => ({ ...prev, [groupKey]: false }))} className="inline-flex items-center gap-1 rounded-xl px-2.5 py-1.5 text-[10px] font-bold text-slate-500 hover:bg-slate-50" aria-label="إغلاق تفاصيل الطلب"><X className="h-3.5 w-3.5" /> إغلاق</button></div>
             <p className="mb-2 text-[10px] font-medium text-slate-500">رابط مؤقت لمرة واحدة، يعمل من أي جهاز ولا يغيّر الجهاز الموثوق.</p>
             <div className="grid grid-cols-2 gap-2 text-[10px] font-bold text-slate-500 sm:grid-cols-4">
               <div className="rounded-2xl bg-slate-50 px-3 py-2"><span className="block text-slate-400">الرقم</span><span className="mt-1 block font-mono text-slate-900">{req.studentId || "-"}</span></div>
@@ -22156,6 +22193,8 @@ ${rows
           courses: new Set<string>(),
           devices: new Set<string>(),
           browsers: new Set<string>(),
+          lastSuccessfulLoginMs: 0,
+          lastSuccessfulLoginAt: "",
         });
       }
       const group = groups.get(key);
@@ -22172,6 +22211,11 @@ ${rows
       if (courseLabel) group.courses.add(courseLabel);
       if (device.device) group.devices.add(device.device);
       if (device.browser) group.browsers.add(device.browser);
+      const successfulLoginAt = new Date(attempt.linkedStudentLastLoginAt || 0).getTime() || 0;
+      if (successfulLoginAt > group.lastSuccessfulLoginMs) {
+        group.lastSuccessfulLoginMs = successfulLoginAt;
+        group.lastSuccessfulLoginAt = attempt.linkedStudentLastLoginAt;
+      }
     });
     return Array.from(groups.values())
       .map((group: any) => {
@@ -22186,6 +22230,8 @@ ${rows
           ...group,
           rows,
           totalAttempts: rows.length,
+          loggedInAfterAttempts: group.lastSuccessfulLoginMs > group.latestMs,
+          lastSuccessfulLoginAt: group.lastSuccessfulLoginAt,
           codeStats: Array.from(group.codeCounts.entries())
             .map(([code, count]: any) => ({
               code,
@@ -25609,6 +25655,26 @@ ${rows
             liveRadarStateForSubmission(sub).key === submissionStatusFilter,
         )
       : drilledSubmissions;
+
+  const hasUngradedAttemptedSubmissions = ungradedAttemptIds(
+    filteredDrilledSubmissions.map((sub: any) => {
+      const status = String(sub.status || "").trim().toLowerCase();
+      const returned = isTeacherReturnedSubmission(sub);
+      const inProgress = isExamInProgressSubmission(sub) ||
+        isDisconnectedInProgressSubmission(sub) ||
+        /مسودة|لم يبدأ|قيد الحل|جاري الرفع|uploading|in.progress|not.started/.test(status);
+      const hasGrade = !returned && !!(
+        sub.teacherGradeOverride || teacherVisibleGradeText(sub) ||
+        isSubmissionGradeOfficiallyRecorded(sub) || isTimeExpiredRecordedSubmission(sub)
+      );
+      const hasWork = !!(
+        returned || sub.submittedAt || sub.resubmittedAt || sub.gradedAt ||
+        sub.serverSubmissionId || (Array.isArray(sub.attachments) && sub.attachments.length) ||
+        (sub.answers && Object.keys(sub.answers).length) || String(sub.answerText || "").trim()
+      );
+      return { id: String(sub.id || ""), hasWork, hasGrade, inProgress, cheating: isCheatingAttemptSubmission(sub), returned };
+    }),
+  ).length > 0;
 
   const selectOnlyUngradedAttemptedSubmissions = () => {
     const candidates = filteredDrilledSubmissions.map((sub: any) => {
@@ -32159,10 +32225,10 @@ ${rows
               <div>
                 <div className="inline-flex items-center gap-2 rounded-2xl border border-indigo-100 bg-indigo-50/70 px-3 py-1.5 text-[11px] font-bold text-indigo-700">
                   <Camera className="h-4 w-4" />
-                  مسح كود التفعيل
+                  {activationQrScannerTarget === "code-lookup" ? "تحقق من كود" : "مسح كود التفعيل"}
                 </div>
                 <h3 className="mt-3 text-xl font-black text-slate-950">
-                  عدسة تفعيل المنصة
+                  {activationQrScannerTarget === "code-lookup" ? "وجّه الكاميرا إلى QR" : "عدسة تفعيل المنصة"}
                 </h3>
               </div>
               <button
@@ -37263,6 +37329,18 @@ ${rows
 
               {teacherTab === "home" && (
                 <div className="miras-teacher-home-panel pt-0 p-3 sm:p-6 lg:p-8 space-y-5">
+                  {demoEnabled && !demoActive && (
+                    <div className="flex flex-wrap items-center justify-between gap-3 rounded-3xl border border-indigo-100 bg-gradient-to-l from-indigo-50/90 via-white to-sky-50/70 px-4 py-3 shadow-sm" dir="rtl">
+                      <div className="flex min-w-0 items-center gap-3">
+                        <span className="grid h-10 w-10 shrink-0 place-items-center rounded-2xl bg-indigo-100 text-indigo-700"><FlaskConical className="h-5 w-5" /></span>
+                        <div className="min-w-0 text-right"><p className="text-xs font-black text-slate-900">عرض الطالب</p><p className="mt-0.5 text-[10px] font-medium text-slate-500">بيانات تجريبية للتجربة والشرح</p></div>
+                      </div>
+                      <button type="button" disabled={demoBusy} onClick={() => void enterDemo("student")} className="inline-flex h-10 items-center gap-2 rounded-2xl bg-indigo-600 px-4 text-xs font-bold text-white shadow-sm transition hover:bg-indigo-700 disabled:opacity-60">
+                        {demoBusy ? <MirasLoader size={15} role="current" label="" /> : <Play className="h-4 w-4" />}
+                        افتح الديمو
+                      </button>
+                    </div>
+                  )}
                   <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-6">
                     <TeacherMetricCard
                       label="عدد المقررات"
@@ -37994,14 +38072,16 @@ ${rows
                             <h3 className="text-sm font-bold text-slate-900">
                               رصد درجات لمجموعة
                             </h3>
-                            <button
-                              type="button"
-                              onClick={selectOnlyUngradedAttemptedSubmissions}
-                              className="rounded-full border border-indigo-200 bg-white px-3 py-1.5 text-[11px] font-bold text-indigo-700 hover:bg-indigo-50"
-                              title="لمن أكملوا بلا درجة"
-                            >
-                              تحديد بلا درجة
-                            </button>
+                            {hasUngradedAttemptedSubmissions && (
+                              <button
+                                type="button"
+                                onClick={selectOnlyUngradedAttemptedSubmissions}
+                                className="rounded-full border border-indigo-200 bg-white px-3 py-1.5 text-[11px] font-bold text-indigo-700 hover:bg-indigo-50"
+                                title="لمن أكملوا بلا درجة"
+                              >
+                                تحديد بلا درجة
+                              </button>
+                            )}
                           </div>
                           <div className="mx-auto max-w-md">
                             <input
@@ -43791,6 +43871,7 @@ ${rows
                                 setPasswordResetRequestsOpen((v) => !v);
                               }}
                               className="flex w-full flex-col gap-3 text-right md:flex-row md:items-center md:justify-between"
+                              aria-expanded={passwordResetRequestsOpen}
                             >
                               <div>
                                 <h3 className="flex items-center gap-2 text-sm font-bold text-amber-900">
@@ -43809,10 +43890,13 @@ ${rows
                               </span>
                             </button>
                             {passwordResetRequestsOpen && (
-                              <div className="mt-3 grid grid-cols-1 md:grid-cols-2 gap-3">
+                              <div className="mt-3 space-y-2">
+                                <div className="flex justify-start"><button type="button" onClick={() => setPasswordResetRequestsOpen(false)} className="inline-flex items-center gap-1 rounded-xl px-2.5 py-1.5 text-[10px] font-bold text-slate-500 hover:bg-white/70" aria-label="إغلاق قائمة الاسترجاع"><X className="h-3.5 w-3.5" /> إغلاق</button></div>
+                                <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
                                 {passwordResetRequests.map((req: any) =>
                                   renderPasswordResetRequest(req),
                                 )}
+                                </div>
                               </div>
                             )}
                           </div>
@@ -43847,8 +43931,14 @@ ${rows
                             </span>
                           </button>
                           {passkeyDevicesOpen && (
-                            <div className="mt-3 grid grid-cols-1 gap-2 md:grid-cols-2">
-                              {passkeyTrustedDevices.map((device: any) => (
+                            <div className="mt-3 space-y-3">
+                            <div className="flex items-center gap-2 rounded-2xl border border-white bg-white/80 px-3">
+                              <Search className="h-4 w-4 shrink-0 text-slate-400" />
+                              <input value={trustedDeviceSearch} onChange={(event) => setTrustedDeviceSearch(event.target.value)} className="h-11 min-w-0 flex-1 bg-transparent text-right text-xs font-semibold text-slate-800 outline-none placeholder:text-slate-400" placeholder="ابحث باسم الطالب أو رقمه" aria-label="ابحث في أجهزة البصمة" />
+                              <button type="button" onClick={() => setPasskeyDevicesOpen(false)} className="rounded-xl p-2 text-slate-400 hover:bg-slate-50 hover:text-slate-700" aria-label="إغلاق قائمة الأجهزة"><X className="h-4 w-4" /></button>
+                            </div>
+                            <div className="grid grid-cols-1 gap-2 md:grid-cols-2">
+                              {filteredTrustedDevices.map((device: any) => (
                                 <div
                                   key={device.credentialId}
                                   className="rounded-2xl border border-white bg-white/85 p-3 text-right shadow-sm"
@@ -43898,11 +43988,12 @@ ${rows
                                   </p>
                                 </div>
                               ))}
-                              {!passkeyTrustedDevices.length && (
+                              {!filteredTrustedDevices.length && (
                                 <div className="rounded-2xl border border-white bg-white/75 px-4 py-3 text-xs font-bold text-emerald-700 md:col-span-2">
-                                  لا توجد أجهزة بصمة موثوقة حتى الآن.
+                                  {passkeyTrustedDevices.length ? "لا توجد مطابقة." : "لا توجد أجهزة بصمة موثوقة حتى الآن."}
                                 </div>
                               )}
+                            </div>
                             </div>
                           )}
                         </div>
@@ -44668,6 +44759,9 @@ ${rows
                           <label className="flex h-11 min-w-[180px] flex-1 items-center rounded-2xl border border-slate-200 bg-slate-50 px-3">
                             <input value={teacherCodeLookupInput} onChange={(event) => setTeacherCodeLookupInput(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter") void lookupTeacherCode(); }} className="min-w-0 flex-1 bg-transparent text-right text-xs font-semibold text-slate-800 outline-none" placeholder="أدخل الكود" aria-label="أدخل الكود للتحقق" />
                           </label>
+                          <button type="button" onClick={() => void startActivationQrScanner("code-lookup")} className="inline-flex h-11 w-11 items-center justify-center rounded-2xl border border-indigo-100 bg-indigo-50 text-indigo-700 transition hover:bg-indigo-100" title="مسح QR بالكاميرا" aria-label="مسح QR بالكاميرا">
+                            <Camera className="h-5 w-5" />
+                          </button>
                           <button type="button" onClick={lookupTeacherCode} disabled={teacherCodeLookupBusy || !teacherCodeLookupInput.trim()} className="inline-flex h-11 items-center gap-2 rounded-2xl bg-indigo-600 px-4 text-xs font-bold text-white shadow-sm disabled:opacity-60">
                             <Search className={`h-4 w-4 ${teacherCodeLookupBusy ? "animate-pulse" : ""}`} />
                             {teacherCodeLookupBusy ? "يتحقق" : "تحقق"}
@@ -44675,14 +44769,17 @@ ${rows
                         </div>
                         {teacherCodeLookupMessage && <p className="mt-3 text-right text-xs font-semibold text-rose-600" dir="rtl">{teacherCodeLookupMessage}</p>}
                         {teacherCodeLookupResult && (
-                          <article className="mt-3 rounded-2xl border border-slate-100 bg-slate-50/80 p-3" dir="rtl">
-                            <div className="flex flex-wrap items-center justify-between gap-2">
-                              <span className={`rounded-full px-3 py-1 text-[10px] font-bold ${String(teacherCodeLookupResult.state).includes("صالح") || String(teacherCodeLookupResult.state).includes("مُفعّل") ? "bg-emerald-50 text-emerald-700" : "bg-amber-50 text-amber-700"}`}>{teacherCodeLookupResult.state}</span>
-                              <code dir="ltr" className="font-mono text-xs font-black text-indigo-700">{teacherCodeLookupResult.code}</code>
+                          <article className="mt-3 overflow-hidden rounded-3xl border border-indigo-100 bg-gradient-to-br from-white via-white to-indigo-50/60 shadow-sm" dir="rtl">
+                            <div className="flex flex-wrap items-center justify-between gap-3 border-b border-indigo-50 px-4 py-3">
+                              <div className="flex items-center gap-2"><span className="grid h-9 w-9 place-items-center rounded-2xl bg-indigo-50 text-indigo-600"><Key className="h-4 w-4" /></span><code dir="ltr" className="font-mono text-xs font-black tracking-wide text-indigo-700">{teacherCodeLookupResult.code}</code></div>
+                              <span className={`rounded-full px-3 py-1.5 text-[10px] font-black ${String(teacherCodeLookupResult.state).includes("صالح") || String(teacherCodeLookupResult.state).includes("مُفعّل") ? "bg-emerald-50 text-emerald-700" : "bg-amber-50 text-amber-700"}`}>{teacherCodeLookupResult.state}</span>
                             </div>
-                            {teacherCodeLookupResult.studentName ? <p className="mt-2 text-right text-xs font-bold text-slate-900">{teacherCodeLookupResult.studentName}{teacherCodeLookupResult.studentId ? <span className="mr-2 font-mono font-semibold text-slate-500">جامعي: {teacherCodeLookupResult.studentId}</span> : null}{teacherCodeLookupResult.civilId ? <span className="mr-2 font-mono font-semibold text-slate-500">مدني: {teacherCodeLookupResult.civilId}</span> : null}</p> : <p className="mt-2 text-right text-xs font-semibold text-slate-600">لا يرتبط بطالب</p>}
-                            <p className="mt-1 text-right text-[10px] font-medium text-slate-600">{teacherCodeLookupResult.courseName}{teacherCodeLookupResult.sectionCode ? ` • ${teacherCodeLookupResult.sectionCode}` : ""}{teacherCodeLookupResult.semester ? ` • ${teacherCodeLookupResult.semester}` : ""}</p>
-                            <p className="mt-1 text-right text-[10px] text-slate-500">الأستاذ: {teacherCodeLookupResult.teacherName}</p>
+                            <div className="grid gap-2 p-3 sm:grid-cols-2">
+                              <div className="rounded-2xl bg-white/90 px-3 py-2.5 sm:col-span-2"><span className="block text-[9px] font-bold text-slate-400">الطالب</span><p className="mt-1 text-xs font-black text-slate-900">{teacherCodeLookupResult.studentName || "غير مرتبط بطالب"}</p><div className="mt-1 flex flex-wrap gap-2 text-[10px] font-semibold text-slate-500">{teacherCodeLookupResult.studentId && <span>جامعي: <bdi className="font-mono">{teacherCodeLookupResult.studentId}</bdi></span>}{teacherCodeLookupResult.civilId && <span>مدني: <bdi className="font-mono">{teacherCodeLookupResult.civilId}</bdi></span>}</div></div>
+                              <div className="rounded-2xl bg-white/90 px-3 py-2.5"><span className="block text-[9px] font-bold text-slate-400">المقرر / الشعبة</span><p className="mt-1 text-[11px] font-bold text-slate-800">{teacherCodeLookupResult.courseName}{teacherCodeLookupResult.sectionCode && teacherCodeLookupResult.sectionCode !== teacherCodeLookupResult.courseName ? ` • ${teacherCodeLookupResult.sectionCode}` : ""}</p></div>
+                              {teacherCodeLookupResult.semester && <div className="rounded-2xl bg-white/90 px-3 py-2.5"><span className="block text-[9px] font-bold text-slate-400">الفصل</span><p className="mt-1 text-[11px] font-bold text-slate-800">{teacherCodeLookupResult.semester}</p></div>}
+                              {teacherCodeLookupResult.teacherName && <div className="rounded-2xl bg-white/90 px-3 py-2.5 sm:col-span-2"><span className="block text-[9px] font-bold text-slate-400">الأستاذ</span><p className="mt-1 text-[11px] font-bold text-slate-800">{teacherCodeLookupResult.teacherName}</p></div>}
+                            </div>
                           </article>
                         )}
                       </section>
@@ -45974,8 +46071,9 @@ ${rows
                                           <span
                                             className={`rounded-full px-3 py-1 text-[10px] font-bold ring-1 ${group.totalAttempts >= 10 ? "bg-rose-50 text-rose-700 ring-rose-100" : group.totalAttempts >= 5 ? "bg-amber-50 text-amber-700 ring-amber-100" : "bg-slate-50 text-slate-500 ring-slate-100"}`}
                                           >
-                                            {group.totalAttempts} محاولة مرفوضة
+                                            {group.totalAttempts} محاولة سابقة
                                           </span>
+                                          {group.loggedInAfterAttempts && <span className="rounded-full bg-emerald-50 px-3 py-1 text-[10px] font-bold text-emerald-700 ring-1 ring-emerald-100">دخل بعدها</span>}
                                           <span className="rounded-full bg-slate-50 px-3 py-1 text-[10px] font-bold text-slate-500 ring-1 ring-slate-100">
                                             آخر محاولة:{" "}
                                             {latest.timestamp
@@ -46018,6 +46116,7 @@ ${rows
                                             {shortDeviceFingerprint(latest)}
                                           </span>
                                         </div>
+                                        {group.loggedInAfterAttempts && <p className="mt-2 text-[10px] font-bold text-emerald-700">آخر دخول ناجح: {formatKwDateTime(group.lastSuccessfulLoginAt)}</p>}
                                       </div>
                                       <div className="flex items-center justify-between gap-3 lg:justify-end">
                                         <div className="hidden min-w-[170px] rounded-2xl border border-slate-100 bg-white px-4 py-3 text-right shadow-sm sm:block">
@@ -46179,7 +46278,7 @@ ${rows
                                                             : "وقت غير محدد"}
                                                         </span>
                                                         <span className="rounded-full bg-amber-50 px-3 py-1 text-[10px] font-bold text-amber-700 ring-1 ring-amber-100">
-                                                          محاولة مرفوضة
+                                                          محاولة سابقة
                                                         </span>
                                                       </div>
                                                       <div className="mt-3 rounded-2xl border border-white bg-white px-3 py-3 shadow-sm">
