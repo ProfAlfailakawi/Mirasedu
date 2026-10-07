@@ -21174,6 +21174,28 @@ ${rows
       ? scopedOwnerEmail === "all" || auditCourseCodes.some(code => studentBelongsToCourse(student, code))
       : studentBelongsToCourse(student, activeCourseCode),
   );
+  const manualActivationStudents = useMemo(() => {
+    const q = manualActivationSearch.trim().toLowerCase();
+    const arabicNameOrder = new Intl.Collator("ar", {
+      sensitivity: "base",
+      numeric: true,
+    });
+    return scopedTeacherStudents
+      .filter((student: any) => {
+        if (!q) return true;
+        return (
+          String(student.name || "").toLowerCase().includes(q) ||
+          String(student.id || "").toLowerCase().includes(q) ||
+          String(student.idNumber || "").toLowerCase().includes(q)
+        );
+      })
+      .sort((a: any, b: any) =>
+        arabicNameOrder.compare(
+          String(a.name || "").trim(),
+          String(b.name || "").trim(),
+        ) || String(a.id || a.idNumber || "").localeCompare(String(b.id || b.idNumber || "")),
+      );
+  }, [scopedTeacherStudents, manualActivationSearch]);
   const allowedRosterForCourse = allowedStudentsText
     .split("\n")
     .map((line) => line.split(",").map((part) => part.trim()))
@@ -45927,25 +45949,7 @@ ${rows
                                 )}
                               </div>
                               <div className="grid grid-cols-1 xl:grid-cols-2 gap-3">
-                                {scopedTeacherStudents
-                                  .filter((student) => {
-                                    const q = manualActivationSearch
-                                      .trim()
-                                      .toLowerCase();
-                                    if (!q) return true;
-                                    return (
-                                      String(student.name || "")
-                                        .toLowerCase()
-                                        .includes(q) ||
-                                      String(student.id || "")
-                                        .toLowerCase()
-                                        .includes(q) ||
-                                      String(student.idNumber || "")
-                                        .toLowerCase()
-                                        .includes(q)
-                                    );
-                                  })
-                                  .map((student) => {
+                                {manualActivationStudents.map((student) => {
                                     const studentCourseCodes = Array.from(
                                       new Set(
                                         [
@@ -46129,23 +46133,7 @@ ${rows
                                   </div>
                                 )}
                                 {scopedTeacherStudents.length > 0 &&
-                                  scopedTeacherStudents.filter((student) => {
-                                    const q = manualActivationSearch
-                                      .trim()
-                                      .toLowerCase();
-                                    if (!q) return true;
-                                    return (
-                                      String(student.name || "")
-                                        .toLowerCase()
-                                        .includes(q) ||
-                                      String(student.id || "")
-                                        .toLowerCase()
-                                        .includes(q) ||
-                                      String(student.idNumber || "")
-                                        .toLowerCase()
-                                        .includes(q)
-                                    );
-                                  }).length === 0 && (
+                                  manualActivationStudents.length === 0 && (
                                     <div className="xl:col-span-2 p-8 text-center text-slate-400 text-xs font-bold rounded-3xl border border-dashed border-slate-200 bg-slate-50">
                                       لا يوجد طالب مطابق لبحثك. جرّب رقماً
                                       جامعياً أو اسماً آخر.
