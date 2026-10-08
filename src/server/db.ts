@@ -1038,7 +1038,10 @@ export class LocalDatabase {
   // معاملة Firestore بشكل متزامن لكل تعديل، فيتجمّد الخادم. هذه الأعلام تضمن
   // كتابة محلية واحدة ومزامنة سحابية واحدة لكل دفعة، خارج مسار الاستجابة.
   private dirtyLocal: boolean = false;
-  private localSaveTimer: NodeJS.Immediate | NodeJS.Timeout | null = null;
+  private localSaveTimer: NodeJS.Immediate | null = null;
+  // Cloud mode only. A separate field: clearImmediate() on a Timeout corrupts
+  // Node's immediate queue.
+  private localSaveDelayTimer: NodeJS.Timeout | null = null;
   private cloudSyncScheduled: boolean = false;
   // نافذة تجميع الكتابة السحابية: كل التعديلات المتتابعة تُدفع في كتابة واحدة بعد
   // توقّف النشاط، فلا تعمل المزامنة الثقيلة أثناء الحذف/إعادة الجلب ويبقى التطبيق فورياً.
@@ -1144,12 +1147,24 @@ export class LocalDatabase {
             this.persistTimeout = null;
             this.cloudSyncScheduled = false;
           }
-          if (this.pendingFSSync && !this.isSyncingFS) {
-            // syncPromise carries the rejection to the waiter; handle the outer promise too.
-            void this.performCloudSync().catch(() => {});
+          if (this.pendingFSSync && !this.isSyncingFS && !this.deferredCloudSync) {
+            if (this.cloudWriteJustFinished) {
+              // A write finished during this turn of the event loop, so requests that
+              // arrived while it ran have not been handled yet. Start the next write
+              // after them: one write then confirms the whole rush (e.g. a class
+              // logging in together) instead of a full snapshot per few requests.
+              this.deferredCloudSync = new Promise<void>((resolve) => setImmediate(() => {
+                this.deferredCloudSync = null;
+                if (this.pendingFSSync && !this.isSyncingFS) void this.performCloudSync().catch(() => {});
+                resolve();
+              }));
+            } else {
+              // syncPromise carries the rejection to the waiter; handle the outer promise too.
+              void this.performCloudSync().catch(() => {});
+            }
           }
         },
-        activeWrite: () => this.syncPromise,
+        activeWrite: () => this.syncPromise || this.deferredCloudSync,
       });
     } finally {
       this.urgentCloudWaiters -= 1;
@@ -1980,18 +1995,18 @@ export class LocalDatabase {
   private scheduleLocalSave() {
     if (this.isDemo) return;
     this.dirtyLocal = true;
-    if (this.localSaveTimer) return;
+    if (this.localSaveTimer || this.localSaveDelayTimer) return;
     if (dbFS) {
       // مع السحابة يبقى ملف القرص كاش إقلاع فقط (الإقلاع يقرأ السحابة دائماً، وكل
       // مسار يحتاج دواماً محلياً يفرّغه صراحة عبر waitForSync). كتابة القاعدة كاملة
       // على القرص بعد كل تعديل كانت تحجب كل الطلبات ~100–250ms؛ نجمعها في كتابة
       // واحدة كل بضع ثوانٍ.
       const timer = setTimeout(() => {
-        this.localSaveTimer = null;
+        this.localSaveDelayTimer = null;
         this.flushLocalSave();
       }, MIRAS_CLOUD_LOCAL_CACHE_DELAY_MS);
       timer.unref?.();
-      this.localSaveTimer = timer;
+      this.localSaveDelayTimer = timer;
       return;
     }
     this.localSaveTimer = setImmediate(() => {
@@ -2006,9 +2021,12 @@ export class LocalDatabase {
     if (!this.dirtyLocal) return;
     this.dirtyLocal = false;
     if (this.localSaveTimer) {
-      clearImmediate(this.localSaveTimer as NodeJS.Immediate);
-      clearTimeout(this.localSaveTimer as NodeJS.Timeout);
+      clearImmediate(this.localSaveTimer);
       this.localSaveTimer = null;
+    }
+    if (this.localSaveDelayTimer) {
+      clearTimeout(this.localSaveDelayTimer);
+      this.localSaveDelayTimer = null;
     }
     this.saveState(this.data);
   }
@@ -2025,6 +2043,8 @@ export class LocalDatabase {
   // and chunks entities without serializing the whole database several times,
   // which used to block every request for hundreds of milliseconds per save.
   private cloudSnapshotJson = new WeakMap<object, string>();
+  private cloudWriteJustFinished = false;
+  private deferredCloudSync: Promise<void> | null = null;
   private cloudSnapshots = new WeakSet<object>();
 
   private cloudSnapshotChunks = new WeakMap<object, Map<string, EntityChunks>>();
@@ -2347,6 +2367,8 @@ export class LocalDatabase {
     } finally {
       this.isSyncingFS = false;
       this.syncPromise = null;
+      this.cloudWriteJustFinished = true;
+      setImmediate(() => { this.cloudWriteJustFinished = false; });
       // طرأ تعديل أثناء الكتابة؟ ادفعه في نافذة تجميع تالية.
       if (this.mutationVersion !== versionAtStart) this.pendingFSSync = true;
       if (
