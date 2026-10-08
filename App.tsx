@@ -31471,7 +31471,11 @@ ${rows
                               // نوضّح الفرق بين المكتوب والكود الحقيقي ونظلّل الحرف المختلف.
                               const typed = compactJoinCode(teacherCodeLookupResult.typedCode || "");
                               const real = compactJoinCode(teacherCodeLookupResult.code || "");
-                              if (!typed || !real || typed === real) return null;
+                              // الشريط لتصحيح حرفٍ بحرف فقط: نفس الطول مع اختلاف
+                              // حقيقي يُظلَّل. حرف زائد أو نقص (يقصّه الخادم بنفسه)
+                              // لا يُعرض كأنه تصحيح حروف متشابهة.
+                              if (!typed || !real || typed.length !== real.length) return null;
+                              if (![...typed].some((ch, i) => real[i] !== ch)) return null;
                               let bodyIndex = 0;
                               return (
                                 <div className="flex flex-wrap items-center gap-2 border-b border-indigo-50 bg-sky-50/70 px-4 py-2" dir="rtl">
@@ -31479,7 +31483,7 @@ ${rows
                                   <code dir="ltr" className="font-mono text-[11px] font-black tracking-wide text-sky-800">
                                     {[...formatJoinCode(typed)].map((ch, i) => {
                                       if (!/[A-Z0-9]/.test(ch)) return <span key={i}>{ch}</span>;
-                                      const mismatch = typed.length === real.length && real[bodyIndex] !== ch;
+                                      const mismatch = real[bodyIndex] !== ch;
                                       bodyIndex += 1;
                                       return mismatch
                                         ? <mark key={i} className="rounded bg-amber-200 px-0.5 text-amber-900">{ch}</mark>
