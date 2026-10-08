@@ -20733,10 +20733,14 @@ app.post("/api/teacher/code-scan", teacherExactCodeScanRateLimit, (req, res) => 
   const status = String(code.status || "active").toLowerCase();
   const activated = joinCodeWasActivated(code);
   const window = joinCodeWindowStatus(code);
-  // كود ألغاه الأستاذ يظهر «ملغي» مثل بطاقته في الأرشيف، سواء بقي في القائمة أو أُرشف.
-  // والكود الذي حذفه الأستاذ بنفسه يُحفظ في الأرشيف بسبب الحذف، فهو «ملغي» أيضاً.
+  // كود ألغاه الأستاذ أو حذفه يظهر «ملغي» مثل بطاقته في الأرشيف، سواء بقي في
+  // القائمة أو أُرشف. «لم يُستخدم» محجوزة حصراً للكود الذي أُرشف تلقائياً مع
+  // إغلاق مقرره (حذف المقرر أو التصفير)؛ أي سبب أرشفة آخر — معروفاً كان أو
+  // قديماً بلا سبب مسجّل — هو فعلُ أستاذٍ تخلّص من الكود، فيُعرض «ملغي».
+  const retiredWithCourse = ["course_deleted", "course_closed_full_reset", "course_closed_custom_reset"]
+    .includes(String((code as any).retiredReason || ""));
   const cancelled = ["revoked", "cancelled", "canceled"].includes(status) ||
-    ["teacher_deleted_code", "teacher_deleted_free_code", "manual_code_delete"].includes(String((code as any).retiredReason || ""));
+    (isRetired && !retiredWithCourse);
   const state = isRetired
     ? activated ? "مُفعّل سابقاً" : cancelled ? "ملغي" : "لم يُستخدم"
     : activated ? "مُفعّل"
