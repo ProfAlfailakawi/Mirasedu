@@ -4324,6 +4324,15 @@ function joinCodeMatchesStudentCourse(jc: any, student: any, courseCode: any, te
   return !isStudentCourseRemoved(student, jcCourse, owner || teacherEmail);
 }
 
+// A legacy code assigned to a student (studentId set, status still "active",
+// no activation time) has not been used yet; only real usage markers count.
+function joinCodeWasActivated(code: any): boolean {
+  const status = String(code?.status || "active").trim().toLowerCase();
+  if (["used", "active-used", "activated"].includes(status)) return true;
+  if (String(code?.activatedAt || code?.usedAt || code?.usedByStudentId || "").trim()) return true;
+  return status !== "active" && !!String(code?.studentId || "").trim();
+}
+
 function getFreshJoinCodeForStudentCourse(student: any, courseCode: any, teacherEmail?: any): any | null {
   const course = String(courseCode || "").trim();
   const sid = normalizeStudentId(student?.id || student?.idNumber || student?.studentId);
@@ -20538,7 +20547,7 @@ app.get("/api/teacher/code-scan", (req, res) => {
       const student = students.get(studentId);
       const codeStatus = String(code.status || "active").toLowerCase();
       const archived = isArchivedJoinCodeRecord(code) || retiredRecords.has(code);
-      const activated = codeStatus === "used" || !!code.activatedAt || !!code.usedByStudentId || !!code.studentId;
+      const activated = joinCodeWasActivated(code);
       const window = joinCodeWindowStatus(code);
       const state = archived ? activated ? "مُفعّل سابقاً" : "لم يُستخدم" : activated ? "مُفعّل" : isSoftDeletedRecord(code) || ["revoked", "disabled", "deleted"].includes(codeStatus) ? "موقوف" : codeStatus === "expired" || (!window.ok && window.reason.includes("انتهت")) ? "منتهي" : !window.ok ? "لم يبدأ" : isJoinCodeTemporarilyFrozen(code) ? "موقوف مؤقتاً" : codeStatus === "active" ? "صالح" : "غير صالح";
       const civilId = String(student?.civilId || student?.nationalId || student?.nationalID || "").trim();
@@ -20627,7 +20636,7 @@ app.post("/api/teacher/code-scan", teacherExactCodeScanRateLimit, (req, res) => 
     .replace(/\s{2,}/g, " ")
     .trim();
   const status = String(code.status || "active").toLowerCase();
-  const activated = status === "used" || !!code.activatedAt || !!code.usedByStudentId || !!code.studentId;
+  const activated = joinCodeWasActivated(code);
   const window = joinCodeWindowStatus(code);
   const state = isRetired
     ? activated ? "مُفعّل سابقاً" : "لم يُستخدم"
