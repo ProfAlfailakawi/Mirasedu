@@ -11538,11 +11538,21 @@ app.get("/api/teacher/activation-attempts", (req, res) => {
   // المستهدف فقط، ولا تُفتح القائمة الكاملة إلا للأدمن في نطاق «الكل».
   const includeAllLookalikeSources = isAdmin && scope === "all";
   const lookalikeScopeEmail = String(targetEmail || "").trim().toLowerCase();
-  const joinCodeInLookalikeScope = (row: any) =>
-    includeAllLookalikeSources ||
-    String(
-      row?.ownerEmail || row?.createdByEmail || joinCodeOwnerEmail(row) || joinCodeAuditOwner(row) || "",
-    ).trim().toLowerCase() === lookalikeScopeEmail;
+  // الكود في نطاق الأستاذ إذا كان أيٌّ من أصحابه المسجّلين هو، أو كان مقرره
+  // المحسوم (المفعَّل أو المخزّن) لهذا الأستاذ: كود أصدره الأدمن لمقرر أستاذٍ
+  // يحمل ownerEmail الأدمن، لكنه كود ذلك المقرر فيبقى ضمن نطاق أستاذه.
+  const joinCodeInLookalikeScope = (row: any) => {
+    if (includeAllLookalikeSources) return true;
+    const owners = [row?.ownerEmail, row?.createdByEmail, joinCodeOwnerEmail(row), joinCodeAuditOwner(row)];
+    if (owners.some((owner: any) => String(owner || "").trim().toLowerCase() === lookalikeScopeEmail)) {
+      return true;
+    }
+    return [row?.resolvedCourseCode, row?.activatedCourseCode, row?.studentSection, row?.sectionCode, row?.courseCode]
+      .some((course: any) => {
+        const section = String(course || "").trim();
+        return !!section && sectionOwnerEmail(section).trim().toLowerCase() === lookalikeScopeEmail;
+      });
+  };
   // «موجود حرفياً» يبقى على القائمة الكاملة حتى لا تُلصق شارة «قريب من» بكودٍ
   // صحيحٍ أصلاً يخص أستاذاً آخر؛ أما المرشحون للمطابقة فمن النطاق فقط.
   const exactCodeKeys = new Set<string>();

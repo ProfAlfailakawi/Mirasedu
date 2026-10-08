@@ -21,4 +21,10 @@ db.students.push({
   ],
   devices: [],
 });
+// A retired code the ADMIN issued for teacher A's course: ownerEmail is the
+// admin's, but the course is A's, so A-scoped lookalike hints may use it.
+db.retiredJoinCodes = [
+  ...(db.retiredJoinCodes || []),
+  { code: 'LAB-GQNQ-QQQQ-QQQQ', status: 'retired', retiredReason: 'teacher_deleted_code', sectionCode: '111-aa@test.kw', ownerEmail: 'ah.alfailakawi@paaet.edu.kw', createdAt: new Date().toISOString(), retiredAt: new Date().toISOString(), isArchived: true },
+];
 fs.writeFileSync(DB, JSON.stringify(db, null, 2), 'utf-8');
