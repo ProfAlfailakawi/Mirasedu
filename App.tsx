@@ -4536,8 +4536,10 @@ export default function App() {
     const tokens = [...emailMap.keys(), ...codeMap.keys()]
       .sort((a, b) => b.length - a.length)
       .map(escapeRe);
+    // بدون lookbehind: سفاري قبل iOS 16.4 يرفضه ويُسقط الصفحة كلها
+    // ("invalid group specifier name"). نلتقط الحرف السابق ونعيده كما هو.
     const pattern = new RegExp(
-      "(?<![\\w.@-])(" + tokens.join("|") + ")(?![\\w.@-])",
+      "(^|[^\\w.@-])(" + tokens.join("|") + ")(?![\\w.@-])",
       "gi",
     );
     const mapToken = (tok: string) => {
@@ -4569,7 +4571,7 @@ export default function App() {
       if (!pattern.test(val)) return;
       if (inSkippedZone(node)) return;
       pattern.lastIndex = 0;
-      const next = val.replace(pattern, (m) => mapToken(m));
+      const next = val.replace(pattern, (_m, lead, tok) => lead + mapToken(tok));
       if (next !== val) node.nodeValue = next;
     };
     const walk = (root: Node) => {
