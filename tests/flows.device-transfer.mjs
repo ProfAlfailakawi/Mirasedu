@@ -46,6 +46,19 @@ check('E2E: the new device logs in after the transfer', newDev.ok && newDev.data
 const oldDev = await login('2002', 'seeded', 'tok-2002', SAFARI);
 check('E2E: the old device is rejected after the new one is adopted', !oldDev.ok, `${oldDev.status} ${brief(oldDev.data)}`);
 
+// --- Pressing «تبديل الجهاز» twice before the new device signs in (student 1001) ---
+// The second press must keep the old device on the retired list (which blocks the
+// old session from claiming the account), not reset that list to empty.
+check('TWICE: original device logs in before transfer', (await login('1001', 'seeded', 'tok-1001', SAFARI)).ok);
+const first = await reset('1001', 'reset_device', admin);
+check('TWICE: first transfer retires the old device', first.ok && (first.data?.student?.retiredDeviceTokens || []).includes('tok-1001'), brief(first.data?.student));
+const second = await reset('1001', 'reset_device', admin);
+check('TWICE: second transfer while pending keeps the old device retired', second.ok && second.data?.student?.pendingDeviceTransfer === true &&
+  (second.data?.student?.retiredDeviceTokens || []).includes('tok-1001') &&
+  (second.data?.student?.retiredDeviceFingerprints || []).length >= 1, brief(second.data?.student));
+const newAfterTwice = await login('1001', 'seeded', 'tok-new1001', CHROME);
+check('TWICE: the new device logs in after a repeated transfer', newAfterTwice.ok && newAfterTwice.data?.success === true, brief(newAfterTwice.data));
+
 // --- hold / restore driven by the super admin, on registered student 3003 ---
 const held = await reset('3003', 'hold', admin);
 check('HOLD: account marked blocked', held.ok && held.data?.student?.isAccessBlocked === true, brief(held.data?.student));
