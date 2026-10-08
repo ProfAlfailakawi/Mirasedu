@@ -22010,6 +22010,12 @@ ${rows
         }
       : null;
   });
+  // A shared browser must never show the previous account's (or scope's) codes:
+  // drop the table and discard any answer still in flight for the old context.
+  useEffect(() => {
+    codeArchiveRequestRef.current += 1;
+    setCodeArchiveView({ status: "idle", rows: [], total: 0, totalPages: 1, page: 1, counts: null });
+  }, [teacherSession?.email, teacherSession?.authToken, auditScopeEmail]);
   useEffect(() => {
     if (!codeArchiveOpen || !teacherSession?.email) return;
     void fetchCodeArchivePage();
