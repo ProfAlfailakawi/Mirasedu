@@ -20624,9 +20624,11 @@ app.post("/api/teacher/code-scan", teacherExactCodeScanRateLimit, (req, res) => 
   const ownerEmail = String(code.ownerEmail || code.createdByEmail || joinCodeOwnerEmail(code) || joinCodeAuditOwner(code) || "").trim().toLowerCase();
   const issuer = dbInstance.getTeachers().find((row: any) => String(row.email || "").trim().toLowerCase() === ownerEmail);
   const studentCourses = student ? getStudentActiveCourseCodes(student) : [];
+  // Only a code with no course of its own borrows the student's single current
+  // course; an old code keeps its own course and teacher after the student moves on.
   const relevantStudentCourse = studentCourses.find((value: string) =>
     courseCode && sectionCodeEquivalent(value, courseCode),
-  ) || (studentCourses.length === 1 ? studentCourses[0] : "");
+  ) || (!courseCode && !isRetired && studentCourses.length === 1 ? studentCourses[0] : "");
   const liveCourseOwner = relevantStudentCourse ? sectionOwnerEmail(relevantStudentCourse).trim().toLowerCase() : "";
   const liveCourseTeacher = liveCourseOwner
     ? dbInstance.getTeachers().find((row: any) => String(row.email || "").trim().toLowerCase() === liveCourseOwner)
@@ -22047,10 +22049,20 @@ app.delete("/api/teacher/sections/:code", (req, res) => {
     if (Object.keys(patch).length) dbInstance.updateStudent(s.id, patch as any);
   });
 
-  // Clean up join codes
+  // The course's codes leave the live list but stay in the code archive, so
+  // "تحقق" still shows who used each code, where and when, for good.
+  const deletedSectionName = String(section.courseName || section.name || "").trim();
+  const deletedOwnerName = String(dbInstance.getTeachers().find((t: any) =>
+    String(t.email || "").trim().toLowerCase() === teacherEmail.toLowerCase())?.name || "").trim();
   (dbInstance as any).data.joinCodes = dbInstance.getJoinCodes().filter((jc: any) => {
     const jcCode = jc.sectionCode || jc.courseCode || jc.code || "";
-    return !matchesDeleted(jcCode);
+    if (!matchesDeleted(jcCode)) return true;
+    dbInstance.archiveJoinCodeRecord({
+      ...jc,
+      courseName: jc.courseName || deletedSectionName || undefined,
+      ownerName: jc.ownerName || deletedOwnerName || undefined,
+    }, "course_deleted", teacherEmail);
+    return false;
   });
 
   deletedCodes.forEach((code: string) => dbInstance.deleteSection(code));
