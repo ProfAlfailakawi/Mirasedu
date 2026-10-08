@@ -718,6 +718,10 @@ function passkeyUserHandle(role: PasskeyRole, userId: string) {
 // Enrolling a passkey grants future logins, so only the signed-in owner of the
 // account may do it: the request must carry that same account's session.
 function passkeySessionMatchesUser(req: express.Request, role: PasskeyRole, user: { id: string; raw: any }): boolean {
+  // A temporary public-computer session (1–4 h) must not turn into a permanent
+  // passkey on that shared machine.
+  const session = verifyMirasSessionToken(req);
+  if (!session || session.publicDeviceSession) return false;
   if (role === "teacher") {
     const email = verifiedTeacherEmailFromSession(req);
     return !!email && email === String(user.raw?.email || user.id).trim().toLowerCase();

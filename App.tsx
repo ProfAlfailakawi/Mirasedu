@@ -34302,7 +34302,7 @@ ${rows
               </div>
 
               {studentSession &&
-                !passkeyEnabledForCurrentSession &&
+                !passkeyEnabledForCurrentSession && !teacherSession?.publicDeviceSession &&
                 !isSafeExamBrowserSession() && (
                   <div className="mb-5 rounded-[var(--miras-r-lg)] border border-emerald-100 bg-emerald-50/80 p-4 text-center shadow-sm">
                     <p className="mb-3 text-[11px] font-bold text-emerald-800">
@@ -34991,7 +34991,7 @@ ${rows
                             <Smartphone className="h-4.5 w-4.5 text-indigo-600" />
                           </button>
                         )}
-                        {!passkeyEnabledForCurrentSession &&
+                        {!passkeyEnabledForCurrentSession && !teacherSession?.publicDeviceSession &&
                           !isSafeExamBrowserSession() && (
                             <button
                               title="تفعيل الدخول بالبصمة لهذا الجهاز"
@@ -37263,7 +37263,7 @@ ${rows
                 {/* زر تفعيل البصمة سقط من الرأس المختصر عند إعادة تصميم واجهة
                     الجوال (v5)، فبقي ظاهراً على الشاشات العريضة ومختفياً على
                     الهاتف لنفس الحساب. نعيده هنا بنفس شرط الرأس الكلاسيكي. */}
-                {!passkeyEnabledForCurrentSession &&
+                {!passkeyEnabledForCurrentSession && !teacherSession?.publicDeviceSession &&
                   !isSafeExamBrowserSession() && (
                     <button
                       type="button"
@@ -37626,7 +37626,7 @@ ${rows
                             <Smartphone className="h-5 w-5 text-indigo-600" />
                           </button>
                         )}
-                        {!passkeyEnabledForCurrentSession &&
+                        {!passkeyEnabledForCurrentSession && !teacherSession?.publicDeviceSession &&
                           !isSafeExamBrowserSession() && (
                             <button
                               title="تفعيل الدخول بالبصمة لهذا الجهاز"

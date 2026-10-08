@@ -290,6 +290,21 @@ check(
   protectedFromDesktop.ok,
   `${protectedFromDesktop.status} ${JSON.stringify(protectedFromDesktop.data)}`,
 );
+const enrollFromPublicSession = await fetch(BASE + "/api/auth/passkey/register/start", {
+  method: "POST",
+  headers: {
+    "content-type": "application/json",
+    origin: ORIGIN,
+    "x-miras-device-id": DEVICE,
+    authorization: `Bearer ${approved.data.authToken}`,
+  },
+  body: JSON.stringify({ role: "teacher", userId: TEACHER }),
+});
+check(
+  "temporary public-computer session cannot enroll a permanent passkey",
+  enrollFromPublicSession.status === 401,
+  `${enrollFromPublicSession.status}`,
+);
 const protectedFromOtherDevice = await protectedTeacherRead(
   approved.data.authToken,
   "stolen-token-on-another-device-0003",
