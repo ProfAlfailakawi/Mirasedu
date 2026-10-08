@@ -14269,6 +14269,7 @@ export default function App() {
         .replace(/\s*[•·|—-]?\s*اسم الدكتور غير محم[ّ]?ل\s*/g, " ").trim();
       setTeacherCodeLookupResult({
         ...payload,
+        typedCode: codeToLookup,
         courseName: cleanLabel(payload.courseName),
         sectionCode: cleanLabel(payload.sectionCode),
         teacherName: cleanLabel(payload.teacherName),
@@ -31465,6 +31466,30 @@ ${rows
                               <div className="flex items-center gap-2"><span className="grid h-9 w-9 place-items-center rounded-2xl bg-indigo-50 text-indigo-600"><Key className="h-4 w-4" /></span><code dir="ltr" className="font-mono text-xs font-black tracking-wide text-indigo-700">{teacherCodeLookupResult.code}</code></div>
                               <span className={`rounded-full px-3 py-1.5 text-[10px] font-black ${String(teacherCodeLookupResult.state).includes("صالح") || String(teacherCodeLookupResult.state).includes("مُفعّل") ? "bg-emerald-50 text-emerald-700" : "bg-amber-50 text-amber-700"}`}>{teacherCodeLookupResult.state}</span>
                             </div>
+                            {(() => {
+                              // كتابة بحرف يشبه رقماً (Z↔2 مثلاً) تُصحَّح في الخادم؛ هنا
+                              // نوضّح الفرق بين المكتوب والكود الحقيقي ونظلّل الحرف المختلف.
+                              const typed = compactJoinCode(teacherCodeLookupResult.typedCode || "");
+                              const real = compactJoinCode(teacherCodeLookupResult.code || "");
+                              if (!typed || !real || typed === real) return null;
+                              let bodyIndex = 0;
+                              return (
+                                <div className="flex flex-wrap items-center gap-2 border-b border-indigo-50 bg-sky-50/70 px-4 py-2" dir="rtl">
+                                  <span className="text-[10px] font-bold text-sky-700">ما أدخلته:</span>
+                                  <code dir="ltr" className="font-mono text-[11px] font-black tracking-wide text-sky-800">
+                                    {[...formatJoinCode(typed)].map((ch, i) => {
+                                      if (!/[A-Z0-9]/.test(ch)) return <span key={i}>{ch}</span>;
+                                      const mismatch = typed.length === real.length && real[bodyIndex] !== ch;
+                                      bodyIndex += 1;
+                                      return mismatch
+                                        ? <mark key={i} className="rounded bg-amber-200 px-0.5 text-amber-900">{ch}</mark>
+                                        : <span key={i}>{ch}</span>;
+                                    })}
+                                  </code>
+                                  <span className="text-[10px] font-semibold text-sky-600">صُحّح تلقائياً — الحرف المظلّل مكتوب بشكل مشابه (Z↔2، S↔5، B↔8، G↔6)</span>
+                                </div>
+                              );
+                            })()}
                             <div className="grid gap-2 p-3 sm:grid-cols-2">
                               <div className="rounded-2xl bg-white/90 px-3 py-2.5 sm:col-span-2"><span className="block text-[9px] font-bold text-slate-400">الطالب</span><p className="mt-1 text-xs font-black text-slate-900">{teacherCodeLookupResult.studentName || "غير مرتبط بطالب"}</p><div className="mt-1 flex flex-wrap gap-2 text-[10px] font-semibold text-slate-500">{teacherCodeLookupResult.studentId && <span>جامعي: <bdi className="font-mono">{teacherCodeLookupResult.studentId}</bdi></span>}{teacherCodeLookupResult.civilId && <span>مدني: <bdi className="font-mono">{teacherCodeLookupResult.civilId}</bdi></span>}</div></div>
                               {teacherCodeLookupResult.activated !== false && <div className="rounded-2xl bg-white/90 px-3 py-2.5"><span className="block text-[9px] font-bold text-slate-400">المقرر / الشعبة</span><p className="mt-1 text-[11px] font-bold text-slate-800">{teacherCodeLookupResult.courseName}{teacherCodeLookupResult.sectionCode && stripOwnerEmailFromCourseCode(teacherCodeLookupResult.sectionCode) !== teacherCodeLookupResult.courseName ? ` • ${stripOwnerEmailFromCourseCode(teacherCodeLookupResult.sectionCode)}` : ""}</p></div>}
