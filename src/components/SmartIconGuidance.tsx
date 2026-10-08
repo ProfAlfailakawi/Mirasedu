@@ -210,7 +210,7 @@ export function SmartIconGuidance({
                 }}
                 className="pointer-events-none bg-slate-950/95 text-slate-100 text-[11px] font-medium px-3.5 py-2 rounded-2xl shadow-2xl border border-slate-700/80 backdrop-blur-md text-center leading-tight dir-rtl whitespace-normal select-none"
               >
-                <div className="flex items-center justify-center gap-1 text-amber-300 font-bold mb-0.5 text-[10px]">
+                <div className="flex items-center justify-center gap-1 text-amber-300 font-bold mb-0.5 text-[11px]">
                   <span>💡</span>
                   <span>تلميح لأول مرة</span>
                 </div>
