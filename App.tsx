@@ -22063,36 +22063,47 @@ ${rows
     // A student who has just activated must appear in «تفعيل فوري» without a
     // page reload. The roster is re-read only when an activation not seen yet
     // arrives, so an idle Codes tab costs nothing extra.
+    // Keys of activations already reflected (or being reflected) in the roster.
+    // A failed roster read releases its keys so the next poll retries them.
     const seenActivations = new Set<string>();
     let rosterRefreshing = false;
-    let rosterRefreshPending = false;
-    const refreshRoster = () => {
+    let rosterRefreshQueue: string[] | null = null;
+    const refreshRoster = (keys: string[]) => {
       if (!active) return;
-      if (rosterRefreshing) { rosterRefreshPending = true; return; }
+      if (rosterRefreshing) { rosterRefreshQueue = [...(rosterRefreshQueue || []), ...keys]; return; }
       rosterRefreshing = true;
-      rosterRefreshPending = false;
+      const release = () => keys.forEach((key) => seenActivations.delete(key));
       void fetchReports(email, { quiet: true, isCurrent: () => active })
+        .then((ok) => { if (!ok) release(); }, release)
         .finally(() => {
           rosterRefreshing = false;
-          if (rosterRefreshPending) refreshRoster();
+          const queued = rosterRefreshQueue;
+          rosterRefreshQueue = null;
+          if (queued) refreshRoster(queued);
         });
     };
     const refreshRosterOnNewActivations = (codes: any[]) => {
-      let fresh = false;
+      const fresh: string[] = [];
       for (const item of codes) {
         const key = `${String(item?.code || "")}|${String(item?.activatedAt || "")}`;
-        if (!seenActivations.has(key)) { seenActivations.add(key); fresh = true; }
+        if (!seenActivations.has(key)) { seenActivations.add(key); fresh.push(key); }
       }
-      if (fresh) refreshRoster();
+      if (fresh.length) refreshRoster(fresh);
     };
+    // Polls pause while the tab is hidden; an activation older than the 60 s
+    // window would then never be returned, so a gap re-reads the roster once.
+    let lastPollOkAt = 0;
     const refreshActivations = () => {
       if (!active || refreshing || document.visibilityState === "hidden") return;
       // A short overlap protects activations that land during a request or
       // whose server/client clocks differ slightly. The API returns only codes
       // activated in this window, not the teacher's full code inventory.
-      const activatedSince = new Date(Date.now() - 60_000).toISOString();
+      const startedAt = Date.now();
+      const activatedSince = new Date(startedAt - 60_000).toISOString();
+      if (lastPollOkAt && startedAt - lastPollOkAt > 50_000) refreshRoster([]);
       refreshing = true;
       void fetchJoinCodes(undefined, { includeRetired: false, activatedSince, onActivations: refreshRosterOnNewActivations })
+        .then((ok) => { if (ok) lastPollOkAt = startedAt; })
         .finally(() => { refreshing = false; });
     };
 
