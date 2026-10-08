@@ -38497,7 +38497,21 @@ ${rows
                                 {card.total} تسليم
                               </p>
                             </div>
-                            <MirasRatioRing done={card.graded} total={card.total} />
+                            <div className="flex shrink-0 flex-col items-center gap-1.5">
+                              <MirasRatioRing done={card.graded} total={card.total} />
+                              {scopedTeacherStudents.length > 0 && (
+                                <span className="whitespace-nowrap rounded-full bg-slate-100 px-2.5 py-0.5 text-[9px] font-bold text-slate-500">
+                                  الشعبة: {scopedTeacherStudents.length}{" "}
+                                  {scopedTeacherStudents.length === 1
+                                    ? "طالب"
+                                    : scopedTeacherStudents.length === 2
+                                      ? "طالبان"
+                                      : scopedTeacherStudents.length <= 10
+                                        ? "طلاب"
+                                        : "طالباً"}
+                                </span>
+                              )}
+                            </div>
                             <ChevronLeft className="mt-1 h-4 w-4 shrink-0 text-slate-300 transition-transform group-hover:-translate-x-1 group-hover:text-indigo-500" />
                           </div>
                           {card.total > 0 && (
