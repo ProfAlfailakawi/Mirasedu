@@ -45425,7 +45425,7 @@ ${rows
                                   الرمز يرتبط بهذا المقرر مباشرة.
                                 </p>
                               </div>
-                              <span className="rounded-full bg-white px-3 py-1 text-[10px] font-bold text-slate-500 shadow-sm">
+                              <span className="shrink-0 whitespace-nowrap rounded-full bg-white px-3 py-1 text-[10px] font-bold text-slate-500 shadow-sm">
                                 {joinCodeIssueCourseOptions.length || 0} مقرر
                               </span>
                             </div>
