@@ -34,7 +34,7 @@ import logoImg from "./src/assets/images/meras_logo_1781178543060.png";
 import LearningIntelligencePanel from "./src/features/learning-intelligence/LearningIntelligencePanel";
 import LoginRevealOverlay from "./src/components/LoginRevealOverlay";
 import MirasLoader from "./src/components/MirasLoader";
-import { normalizeArabicIndicDigits, stripArabicIndicDigitsFromInput } from "./src/shared/arabic-text";
+import { normalizeArabicIndicDigits, westernizeInputDigits } from "./src/shared/arabic-text";
 import { DnaHubMap, DnaIconTile, DnaStepper, DnaTimeline, DnaHeat, DnaRing, DnaStat, DnaStatusHeader, type DnaEvent, type DnaStep, type DnaHubNode } from "./src/design/DnaKit";
 import { mirasPhoneticWordMatch } from "./src/shared/phonetic-search";
 import {
@@ -3272,7 +3272,7 @@ export default function App() {
         HTMLInputElement | HTMLTextAreaElement | null;
       if (!target || !("value" in target)) return;
       const currentValue = String(target.value ?? "");
-      const next = stripArabicIndicDigitsFromInput(currentValue);
+      const next = westernizeInputDigits(currentValue);
       if (next === currentValue) return;
       const start = target.selectionStart;
       const end = target.selectionEnd;
@@ -3280,7 +3280,7 @@ export default function App() {
         start === null
           ? 0
           : currentValue.slice(0, start).length -
-            stripArabicIndicDigitsFromInput(currentValue.slice(0, start))
+            westernizeInputDigits(currentValue.slice(0, start))
               .length;
       target.value = next;
       try {
@@ -10546,13 +10546,13 @@ export default function App() {
       if (!/[\u0660-\u0669\u06f0-\u06f9\uff10-\uff19]/.test(value)) return;
       const start = target.selectionStart;
       const end = target.selectionEnd;
-      const normalized = stripArabicIndicDigitsFromInput(value);
+      const normalized = westernizeInputDigits(value);
       if (normalized === value) return;
       const removedBeforeCursor =
         start === null
           ? 0
           : value.slice(0, start).length -
-            stripArabicIndicDigitsFromInput(value.slice(0, start)).length;
+            westernizeInputDigits(value.slice(0, start)).length;
       target.value = normalized;
       try {
         if (start !== null && end !== null)
@@ -13930,7 +13930,7 @@ export default function App() {
         HTMLInputElement | HTMLTextAreaElement | null;
       if (!target || typeof target.value !== "string") return;
       const value = String(target.value ?? "");
-      const normalized = stripArabicIndicDigitsFromInput(value);
+      const normalized = westernizeInputDigits(value);
       if (normalized === value) return;
       const start = target.selectionStart;
       const end = target.selectionEnd;
@@ -13938,7 +13938,7 @@ export default function App() {
         start === null
           ? 0
           : value.slice(0, start).length -
-            stripArabicIndicDigitsFromInput(value.slice(0, start)).length;
+            westernizeInputDigits(value.slice(0, start)).length;
       target.value = normalized;
       try {
         if (start !== null && end !== null)
@@ -27289,7 +27289,7 @@ ${rows
       );
     };
     return (
-      <div className={`miras-teacher-nav-track teacher-orbit-dock-track miras-dock-v2 ${!isAdminTeacher ? "miras-teacher-six-nav" : ""}`}>
+      <div className={`miras-teacher-nav-track teacher-orbit-dock-track miras-dock-v2 ${!isAdminTeacher ? "miras-teacher-five-nav" : ""}`}>
         {navItem({
           tab: "sections",
           label: "المقررات",
@@ -27315,18 +27315,20 @@ ${rows
           onClick: () => openTeacherDockTab("questions"),
           badgeTone: "bg-indigo-500",
         })}
-        <button
-          type="button"
-          title="بحث سريع"
-          aria-label="بحث سريع"
-          onClick={() => setCmdkOpen(true)}
-          className="miras-dock-item miras-dock-fab miras-dock-search-btn"
-        >
-          <span className="miras-dock-fab-orb">
-            <Search className="miras-dock-icon" />
-          </span>
-          <span className="miras-dock-label">بحث</span>
-        </button>
+        {isAdminTeacher && (
+          <button
+            type="button"
+            title="بحث سريع"
+            aria-label="بحث سريع"
+            onClick={() => setCmdkOpen(true)}
+            className="miras-dock-item miras-dock-fab miras-dock-search-btn"
+          >
+            <span className="miras-dock-fab-orb">
+              <Search className="miras-dock-icon" />
+            </span>
+            <span className="miras-dock-label">بحث</span>
+          </button>
+        )}
         {navItem({
           tab: "submissions",
           label: "التسليمات",
@@ -31261,9 +31263,9 @@ ${rows
                             </div>
                             <div className="grid gap-2 p-3 sm:grid-cols-2">
                               <div className="rounded-2xl bg-white/90 px-3 py-2.5 sm:col-span-2"><span className="block text-[9px] font-bold text-slate-400">الطالب</span><p className="mt-1 text-xs font-black text-slate-900">{teacherCodeLookupResult.studentName || "غير مرتبط بطالب"}</p><div className="mt-1 flex flex-wrap gap-2 text-[10px] font-semibold text-slate-500">{teacherCodeLookupResult.studentId && <span>جامعي: <bdi className="font-mono">{teacherCodeLookupResult.studentId}</bdi></span>}{teacherCodeLookupResult.civilId && <span>مدني: <bdi className="font-mono">{teacherCodeLookupResult.civilId}</bdi></span>}</div></div>
-                              <div className="rounded-2xl bg-white/90 px-3 py-2.5"><span className="block text-[9px] font-bold text-slate-400">المقرر / الشعبة</span><p className="mt-1 text-[11px] font-bold text-slate-800">{teacherCodeLookupResult.courseName}{teacherCodeLookupResult.sectionCode && stripOwnerEmailFromCourseCode(teacherCodeLookupResult.sectionCode) !== teacherCodeLookupResult.courseName ? ` • ${stripOwnerEmailFromCourseCode(teacherCodeLookupResult.sectionCode)}` : ""}</p></div>
-                              {teacherCodeLookupResult.semester && <div className="rounded-2xl bg-white/90 px-3 py-2.5"><span className="block text-[9px] font-bold text-slate-400">الفصل</span><p className="mt-1 text-[11px] font-bold text-slate-800">{teacherCodeLookupResult.semester}</p></div>}
-                              {teacherCodeLookupResult.teacherName && <div className="rounded-2xl bg-white/90 px-3 py-2.5 sm:col-span-2"><span className="block text-[9px] font-bold text-slate-400">الأستاذ</span><p className="mt-1 text-[11px] font-bold text-slate-800">{teacherCodeLookupResult.teacherName}</p></div>}
+                              {teacherCodeLookupResult.activated !== false && <div className="rounded-2xl bg-white/90 px-3 py-2.5"><span className="block text-[9px] font-bold text-slate-400">المقرر / الشعبة</span><p className="mt-1 text-[11px] font-bold text-slate-800">{teacherCodeLookupResult.courseName}{teacherCodeLookupResult.sectionCode && stripOwnerEmailFromCourseCode(teacherCodeLookupResult.sectionCode) !== teacherCodeLookupResult.courseName ? ` • ${stripOwnerEmailFromCourseCode(teacherCodeLookupResult.sectionCode)}` : ""}</p></div>}
+                              {teacherCodeLookupResult.activated !== false && teacherCodeLookupResult.semester && <div className="rounded-2xl bg-white/90 px-3 py-2.5"><span className="block text-[9px] font-bold text-slate-400">الفصل</span><p className="mt-1 text-[11px] font-bold text-slate-800">{teacherCodeLookupResult.semester}</p></div>}
+                              {teacherCodeLookupResult.activated !== false && teacherCodeLookupResult.teacherName && <div className="rounded-2xl bg-white/90 px-3 py-2.5 sm:col-span-2"><span className="block text-[9px] font-bold text-slate-400">الأستاذ</span><p className="mt-1 text-[11px] font-bold text-slate-800">{teacherCodeLookupResult.teacherName}</p></div>}
                             </div>
                           </article>
                         )}
@@ -45140,7 +45142,6 @@ ${rows
                   {codesSubTab === "archive" && renderTeacherCodeLookupPanel()}
                   {codesSubTab === "health" && (
                     <>
-                      {isAdminTeacher && renderTeacherCodeLookupPanel()}
                       {!isAdminTeacher && (
                         <section className="rounded-3xl border border-indigo-100 bg-white/90 p-4 shadow-sm sm:p-5" aria-label="سجل أكواد الأستاذ">
                           <div className="flex flex-wrap items-center justify-between gap-3" dir="rtl">

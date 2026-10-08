@@ -9828,7 +9828,7 @@ app.post("/seb/open", (req, res) => {
     res.setHeader("Content-Type", "text/html; charset=utf-8");
     res.setHeader("Cache-Control", "no-store");
     return res.send(
-      `<!doctype html><html lang="ar" dir="rtl"><head><meta charset="utf-8"><title>تعذر تشغيل SEB</title><style>body{font-family:system-ui,-apple-system,Segoe UI,sans-serif;background:#f8fafc;color:#0f172a;display:grid;place-items:center;min-height:100vh;margin:0}.box{width:min(560px,calc(100vw - 32px));background:white;border:1px solid #e2e8f0;border-radius:24px;padding:28px;box-shadow:0 24px 70px rgba(15,23,42,.12)}h1{font-size:24px;margin:0 0 12px}p{line-height:1.8;color:#475569}.back{display:inline-flex;margin-top:16px;background:#1e1b4b;color:white;text-decoration:none;border-radius:16px;padding:12px 18px;font-weight:800}</style></head><body><main class="box"><h1>تعذر تشغيل Safe Exam Browser</h1><p>${xmlEscape(launched.error)}</p><a class="back" href="/">الرجوع إلى مراس</a></main></body></html>`,
+      `<!doctype html><html lang="ar" dir="rtl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>تعذر تشغيل SEB</title><style>body{font-family:system-ui,-apple-system,Segoe UI,sans-serif;background:#f8fafc;color:#0f172a;display:grid;place-items:center;min-height:100vh;margin:0}.box{box-sizing:border-box;width:min(560px,calc(100vw - 32px));background:white;border:1px solid #e2e8f0;border-radius:24px;padding:28px;box-shadow:0 24px 70px rgba(15,23,42,.12)}h1{font-size:24px;margin:0 0 12px}p{line-height:1.8;color:#475569}.back{display:inline-flex;margin-top:16px;background:#1e1b4b;color:white;text-decoration:none;border-radius:16px;padding:12px 18px;font-weight:800}</style></head><body><main class="box"><h1>تعذر تشغيل Safe Exam Browser</h1><p>${xmlEscape(launched.error)}</p><a class="back" href="/">الرجوع إلى مراس</a></main></body></html>`,
     );
   }
   res.setHeader("Content-Type", "text/html; charset=utf-8");
@@ -10197,7 +10197,7 @@ app.get("/seb/quit", (req, res) => {
   if (pass) closeSebAttempt(pass, "explicit-quit-url");
   res.setHeader("Content-Type", "text/html; charset=utf-8");
   return res.send(
-    `<!doctype html><html lang="ar" dir="rtl"><head><meta charset="utf-8"><title>الخروج من SEB</title><style>body{font-family:system-ui,-apple-system,Segoe UI,sans-serif;background:#020617;color:#fff;display:grid;place-items:center;min-height:100vh;margin:0}.box{max-width:560px;text-align:center;padding:32px;border:1px solid rgba(255,255,255,.12);border-radius:28px;background:rgba(255,255,255,.06)}.pass{display:inline-block;margin-top:12px;border-radius:14px;background:rgba(255,255,255,.1);padding:10px 16px;font-size:22px;font-weight:900;letter-spacing:1px}a{color:#a5b4fc;font-weight:800}</style></head><body><div class="box"><h1>تم إغلاق جلسة الاختبار الآمن</h1><p>إذا لم يُغلق Safe Exam Browser تلقائياً، استخدم زر الخروج الآمن داخل البرنامج أو أبلغ المراقب.</p><p>كلمة الخروج:</p><span class="pass">Miras</span></div></body></html>`,
+    `<!doctype html><html lang="ar" dir="rtl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>الخروج من SEB</title><style>body{font-family:system-ui,-apple-system,Segoe UI,sans-serif;background:#020617;color:#fff;display:grid;place-items:center;min-height:100vh;margin:0}.box{max-width:560px;text-align:center;padding:32px;border:1px solid rgba(255,255,255,.12);border-radius:28px;background:rgba(255,255,255,.06)}.pass{display:inline-block;margin-top:12px;border-radius:14px;background:rgba(255,255,255,.1);padding:10px 16px;font-size:22px;font-weight:900;letter-spacing:1px}a{color:#a5b4fc;font-weight:800}</style></head><body><div class="box"><h1>تم إغلاق جلسة الاختبار الآمن</h1><p>إذا لم يُغلق Safe Exam Browser تلقائياً، استخدم زر الخروج الآمن داخل البرنامج أو أبلغ المراقب.</p><p>كلمة الخروج:</p><span class="pass">Miras</span></div></body></html>`,
   );
 });
 
@@ -20537,7 +20537,7 @@ app.get("/api/teacher/code-scan", (req, res) => {
       const archived = isArchivedJoinCodeRecord(code) || retiredRecords.has(code);
       const activated = codeStatus === "used" || !!code.activatedAt || !!code.usedByStudentId || !!code.studentId;
       const window = joinCodeWindowStatus(code);
-      const state = archived ? activated ? "مُفعّل • أرشيف" : "أرشيف" : activated ? "مُفعّل" : isSoftDeletedRecord(code) || ["revoked", "disabled", "deleted"].includes(codeStatus) ? "موقوف" : codeStatus === "expired" || (!window.ok && window.reason.includes("انتهت")) ? "منتهي" : !window.ok ? "لم يبدأ" : isJoinCodeTemporarilyFrozen(code) ? "موقوف مؤقتاً" : codeStatus === "active" ? "صالح" : "غير صالح";
+      const state = archived ? activated ? "مُفعّل سابقاً" : "لم يُستخدم" : activated ? "مُفعّل" : isSoftDeletedRecord(code) || ["revoked", "disabled", "deleted"].includes(codeStatus) ? "موقوف" : codeStatus === "expired" || (!window.ok && window.reason.includes("انتهت")) ? "منتهي" : !window.ok ? "لم يبدأ" : isJoinCodeTemporarilyFrozen(code) ? "موقوف مؤقتاً" : codeStatus === "active" ? "صالح" : "غير صالح";
       const civilId = String(student?.civilId || student?.nationalId || student?.nationalID || "").trim();
       return {
         code: String(code.code), state,
@@ -20627,7 +20627,7 @@ app.post("/api/teacher/code-scan", teacherExactCodeScanRateLimit, (req, res) => 
   const activated = status === "used" || !!code.activatedAt || !!code.usedByStudentId || !!code.studentId;
   const window = joinCodeWindowStatus(code);
   const state = isRetired
-    ? activated ? "مُفعّل • مؤرشف" : "مؤرشف"
+    ? activated ? "مُفعّل سابقاً" : "لم يُستخدم"
     : activated ? "مُفعّل"
       : isSoftDeletedRecord(code) || ["revoked", "disabled", "deleted"].includes(status) ? "موقوف"
         : status === "expired" || (!window.ok && window.reason.includes("انتهت")) ? "منتهي"
@@ -20639,6 +20639,7 @@ app.post("/api/teacher/code-scan", teacherExactCodeScanRateLimit, (req, res) => 
     success: true,
     code: String(code.code || normalizeJoinCode(req.body?.code)),
     state,
+    activated,
     studentName: String(student?.name || code.usedByStudentName || code.studentName || code.assignedStudentName || "").trim(),
     studentId,
     civilId,
