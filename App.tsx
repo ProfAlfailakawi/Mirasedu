@@ -8198,7 +8198,7 @@ export default function App() {
     total: number;
     totalPages: number;
     page: number;
-    counts: { all: number; readyToPrint: number; printed: number; used: number } | null;
+    counts: { all: number; archived?: number; readyToPrint: number; printed: number; used: number } | null;
   }>({ status: "idle", rows: [], total: 0, totalPages: 1, page: 1, counts: null });
   const codeArchiveRequestRef = useRef(0);
   const codeArchiveRefreshRef = useRef<null | (() => void)>(null);
@@ -22010,6 +22010,12 @@ ${rows
         }
       : null;
   });
+  // A shared browser must never show the previous account's (or scope's) codes:
+  // drop the table and discard any answer still in flight for the old context.
+  useEffect(() => {
+    codeArchiveRequestRef.current += 1;
+    setCodeArchiveView({ status: "idle", rows: [], total: 0, totalPages: 1, page: 1, counts: null });
+  }, [teacherSession?.email, teacherSession?.authToken, auditScopeEmail]);
   useEffect(() => {
     if (!codeArchiveOpen || !teacherSession?.email) return;
     void fetchCodeArchivePage();
@@ -45993,6 +45999,11 @@ ${rows
                                         يعرض {pagedJoinCodes.length} من أصل{" "}
                                         {codeArchiveView.total} رمز —{" "}
                                         {codesPageSize} في الصفحة.
+                                        {!codeArchiveSearch.trim() && Number(codeArchiveView.counts?.archived) > 0 && (
+                                          <span className="block text-slate-400">
+                                            الأكواد المؤرشفة ({codeArchiveView.counts?.archived}) تظهر عند البحث فقط.
+                                          </span>
+                                        )}
                                       </>
                                     )}
                                   </span>
