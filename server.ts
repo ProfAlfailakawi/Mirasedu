@@ -11531,6 +11531,34 @@ app.get("/api/teacher/activation-attempts", (req, res) => {
       const codeRecord = codesByValue.get(compactJoinCode(attempt.normalizedCode || attempt.code || ""));
       return attemptReportOwnerMatches(attempt, codeRecord, targetEmail);
     });
+  // كود مرفوض كُتب بحرف يشبه غيره (2 بدل Z مثلاً): يُرفق معه الكود الحقيقي
+  // الوحيد المطابق بعد طيّ الأحرف المتشابهة، من الأكواد الحية والمؤرشفة وكود
+  // التفعيل المحفوظ في ملف الطالب، حتى يظهر في السجل «قريب من» الكود الصحيح.
+  const lookalikeCandidateKeys = new Set<string>();
+  const lookalikeCandidates: JoinCode[] = [];
+  for (const raw of [
+    ...dbInstance.getJoinCodes().map((row: any) => row?.code),
+    ...(typeof (dbInstance as any).getRetiredJoinCodes === "function"
+      ? (dbInstance as any).getRetiredJoinCodes().map((row: any) => row?.code)
+      : []),
+    ...students.map((row: any) => row?.activationCode),
+  ]) {
+    const key = compactJoinCode(raw || "");
+    if (!key || lookalikeCandidateKeys.has(key)) continue;
+    lookalikeCandidateKeys.add(key);
+    lookalikeCandidates.push({ code: String(raw) } as JoinCode);
+  }
+  const lookalikeResolutionCache = new Map<string, string>();
+  const resolveLookalikeCode = (compactAttempt: string): string => {
+    if (!compactAttempt || lookalikeCandidateKeys.has(compactAttempt)) return "";
+    if (lookalikeResolutionCache.has(compactAttempt)) {
+      return lookalikeResolutionCache.get(compactAttempt) || "";
+    }
+    const match = findJoinCodeByLookalikeCharacters(lookalikeCandidates, compactAttempt);
+    const resolved = match ? compactJoinCode(match.code) : "";
+    lookalikeResolutionCache.set(compactAttempt, resolved);
+    return resolved;
+  };
   const keyOf = (attempt: any) => [
     normalizeStudentId(attempt.linkedStudentId || attempt.studentId || ""),
     compactJoinCode(attempt.normalizedCode || attempt.code || ""),
@@ -11578,6 +11606,7 @@ app.get("/api/teacher/activation-attempts", (req, res) => {
         linkedSectionName: courseNameFromCode(sectionCode) || sectionDisplayCode(sectionCode) || "مقرر غير محدد",
         attemptCount: counts.get(keyOf(attempt)) || 1,
         deviceShortId: shortServerDeviceId(attempt),
+        lookalikeResolvedCode: resolveLookalikeCode(compactJoinCode(normalizedCode)),
       };
     });
   const summary = {

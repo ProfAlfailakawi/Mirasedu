@@ -61,6 +61,21 @@ check('«تحقق» shows a deleted code as «ملغي»', scanDeleted?.state ==
 const scanDeletedTyped = (await api('POST', '/api/teacher/code-scan', { code: deletedTyped }, A)).data;
 check('«تحقق» on its look-alike spelling also shows «ملغي»', scanDeletedTyped?.code === deleted && scanDeletedTyped?.state === 'ملغي', JSON.stringify(scanDeletedTyped).slice(0, 140));
 
+// A rejected misread spelling shows up in the attempts log annotated with the
+// one real code it is close to, so the teacher can search by either spelling
+// and see which printed code the student actually meant.
+const compact = (v) => String(v || '').replace(/[^A-Z0-9]/gi, '').toUpperCase();
+const rejectedTyped = await api('POST', '/api/auth/verify-otp', { idNumber: '1002', otp: deletedTyped, password: chosen, deviceToken: 'tok-lookalike-rejected' }, { deviceToken: 'tok-lookalike-rejected' });
+check('typing the misread spelling of a deleted code is rejected', !rejectedTyped.ok, `${rejectedTyped.status}`);
+const admin = { jar: makeJar(), deviceToken: 'lookalike-admin' };
+check('admin login', (await api('POST', '/api/auth/login', { idNumber: 'ah.alfailakawi@paaet.edu.kw', password: pw }, admin)).ok);
+const log = (await api('GET', '/api/teacher/activation-attempts?scope=all', null, admin)).data;
+const logged = (log?.attempts || []).find((a) => compact(a.normalizedCode || a.code) === compact(deletedTyped));
+check('the rejected misread attempt is in the log', !!logged, JSON.stringify(log?.summary || {}));
+check('the log annotates it with the real code it is close to', compact(logged?.lookalikeResolvedCode) === compact(deleted), JSON.stringify({ got: logged?.lookalikeResolvedCode, want: deleted }));
+const exactLogged = (log?.attempts || []).find((a) => compact(a.normalizedCode || a.code) === compact('LAB-ZZZZ-ZZZZ-ZZZZ'));
+check('an attempt matching no real code carries no annotation', !exactLogged || !exactLogged.lookalikeResolvedCode, JSON.stringify(exactLogged?.lookalikeResolvedCode || ''));
+
 // Look-alike spellings of one code share its attempt limit (8 per code), so
 // alternating Z/2 cannot split the attempts into separate buckets.
 let limited = false;
