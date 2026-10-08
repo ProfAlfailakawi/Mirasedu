@@ -31,4 +31,14 @@ check('the real code is the one recorded as used by 1002', scan?.activated === t
 // A code that does not exist, even with look-alikes, is still rejected.
 const fake = await api('POST', '/api/auth/verify-otp', { idNumber: '1002', otp: 'LAB-ZZZZ-ZZZZ-ZZZZ', password: chosen, deviceToken: 'tok-lookalike' }, { deviceToken: 'tok-lookalike' });
 check('a code that does not exist is still rejected', !fake.ok && fake.data?.code === 'INVALID_CODE', `${fake.status} ${JSON.stringify(fake.data).slice(0, 120)}`);
+
+// Look-alike spellings of one code share its attempt limit (8 per code), so
+// alternating Z/2 cannot split the attempts into separate buckets.
+let limited = false;
+for (let n = 0; n < 10 && !limited; n++) {
+  const spelling = n % 2 ? 'LAB-QQQ2-QQQQ-QQQQ' : 'LAB-QQQZ-QQQQ-QQQQ';
+  const attempt = await api('POST', '/api/auth/verify-otp', { idNumber: String(700000000 + n), otp: spelling, password: chosen, deviceToken: `tok-split-${n}` }, { deviceToken: `tok-split-${n}` });
+  limited = attempt.status === 429;
+}
+check('alternating look-alike spellings hit the same per-code limit', limited);
 done();
