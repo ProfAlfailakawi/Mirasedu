@@ -40,6 +40,7 @@ import { mirasPhoneticWordMatch } from "./src/shared/phonetic-search";
 import {
   allowDemoTransportOrigin,
   forgetDemoSessionId,
+  readDemoSessionId,
   rememberDemoSessionId,
 } from "./src/shared/demo-transport";
 
@@ -4030,7 +4031,7 @@ export default function App() {
   // "mark read" must never hide them: while the demo is active the UI treats
   // nothing as seen.
   const DEMO_EMPTY_SEEN_KEYS = useMemo(() => new Set<string>(), []);
-  const effectiveStudentSeenKeys = demoActive
+  const effectiveStudentSeenKeys = demoActive || readDemoSessionId()
     ? DEMO_EMPTY_SEEN_KEYS
     : studentSeenKeysState;
   const [activationSoftReveal, setActivationSoftReveal] = useState(false);
@@ -24999,7 +25000,7 @@ ${rows
   };
 
   const markStudentNotificationRead = (key: string) => {
-    if (demoActive) return;
+    if (demoActive || readDemoSessionId()) return;
     setStudentSeenKeysState((prev) => {
       const next = new Set<string>(prev);
       next.add(key);
@@ -25009,7 +25010,7 @@ ${rows
   };
 
   const markAllStudentNotificationsRead = () => {
-    if (demoActive) return;
+    if (demoActive || readDemoSessionId()) return;
     const next = new Set<string>(activeNotificationKeys);
     setStudentSeenKeysState(next);
     persistStudentSeenNotificationKeys(next);
