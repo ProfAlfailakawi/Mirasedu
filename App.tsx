@@ -2554,7 +2554,7 @@ function RoleOnboardingOverlay({
       <div className="miras-onboarding-panel relative flex w-full max-w-4xl max-h-[calc(100dvh-1.5rem)] flex-col overflow-hidden rounded-[var(--miras-r-xl)] border border-white/60 bg-white text-right miras-shadow-4 sm:max-h-[calc(100dvh-3rem)]">
         <div className="flex h-full flex-col overflow-y-auto md:grid md:grid-cols-[1fr_1fr] md:overflow-hidden">
           {/* المسرح — أرضية هوية واحدة لا تتغيّر بين الخطوات */}
-          <div className="miras-tour-stage relative flex shrink-0 flex-col justify-between overflow-hidden p-6 text-white sm:p-8 md:min-h-full">
+          <div className="miras-tour-stage relative flex shrink-0 flex-col justify-between overflow-hidden p-6 [@media(max-height:700px)]:p-4 text-white sm:p-8 md:min-h-full">
             <div className="miras-tour-grid absolute inset-0" aria-hidden="true" />
 
             <div className="relative z-10 flex items-center justify-between gap-3">
@@ -2574,7 +2574,7 @@ function RoleOnboardingOverlay({
             </div>
 
             {/* المصغّرة: قطعة من واجهة مِراس نفسها */}
-            <div className="relative z-10 my-7 flex justify-center">
+            <div className="relative z-10 my-7 [@media(max-height:700px)]:my-3 flex justify-center">
               <AnimatePresence mode="wait">
                 <motion.div
                   key={index}
@@ -2598,7 +2598,7 @@ function RoleOnboardingOverlay({
                   <motion.button
                     key={dot}
                     onClick={() => setIndex(dot)}
-                    className="h-1.5 cursor-pointer rounded-full"
+                    className="relative h-1.5 cursor-pointer rounded-full after:absolute after:-inset-x-1 after:-inset-y-4 after:content-['']"
                     animate={{
                       width: dot === index ? 26 : 8,
                       backgroundColor:
@@ -2614,7 +2614,7 @@ function RoleOnboardingOverlay({
           </div>
 
           {/* النص */}
-          <div className="relative flex flex-1 flex-col justify-between bg-white p-6 text-slate-950 sm:p-9">
+          <div className="relative flex flex-1 flex-col justify-between bg-white p-6 [@media(max-height:700px)]:p-4 text-slate-950 sm:p-9">
             <div className="flex flex-1 flex-col justify-center">
               <div className="mb-4 inline-flex max-w-fit items-center gap-2 rounded-full border border-slate-200 bg-slate-50 px-3 py-1.5 text-[11px] font-bold text-slate-600">
                 {name || "مِراس"}
@@ -2631,17 +2631,17 @@ function RoleOnboardingOverlay({
                   <span className="text-[11px] font-bold text-indigo-700">
                     {active.kicker}
                   </span>
-                  <h2 className="mt-2 text-[1.75rem] font-black leading-[1.32] text-slate-950 sm:text-[2.1rem]">
+                  <h2 className="mt-2 text-[1.75rem] [@media(max-height:700px)]:text-[1.5rem] font-black leading-[1.32] text-slate-950 sm:text-[2.1rem]">
                     {active.title}
                   </h2>
-                  <p className="mt-4 max-w-md text-[13.5px] font-medium leading-[2] text-slate-600">
+                  <p className="mt-4 [@media(max-height:700px)]:mt-2 max-w-md text-[13.5px] font-medium leading-[1.9] text-slate-600">
                     {active.body}
                   </p>
                 </motion.div>
               </AnimatePresence>
             </div>
 
-            <div className="mt-8 flex items-center justify-between gap-3 border-t border-slate-100 pt-6">
+            <div className="mt-8 [@media(max-height:700px)]:mt-3 flex items-center justify-between gap-3 border-t border-slate-100 pt-6 [@media(max-height:700px)]:pt-3">
               <button
                 type="button"
                 onClick={onDismiss}
@@ -48006,7 +48006,7 @@ ${rows
                   <Bell className="h-5 w-5" />
                 </span>
                 <div className="text-right leading-tight">
-                  <p className="text-[10px] font-bold tracking-wide text-indigo-500">
+                  <p className="text-[11px] font-bold tracking-wide text-indigo-500">
                     مِراس
                   </p>
                   <h3 className="text-[15px] font-black text-slate-900">
@@ -48018,7 +48018,7 @@ ${rows
                 type="button"
                 aria-label="إغلاق"
                 onClick={() => setStudentDeadlineCardOpen(false)}
-                className="grid h-10 w-10 place-items-center rounded-2xl border border-slate-200 bg-white text-slate-500 transition hover:bg-slate-50 hover:text-slate-800"
+                className="grid h-11 w-11 place-items-center rounded-2xl border border-slate-200 bg-white text-slate-500 transition hover:bg-slate-50 hover:text-slate-800"
               >
                 <X className="h-5 w-5" />
               </button>

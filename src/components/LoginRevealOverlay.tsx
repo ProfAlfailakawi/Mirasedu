@@ -321,7 +321,7 @@ export default function LoginRevealOverlay({
                   className={`h-[22px] w-[22px] sm:h-6 sm:w-6 ${accentText}`}
                   strokeWidth={1.75}
                 />
-                <span className="text-[8.5px] font-bold text-slate-400 sm:text-[9.5px]">
+                <span className="text-[8.5px] font-bold text-slate-400 sm:text-[11px]">
                   {label}
                 </span>
               </motion.div>
