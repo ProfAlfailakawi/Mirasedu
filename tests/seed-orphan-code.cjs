@@ -7,4 +7,24 @@ const DB = path.join(__dirname, '..', 'data', 'db.json');
 const db = JSON.parse(fs.readFileSync(DB, 'utf8'));
 const student = db.students.find((s) => String(s.id) === '1001');
 student.activationCode = 'LAB-ZQQQ-QQQQ-QQQQ';
+// A multi-teacher student holding an orphan code: its owner is ambiguous, so a
+// request scoped to one of the teachers must not use it for lookalike hints.
+const base = db.students.find((s) => String(s.id) === '2002');
+db.students.push({
+  ...JSON.parse(JSON.stringify(base)),
+  id: '4004', studentNumber: '4004', name: 'طالب عند أستاذين', email: '4004@paaet.edu.kw',
+  activationCode: 'LAB-QQSQ-QQQQ-QQQQ',
+  activatedCourseCodes: ['111-aa@test.kw', '111-bb@test.kw'],
+  enrollments: [
+    { courseCode: '111-aa@test.kw', sectionCode: '111-aa@test.kw', teacherEmail: 'aa@test.kw', status: 'active', isActive: true },
+    { courseCode: '111-bb@test.kw', sectionCode: '111-bb@test.kw', teacherEmail: 'bb@test.kw', status: 'active', isActive: true },
+  ],
+  devices: [],
+});
+// A retired code the ADMIN issued for teacher A's course: ownerEmail is the
+// admin's, but the course is A's, so A-scoped lookalike hints may use it.
+db.retiredJoinCodes = [
+  ...(db.retiredJoinCodes || []),
+  { code: 'LAB-GQNQ-QQQQ-QQQQ', status: 'retired', retiredReason: 'teacher_deleted_code', sectionCode: '111-aa@test.kw', ownerEmail: 'ah.alfailakawi@paaet.edu.kw', createdAt: new Date().toISOString(), retiredAt: new Date().toISOString(), isArchived: true },
+];
 fs.writeFileSync(DB, JSON.stringify(db, null, 2), 'utf-8');
