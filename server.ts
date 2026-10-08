@@ -20365,7 +20365,12 @@ function teacherJoinCodesData(req: express.Request) {
       !Number.isFinite(activatedSince) ||
       (Date.parse(String(jc?.activatedAt || "")) || 0) >= activatedSince,
     )
-    .map((jc: any) => {
+    .map(presentJoinCodeForTeacher);
+  return { joinCodes };
+}
+
+// One code as the teacher's code manager shows it (course resolved for display).
+function presentJoinCodeForTeacher(jc: any) {
       const storedCourseCode = String(
         jc.sectionCode || jc.courseCode || jc.studentSection || "",
       ).trim();
@@ -20389,9 +20394,86 @@ function teacherJoinCodesData(req: express.Request) {
             ? "رمز عام — يُربط عند التفعيل"
             : courseNameFromCode(courseCode),
       };
-    });
-  return { joinCodes };
 }
+
+// The code archive grows every semester and is kept for good, so after years
+// it holds tens of thousands of codes. The archive screen asks for one page:
+// the scoped list is filtered and sorted on raw records (cached per database
+// revision), and only the requested page is resolved for display.
+const CODE_ARCHIVE_SOURCE_TTL_MS = 60_000;
+const codeArchiveSourceCache = new Map<string, { revision: string; at: number; rows: any[] }>();
+function teacherCodeArchiveSource(req: express.Request) {
+  const audit = teacherAuditScope(req);
+  const includeAll = audit.includeAll || (!String(req.query.scope || "").trim() && isAdminEmail(audit.viewerEmail));
+  const key = `${audit.viewerEmail}|${audit.targetEmail}|${includeAll}`;
+  const revision = dbInstance.getReadRevision();
+  const cached = codeArchiveSourceCache.get(key);
+  if (cached && cached.revision === revision && Date.now() - cached.at < CODE_ARCHIVE_SOURCE_TTL_MS) return cached.rows;
+  const archived = typeof (dbInstance as any).getRetiredJoinCodes === "function"
+    ? (dbInstance as any).getRetiredJoinCodes()
+    : [];
+  const recentlyIssued = (jc: any) => {
+    const created = Date.parse(String(jc?.createdAt || jc?.issuedAt || "")) || 0;
+    return created > 0 && Date.now() - created < 10 * 60 * 1000;
+  };
+  const current = dbInstance.getJoinCodes().filter((jc: any) =>
+    isOperationalJoinCodeRecord(jc) || (isUsableJoinCodeRecord(jc) && recentlyIssued(jc)),
+  );
+  const currentKeys = new Set(current.map((jc: any) => compactJoinCode(jc.code)));
+  const rows = [
+    ...current,
+    // Same rule as the full inventory: a retired snapshot never replaces the
+    // current state of a recovered code.
+    ...archived
+      .filter((item: any) => item && !currentKeys.has(compactJoinCode(item.code)))
+      .map((item: any) => ({ ...item, isArchived: true })),
+  ]
+    .filter((jc: any) => String(jc?.code || "").trim())
+    .filter((jc: any) => includeAll || joinCodeAuditOwner(jc) === audit.targetEmail)
+    .map((jc: any) => ({ jc, time: Date.parse(String(jc.createdAt || jc.activatedAt || "")) || 0 }))
+    .sort((a: any, b: any) => b.time - a.time)
+    .map((entry: any) => entry.jc);
+  if (codeArchiveSourceCache.size >= 16) codeArchiveSourceCache.delete(codeArchiveSourceCache.keys().next().value!);
+  codeArchiveSourceCache.set(key, { revision, at: Date.now(), rows });
+  return rows;
+}
+
+app.get("/api/teacher/join-codes/archive", (req, res) => {
+  setNoCache(res);
+  if (!verifiedTeacherEmailFromSession(req)) return res.status(401).json({ code: "TEACHER_SESSION_REQUIRED" });
+  const rows = teacherCodeArchiveSource(req);
+  const pageSize = Math.min(200, Math.max(1, Math.floor(Number(req.query.pageSize) || 50)));
+  const status = String(req.query.status || "all").toLowerCase();
+  const search = normalizeArabicDigits(String(req.query.q || "")).toLowerCase().trim();
+  const matches = rows.filter((jc: any) => {
+    if (status !== "all" && jc.status !== status) return false;
+    if (!search) return true;
+    return (
+      String(jc.code || "").toLowerCase().includes(search) ||
+      String(jc.studentName || "").toLowerCase().includes(search) ||
+      String(jc.studentId || "").includes(search) ||
+      String(jc.assignedStudentName || "").toLowerCase().includes(search) ||
+      String(jc.assignedStudentId || "").includes(search) ||
+      String(jc.semester || "").toLowerCase().includes(search)
+    );
+  });
+  const totalPages = Math.max(1, Math.ceil(matches.length / pageSize));
+  const page = Math.min(totalPages, Math.max(1, Math.floor(Number(req.query.page) || 1)));
+  let readyToPrint = 0, printed = 0, used = 0;
+  for (const jc of rows) {
+    if (String(jc.printedAt || "").trim()) printed += 1;
+    if (jc.status === "used") used += 1;
+    if (jc.status === "active" && isFullMirasJoinCode(jc.code) && !jc.studentId && !jc.assignedStudentId &&
+        !jc.isFreeCode && !String(jc.printedAt || "").trim()) readyToPrint += 1;
+  }
+  return sendLargeJson(req, res, {
+    success: true,
+    page, pageSize, total: matches.length, totalPages,
+    counts: { all: rows.length, readyToPrint, printed, used },
+    joinCodes: matches.slice((page - 1) * pageSize, page * pageSize).map(presentJoinCodeForTeacher),
+  });
+});
+
 // The code archive grows every semester by design, so the full inventory can be
 // many megabytes of JSON. Send large inventories gzip-compressed (compression runs
 // off the event loop, so other requests are not held while it works).
