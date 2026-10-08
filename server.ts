@@ -11543,11 +11543,6 @@ app.get("/api/teacher/activation-attempts", (req, res) => {
     String(
       row?.ownerEmail || row?.createdByEmail || joinCodeOwnerEmail(row) || joinCodeAuditOwner(row) || "",
     ).trim().toLowerCase() === lookalikeScopeEmail;
-  const studentInLookalikeScope = (row: any) =>
-    includeAllLookalikeSources ||
-    getStudentActiveCourseCodes(row).some(
-      (course: string) => sectionOwnerEmail(course).trim().toLowerCase() === lookalikeScopeEmail,
-    );
   // «موجود حرفياً» يبقى على القائمة الكاملة حتى لا تُلصق شارة «قريب من» بكودٍ
   // صحيحٍ أصلاً يخص أستاذاً آخر؛ أما المرشحون للمطابقة فمن النطاق فقط.
   const exactCodeKeys = new Set<string>();
@@ -11557,11 +11552,30 @@ app.get("/api/teacher/activation-attempts", (req, res) => {
     typeof (dbInstance as any).getRetiredJoinCodes === "function"
       ? (dbInstance as any).getRetiredJoinCodes()
       : [];
-  for (const { raw, inScope } of [
+  const ledgerEntries = [
     ...dbInstance.getJoinCodes().map((row: any) => ({ raw: row?.code, inScope: joinCodeInLookalikeScope(row) })),
     ...retiredJoinCodes.map((row: any) => ({ raw: row?.code, inScope: joinCodeInLookalikeScope(row) })),
-    ...students.map((row: any) => ({ raw: row?.activationCode, inScope: studentInLookalikeScope(row) })),
-  ]) {
+  ];
+  const ledgerKeys = new Set(
+    ledgerEntries.map((entry) => compactJoinCode(entry.raw || "")).filter(Boolean),
+  );
+  // ملكية الكود المحفوظ في ملف الطالب تُؤخذ من سجل الكود نفسه إن وُجد (حياً أو
+  // مؤرشفاً)، فلا يدخل من مصدر الطالب إلا الكود اليتيم. والكود اليتيم لطالبٍ
+  // مسجّل عند أكثر من أستاذ لا يُنسب لأحدهم: لا يدخل نطاقاً محدوداً إلا إذا
+  // كانت كل مقررات الطالب النشطة للأستاذ المستهدف نفسه.
+  const studentEntries = students.flatMap((row: any) => {
+    const key = compactJoinCode(row?.activationCode || "");
+    if (!key || ledgerKeys.has(key)) return [];
+    const courses = getStudentActiveCourseCodes(row);
+    const inScope =
+      includeAllLookalikeSources ||
+      (courses.length > 0 &&
+        courses.every(
+          (course: string) => sectionOwnerEmail(course).trim().toLowerCase() === lookalikeScopeEmail,
+        ));
+    return [{ raw: row?.activationCode, inScope }];
+  });
+  for (const { raw, inScope } of [...ledgerEntries, ...studentEntries]) {
     const key = compactJoinCode(raw || "");
     if (!key) continue;
     exactCodeKeys.add(key);
