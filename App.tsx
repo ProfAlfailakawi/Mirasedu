@@ -4026,6 +4026,13 @@ export default function App() {
   const [studentSeenKeysState, setStudentSeenKeysState] = useState<Set<string>>(
     new Set(),
   );
+  // The demo is shared and meant for showing notifications, so a previous
+  // "mark read" must never hide them: while the demo is active the UI treats
+  // nothing as seen.
+  const DEMO_EMPTY_SEEN_KEYS = useMemo(() => new Set<string>(), []);
+  const effectiveStudentSeenKeys = demoActive
+    ? DEMO_EMPTY_SEEN_KEYS
+    : studentSeenKeysState;
   const [activationSoftReveal, setActivationSoftReveal] = useState(false);
 
   useEffect(() => {
@@ -24952,7 +24959,7 @@ ${rows
   const studentNotificationBadgeCount = useMemo(() => {
     let unreadCount = 0;
     activeNotificationKeys.forEach((key) => {
-      if (!studentSeenKeysState.has(key)) {
+      if (!effectiveStudentSeenKeys.has(key)) {
         unreadCount++;
       }
     });
@@ -24992,6 +24999,7 @@ ${rows
   };
 
   const markStudentNotificationRead = (key: string) => {
+    if (demoActive) return;
     setStudentSeenKeysState((prev) => {
       const next = new Set<string>(prev);
       next.add(key);
@@ -25001,6 +25009,7 @@ ${rows
   };
 
   const markAllStudentNotificationsRead = () => {
+    if (demoActive) return;
     const next = new Set<string>(activeNotificationKeys);
     setStudentSeenKeysState(next);
     persistStudentSeenNotificationKeys(next);
@@ -35079,7 +35088,7 @@ ${rows
                               ...compactStudentSchedule
                                 .filter(
                                   (item: any) =>
-                                    !studentSeenKeysState.has(
+                                    !effectiveStudentSeenKeys.has(
                                       `schedule:${item.type || "activity"}:${item.id || item.title}`,
                                     ),
                                 )
@@ -35092,7 +35101,7 @@ ${rows
                               ...compactConciseStudentNotifications
                                 .filter(
                                   (n: any) =>
-                                    !studentSeenKeysState.has(`concise:${n}`),
+                                    !effectiveStudentSeenKeys.has(`concise:${n}`),
                                 )
                                 .map((n: any) => ({
                                   tone: studentNoticeTone(String(n || "")),
@@ -35108,12 +35117,12 @@ ${rows
                               </div>
                             )}
                             {compactStudentSchedule.every((item: any) =>
-                              studentSeenKeysState.has(
+                              effectiveStudentSeenKeys.has(
                                 `schedule:${item.type || "activity"}:${item.id || item.title}`,
                               ),
                             ) &&
                             compactConciseStudentNotifications.every((n: any) =>
-                              studentSeenKeysState.has(`concise:${n}`),
+                              effectiveStudentSeenKeys.has(`concise:${n}`),
                             ) ? (
                               <div className="rounded-2xl bg-slate-50/80 border border-slate-100 text-slate-500 text-center p-5">
                                 <span className="text-[13px] font-extrabold block">
@@ -35125,7 +35134,7 @@ ${rows
                                 {compactStudentSchedule
                                   .filter(
                                     (item: any) =>
-                                      !studentSeenKeysState.has(
+                                      !effectiveStudentSeenKeys.has(
                                         `schedule:${item.type || "activity"}:${item.id || item.title}`,
                                       ),
                                   )
@@ -35210,7 +35219,7 @@ ${rows
                                 {compactConciseStudentNotifications
                                   .filter(
                                     (n: any) =>
-                                      !studentSeenKeysState.has(`concise:${n}`),
+                                      !effectiveStudentSeenKeys.has(`concise:${n}`),
                                   )
                                   .map((n, idx) => {
                                     const notificationKey = `concise:${n}`;
