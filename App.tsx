@@ -46301,6 +46301,16 @@ ${rows
                                             {c.studentId || "-"})
                                           </span>
                                         )}
+                                        {/* الكود المؤرشف (محذوف أو من مقرر محذوف): يُعرض الطالب المرتبط به بدل خانة فارغة. */}
+                                        {!["active", "revoked", "used"].includes(String(c.status || "")) && (
+                                          <span className="text-slate-600">
+                                            {c.studentName || c.usedByStudentName
+                                              ? `${c.studentName || c.usedByStudentName} (${c.studentId || c.usedByStudentId || "-"})`
+                                              : c.assignedStudentId
+                                                ? `${c.assignedStudentName || "-"} (${c.assignedStudentId})`
+                                                : "غير مرتبط بطالب"}
+                                          </span>
+                                        )}
                                       </div>
                                       <div className="md:col-span-2 rounded-2xl bg-white border border-slate-100 p-3 text-slate-500">
                                         <span className="block text-[10px] font-bold text-slate-400">
