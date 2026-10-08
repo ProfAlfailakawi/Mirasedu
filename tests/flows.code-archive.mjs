@@ -1,6 +1,6 @@
-// The Codes tab reads the archive one server page at a time. Every page combined
-// must equal the full inventory the old screen downloaded: same codes, newest
-// first, same search/status filters and the same header counters.
+// The Codes tab reads its list one server page at a time. Without a search the
+// pages hold exactly the current codes (archived codes stay hidden); a search
+// also reaches the archive. Same order, filters and counters as the inventory.
 import { api, makeJar, createReporter, AA } from './lib.mjs';
 const { check, done } = createReporter('FLOWS / CODE ARCHIVE PAGES');
 const teacherPassword = process.env.TEST_TEACHER_PASSWORD || 'change-me-in-ci';
@@ -21,7 +21,8 @@ for (const [email, scope] of [[AA, ''], [admin, 'all'], [admin, 'self']]) {
   const scoped = scope ? `scope=${scope}&` : '';
   const full = (await api('GET', `/api/teacher/join-codes?${scoped}includeRetired=1`, null, opts)).data.joinCodes || [];
   const time = (c) => Date.parse(String(c.createdAt || c.activatedAt || '')) || 0;
-  const expected = full.filter((c) => String(c.code || '').trim());
+  const everything = full.filter((c) => String(c.code || '').trim());
+  const expected = everything.filter((c) => !c.isArchived);
 
   const pages = [];
   let page = 1, info;
@@ -31,14 +32,19 @@ for (const [email, scope] of [[AA, ''], [admin, 'all'], [admin, 'self']]) {
     page += 1;
   } while (info.success && page <= info.totalPages && page < 500);
   const label = `${email}${scope ? ` (${scope})` : ''}`;
-  check(`${label}: pages together hold exactly the full inventory`,
+  check(`${label}: pages together hold exactly the current codes`,
     info.success && pages.length === expected.length && info.total === expected.length &&
     new Set(pages.map((c) => c.code)).size === pages.length &&
     pages.every((c) => expected.some((e) => e.code === c.code)),
     `pages=${pages.length} full=${expected.length} total=${info.total}`);
   check(`${label}: newest first`, pages.every((c, i) => i === 0 || time(pages[i - 1]) >= time(c)));
-  const archived = expected.filter((c) => c.isArchived);
-  check(`${label}: archived codes are marked`, pages.filter((c) => c.isArchived).length === archived.length);
+  const archived = everything.filter((c) => c.isArchived);
+  check(`${label}: archived codes are hidden without a search`, pages.every((c) => !c.isArchived) && info.counts?.archived === archived.length,
+    `archived=${archived.length} counted=${info.counts?.archived}`);
+  for (const old of archived.slice(0, 3)) {
+    const r = (await api('GET', `/api/teacher/join-codes/archive?${scoped}q=${encodeURIComponent(old.code)}`, null, opts)).data;
+    check(`${label}: archived ${old.code} appears when searched`, r.joinCodes?.some((c) => c.code === old.code && c.isArchived));
+  }
   check(`${label}: rows carry the resolved course like the full list`,
     pages.every((c) => { const e = expected.find((x) => x.code === c.code); return e && e.courseName === c.courseName && e.sectionCode === c.sectionCode; }));
 
@@ -55,7 +61,7 @@ for (const [email, scope] of [[AA, ''], [admin, 'all'], [admin, 'self']]) {
   if (expected.length) {
     const needle = expected[expected.length - 1].code.slice(-4).toLowerCase();
     const r = (await api('GET', `/api/teacher/join-codes/archive?${scoped}q=${encodeURIComponent(needle)}&pageSize=200`, null, opts)).data;
-    const want = expected.filter((c) => String(c.code).toLowerCase().includes(needle) || String(c.semester || '').toLowerCase().includes(needle) ||
+    const want = everything.filter((c) => String(c.code).toLowerCase().includes(needle) || String(c.semester || '').toLowerCase().includes(needle) ||
       String(c.studentName || '').toLowerCase().includes(needle) || String(c.assignedStudentName || '').toLowerCase().includes(needle) ||
       String(c.studentId || '').includes(needle) || String(c.assignedStudentId || '').includes(needle));
     check(`${label}: search`, r.total === want.length && r.total >= 1, `got ${r.total} want ${want.length}`);
