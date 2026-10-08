@@ -11,7 +11,7 @@ import fs from "fs";
 import os from "os";
 import fileUpload from "express-fileupload";
 import crypto from "crypto";
-import { gzipSync } from "node:zlib";
+import { gzip, gzipSync } from "node:zlib";
 import dotenv from "dotenv";
 import QRCode from "qrcode";
 import { execFileSync, spawn } from "child_process";
@@ -20392,9 +20392,27 @@ function teacherJoinCodesData(req: express.Request) {
     });
   return { joinCodes };
 }
+// The code archive grows every semester by design, so the full inventory can be
+// many megabytes of JSON. Send large inventories gzip-compressed (compression runs
+// off the event loop, so other requests are not held while it works).
+function sendLargeJson(req: express.Request, res: express.Response, payload: any) {
+  const json = JSON.stringify(payload);
+  res.setHeader("Content-Type", "application/json; charset=utf-8");
+  res.vary("Accept-Encoding");
+  if (json.length < 64 * 1024 || !/\bgzip\b/.test(String(req.headers["accept-encoding"] || ""))) {
+    return res.end(json);
+  }
+  gzip(json, { level: 4 }, (error, compressed) => {
+    if (res.headersSent) return;
+    if (error) return res.end(json);
+    res.setHeader("Content-Encoding", "gzip");
+    res.end(compressed);
+  });
+}
+
 app.get("/api/teacher/join-codes", (req, res) => {
   setNoCache(res);
-  return res.json(teacherJoinCodesData(req));
+  return sendLargeJson(req, res, teacherJoinCodesData(req));
 });
 
 // Read-only teacher-owned code inventory; exact cross-teacher verification is
@@ -20411,6 +20429,7 @@ app.get("/api/teacher/code-scan", (req, res) => {
     ? (dbInstance as any).getRetiredJoinCodes().filter((code: any) => String(code?.code || "").trim() && !currentKeys.has(compactJoinCode(code.code)))
     : [];
   const records = [...current, ...retired];
+  const retiredRecords = new Set(retired);
   const students = new Map<string, any>();
   for (const student of dbInstance.getStudents()) students.set(normalizeStudentId(student.id), student);
   const teacherName = String(dbInstance.getTeachers().find((item: any) => String(item.email || "").toLowerCase() === teacherEmail)?.name || teacherEmail);
@@ -20432,7 +20451,7 @@ app.get("/api/teacher/code-scan", (req, res) => {
       const studentId = normalizeStudentId(code.usedByStudentId || code.studentId || code.assignedStudentId || "");
       const student = students.get(studentId);
       const codeStatus = String(code.status || "active").toLowerCase();
-      const archived = isArchivedJoinCodeRecord(code) || retired.includes(code);
+      const archived = isArchivedJoinCodeRecord(code) || retiredRecords.has(code);
       const activated = codeStatus === "used" || !!code.activatedAt || !!code.usedByStudentId || !!code.studentId;
       const window = joinCodeWindowStatus(code);
       const state = archived ? activated ? "مُفعّل • أرشيف" : "أرشيف" : activated ? "مُفعّل" : isSoftDeletedRecord(code) || ["revoked", "disabled", "deleted"].includes(codeStatus) ? "موقوف" : codeStatus === "expired" || (!window.ok && window.reason.includes("انتهت")) ? "منتهي" : !window.ok ? "لم يبدأ" : isJoinCodeTemporarilyFrozen(code) ? "موقوف مؤقتاً" : codeStatus === "active" ? "صالح" : "غير صالح";
@@ -20451,7 +20470,7 @@ app.get("/api/teacher/code-scan", (req, res) => {
     })
     .sort((a: any, b: any) => String(a.studentName).localeCompare(String(b.studentName), "ar") || String(a.courseName).localeCompare(String(b.courseName), "ar"));
   const summary = codes.reduce((counts: any, row: any) => { counts[row.state] = (counts[row.state] || 0) + 1; return counts; }, {});
-  return res.json({ success: true, scannedAt: new Date().toISOString(), total: codes.length, summary, codes });
+  return sendLargeJson(req, res, { success: true, scannedAt: new Date().toISOString(), total: codes.length, summary, codes });
 });
 
 // Exact, authenticated code lookup across active and retired ledgers. This is
