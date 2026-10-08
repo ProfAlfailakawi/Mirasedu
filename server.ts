@@ -7255,6 +7255,12 @@ function activationRateKey(kind: string, value: any): string {
   return `${kind}:${crypto.createHash("sha256").update(raw).digest("hex").slice(0, 32)}`;
 }
 
+// حروف الكود التي تتشابه عند القراءة من الكرت: يكتب الطالب الرقم بدل الحرف أو العكس.
+// التفعيل وعدّاد المحاولات وسمعة الكود يعاملون كل هذه الكتابات ككود واحد.
+const JOIN_CODE_LOOKALIKE_DIGITS: Record<string, string> = { "2": "Z", "5": "S", "8": "B", "6": "G" };
+const lookalikeJoinCodeKey = (compact: string) =>
+  compact.replace(/[2586]/g, (ch) => JOIN_CODE_LOOKALIKE_DIGITS[ch]);
+
 function rememberActivationRateStrike(
   req: express.Request,
   params: { code?: string; student?: Student },
@@ -7266,7 +7272,7 @@ function rememberActivationRateStrike(
     activationRateKey("ip", req.ip || "127.0.0.1"),
     activationRateKey("device", token || fingerprint),
     activationRateKey("student", params.student?.id),
-    activationRateKey("code", compactJoinCode(params.code || "")),
+    activationRateKey("code", lookalikeJoinCodeKey(compactJoinCode(params.code || ""))),
   ].filter(Boolean);
 
   for (const key of keys) {
@@ -7309,7 +7315,7 @@ function getActivationRateLimit(
       blockMs: 10 * 60 * 1000,
     },
     {
-      key: activationRateKey("code", compactJoinCode(params.code || "")),
+      key: activationRateKey("code", lookalikeJoinCodeKey(compactJoinCode(params.code || ""))),
       max: 8,
       windowMs: 10 * 60 * 1000,
       blockMs: 15 * 60 * 1000,
@@ -7476,11 +7482,11 @@ function calculateCodeReputation(params: {
   telemetry: any;
 }) {
   const normalized = normalizeJoinCode(params.code);
-  const compact = compactJoinCode(params.code);
+  const compact = lookalikeJoinCodeKey(compactJoinCode(params.code));
   const attempts = dbInstance.getActivationAttempts().filter((attempt: any) => {
-    const aCompact = compactJoinCode(
+    const aCompact = lookalikeJoinCodeKey(compactJoinCode(
       attempt.normalizedCode || attempt.code || "",
-    );
+    ));
     return compact && aCompact === compact;
   });
   const devices = new Set(
@@ -19121,10 +19127,6 @@ app.post("/api/payment/simulate", (req, res) => {
 
 // ================= JOIN CODE SYSTEM ENDPOINTS =================
 
-// حروف الكود التي تتشابه عند القراءة من الكرت: يكتب الطالب الرقم بدل الحرف أو العكس.
-const JOIN_CODE_LOOKALIKE_DIGITS: Record<string, string> = { "2": "Z", "5": "S", "8": "B", "6": "G" };
-const lookalikeJoinCodeKey = (compact: string) =>
-  compact.replace(/[2586]/g, (ch) => JOIN_CODE_LOOKALIKE_DIGITS[ch]);
 function findJoinCodeByLookalikeCharacters(codes: JoinCode[], compactCode: string): JoinCode | undefined {
   if (!/^LAB[A-Z0-9]{12}$/.test(compactCode)) return undefined;
   const key = lookalikeJoinCodeKey(compactCode);
