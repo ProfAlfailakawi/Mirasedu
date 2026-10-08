@@ -4670,11 +4670,19 @@ function teacherReadIndex() {
   const revision = dbInstance.getReadRevision();
   const cached = teacherReadIndexes.get(students);
   if (cached?.revision === revision) return cached;
+  // Rebuilt after every write, so it runs per request during a login rush:
+  // no per-row Set/array allocation, same first-occurrence key order.
   const group = (rows: any[], keys: (row: any) => string[]) => {
     const result = new Map<string, any[]>();
     for (const row of rows) {
       if (!row) continue;
-      for (const key of new Set(keys(row).filter(Boolean))) {
+      const rowKeys = keys(row);
+      for (let i = 0; i < rowKeys.length; i++) {
+        const key = rowKeys[i];
+        if (!key) continue;
+        let repeated = false;
+        for (let j = 0; j < i; j++) if (rowKeys[j] === key) { repeated = true; break; }
+        if (repeated) continue;
         const items = result.get(key);
         if (items) items.push(row); else result.set(key, [row]);
       }
@@ -5587,8 +5595,10 @@ function activeRuntimeTeacherSubmissions() {
 }
 
 function normalizeStudentId(value: any): string {
-  // Already normalized (the common case): nothing to trim, convert or strip.
+  // Already normalized or empty (the common cases): nothing to trim, convert or strip.
+  if (value === undefined || value === null) return "";
   if (typeof value === "string" && /^[0-9]*$/.test(value)) return value;
+  if (typeof value === "number" && Number.isSafeInteger(value) && value >= 0) return String(value);
   return String(value ?? "")
     .trim()
     .replace(/[٠-٩]/g, (d) => String("٠١٢٣٤٥٦٧٨٩".indexOf(d)))
@@ -15461,14 +15471,33 @@ function envBootstrapPasswordHash(value: string | undefined) {
 // يوقف تخمين كلمة مرور حساب واحد، وهذا يوقف رشّ كلمات على حسابات كثيرة من
 // عنوان واحد. تُحسب المحاولات الفاشلة فقط، والسقف واسع، لأن فصلاً كاملاً
 // يدخل غالباً من عنوان واحد خلف شبكة الكلية.
-const loginIpRateLimit = rateLimit({
-  windowMs: 15 * 60 * 1000,
-  max: 100,
-  skipSuccessfulRequests: true,
-  standardHeaders: true,
-  legacyHeaders: false,
-  message: { error: "محاولات دخول فاشلة كثيرة من هذه الشبكة. حاول بعد 15 دقيقة." },
-});
+// لا يُحتسب الطلب إلا بعد انتهائه فاشلاً: المحدِّد العام كان يعدّ كل طلب عند
+// وصوله ولا يُسقطه إلا بعد نجاحه، فإذا دخل أكثر من ١٠٠ طالب معاً من شبكة الكلية
+// رُفض الزائد برسالة «محاولات فاشلة» رغم صحة كلمات مرورهم.
+const LOGIN_IP_WINDOW_MS = 15 * 60 * 1000;
+const LOGIN_IP_MAX_FAILURES = 100;
+const loginIpFailures = new Map<string, { count: number; resetAt: number }>();
+const loginIpRateLimit: express.RequestHandler = (req, res, next) => {
+  const key = String(req.ip || req.socket?.remoteAddress || "unknown");
+  const now = Date.now();
+  const entry = loginIpFailures.get(key);
+  if (entry && entry.resetAt <= now) loginIpFailures.delete(key);
+  else if (entry && entry.count >= LOGIN_IP_MAX_FAILURES) {
+    res.setHeader("Retry-After", String(Math.ceil((entry.resetAt - now) / 1000)));
+    return res.status(429).json({ error: "محاولات دخول فاشلة كثيرة من هذه الشبكة. حاول بعد 15 دقيقة." });
+  }
+  res.once("finish", () => {
+    if (res.statusCode < 400) return;
+    const at = Date.now();
+    if (loginIpFailures.size > 10_000) {
+      for (const [ip, item] of loginIpFailures) if (item.resetAt <= at) loginIpFailures.delete(ip);
+    }
+    const current = loginIpFailures.get(key);
+    if (current && current.resetAt > at) current.count += 1;
+    else loginIpFailures.set(key, { count: 1, resetAt: at + LOGIN_IP_WINDOW_MS });
+  });
+  next();
+};
 
 app.post("/api/auth/login", loginIpRateLimit, (req, res) => {
   const { idNumber, password } = req.body;

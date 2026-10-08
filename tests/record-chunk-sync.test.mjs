@@ -150,7 +150,7 @@ test('record-aligned chunk writes always reconstruct the exact database', async 
     assert.ok(reconstruct('joinCodes').some(item => item.code === 'LAB-OLD-SERVER'));
     for (let round = 0; round < 10; round++) { pick(edits)(); await confirm(`after external ${round}`); }
   } finally {
-    if (db) { clearTimeout(db.persistTimeout); clearTimeout(db.localSaveTimer); clearImmediate(db.localSaveTimer); db.pendingFSSync = false; db.dirtyLocal = false; db.cloudUnsubscribe?.(); }
+    if (db) { clearTimeout(db.persistTimeout); clearTimeout(db.localSaveDelayTimer); clearImmediate(db.localSaveTimer); db.pendingFSSync = false; db.dirtyLocal = false; db.cloudUnsubscribe?.(); }
     process.chdir(root); delete globalThis.__mirasChunkCloud; fs.rmSync(sandbox, { recursive: true, force: true });
   }
 });
