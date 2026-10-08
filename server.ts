@@ -4324,13 +4324,14 @@ function joinCodeMatchesStudentCourse(jc: any, student: any, courseCode: any, te
   return !isStudentCourseRemoved(student, jcCourse, owner || teacherEmail);
 }
 
-// A legacy code assigned to a student (studentId set, status still "active",
-// no activation time) has not been used yet; only real usage markers count.
+// A code assigned to a student (studentId set) that was never entered has not
+// been used, whatever its status (active or revoked); only real usage markers
+// count.
 function joinCodeWasActivated(code: any): boolean {
   const status = String(code?.status || "active").trim().toLowerCase();
   if (["used", "active-used", "activated"].includes(status)) return true;
   if (String(code?.activatedAt || code?.usedAt || code?.usedByStudentId || "").trim()) return true;
-  return status !== "active" && !!String(code?.studentId || "").trim();
+  return false;
 }
 
 function getFreshJoinCodeForStudentCourse(student: any, courseCode: any, teacherEmail?: any): any | null {
@@ -20662,7 +20663,7 @@ app.post("/api/teacher/code-scan", teacherExactCodeScanRateLimit, (req, res) => 
     courseName: cleanScanLabel(storedCourseName || (courseCode && !/اسم الدكتور غير محمّل|اسم الدكتور غير محمل|غير محمل|غير معروف/i.test(courseNameFromCode(courseCode)) ? courseNameFromCode(courseCode) : courseCode || "مقرر عام")),
     sectionCode: courseCode,
     semester: String(code.semester || code.academicTerm || code.term || "").trim(),
-    teacherName: [scannedTeacherName, issuer?.name, code.ownerName, code.createdByName]
+    teacherName: [scannedTeacherName, code.courseTeacherName, issuer?.name, code.ownerName, code.createdByName]
       .map((value: any) => cleanScanLabel(value))
       .find((value: string) => value && !/اسم الدكتور غير محمل|غير محمل|غير معروف/i.test(value)) || "",
   });
@@ -22051,19 +22052,22 @@ app.delete("/api/teacher/sections/:code", (req, res) => {
 
   // The course's codes leave the live list but stay in the code archive, so
   // "تحقق" still shows who used each code, where and when, for good.
+  // courseTeacherName records whose course it was, even for an admin-issued code.
   const deletedSectionName = String(section.courseName || section.name || "").trim();
-  const deletedOwnerName = String(dbInstance.getTeachers().find((t: any) =>
+  const deletedTeacherName = String(dbInstance.getTeachers().find((t: any) =>
     String(t.email || "").trim().toLowerCase() === teacherEmail.toLowerCase())?.name || "").trim();
+  const archivedCourseCodes: any[] = [];
   (dbInstance as any).data.joinCodes = dbInstance.getJoinCodes().filter((jc: any) => {
     const jcCode = jc.sectionCode || jc.courseCode || jc.code || "";
     if (!matchesDeleted(jcCode)) return true;
-    dbInstance.archiveJoinCodeRecord({
+    archivedCourseCodes.push({
       ...jc,
       courseName: jc.courseName || deletedSectionName || undefined,
-      ownerName: jc.ownerName || deletedOwnerName || undefined,
-    }, "course_deleted", teacherEmail);
+      courseTeacherName: jc.courseTeacherName || deletedTeacherName || undefined,
+    });
     return false;
   });
+  dbInstance.archiveJoinCodeRecords(archivedCourseCodes, "course_deleted", teacherEmail);
 
   deletedCodes.forEach((code: string) => dbInstance.deleteSection(code));
   dbInstance.persist();

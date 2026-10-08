@@ -2997,37 +2997,42 @@ export class LocalDatabase {
   }
 
   public archiveJoinCodeRecord(item: any, reason = "course_closed", actorEmail = "system"): boolean {
-    if (!item || typeof item !== "object") return false;
+    return this.archiveJoinCodeRecords([item], reason, actorEmail) > 0;
+  }
+
+  // Archives many codes in one pass over the archive, which grows every semester;
+  // returns how many were not archived before.
+  public archiveJoinCodeRecords(items: any[], reason = "course_closed", actorEmail = "system"): number {
     if (!this.data.retiredJoinCodes) this.data.retiredJoinCodes = [];
-    const key = String(item?.code || "").trim().toUpperCase();
-    if (!key) return false;
     const now = new Date().toISOString();
     const archiveMap = new Map<string, JoinCode>();
     this.data.retiredJoinCodes.forEach((existing: any) => {
       const existingKey = String(existing?.code || "").trim().toUpperCase();
       if (existingKey) archiveMap.set(existingKey, existing);
     });
-    const archivedItem = {
-      ...item,
-      status: String(item?.status || "").toLowerCase() === "active" ? "retired" : (item?.status || "retired"),
-      retiredAt: item?.retiredAt || now,
-      retiredReason: item?.retiredReason || reason,
-      retiredByEmail: item?.retiredByEmail || actorEmail,
-      archivedAt: item?.archivedAt || now,
-    } as JoinCode;
-    const isNew = !archiveMap.has(key);
-    archiveMap.set(key, { ...(archiveMap.get(key) || {}), ...archivedItem });
+    let added = 0;
+    for (const item of items) {
+      if (!item || typeof item !== "object") continue;
+      const key = String(item?.code || "").trim().toUpperCase();
+      if (!key) continue;
+      const archivedItem = {
+        ...item,
+        status: String(item?.status || "").toLowerCase() === "active" ? "retired" : (item?.status || "retired"),
+        retiredAt: item?.retiredAt || now,
+        retiredReason: item?.retiredReason || reason,
+        retiredByEmail: item?.retiredByEmail || actorEmail,
+        archivedAt: item?.archivedAt || now,
+      } as JoinCode;
+      if (!archiveMap.has(key)) added += 1;
+      archiveMap.set(key, { ...(archiveMap.get(key) || {}), ...archivedItem });
+    }
     this.data.retiredJoinCodes = Array.from(archiveMap.values());
-    return isNew;
+    return added;
   }
 
   public archiveJoinCodes(reason = "course_closed", actorEmail = "system"): number {
     if (!this.data.joinCodes) this.data.joinCodes = [];
-    let archived = 0;
-    this.data.joinCodes.forEach((item: any) => {
-      if (this.archiveJoinCodeRecord(item, reason, actorEmail)) archived += 1;
-    });
-    return archived;
+    return this.archiveJoinCodeRecords(this.data.joinCodes, reason, actorEmail);
   }
 
   public exportStateSnapshot(): DatabaseState {

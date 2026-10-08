@@ -1,6 +1,7 @@
 // Scenario: a student activates a code with teacher A, A's course ends, then the
 // student enrolls with teacher B. Any teacher checking either code sees that
 // code's own course, semester and teacher, with the code's history kept.
+import { randomUUID } from 'node:crypto';
 import { api, makeJar, createReporter, AA, BB, S_A1, S_A2, S_B1 } from './lib.mjs';
 const { check, done } = createReporter('FLOWS / CODE CHECK ACROSS TEACHERS');
 const pw = process.env.TEST_TEACHER_PASSWORD || 'change-me-in-ci';
@@ -21,6 +22,17 @@ const before = await scan(oldCode.code, B);
 show('B checks A code (A course live)', before);
 const aTeacherName = before.teacherName;
 
+// A general (admin-sold) code activated into the same course of teacher A.
+const admin = { jar: makeJar(), deviceToken: 'scan-admin' };
+check('admin login', (await api('POST', '/api/auth/login', { idNumber: 'ah.alfailakawi@paaet.edu.kw', password: pw }, admin)).ok);
+const generalCode = (await api('POST', '/api/teacher/join-codes/create', { generalSale: true, count: 1 }, admin)).data.created?.[0];
+// 1002 is on course A's roster only, so the general code creates the account.
+const seededStudent2 = '1002';
+// A fresh random value each run, with the upper/lower case and digit the signup rules require.
+const chosen = `N${randomUUID().replace(/-/g, '')}`;
+r = await api('POST', '/api/auth/verify-otp', { idNumber: seededStudent2, otp: generalCode?.code, password: chosen, deviceToken: 'tok-1002' }, { deviceToken: 'tok-1002' });
+check('second student activates a general code into course A', r.ok && r.data.success, JSON.stringify(r.data).slice(0, 160));
+
 // End of semester for teacher A: the course is deleted.
 r = await api('DELETE', `/api/teacher/sections/${encodeURIComponent(S_A1)}`, null, A);
 check('teacher A deletes the finished course', r.ok, JSON.stringify(r.data).slice(0, 160));
@@ -40,6 +52,12 @@ for (const [who, o] of [['B', B], ['A', A]]) {
   check(`${who}: old code shows previously activated`, oldScan.activated === true);
   check(`${who}: new code shows teacher B course`, newScan.success && newScan.sectionCode !== before.sectionCode && newScan.teacherName !== aTeacherName, `${newScan.sectionCode} ${newScan.teacherName}`);
 }
+
+const generalScan = await scan(generalCode?.code, B);
+show('B checks general code of deleted course A', generalScan);
+check('general code of a deleted course: found with course A and teacher A',
+  generalScan.success && generalScan.studentId === seededStudent2 && generalScan.sectionCode === before.sectionCode && generalScan.teacherName === aTeacherName,
+  JSON.stringify(generalScan).slice(0, 200));
 
 // Teacher A removes the student from another course instead of deleting it.
 const removedCode = await issue(S_A2, A);
