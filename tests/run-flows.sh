@@ -86,6 +86,7 @@ run_group tests/flows.cloud-workspace.mjs
 run_group tests/flows.audit-scope.mjs tests/seed-audit-scope.cjs
 run_group tests/flows.authz-audit.mjs
 run_group tests/flows.demo-hosting.mjs
+run_group tests/flows.login-ip-limit.mjs
 node node_modules/.bin/tsx --test tests/general-code-reset.test.mjs || overall=1
 node node_modules/.bin/tsx tests/flows.arabic-text.mjs || overall=1
 node node_modules/.bin/tsx --test tests/device-audit.test.ts || overall=1
@@ -96,6 +97,7 @@ node node_modules/.bin/tsx --test tests/student-lock-signal.test.ts || overall=1
 node node_modules/.bin/tsx --test tests/atomic-cloud-write.test.ts || overall=1
 node node_modules/.bin/tsx --test tests/record-chunks.test.ts || overall=1
 node node_modules/.bin/tsx --test tests/record-chunk-sync.test.mjs || overall=1
+node node_modules/.bin/tsx --test tests/login-ip-limit.test.mjs || overall=1
 node node_modules/.bin/tsx --test tests/cloud-mutation-barrier.test.ts || overall=1
 node node_modules/.bin/tsx --test tests/cloud-request-latency.test.mjs || overall=1
 node node_modules/.bin/tsx --test tests/enrollment-read-latency.test.mjs || overall=1
