@@ -74,6 +74,7 @@ run_group tests/flows.code-lifecycle.mjs tests/seed-code-lifecycle.cjs
 run_group tests/flows.code-archive.mjs tests/seed-code-lifecycle.cjs
 run_group tests/flows.code-scan.mjs tests/seed-code-lifecycle.cjs
 run_group tests/flows.typed-lookalike.mjs
+run_group tests/flows.code-scan-orphan-lookalike.mjs tests/seed-orphan-code.cjs
 run_group tests/flows.learning-intelligence.mjs
 run_group tests/flows.grading.mjs
 run_group tests/flows.student-submit.mjs

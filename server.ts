@@ -20659,11 +20659,20 @@ app.post("/api/teacher/code-scan", teacherExactCodeScanRateLimit, (req, res) => 
       retiredCodes.some((row: any) => compactJoinCode(row?.code) === compact) ||
       dbInstance.getStudents().some((row: any) => compactJoinCode(row?.activationCode || "") === compact);
     if (!exactExists) {
-      const liveCompacts = new Set(liveCodes.map((row: any) => compactJoinCode(row?.code)));
-      const alias = findJoinCodeByLookalikeCharacters(
-        [...liveCodes, ...retiredCodes.filter((row: any) => !liveCompacts.has(compactJoinCode(row?.code)))],
-        compact,
-      );
+      // كل كود مرة واحدة: الحالي ثم المؤرشف ثم كود التفعيل المحفوظ في ملف الطالب.
+      const seen = new Set<string>();
+      const candidates: JoinCode[] = [];
+      for (const raw of [
+        ...liveCodes.map((row: any) => row?.code),
+        ...retiredCodes.map((row: any) => row?.code),
+        ...dbInstance.getStudents().map((row: any) => row?.activationCode),
+      ]) {
+        const key = compactJoinCode(raw || "");
+        if (!key || seen.has(key)) continue;
+        seen.add(key);
+        candidates.push({ code: String(raw) } as JoinCode);
+      }
+      const alias = findJoinCodeByLookalikeCharacters(candidates, compact);
       if (alias) compact = compactJoinCode(alias.code);
     }
   }
