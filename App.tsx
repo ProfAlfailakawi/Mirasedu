@@ -22418,6 +22418,16 @@ ${rows
     const search = normalizeArabicDigits(deferredActivationAttemptSearch)
       .toLowerCase()
       .trim();
+    // البحث بالكود الحقيقي يُظهر أيضاً المحاولة التي كُتب فيها حرف شبيه
+    // (Z/2، S/5، B/8، G/6) — نفس مطابقة «تحقق» — دون مساس بالبحث النصي الحالي.
+    const foldLookalikes = (value: any) =>
+      normalizeArabicDigits(value)
+        .toLowerCase()
+        .replace(/[^a-z0-9]/g, "")
+        .replace(/[2586]/g, (ch) => (({ "2": "z", "5": "s", "8": "b", "6": "g" }) as Record<string, string>)[ch]);
+    const searchCodeKey = /[a-z]/.test(search) && search.replace(/[^a-z0-9]/g, "").length >= 4
+      ? foldLookalikes(search)
+      : "";
     return baseRows
       .map((attempt: any) => ({
         ...attempt,
@@ -22440,7 +22450,11 @@ ${rows
           activationAttemptDeviceLabel(attempt).browser,
         ]
           .map((value: any) => normalizeArabicDigits(value).toLowerCase())
-          .some((value: string) => value.includes(search));
+          .some((value: string) => value.includes(search)) ||
+          (!!searchCodeKey &&
+            [attempt.normalizedCode, attempt.code].some(
+              (value: any) => value && foldLookalikes(value).includes(searchCodeKey),
+            ));
       })
       .sort(
         (a: any, b: any) =>
