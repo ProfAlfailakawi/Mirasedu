@@ -99,6 +99,7 @@ node node_modules/.bin/tsx --test tests/device-audit.test.ts || overall=1
 node node_modules/.bin/tsx --test tests/device-review-notifications.test.ts || overall=1
 node node_modules/.bin/tsx --test tests/teacher-account-scope.test.ts || overall=1
 node node_modules/.bin/tsx --test tests/device-transfer-copy.test.ts || overall=1
+node node_modules/.bin/tsx --test tests/old-safari-regex.test.mjs || overall=1
 node node_modules/.bin/tsx --test tests/student-lock-signal.test.ts || overall=1
 node node_modules/.bin/tsx --test tests/atomic-cloud-write.test.ts || overall=1
 node node_modules/.bin/tsx --test tests/record-chunks.test.ts || overall=1
