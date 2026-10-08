@@ -20455,7 +20455,7 @@ app.get("/api/teacher/code-scan", (req, res) => {
       const archived = isArchivedJoinCodeRecord(code) || retiredRecords.has(code);
       const activated = codeStatus === "used" || !!code.activatedAt || !!code.usedByStudentId || !!code.studentId;
       const window = joinCodeWindowStatus(code);
-      const state = archived ? activated ? "مُفعّل • أرشيف" : "أرشيف" : activated ? "مُفعّل" : isSoftDeletedRecord(code) || ["revoked", "disabled", "deleted"].includes(codeStatus) ? "موقوف" : codeStatus === "expired" || (!window.ok && window.reason.includes("انتهت")) ? "منتهي" : !window.ok ? "لم يبدأ" : isJoinCodeTemporarilyFrozen(code) ? "موقوف مؤقتاً" : codeStatus === "active" ? "صالح" : "غير صالح";
+      const state = archived ? activated ? "مُفعّل سابقاً" : "لم يُستخدم" : activated ? "مُفعّل" : isSoftDeletedRecord(code) || ["revoked", "disabled", "deleted"].includes(codeStatus) ? "موقوف" : codeStatus === "expired" || (!window.ok && window.reason.includes("انتهت")) ? "منتهي" : !window.ok ? "لم يبدأ" : isJoinCodeTemporarilyFrozen(code) ? "موقوف مؤقتاً" : codeStatus === "active" ? "صالح" : "غير صالح";
       const civilId = String(student?.civilId || student?.nationalId || student?.nationalID || "").trim();
       return {
         code: String(code.code), state,
@@ -20545,7 +20545,7 @@ app.post("/api/teacher/code-scan", teacherExactCodeScanRateLimit, (req, res) => 
   const activated = status === "used" || !!code.activatedAt || !!code.usedByStudentId || !!code.studentId;
   const window = joinCodeWindowStatus(code);
   const state = isRetired
-    ? activated ? "مُفعّل • مؤرشف" : "مؤرشف"
+    ? activated ? "مُفعّل سابقاً" : "لم يُستخدم"
     : activated ? "مُفعّل"
       : isSoftDeletedRecord(code) || ["revoked", "disabled", "deleted"].includes(status) ? "موقوف"
         : status === "expired" || (!window.ok && window.reason.includes("انتهت")) ? "منتهي"
@@ -20557,6 +20557,7 @@ app.post("/api/teacher/code-scan", teacherExactCodeScanRateLimit, (req, res) => 
     success: true,
     code: String(code.code || normalizeJoinCode(req.body?.code)),
     state,
+    activated,
     studentName: String(student?.name || code.usedByStudentName || code.studentName || code.assignedStudentName || "").trim(),
     studentId,
     civilId,
