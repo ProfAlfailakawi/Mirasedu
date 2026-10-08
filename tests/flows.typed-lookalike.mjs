@@ -1,0 +1,34 @@
+// A student types the printed code by hand and reads a letter as a look-alike
+// digit (Z as 2, S as 5, B as 8, G as 6) or the reverse. The exact code still
+// wins; the look-alike is accepted only when it matches exactly one real code.
+import { randomUUID } from 'node:crypto';
+import { api, makeJar, createReporter, AA, S_A1 } from './lib.mjs';
+const { check, done } = createReporter('FLOWS / TYPED LOOK-ALIKE CODE');
+const pw = process.env.TEST_TEACHER_PASSWORD || 'change-me-in-ci';
+const A = { jar: makeJar(), deviceToken: 'lookalike-a' };
+check('teacher login', (await api('POST', '/api/auth/login', { idNumber: AA, password: pw }, A)).ok);
+
+const LOOKALIKE = { Z: '2', S: '5', B: '8', G: '6', 2: 'Z', 5: 'S', 8: 'B', 6: 'G' };
+// Swap one look-alike character in the code body (after "LAB-").
+const misread = (code) => {
+  const i = [...code].findIndex((ch, idx) => idx > 3 && LOOKALIKE[ch]);
+  return i < 0 ? null : code.slice(0, i) + LOOKALIKE[code[i]] + code.slice(i + 1);
+};
+let code = null, typed = null;
+for (let n = 0; n < 30 && !typed; n++) {
+  code = (await api('POST', '/api/teacher/join-codes/create', { sectionCode: S_A1, count: 1 }, A)).data.created?.[0]?.code;
+  typed = code ? misread(code) : null;
+}
+check('a code with a look-alike character was issued', !!typed, String(code));
+
+// 1002 is on course A's roster and has no account yet in the seed.
+const chosen = `N${randomUUID().replace(/-/g, '')}`;
+const r = await api('POST', '/api/auth/verify-otp', { idNumber: '1002', otp: typed, password: chosen, deviceToken: 'tok-lookalike' }, { deviceToken: 'tok-lookalike' });
+check(`typed ${typed} for ${code} activates the account`, r.ok && r.data?.success === true, JSON.stringify(r.data).slice(0, 160));
+const scan = (await api('POST', '/api/teacher/code-scan', { code }, A)).data;
+check('the real code is the one recorded as used by 1002', scan?.activated === true && String(scan?.studentId) === '1002', JSON.stringify(scan).slice(0, 160));
+
+// A code that does not exist, even with look-alikes, is still rejected.
+const fake = await api('POST', '/api/auth/verify-otp', { idNumber: '1002', otp: 'LAB-ZZZZ-ZZZZ-ZZZZ', password: chosen, deviceToken: 'tok-lookalike' }, { deviceToken: 'tok-lookalike' });
+check('a code that does not exist is still rejected', !fake.ok && fake.data?.code === 'INVALID_CODE', `${fake.status} ${JSON.stringify(fake.data).slice(0, 120)}`);
+done();

@@ -19121,6 +19121,19 @@ app.post("/api/payment/simulate", (req, res) => {
 
 // ================= JOIN CODE SYSTEM ENDPOINTS =================
 
+// حروف الكود التي تتشابه عند القراءة من الكرت: يكتب الطالب الرقم بدل الحرف أو العكس.
+const JOIN_CODE_LOOKALIKE_DIGITS: Record<string, string> = { "2": "Z", "5": "S", "8": "B", "6": "G" };
+const lookalikeJoinCodeKey = (compact: string) =>
+  compact.replace(/[2586]/g, (ch) => JOIN_CODE_LOOKALIKE_DIGITS[ch]);
+function findJoinCodeByLookalikeCharacters(codes: JoinCode[], compactCode: string): JoinCode | undefined {
+  if (!/^LAB[A-Z0-9]{12}$/.test(compactCode)) return undefined;
+  const key = lookalikeJoinCodeKey(compactCode);
+  const matches = codes.filter(
+    (jc) => isUnifiedJoinCode(jc.code) && lookalikeJoinCodeKey(compactJoinCode(jc.code)) === key,
+  );
+  return matches.length === 1 ? matches[0] : undefined;
+}
+
 function processStudentCourseActivation(
   req: express.Request,
   res: express.Response,
@@ -19180,6 +19193,10 @@ function processStudentCourseActivation(
       dbInstance.addJoinCode(recovered);
     }
   }
+
+  // كتابة الكود باليد بحرف يشبه غيره (2 بدل Z مثلاً): لا يُجرَّب هذا إلا بعد
+  // أن تفشل المطابقة الحرفية، ولا يُقبل إلا كود واحد موجود فعلاً.
+  if (!foundCode) foundCode = findJoinCodeByLookalikeCharacters(allCodes, compactCode);
 
   if (!foundCode) {
     recordActivationAttempt(req, {
