@@ -14031,7 +14031,7 @@ export default function App() {
     return typeof value === "string" ? value : null;
   };
 
-  const fetchJoinCodes = async (emailOverride?: string, options: { includeRetired?: boolean; activatedSince?: string } = {}) => {
+  const fetchJoinCodes = async (emailOverride?: string, options: { includeRetired?: boolean; activatedSince?: string; onActivations?: (codes: any[]) => void } = {}) => {
     const email = activeTeacherEmail(emailOverride);
     if (!captureTeacherSession(email)) return false;
     // The archive grows every semester; it is read page by page (fetchCodeArchivePage).
@@ -14098,6 +14098,7 @@ export default function App() {
       joinCodesLoadedEmailRef.current = email;
       setJoinCodesLoadState("ready");
       if (!options.activatedSince || scopedCodes.length) codeArchiveRefreshRef.current?.();
+      if (options.activatedSince && scopedCodes.length) options.onActivations?.(scopedCodes);
       return true;
     } catch (e) {
       if (!isCurrent()) return false;
@@ -22091,6 +22092,31 @@ ${rows
 
     let active = true;
     let refreshing = false;
+    // A student who has just activated must appear in «تفعيل فوري» without a
+    // page reload. The roster is re-read only when an activation not seen yet
+    // arrives, so an idle Codes tab costs nothing extra.
+    const seenActivations = new Set<string>();
+    let rosterRefreshing = false;
+    let rosterRefreshPending = false;
+    const refreshRoster = () => {
+      if (!active) return;
+      if (rosterRefreshing) { rosterRefreshPending = true; return; }
+      rosterRefreshing = true;
+      rosterRefreshPending = false;
+      void fetchReports(email, { quiet: true, isCurrent: () => active })
+        .finally(() => {
+          rosterRefreshing = false;
+          if (rosterRefreshPending) refreshRoster();
+        });
+    };
+    const refreshRosterOnNewActivations = (codes: any[]) => {
+      let fresh = false;
+      for (const item of codes) {
+        const key = `${String(item?.code || "")}|${String(item?.activatedAt || "")}`;
+        if (!seenActivations.has(key)) { seenActivations.add(key); fresh = true; }
+      }
+      if (fresh) refreshRoster();
+    };
     const refreshActivations = () => {
       if (!active || refreshing || document.visibilityState === "hidden") return;
       // A short overlap protects activations that land during a request or
@@ -22098,7 +22124,7 @@ ${rows
       // activated in this window, not the teacher's full code inventory.
       const activatedSince = new Date(Date.now() - 60_000).toISOString();
       refreshing = true;
-      void fetchJoinCodes(undefined, { includeRetired: false, activatedSince })
+      void fetchJoinCodes(undefined, { includeRetired: false, activatedSince, onActivations: refreshRosterOnNewActivations })
         .finally(() => { refreshing = false; });
     };
 
