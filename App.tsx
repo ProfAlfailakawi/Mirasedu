@@ -5666,8 +5666,8 @@ export default function App() {
   teacherTabRef.current = teacherTab;
   // An epoch distinguishes all → self → all, even when the final key matches.
   const auditContextRef = useRef({ key: "", epoch: 0 });
-  const auditArchiveMode = teacherTab === "codes" && codesSubTab === "archive";
-  const auditContextKey = `${teacherSession?.email || ""}|${teacherTab}|${auditScopeEmail}|${auditArchiveMode ? "archive" : "live"}`;
+  // The code archive is paged separately, so opening it never reloads the workspace.
+  const auditContextKey = `${teacherSession?.email || ""}|${teacherTab}|${auditScopeEmail}|live`;
   if (auditContextRef.current.key !== auditContextKey) {
     auditContextRef.current = { key: auditContextKey, epoch: auditContextRef.current.epoch + 1 };
   }
@@ -8190,6 +8190,19 @@ export default function App() {
   >("all");
   const [codesFilterSearch, setCodesFilterSearch] = useState("");
   const [codeTruthQuery, setCodeTruthQuery] = useState("");
+  // One page of the code archive at a time: after years it holds tens of
+  // thousands of codes, so the server filters, sorts and pages it.
+  const [codeArchiveView, setCodeArchiveView] = useState<{
+    status: "idle" | "loading" | "ready" | "failed";
+    rows: any[];
+    total: number;
+    totalPages: number;
+    page: number;
+    counts: { all: number; readyToPrint: number; printed: number; used: number } | null;
+  }>({ status: "idle", rows: [], total: 0, totalPages: 1, page: 1, counts: null });
+  const codeArchiveRequestRef = useRef(0);
+  const codeArchiveRefreshRef = useRef<null | (() => void)>(null);
+  const [codeArchiveSearch, setCodeArchiveSearch] = useState("");
   const [studentDirectorySearch, setStudentDirectorySearch] = useState("");
   const [studentDirectoryStatus, setStudentDirectoryStatus] = useState("all");
   const [codesPage, setCodesPage] = useState(1);
@@ -14012,7 +14025,8 @@ export default function App() {
   const fetchJoinCodes = async (emailOverride?: string, options: { includeRetired?: boolean; activatedSince?: string } = {}) => {
     const email = activeTeacherEmail(emailOverride);
     if (!captureTeacherSession(email)) return false;
-    const includeRetired = options.includeRetired !== false;
+    // The archive grows every semester; it is read page by page (fetchCodeArchivePage).
+    const includeRetired = options.includeRetired === true;
     const readIsCurrent = captureTeacherRead();
     const loadGen = cloudSessionGenRef.current;
     const token = readStoredSessionAuthToken("miras_teacher_session");
@@ -14024,12 +14038,12 @@ export default function App() {
     const markCloudLoadFailed = () => {
       if (!loadedFromCloudBefore) setJoinCodesLoadState("failed");
     };
-    // Home only needs current codes; do not parse the multi-megabyte archive.
-    let cachedCodes: any[] = includeRetired ? [] : joinCodesList.filter(isRecentlyIssuedJoinCodeRecord);
+    // The device copy (current codes) is only needed before the first cloud answer.
+    let cachedCodes: any[] = joinCodesList.filter(isRecentlyIssuedJoinCodeRecord);
     try {
-      const rawCached = includeRetired ? localStorage.getItem(storageKey) : null;
-      const parsedCached = rawCached ? JSON.parse(rawCached) : [];
-      if (includeRetired) cachedCodes = Array.isArray(parsedCached) ? parsedCached : [];
+      const rawCached = !options.activatedSince && joinCodesList.length === 0 ? localStorage.getItem(storageKey) : null;
+      const parsedCached = rawCached ? JSON.parse(rawCached) : null;
+      if (Array.isArray(parsedCached)) cachedCodes = parsedCached.filter(isLiveJoinCodeRecord);
     } catch {}
     try {
       const teacherEmailParam = getTeacherUrlParams(email);
@@ -14074,9 +14088,7 @@ export default function App() {
         ));
       joinCodesLoadedEmailRef.current = email;
       setJoinCodesLoadState("ready");
-      try {
-        if (includeRetired && !options.activatedSince) localStorage.setItem(storageKey, JSON.stringify(nextCodes));
-      } catch {}
+      if (!options.activatedSince || scopedCodes.length) codeArchiveRefreshRef.current?.();
       return true;
     } catch (e) {
       if (!isCurrent()) return false;
@@ -14085,6 +14097,48 @@ export default function App() {
         setJoinCodesList((prev) => mergeJoinCodeRecords(prev, liveCachedCodes));
       }
       markCloudLoadFailed();
+      return false;
+    }
+  };
+
+  // صفحة واحدة من أرشيف الأكواد يجهّزها الخادم (بحث وفلتر وترتيب)، فلا يُنزَّل
+  // الأرشيف كاملاً مهما تراكمت الفصول.
+  const fetchCodeArchivePage = async () => {
+    const email = activeTeacherEmail();
+    if (!captureTeacherSession(email)) return false;
+    const requestId = ++codeArchiveRequestRef.current;
+    setCodeArchiveView((prev) => (prev.status === "ready" ? prev : { ...prev, status: "loading" }));
+    try {
+      const params = new URLSearchParams(getTeacherUrlParams(email).replace(/^\?/, ""));
+      params.set("page", String(codesPage));
+      params.set("pageSize", String(codesPageSize));
+      params.set("status", codesFilterStatus);
+      if (codeArchiveSearch.trim()) params.set("q", codeArchiveSearch.trim());
+      const resp = await fetchTeacherRead(`/api/teacher/join-codes/archive?${params}`, {
+        cache: "no-store",
+        headers: teacherHeaders(email),
+      });
+      const data = await resp.json().catch(() => ({}));
+      if (requestId !== codeArchiveRequestRef.current) return false;
+      if (!resp.ok || !data.success || !Array.isArray(data.joinCodes)) {
+        setCodeArchiveView((prev) => ({ ...prev, status: prev.status === "ready" ? "ready" : "failed" }));
+        return false;
+      }
+      setCodeArchiveView({
+        status: "ready",
+        rows: data.joinCodes,
+        total: Number(data.total) || 0,
+        totalPages: Math.max(1, Number(data.totalPages) || 1),
+        page: Math.max(1, Number(data.page) || 1),
+        counts: data.counts || null,
+      });
+      // The server clamps the page when the result set shrank.
+      if (Number(data.page) && Number(data.page) !== codesPage) setCodesPage(Number(data.page));
+      return true;
+    } catch {
+      if (requestId === codeArchiveRequestRef.current) {
+        setCodeArchiveView((prev) => ({ ...prev, status: prev.status === "ready" ? "ready" : "failed" }));
+      }
       return false;
     }
   };
@@ -14474,7 +14528,24 @@ export default function App() {
     setSuccessMsg(`تم تصدير ${rows.length} رمز جاهز للطباعة.`);
   };
 
-  const exportCodesArchiveToCSV = () => {
+  const exportCodesArchiveToCSV = async () => {
+    // The full archive is only downloaded for this export, never for the screen.
+    let archiveCodes: any[] = [];
+    try {
+      const email = activeTeacherEmail();
+      const params = new URLSearchParams(getTeacherUrlParams(email).replace(/^\?/, ""));
+      params.set("includeRetired", "1");
+      const resp = await fetchTeacherRead(`/api/teacher/join-codes?${params}`, {
+        cache: "no-store",
+        headers: teacherHeaders(email),
+      });
+      const data = await resp.json().catch(() => ({}));
+      if (!resp.ok || !Array.isArray(data.joinCodes)) throw new Error("archive");
+      archiveCodes = data.joinCodes.filter((code: any) => String(code?.code || "").trim());
+    } catch {
+      setErrorMsg("تعذّر تحميل أرشيف الرموز للتصدير. أعد المحاولة.");
+      return;
+    }
     const headers = [
       "الرمز",
       "الفصل الدراسي",
@@ -14488,11 +14559,11 @@ export default function App() {
     ];
     const escapeCsv = (value: any) =>
       `"${String(value ?? "").replace(/"/g, '""')}"`;
-    if (!visibleJoinCodes.length) {
+    if (!archiveCodes.length) {
       setErrorMsg("لا توجد رموز ضمن النطاق الحالي لتصدير الأرشيف.");
       return;
     }
-    const rows = visibleJoinCodes.map((j) => [
+    const rows = archiveCodes.map((j: any) => [
       j.code,
       j.semester,
       cleanCodeForDisplay(j.studentSection || j.sectionCode || "-"),
@@ -21028,7 +21099,7 @@ ${rows
     const mutationEpoch = teacherReadMutationEpoch;
     const cacheKey = JSON.stringify([teacherSession?.email,
       readStoredSessionAuthToken("miras_teacher_session"), cloudSessionGenRef.current,
-      scope, auditArchiveMode, mutationEpoch]);
+      scope, mutationEpoch]);
     let cancelled = false;
     const apply = (payload: any) => {
       if (cancelled || !isCurrent()) return;
@@ -21051,7 +21122,6 @@ ${rows
       try {
         const payload = await auditWorkspaceFlightRef.current.run(cacheKey, async () => {
           const params = new URLSearchParams({ scope });
-          if (auditArchiveMode) params.set("includeRetired", "1");
           const response = await fetch(`/api/teacher/audit-workspace?${params}`, {
             cache: "no-store", headers: teacherHeaders(),
           });
@@ -21059,7 +21129,7 @@ ${rows
           if (response.status === 404 || (response.ok && String(response.headers.get("content-type") || "").includes("text/html"))) return null;
           const data = await response.json();
           const valid = response.ok && data.success && data.scope === scope &&
-            data.includeRetired === auditArchiveMode && Array.isArray(data.sections) &&
+            data.includeRetired === false && Array.isArray(data.sections) &&
             Array.isArray(data.logs) && Array.isArray(data.joinCodes) && Array.isArray(data.devices) &&
             !data.reports?.warning && Array.isArray(data.reports?.students) &&
             Array.isArray(data.reports?.allowedStudents) && data.integrity?.success &&
@@ -21071,7 +21141,7 @@ ${rows
         if (!payload) {
           const results = await Promise.allSettled([
             fetchSections(), fetchReports(undefined, { quiet: true }), fetchLogs(),
-            fetchJoinCodes(undefined, { includeRetired: auditArchiveMode }),
+            fetchJoinCodes(undefined, { includeRetired: false }),
             fetchCodeIntegrity(), fetchTrustedPasskeyDevices(),
           ]);
           if (!cancelled && isCurrent()) setAuditLoad({ key: contextKey,
@@ -21095,7 +21165,7 @@ ${rows
     };
     void refresh();
     return () => { cancelled = true; };
-  }, [currentView, teacherTab, auditScopeEmail, auditArchiveMode, teacherSession?.email, isAdminTeacher, auditRetry]);
+  }, [currentView, teacherTab, auditScopeEmail, teacherSession?.email, isAdminTeacher, auditRetry]);
   const attemptContextKey = `${auditContextKey}|${activationAttemptFromDate}|${activationAttemptToDate}`;
   const attemptsReady = teacherTab !== "codes" || codesSubTab !== "attempts" ||
     (attemptLoad.key === attemptContextKey && attemptLoad.status === "ready");
@@ -21917,15 +21987,34 @@ ${rows
         .length,
     [scopedJoinCodes],
   );
-  const codesTotalPages = Math.max(
-    1,
-    Math.ceil(filteredJoinCodes.length / codesPageSize),
-  );
-  const safeCodesPage = Math.min(codesPage, codesTotalPages);
-  const pagedJoinCodes = filteredJoinCodes.slice(
-    (safeCodesPage - 1) * codesPageSize,
-    safeCodesPage * codesPageSize,
-  );
+  // The archive tab shows the server's page (search, filter and order applied there).
+  const codesTotalPages = codeArchiveView.totalPages;
+  const safeCodesPage = Math.min(codeArchiveView.page, codesTotalPages);
+  const pagedJoinCodes = codeArchiveView.rows;
+  const codeArchiveOpen =
+    currentView === "teacher_workspace" && teacherTab === "codes" && codesSubTab === "archive";
+  useEffect(() => {
+    const timer = window.setTimeout(() => setCodeArchiveSearch(codesFilterSearch), 300);
+    return () => window.clearTimeout(timer);
+  }, [codesFilterSearch]);
+  // Code reloads after an action refresh the visible page; several reloads in a
+  // row share one request.
+  const codeArchiveFetchRef = useRef(fetchCodeArchivePage);
+  const codeArchiveRefreshTimerRef = useRef(0);
+  useEffect(() => {
+    codeArchiveFetchRef.current = fetchCodeArchivePage;
+    codeArchiveRefreshRef.current = codeArchiveOpen
+      ? () => {
+          window.clearTimeout(codeArchiveRefreshTimerRef.current);
+          codeArchiveRefreshTimerRef.current = window.setTimeout(() => void codeArchiveFetchRef.current(), 250);
+        }
+      : null;
+  });
+  useEffect(() => {
+    if (!codeArchiveOpen || !teacherSession?.email) return;
+    void fetchCodeArchivePage();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [codeArchiveOpen, codesPage, codesFilterStatus, codeArchiveSearch, auditScopeEmail, teacherSession?.email]);
   // قائمة فارغة لأن الأكواد لم تصل من السحابة بعد (أو تعذّر جلبها)، لا لأنها غير موجودة.
   const joinCodesAwaitingCloud =
     joinCodesLoadState === "loading" && joinCodesList.length === 0;
@@ -45754,7 +45843,7 @@ ${rows
                                 <FileText className="h-3.5 w-3.5" />
                                 سبق تصديره:
                                 <span className="font-mono tabular-nums">
-                                  {joinCodesAwaitingCloud ? "…" : printedJoinCodesCount}
+                                  {codeArchiveView.counts ? codeArchiveView.counts.printed : "…"}
                                 </span>
                               </span>
                               <span
@@ -45764,7 +45853,7 @@ ${rows
                                 <CheckCircle className="h-3.5 w-3.5" />
                                 تم استخدامه:
                                 <span className="font-mono tabular-nums">
-                                  {joinCodesAwaitingCloud ? "…" : usedJoinCodesCount}
+                                  {codeArchiveView.counts ? codeArchiveView.counts.used : "…"}
                                 </span>
                               </span>
                             </div>
@@ -45897,16 +45986,13 @@ ${rows
                                 </div>
                                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-[11px] font-bold text-slate-500">
                                   <span>
-                                    {joinCodesAwaitingCloud ? (
+                                    {codeArchiveView.status === "idle" || codeArchiveView.status === "loading" ? (
                                       "جارٍ تحميل الأكواد من السحابة…"
                                     ) : (
                                       <>
                                         يعرض {pagedJoinCodes.length} من أصل{" "}
-                                        {filteredJoinCodes.length} رمز —{" "}
+                                        {codeArchiveView.total} رمز —{" "}
                                         {codesPageSize} في الصفحة.
-                                        {joinCodesCloudFailed &&
-                                          joinCodesList.length > 0 &&
-                                          " (نسخة محفوظة على جهازك — تعذّر التحديث من السحابة)"}
                                       </>
                                     )}
                                   </span>
@@ -46133,9 +46219,9 @@ ${rows
                                   </div>
                                 ))}
                               </div>
-                              {filteredJoinCodes.length === 0 && (
+                              {codeArchiveView.total === 0 && (
                                 <div className="p-10 text-center text-slate-400 text-xs font-semibold rounded-3xl border border-dashed border-slate-200 bg-slate-50">
-                                  {joinCodesAwaitingCloud ? (
+                                  {codeArchiveView.status === "idle" || codeArchiveView.status === "loading" ? (
                                     <span className="inline-flex items-center gap-2 text-indigo-700">
                                       <RefreshCw
                                         className="h-4 w-4 animate-spin"
@@ -46143,14 +46229,13 @@ ${rows
                                       />
                                       جارٍ تحميل الأكواد من السحابة… بياناتك محفوظة.
                                     </span>
-                                  ) : joinCodesCloudFailed &&
-                                    joinCodesList.length === 0 ? (
+                                  ) : codeArchiveView.status === "failed" ? (
                                     <span className="flex flex-col items-center gap-3 text-amber-700">
                                       تعذّر تحميل الأكواد من السحابة الآن. بياناتك
                                       محفوظة ولم تُحذف.
                                       <button
                                         type="button"
-                                        onClick={() => void fetchJoinCodes()}
+                                        onClick={() => void fetchCodeArchivePage()}
                                         className="inline-flex items-center gap-2 rounded-xl border border-amber-200 bg-white px-3 py-2 text-[11px] font-black text-amber-800 hover:bg-amber-50"
                                       >
                                         <RefreshCw
