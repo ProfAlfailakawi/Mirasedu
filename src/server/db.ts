@@ -1,4 +1,4 @@
-import { planAtomicCloudWrite, commitAtomicCloudWrite, attemptOptimisticCloudCommit, canReuseCloudBaseline } from "../shared/atomic-cloud-write";
+import { planAtomicCloudWrite, commitAtomicCloudWrite, attemptOptimisticCloudCommit, canReuseCloudBaseline, changedEntityChunks, type EntityChunks, type EntityChunkMemo } from "../shared/atomic-cloud-write";
 import { waitForCloudMutation } from "../shared/cloud-mutation-barrier";
 import { preserveGeneralCodeOnReset } from "./generalJoinCodes";
 import { shouldRemoveFinishedPasswordReset } from "../shared/password-reset-retention";
@@ -197,6 +197,7 @@ const DB_FILE = path.join(DATA_DIR, "db.json");
 // تُهاجَر بعد. الكتابة الجديدة تستخدم MIRAS_CLOUD_ENTITY_STORAGE_FORMAT دائماً.)
 const MIRAS_CLOUD_STORAGE_FORMAT = "chunked-json-v2";
 const MIRAS_CLOUD_CHUNK_SIZE = 620_000;
+const MIRAS_CLOUD_LOCAL_CACHE_DELAY_MS = 4000;
 // تخزين كل مفتاح كوثيقة Firestore منفصلة بدل كتلة JSON واحدة تضم قاعدة
 // البيانات كاملة. كل حفظة كانت تعيد كتابة كل شيء (الطلاب، السجلات، الرموز...)
 // حتى لو تغيّر تسليم واحد فقط — هذا يستهلك حصة Firestore المجانية بسرعة
@@ -1037,7 +1038,7 @@ export class LocalDatabase {
   // معاملة Firestore بشكل متزامن لكل تعديل، فيتجمّد الخادم. هذه الأعلام تضمن
   // كتابة محلية واحدة ومزامنة سحابية واحدة لكل دفعة، خارج مسار الاستجابة.
   private dirtyLocal: boolean = false;
-  private localSaveTimer: NodeJS.Immediate | null = null;
+  private localSaveTimer: NodeJS.Immediate | NodeJS.Timeout | null = null;
   private cloudSyncScheduled: boolean = false;
   // نافذة تجميع الكتابة السحابية: كل التعديلات المتتابعة تُدفع في كتابة واحدة بعد
   // توقّف النشاط، فلا تعمل المزامنة الثقيلة أثناء الحذف/إعادة الجلب ويبقى التطبيق فورياً.
@@ -1438,9 +1439,9 @@ export class LocalDatabase {
     return String(raw?.storageFormat || "") === MIRAS_CLOUD_ENTITY_STORAGE_FORMAT;
   }
 
-  private async cloudStateFromMeta(raw: any): Promise<DatabaseState> {
+  private async cloudStateFromMeta(raw: any, adoptManifest = true): Promise<DatabaseState> {
     if (this.isEntityCloudMeta(raw)) {
-      return this.cloudStateFromEntityManifest(raw);
+      return this.cloudStateFromEntityManifest(raw, adoptManifest);
     }
     if (!this.isChunkedCloudMeta(raw)) {
       return this.databaseStateFromCloud(raw as Partial<DatabaseState>);
@@ -1480,13 +1481,16 @@ export class LocalDatabase {
   // واحد (وثيقة مفقودة، JSON تالف) يُسقط القراءة كاملة برمي خطأ — نفس سلوك
   // العارض القديم عند تلف كتلة JSON — بدل إرجاع حالة جزئية قد تبدو سليمة
   // وتُحفظ لاحقاً فوق بيانات حقيقية.
-  private async cloudStateFromEntityManifest(raw: any): Promise<DatabaseState> {
+  // adoptManifest=false: the caller may still discard this snapshot (a late echo of
+  // an earlier write). The writer must keep describing what the cloud holds now,
+  // so it takes the manifest only from a state it actually adopts.
+  private async cloudStateFromEntityManifest(raw: any, adoptManifest = true): Promise<DatabaseState> {
     const manifest = raw?.entityManifest || {};
     const keys: string[] =
       Array.isArray(raw?.entityKeys) && raw.entityKeys.length
         ? raw.entityKeys
         : (MIRAS_CLOUD_ENTITY_KEYS as string[]);
-    this.lastEntityManifest = manifest;
+    if (adoptManifest) this.lastEntityManifest = manifest;
     const entries = await Promise.all(
       keys.map(async (key) => {
         const info = manifest[key];
@@ -1558,7 +1562,9 @@ export class LocalDatabase {
   // تسليماً واحداً فقط تكتب وثيقة teacherSubmissions دون أن تمسّ students أو
   // activityLogs أو joinCodes وغيرها. previousState=null (أو undefined) تعني
   // "اكتب كل شيء" — تُستخدم فقط في الاستعادة/أول نسخة سحابية حين لا معنى للمقارنة.
-  private async tryAtomicCloudWrite(state: DatabaseState, previousState: DatabaseState, updateTime?: any): Promise<boolean> {
+  // baseline: exactly what the cloud holds now (the state the conditional write is
+  // based on), so unchanged chunks of a changed entity are not uploaded again.
+  private async tryAtomicCloudWrite(state: DatabaseState, previousState: DatabaseState, updateTime?: any, baseline: DatabaseState | null = null): Promise<boolean> {
     // Callers supply the sanitized snapshot; avoid copying the entire database again.
     const cleaned = state;
     const generation = Number(cleaned.lastUpdated || Date.now());
@@ -1570,6 +1576,9 @@ export class LocalDatabase {
       keys: MIRAS_CLOUD_ENTITY_KEYS,
       perDocKeys: MIRAS_PERDOC_KEYS,
       chunkSize: MIRAS_CLOUD_CHUNK_SIZE,
+      baseline,
+      serialize: (value: any) => this.jsonOf(value),
+      chunkMemo: this.cloudChunkMemo,
       generation,
       updatedAt: nowIso,
       metaFields: {
@@ -1607,9 +1616,11 @@ export class LocalDatabase {
   private async writeCloudDatabaseState(
     state: DatabaseState,
     previousState?: DatabaseState | null,
+    baseline: DatabaseState | null = null,
   ): Promise<void> {
     if (!dbFS) return;
-    const cleaned = cleanUndefined(state) as DatabaseState;
+    // A cloud snapshot is already JSON-clean; copying it again only costs time.
+    const cleaned = (this.cloudSnapshots.has(state) ? state : cleanUndefined(state)) as DatabaseState;
     const generation = Number(cleaned.lastUpdated || Date.now());
     const writes: Promise<any>[] = [];
     const mergedManifest: Record<string, { chunkCount: number }> = {
@@ -1617,7 +1628,7 @@ export class LocalDatabase {
     };
     const nowIso = new Date().toISOString();
 
-    if (this.urgentCloudWaiters > 0 && previousState && await this.tryAtomicCloudWrite(cleaned, previousState)) {
+    if (this.urgentCloudWaiters > 0 && previousState && await this.tryAtomicCloudWrite(cleaned, previousState, undefined, baseline)) {
       return;
     }
 
@@ -1626,7 +1637,7 @@ export class LocalDatabase {
       const unchanged =
         previousState != null &&
         mergedManifest[key] &&
-        dbValuesEqual(value, (previousState as any)[key] ?? null);
+        this.jsonOf(value) === this.jsonOf((previousState as any)[key] ?? null);
       if (unchanged) continue;
 
       // ⚡ مفاتيح perDoc: فرق على مستوى الكيان (وثيقة لكل سجل) بدل إعادة كتابة
@@ -1683,25 +1694,29 @@ export class LocalDatabase {
         continue;
       }
 
-      const payload = JSON.stringify(value);
-      const chunks: string[] = [];
-      for (let i = 0; i < payload.length; i += MIRAS_CLOUD_CHUNK_SIZE) {
-        chunks.push(payload.slice(i, i + MIRAS_CLOUD_CHUNK_SIZE));
-      }
-      if (!chunks.length) chunks.push("null");
-
-      chunks.forEach((chunkPayload, index) => {
+      // ⚡ تُقطع المصفوفة بين السجلات بعدد ثابت لكل جزء، فلا يُرفع إلا الجزء الذي
+      // تغيّر فعلاً (كود واحد في تبديل جهاز بدل كل أكواد الأستاذ). الأجزاء المتجاورة
+      // تبقى نص JSON واحداً عند الربط، فلا يتغيّر شيء على القارئ.
+      const chunks = changedEntityChunks(
+        value,
+        (mergedManifest as any)[key],
+        baseline ? { value: (baseline as any)[key] ?? null } : null,
+        MIRAS_CLOUD_CHUNK_SIZE,
+        undefined,
+        this.cloudChunkMemo,
+      );
+      for (const index of chunks.indexes) {
         writes.push(
           this.cloudEntityDocRef(key, index).set({
             generation,
             index,
-            chunkCount: chunks.length,
-            payload: chunkPayload,
+            chunkCount: chunks.payloads.length,
+            payload: chunks.payloads[index],
             updatedAt: nowIso,
           }),
         );
-      });
-      mergedManifest[key] = { chunkCount: chunks.length };
+      }
+      mergedManifest[key] = chunks.manifestEntry;
     }
 
     await Promise.all(writes);
@@ -1780,7 +1795,7 @@ export class LocalDatabase {
         while (this.syncPromise) await this.syncPromise.catch(() => {});
         if (sequence !== this.cloudSnapshotSequence ||
             Number(raw?.lastUpdated || 0) === this.lastWrittenUpdatedAt) return;
-        const incoming = await this.cloudStateFromMeta(raw);
+        const incoming = await this.cloudStateFromMeta(raw, false);
         // A newer write or snapshot may have completed while the entity reads waited.
         while (this.syncPromise) await this.syncPromise.catch(() => {});
         if (sequence !== this.cloudSnapshotSequence ||
@@ -1829,6 +1844,7 @@ export class LocalDatabase {
           this.lastSyncedState = cloneDbValue(incoming);
         }
         this.lastListenerAppliedStamp = incomingStamp;
+        if (this.isEntityCloudMeta(raw)) this.lastEntityManifest = raw?.entityManifest || {};
         this.knownCloudMetaRevision = snapshot.updateTime && this.isEntityCloudMeta(raw)
           ? { stamp: incomingStamp, updateTime: snapshot.updateTime }
           : null;
@@ -1965,6 +1981,19 @@ export class LocalDatabase {
     if (this.isDemo) return;
     this.dirtyLocal = true;
     if (this.localSaveTimer) return;
+    if (dbFS) {
+      // مع السحابة يبقى ملف القرص كاش إقلاع فقط (الإقلاع يقرأ السحابة دائماً، وكل
+      // مسار يحتاج دواماً محلياً يفرّغه صراحة عبر waitForSync). كتابة القاعدة كاملة
+      // على القرص بعد كل تعديل كانت تحجب كل الطلبات ~100–250ms؛ نجمعها في كتابة
+      // واحدة كل بضع ثوانٍ.
+      const timer = setTimeout(() => {
+        this.localSaveTimer = null;
+        this.flushLocalSave();
+      }, MIRAS_CLOUD_LOCAL_CACHE_DELAY_MS);
+      timer.unref?.();
+      this.localSaveTimer = timer;
+      return;
+    }
     this.localSaveTimer = setImmediate(() => {
       this.localSaveTimer = null;
       this.flushLocalSave();
@@ -1977,7 +2006,8 @@ export class LocalDatabase {
     if (!this.dirtyLocal) return;
     this.dirtyLocal = false;
     if (this.localSaveTimer) {
-      clearImmediate(this.localSaveTimer);
+      clearImmediate(this.localSaveTimer as NodeJS.Immediate);
+      clearTimeout(this.localSaveTimer as NodeJS.Timeout);
       this.localSaveTimer = null;
     }
     this.saveState(this.data);
@@ -1988,6 +2018,54 @@ export class LocalDatabase {
   // الحسابات الثقيلة لكل استطلاع (polling) من العميل بينما لا شيء تغيّر فعلياً.
   public getMutationVersion(): number {
     return this.mutationVersion;
+  }
+
+  // Copies of the database made for cloud writes. Nothing mutates them after
+  // creation, so the JSON of each entity is remembered with it: a write compares
+  // and chunks entities without serializing the whole database several times,
+  // which used to block every request for hundreds of milliseconds per save.
+  private cloudSnapshotJson = new WeakMap<object, string>();
+  private cloudSnapshots = new WeakSet<object>();
+
+  private cloudSnapshotChunks = new WeakMap<object, Map<string, EntityChunks>>();
+  private cloudChunkMemo: EntityChunkMemo = {
+    get: (value, key) =>
+      value !== null && typeof value === "object" ? this.cloudSnapshotChunks.get(value)?.get(key) : undefined,
+    set: (value, key, chunks) => {
+      // Only snapshot values are immutable; live data must always be chunked afresh.
+      if (value === null || typeof value !== "object" || !this.cloudSnapshotJson.has(value)) return;
+      let entries = this.cloudSnapshotChunks.get(value);
+      if (!entries) this.cloudSnapshotChunks.set(value, (entries = new Map()));
+      entries.set(key, chunks);
+    },
+  };
+
+  private jsonOf(value: any): string {
+    if (value !== null && typeof value === "object") {
+      const cached = this.cloudSnapshotJson.get(value);
+      if (cached !== undefined) return cached;
+    }
+    return JSON.stringify(value);
+  }
+
+  // Same content as cloneDbValue(this.data). An entity whose JSON is unchanged
+  // since the previous snapshot reuses that snapshot's (immutable) value.
+  private snapshotForCloud(previous: DatabaseState | null): DatabaseState {
+    const snapshot: any = {};
+    for (const key of Object.keys(this.data)) {
+      const json = JSON.stringify((this.data as any)[key]);
+      if (json === undefined) continue;
+      const earlier = previous ? (previous as any)[key] : undefined;
+      if (earlier !== null && typeof earlier === "object" && this.cloudSnapshotJson.get(earlier) === json) {
+        snapshot[key] = earlier;
+        continue;
+      }
+      const copy = JSON.parse(json);
+      if (copy !== null && typeof copy === "object") this.cloudSnapshotJson.set(copy, json);
+      snapshot[key] = copy;
+    }
+    this.cloudSnapshots.add(snapshot);
+    return snapshot as DatabaseState;
   }
 
   // Covers local writes AND snapshots received from another Cloud Run instance.
@@ -2095,7 +2173,7 @@ export class LocalDatabase {
     const versionAtStart = this.mutationVersion;
     const baseAtStart = this.lastSyncedState || cloneDbValue(this.data) as DatabaseState;
     // JSON cloning already strips undefined fields and normalizes sparse arrays.
-    const localAtStart = cloneDbValue(this.data) as DatabaseState;
+    const localAtStart = this.snapshotForCloud(baseAtStart);
 
     try {
       let committedPayload: DatabaseState | null = null;
@@ -2111,7 +2189,7 @@ export class LocalDatabase {
         const optimistic = localAtStart;
         optimistic.lastUpdated = Math.max(Date.now(), Number(localAtStart.lastUpdated || 0));
         const result = await attemptOptimisticCloudCommit(() =>
-          this.tryAtomicCloudWrite(optimistic, baseAtStart, knownRevision.updateTime));
+          this.tryAtomicCloudWrite(optimistic, baseAtStart, knownRevision.updateTime, baseAtStart));
         if (result === "committed") {
           committedPayload = optimistic;
           this.unlockDatabaseGuard();
@@ -2172,6 +2250,7 @@ export class LocalDatabase {
           await this.writeCloudDatabaseState(
             committedPayload,
             baseAtStart as DatabaseState,
+            baseAtStart as DatabaseState,
           );
           this.unlockDatabaseGuard();
         } else if (!cloudHasContent && !localHasContent && !MIRAS_ALLOW_EMPTY_FIRESTORE_INIT) {
@@ -2221,23 +2300,35 @@ export class LocalDatabase {
         const committedState = this.databaseStateFromCloud(committedPayload);
         const mutationsArrivedDuringSync =
           this.mutationVersion !== versionAtStart;
-        // لا تستبدل الذاكرة بنتيجة الرفع إذا وصلت تعديلات محلية أثناء انتظاره.
-        // كان الاستبدال القديم يسقط آخر تعديل (مثل مرفق ثانٍ أو مشروع نُشر
-        // خلال رفع سابق)، ثم تبدو البيانات صحيحة لحظياً وتختفي بعد المزامنة.
-        this.data = mutationsArrivedDuringSync
-          ? (mergeCloudThreeWay(
-              baseAtStart,
-              this.data,
-              committedState,
-            ) as DatabaseState)
-          : committedState;
+        if (committedPayload === localAtStart) {
+          // The cloud now holds a copy of memory as it was at the start of this
+          // write, and memory already contains it plus any later edits. Keep the
+          // live state; the immutable snapshot becomes the synced baseline and is
+          // never handed to code that mutates this.data.
+          this.data.lastUpdated = Math.max(
+            Number(this.data.lastUpdated || 0),
+            Number(committedState.lastUpdated || 0),
+          );
+          this.lastSyncedState = committedState;
+        } else {
+          // لا تستبدل الذاكرة بنتيجة الرفع إذا وصلت تعديلات محلية أثناء انتظاره.
+          // كان الاستبدال القديم يسقط آخر تعديل (مثل مرفق ثانٍ أو مشروع نُشر
+          // خلال رفع سابق)، ثم تبدو البيانات صحيحة لحظياً وتختفي بعد المزامنة.
+          this.data = mutationsArrivedDuringSync
+            ? (mergeCloudThreeWay(
+                baseAtStart,
+                this.data,
+                committedState,
+              ) as DatabaseState)
+            : committedState;
+          this.lastSyncedState = cloneDbValue(committedState);
+          this.scheduleLocalSave();
+        }
         this.lastWrittenUpdatedAt = Number(
           committedState?.lastUpdated || 0,
         );
-        this.lastSyncedState = cloneDbValue(committedState);
         // Advance only after the cloud write resolved. Later mutations remain queued.
         this.committedMutationVersion = Math.max(this.committedMutationVersion, versionAtStart);
-        this.scheduleLocalSave();
       }
       if (resolver) resolver();
     } catch (err: any) {

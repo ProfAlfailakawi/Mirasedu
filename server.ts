@@ -62,6 +62,18 @@ import {
 
 dotenv.config();
 
+// normalizeJoinCode/compactJoinCode are pure and run for every code on most
+// requests (index rebuilds, ownership checks). Remember recent string results;
+// declared before any code can call them.
+const NORMALIZED_CODE_CACHE_LIMIT = 50_000;
+const normalizedJoinCodeCache = new Map<string, string>();
+const compactJoinCodeCache = new Map<string, string>();
+const rememberNormalizedCode = (cache: Map<string, string>, key: string, value: string) => {
+  if (cache.size >= NORMALIZED_CODE_CACHE_LIMIT) cache.clear();
+  cache.set(key, value);
+  return value;
+};
+
 // Initialize Gemini Client
 const aiInstance = process.env.GEMINI_API_KEY
   ? new GoogleGenAI({
@@ -5575,6 +5587,8 @@ function activeRuntimeTeacherSubmissions() {
 }
 
 function normalizeStudentId(value: any): string {
+  // Already normalized (the common case): nothing to trim, convert or strip.
+  if (typeof value === "string" && /^[0-9]*$/.test(value)) return value;
   return String(value ?? "")
     .trim()
     .replace(/[٠-٩]/g, (d) => String("٠١٢٣٤٥٦٧٨٩".indexOf(d)))
@@ -5634,6 +5648,14 @@ function normalizeArabicDigits(value: any): string {
 
 function normalizeJoinCode(value: any): string {
   if (!value) return "";
+  if (typeof value !== "string") return normalizeJoinCodeValue(value);
+  const cached = normalizedJoinCodeCache.get(value);
+  return cached !== undefined
+    ? cached
+    : rememberNormalizedCode(normalizedJoinCodeCache, value, normalizeJoinCodeValue(value));
+}
+
+function normalizeJoinCodeValue(value: any): string {
   const cleaned = String(value)
     .trim()
     .toUpperCase()
@@ -5671,6 +5693,11 @@ function normalizeJoinCode(value: any): string {
 }
 
 function compactJoinCode(value: any): string {
+  if (typeof value === "string") {
+    const cached = compactJoinCodeCache.get(value);
+    if (cached !== undefined) return cached;
+    return rememberNormalizedCode(compactJoinCodeCache, value, normalizeJoinCode(value).replace(/-/g, "").toUpperCase());
+  }
   const norm = normalizeJoinCode(value);
   return norm.replace(/-/g, "").toUpperCase();
 }
