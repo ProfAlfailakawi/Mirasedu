@@ -49,6 +49,18 @@ check('«تحقق» shows a cancelled code as «ملغي»', scanCancelled?.stat
 const scanCancelledTyped = (await api('POST', '/api/teacher/code-scan', { code: cancelledTyped }, A)).data;
 check('«تحقق» on its look-alike spelling also shows «ملغي»', scanCancelledTyped?.code === cancelled && scanCancelledTyped?.state === 'ملغي', JSON.stringify(scanCancelledTyped).slice(0, 140));
 
+// A code the teacher deleted (kept in the archive) also reads «ملغي», exact or look-alike.
+let deleted = null, deletedTyped = null;
+for (let n = 0; n < 30 && !deletedTyped; n++) {
+  deleted = (await api('POST', '/api/teacher/join-codes/create', { sectionCode: S_A1, count: 1 }, A)).data.created?.[0]?.code;
+  deletedTyped = deleted ? misread(deleted) : null;
+}
+check('teacher deletes the code', (await api('POST', '/api/teacher/join-codes/delete', { code: deleted }, A)).ok);
+const scanDeleted = (await api('POST', '/api/teacher/code-scan', { code: deleted }, A)).data;
+check('«تحقق» shows a deleted code as «ملغي»', scanDeleted?.state === 'ملغي', JSON.stringify(scanDeleted).slice(0, 140));
+const scanDeletedTyped = (await api('POST', '/api/teacher/code-scan', { code: deletedTyped }, A)).data;
+check('«تحقق» on its look-alike spelling also shows «ملغي»', scanDeletedTyped?.code === deleted && scanDeletedTyped?.state === 'ملغي', JSON.stringify(scanDeletedTyped).slice(0, 140));
+
 // Look-alike spellings of one code share its attempt limit (8 per code), so
 // alternating Z/2 cannot split the attempts into separate buckets.
 let limited = false;

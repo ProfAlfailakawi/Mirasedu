@@ -20734,7 +20734,9 @@ app.post("/api/teacher/code-scan", teacherExactCodeScanRateLimit, (req, res) => 
   const activated = joinCodeWasActivated(code);
   const window = joinCodeWindowStatus(code);
   // كود ألغاه الأستاذ يظهر «ملغي» مثل بطاقته في الأرشيف، سواء بقي في القائمة أو أُرشف.
-  const cancelled = ["revoked", "cancelled", "canceled"].includes(status);
+  // والكود الذي حذفه الأستاذ بنفسه يُحفظ في الأرشيف بسبب الحذف، فهو «ملغي» أيضاً.
+  const cancelled = ["revoked", "cancelled", "canceled"].includes(status) ||
+    ["teacher_deleted_code", "teacher_deleted_free_code", "manual_code_delete"].includes(String((code as any).retiredReason || ""));
   const state = isRetired
     ? activated ? "مُفعّل سابقاً" : cancelled ? "ملغي" : "لم يُستخدم"
     : activated ? "مُفعّل"
