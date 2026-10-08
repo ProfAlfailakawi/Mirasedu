@@ -47924,7 +47924,7 @@ ${rows
                   اضغط البطاقة لفتح الصفحة المناسبة، بدون بدء أي اختبار.
                 </p>
               </div>
-              <div className="max-h-[46dvh] space-y-2.5 overflow-y-auto pr-0.5">
+              <div className="max-h-[46dvh] space-y-2.5 overflow-y-auto pb-1 pr-0.5">
                 {studentUpcomingDeadlineCards.map((item: any, idx: number) => (
                   <button
                     key={`${item.kind}-${item.id}-${idx}`}
