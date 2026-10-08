@@ -21630,6 +21630,10 @@ ${rows
       ? scopedOwnerEmail === "all" || auditCourseCodes.some(code => studentBelongsToCourse(student, code))
       : studentBelongsToCourse(student, activeCourseCode),
   );
+  // تغيير المقرر أو نطاق المراجعة يمسح تحديد «تبديل الكل» حتى لا يشمل طلبة غير ظاهرين.
+  useEffect(() => {
+    setDeviceBatchSelection({});
+  }, [activeCourseCode, scopedOwnerEmail, isAccountAuditView, teacherSession?.email]);
   const manualActivationStudents = useMemo(() => {
     const q = manualActivationSearch.trim().toLowerCase();
     const arabicNameOrder = new Intl.Collator("ar", {
@@ -29287,8 +29291,9 @@ ${rows
   // نفس عملية «تبديل الجهاز» لكل طالب محدد، واحداً بعد الآخر، بتأكيد واحد.
   const transferSelectedStudentDevices = async () => {
     if (deviceBatchBusy) return;
+    // نفس قائمة المقرر المعروض فقط، لا كل طلبة الأستاذ.
     const entries = (Object.entries(deviceBatchSelection) as Array<[string, string]>).filter(([id]) => {
-      const registered = teacherStudents.find((st: any) => String(st.id) === id);
+      const registered = scopedTeacherStudents.find((st: any) => String(st.id) === id);
       return !!registered && registered.isPaid && !registered.isAccessBlocked &&
         !accessStoppedIds[id] && !accessBusyIds[id];
     });

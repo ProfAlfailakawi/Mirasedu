@@ -16015,6 +16015,22 @@ app.post("/api/students/:id/activate", (req, res) => {
 });
 
 // Reset Student Devices Limit Lock (by teacher)
+// «تبديل الجهاز» مرة ثانية قبل أن يدخل الجهاز الجديد: أجهزة الطالب وتوكناته صارت
+// فارغة من النقل الأول، فنُبقي الأجهزة المتقاعدة منه، وإلا اعتُمد الجهاز القديم
+// كأنه الجهاز الجديد عند أول دخول.
+function keepRetiredDevicesOfPendingTransfer(student: any, fingerprints: string[], tokens: string[]) {
+  if (student?.pendingDeviceTransfer !== true) return;
+  const keep = (list: any, into: string[]) => {
+    if (!Array.isArray(list)) return;
+    for (const raw of list) {
+      const value = String(raw || "").trim();
+      if (value && !into.includes(value)) into.push(value);
+    }
+  };
+  keep(student.retiredDeviceFingerprints, fingerprints);
+  keep(student.retiredDeviceTokens, tokens);
+}
+
 app.post("/api/students/:id/reset-devices", async (req, res) => {
   const student = dbInstance.getStudents().find((s) => s.id === req.params.id);
   if (!student) return res.status(404).json({ error: "الطالب غير موجود" });
@@ -16045,6 +16061,7 @@ app.post("/api/students/:id/reset-devices", async (req, res) => {
   const retiredDeviceTokens = linkedJoinCodes
     .map((jc: any) => String(jc.activationDeviceToken || "").trim())
     .filter(Boolean);
+  keepRetiredDevicesOfPendingTransfer(student, retiredDeviceFingerprints, retiredDeviceTokens);
   linkedJoinCodes.forEach((jc: any) => {
     dbInstance.updateJoinCode(jc.code, {
       activationDeviceFingerprint: "",
@@ -21701,6 +21718,7 @@ app.post("/api/teacher/students/:id/reset-access", async (req, res) => {
   const retiredDeviceTokens = linkedJoinCodes
     .map((jc: any) => String(jc.activationDeviceToken || "").trim())
     .filter(Boolean);
+  keepRetiredDevicesOfPendingTransfer(student, retiredDeviceFingerprints, retiredDeviceTokens);
   linkedJoinCodes.forEach((jc: any) => {
     dbInstance.updateJoinCode(jc.code, {
       activationDeviceFingerprint: "",
