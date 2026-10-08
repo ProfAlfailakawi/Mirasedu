@@ -48,8 +48,9 @@ for (const [email, scope] of [[AA, ''], [admin, 'all'], [admin, 'self']]) {
   check(`${label}: rows carry the resolved course like the full list`,
     pages.every((c) => { const e = expected.find((x) => x.code === c.code); return e && e.courseName === c.courseName && e.sectionCode === c.sectionCode; }));
 
-  const used = expected.filter((c) => c.status === 'used').length;
-  const printed = expected.filter((c) => String(c.printedAt || '').trim()).length;
+  // Exported and used are lifetime totals, archive included; "all" is current codes.
+  const used = everything.filter((c) => c.status === 'used').length;
+  const printed = everything.filter((c) => String(c.printedAt || '').trim()).length;
   check(`${label}: counters match the full inventory`,
     info.counts?.all === expected.length && info.counts?.used === used && info.counts?.printed === printed,
     JSON.stringify(info.counts));

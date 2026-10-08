@@ -21976,16 +21976,21 @@ ${rows
       ).length,
     [scopedJoinCodes],
   );
+  // Lifetime totals come from the server, which counts the whole scope with the
+  // archive; the local list only holds the current codes.
   const printedJoinCodesCount = useMemo(
     () =>
-      scopedJoinCodes.filter((c: any) => String(c.printedAt || "").trim()).length,
-    [scopedJoinCodes],
+      codeArchiveView.counts
+        ? codeArchiveView.counts.printed
+        : scopedJoinCodes.filter((c: any) => String(c.printedAt || "").trim()).length,
+    [scopedJoinCodes, codeArchiveView.counts],
   );
   const usedJoinCodesCount = useMemo(
     () =>
-      scopedJoinCodes.filter((c: any) => String(c.status || "") === "used")
-        .length,
-    [scopedJoinCodes],
+      codeArchiveView.counts
+        ? codeArchiveView.counts.used
+        : scopedJoinCodes.filter((c: any) => String(c.status || "") === "used").length,
+    [scopedJoinCodes, codeArchiveView.counts],
   );
   // The archive tab shows the server's page (search, filter and order applied there).
   const codesTotalPages = codeArchiveView.totalPages;
@@ -45849,7 +45854,7 @@ ${rows
                                 <FileText className="h-3.5 w-3.5" />
                                 سبق تصديره:
                                 <span className="font-mono tabular-nums">
-                                  {codeArchiveView.counts ? codeArchiveView.counts.printed : "…"}
+                                  {codeArchiveView.counts ? printedJoinCodesCount : "…"}
                                 </span>
                               </span>
                               <span
