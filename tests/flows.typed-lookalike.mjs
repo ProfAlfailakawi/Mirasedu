@@ -27,6 +27,11 @@ const r = await api('POST', '/api/auth/verify-otp', { idNumber: '1002', otp: typ
 check(`typed ${typed} for ${code} activates the account`, r.ok && r.data?.success === true, JSON.stringify(r.data).slice(0, 160));
 const scan = (await api('POST', '/api/teacher/code-scan', { code }, A)).data;
 check('the real code is the one recorded as used by 1002', scan?.activated === true && String(scan?.studentId) === '1002', JSON.stringify(scan).slice(0, 160));
+// «تحقق» finds the same real code from the misread spelling.
+const scanTyped = (await api('POST', '/api/teacher/code-scan', { code: typed }, A)).data;
+check('«تحقق» on the misread spelling shows the real code', scanTyped?.code === code && scanTyped?.activated === true && String(scanTyped?.studentId) === '1002', JSON.stringify(scanTyped).slice(0, 160));
+const scanFake = await api('POST', '/api/teacher/code-scan', { code: 'LAB-QQQ2-QQQQ-QQQQ' }, A);
+check('«تحقق» on a code that does not exist still says not found', scanFake.status === 404 && scanFake.data?.notFound === true, `${scanFake.status}`);
 
 // A code that does not exist, even with look-alikes, is still rejected.
 const fake = await api('POST', '/api/auth/verify-otp', { idNumber: '1002', otp: 'LAB-ZZZZ-ZZZZ-ZZZZ', password: chosen, deviceToken: 'tok-lookalike' }, { deviceToken: 'tok-lookalike' });

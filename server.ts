@@ -20644,8 +20644,38 @@ app.post("/api/teacher/code-scan", teacherExactCodeScanRateLimit, (req, res) => 
   setNoCache(res);
   const requesterEmail = verifiedTeacherEmailFromSession(req);
   if (!requesterEmail) return res.status(401).json({ success: false, error: "سجّل الدخول من جديد." });
-  const compact = compactJoinCode(req.body?.code || "");
+  let compact = compactJoinCode(req.body?.code || "");
   if (!compact) return res.status(400).json({ success: false, error: "أدخل الكود." });
+
+  // كود كُتب بحرف يشبه غيره (2 بدل Z مثلاً): مثل تفعيل الطالب، لا يُجرَّب إلا
+  // إذا لم يوجد الكود بكتابته الحرفية، ولا يُعتمد إلا إذا طابق كوداً واحداً.
+  {
+    const liveCodes = dbInstance.getJoinCodes();
+    const retiredCodes: JoinCode[] = typeof (dbInstance as any).getRetiredJoinCodes === "function"
+      ? (dbInstance as any).getRetiredJoinCodes()
+      : [];
+    const exactExists =
+      liveCodes.some((row: any) => compactJoinCode(row?.code) === compact) ||
+      retiredCodes.some((row: any) => compactJoinCode(row?.code) === compact) ||
+      dbInstance.getStudents().some((row: any) => compactJoinCode(row?.activationCode || "") === compact);
+    if (!exactExists) {
+      // كل كود مرة واحدة: الحالي ثم المؤرشف ثم كود التفعيل المحفوظ في ملف الطالب.
+      const seen = new Set<string>();
+      const candidates: JoinCode[] = [];
+      for (const raw of [
+        ...liveCodes.map((row: any) => row?.code),
+        ...retiredCodes.map((row: any) => row?.code),
+        ...dbInstance.getStudents().map((row: any) => row?.activationCode),
+      ]) {
+        const key = compactJoinCode(raw || "");
+        if (!key || seen.has(key)) continue;
+        seen.add(key);
+        candidates.push({ code: String(raw) } as JoinCode);
+      }
+      const alias = findJoinCodeByLookalikeCharacters(candidates, compact);
+      if (alias) compact = compactJoinCode(alias.code);
+    }
+  }
 
   const current = dbInstance.getJoinCodes().filter((row: any) => compactJoinCode(row?.code) === compact);
   const retired = typeof (dbInstance as any).getRetiredJoinCodes === "function"
