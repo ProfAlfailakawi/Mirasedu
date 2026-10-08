@@ -14064,8 +14064,11 @@ export default function App() {
         scopedCodes,
         recentOptimisticCodes,
       );
+      // The open Codes tab asks every 3 s for new activations only. When none
+      // arrived, keep the same list so the whole inventory (which grows every
+      // semester) is not re-filtered and re-sorted for nothing.
       setJoinCodesList((prev) => options.activatedSince
-        ? mergeJoinCodeRecords(nextCodes, prev)
+        ? nextCodes.length ? mergeJoinCodeRecords(nextCodes, prev) : prev
         : includeRetired ? nextCodes : mergeJoinCodeRecords(
           nextCodes, prev.filter((item: any) => !isLiveJoinCodeRecord(item)),
         ));
@@ -21879,11 +21882,11 @@ ${rows
         }
         return true;
       })
-      .sort((a: any, b: any) => {
-        const bd = new Date(b.createdAt || b.activatedAt || 0).getTime() || 0;
-        const ad = new Date(a.createdAt || a.activatedAt || 0).getTime() || 0;
-        return bd - ad;
-      });
+      .map((c: any) => ({ c, time: new Date(c.createdAt || c.activatedAt || 0).getTime() || 0 }))
+      // Parse each date once: parsing inside the comparator cost ~7x more with a
+      // multi-semester archive, on every search keystroke.
+      .sort((a: any, b: any) => b.time - a.time)
+      .map((entry: any) => entry.c);
   }, [visibleJoinCodes, codesFilterStatus, codesFilterSearch]);
   // عدّاد الأكواد المتبقية غير المستخدمة: رموز عامة فعّالة، كاملة الصيغة، غير
   // مرتبطة بطالب وغير مجانية — أي الجاهزة للبيع/الطباعة والتفعيل بعد. يُحسب من
