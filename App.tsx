@@ -38499,13 +38499,13 @@ ${rows
                             </div>
                             <div className="flex shrink-0 flex-col items-center gap-1.5">
                               <MirasRatioRing done={card.graded} total={card.total} />
-                              {scopedTeacherStudents.length > 0 && (
+                              {courseStudentDirectory.length > 0 && (
                                 <span
                                   title="عدد طلبة الشعبة"
-                                  aria-label={`عدد طلبة الشعبة ${scopedTeacherStudents.length}`}
+                                  aria-label={`عدد طلبة الشعبة ${courseStudentDirectory.length}`}
                                   className="text-xs font-black leading-none text-indigo-600"
                                 >
-                                  {scopedTeacherStudents.length}
+                                  {courseStudentDirectory.length}
                                 </span>
                               )}
                             </div>
