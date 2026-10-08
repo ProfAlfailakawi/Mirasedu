@@ -1158,7 +1158,7 @@ html[data-theme="dark"] #root input.miras-flat-input:not(#_):not(#_):focus {
    بتخصيص صفري (:where) عمدًا: يغلب أدوات Tailwind (المرتّبة في طبقة) فقط، وأي قاعدة أخرى أكبر تبقى قائمة (لا يُصغَّر نص أبدًا).
    لا يُمسّ شريط التجربة (.miras-demo-bar). متغيّرات sm: فعّالة من 640px فتدخل ضمن هذا الحد (≥768px)؛ متغيّرات lg: لا تُضاف لأن الحد قد يصغّر نصًّا أكبر بين 768 و1023. */
 @media (min-width: 768px) {
-  :where(:is(.text-\[8\.5px\], .text-\[9px\], .text-\[9\.5px\], .text-\[10px\], .text-\[10\.5px\], .text-\[0\.55rem\], .text-\[0\.66rem\], .sm\:text-\[9\.5px\], .sm\:text-\[10px\]):not(.miras-demo-bar *)) {
+  :where(:is(.text-\[8\.5px\], .text-\[8\.8px\], .text-\[9px\], .text-\[9\.5px\], .text-\[10px\], .text-\[10\.5px\], .text-\[0\.55rem\], .text-\[0\.66rem\], .sm\:text-\[9\.5px\], .sm\:text-\[10px\]):not(.miras-demo-bar *)) {
     font-size: 11px;
   }
   /* تسميات بلاطات الخطر وسطر لوحة أمان الكود كانت تُصغَّر بقاعدة !important أقدم */
@@ -1166,4 +1166,58 @@ html[data-theme="dark"] #root input.miras-flat-input:not(#_):not(#_):focus {
   .miras-integrity-pane p.text-\[11px\]:not(#_):not(#_) {
     font-size: 11px !important;
   }
+}
+
+/* ═══════════════ ٢١) بلاطات الرئيسية: حلقة نسبة من الأرقام المعروضة ذاتها + «من» بحجم أصغر في السطر نفسه ═══════════════ */
+.miras-metric-card .miras-metric-ring {
+  position: absolute;
+  inset: -4px;
+  width: 52px;
+  height: 52px;
+  transform: rotate(-90deg);
+  pointer-events: none;
+  overflow: visible;
+}
+.miras-metric-card .miras-metric-ring circle {
+  fill: none;
+  stroke-width: 2.5;
+  stroke-linecap: round;
+}
+.miras-metric-card .miras-metric-ring-track { stroke: rgb(224 231 255); }
+.miras-metric-card .miras-metric-ring-fill { stroke: rgb(99 102 241); }
+.miras-metric-card .miras-metric-value { white-space: nowrap; }
+.miras-metric-card .miras-metric-of {
+  font-size: 0.72em;
+  font-weight: 800;
+  color: rgb(100 116 139);
+  letter-spacing: 0;
+}
+
+/* ═══════════════ ٢٢) عنوان التبويب الفرعي وشريطه: يلتفّان على الهاتف بدل تجاوز البطاقة ═══════════════ */
+@media (max-width: 639px) {
+  html body .miras-section-hero > div:not(#_) {
+    flex-wrap: wrap !important;
+  }
+  #root .miras-section-hero .miras-inner-tabs:not(#_):not(#_):not(#_) {
+    flex: 1 1 15rem !important;
+    width: auto !important;
+    max-width: 100% !important;
+  }
+}
+
+/* ═══════════════ ٢٣) بطاقات الرموز (الأرشيف): شريط حالة جانبي، ومعلومات مسطّحة بخطوط رفيعة بدل صناديق متراصّة ═══════════════ */
+.miras-join-code-card[data-status] { border-inline-start-width: 4px; }
+.miras-join-code-card[data-status="active"] { border-inline-start-color: rgb(16 185 129); }
+.miras-join-code-card[data-status="used"] { border-inline-start-color: rgb(99 102 241); }
+.miras-join-code-card[data-status="revoked"] { border-inline-start-color: rgb(148 163 184); }
+@media (max-width: 639px) {
+  .miras-join-code-card > .mt-4.grid { gap: 0; margin-top: 0.6rem; }
+  .miras-join-code-card > .mt-4.grid > div {
+    background: transparent;
+    border: 0;
+    border-radius: 0;
+    border-top: 1px dashed rgba(148, 163, 184, 0.4);
+    padding: 0.55rem 0.1rem;
+  }
+  .miras-join-code-card > .mt-4.grid > div:first-child { border-top: 0; }
 }
