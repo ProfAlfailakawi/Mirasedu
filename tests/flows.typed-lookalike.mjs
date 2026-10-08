@@ -37,6 +37,18 @@ check('«تحقق» on a code that does not exist still says not found', scanFak
 const fake = await api('POST', '/api/auth/verify-otp', { idNumber: '1002', otp: 'LAB-ZZZZ-ZZZZ-ZZZZ', password: chosen, deviceToken: 'tok-lookalike' }, { deviceToken: 'tok-lookalike' });
 check('a code that does not exist is still rejected', !fake.ok && fake.data?.code === 'INVALID_CODE', `${fake.status} ${JSON.stringify(fake.data).slice(0, 120)}`);
 
+// A code the teacher cancelled reads «ملغي» in «تحقق», exact or look-alike spelling.
+let cancelled = null, cancelledTyped = null;
+for (let n = 0; n < 30 && !cancelledTyped; n++) {
+  cancelled = (await api('POST', '/api/teacher/join-codes/create', { sectionCode: S_A1, count: 1 }, A)).data.created?.[0]?.code;
+  cancelledTyped = cancelled ? misread(cancelled) : null;
+}
+check('teacher cancels the code', (await api('POST', '/api/teacher/join-codes/update', { code: cancelled, status: 'revoked' }, A)).ok);
+const scanCancelled = (await api('POST', '/api/teacher/code-scan', { code: cancelled }, A)).data;
+check('«تحقق» shows a cancelled code as «ملغي»', scanCancelled?.state === 'ملغي', JSON.stringify(scanCancelled).slice(0, 140));
+const scanCancelledTyped = (await api('POST', '/api/teacher/code-scan', { code: cancelledTyped }, A)).data;
+check('«تحقق» on its look-alike spelling also shows «ملغي»', scanCancelledTyped?.code === cancelled && scanCancelledTyped?.state === 'ملغي', JSON.stringify(scanCancelledTyped).slice(0, 140));
+
 // Look-alike spellings of one code share its attempt limit (8 per code), so
 // alternating Z/2 cannot split the attempts into separate buckets.
 let limited = false;

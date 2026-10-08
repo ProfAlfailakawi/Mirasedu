@@ -20733,10 +20733,13 @@ app.post("/api/teacher/code-scan", teacherExactCodeScanRateLimit, (req, res) => 
   const status = String(code.status || "active").toLowerCase();
   const activated = joinCodeWasActivated(code);
   const window = joinCodeWindowStatus(code);
+  // كود ألغاه الأستاذ يظهر «ملغي» مثل بطاقته في الأرشيف، سواء بقي في القائمة أو أُرشف.
+  const cancelled = ["revoked", "cancelled", "canceled"].includes(status);
   const state = isRetired
-    ? activated ? "مُفعّل سابقاً" : "لم يُستخدم"
+    ? activated ? "مُفعّل سابقاً" : cancelled ? "ملغي" : "لم يُستخدم"
     : activated ? "مُفعّل"
-      : isSoftDeletedRecord(code) || ["revoked", "disabled", "deleted"].includes(status) ? "موقوف"
+      : cancelled ? "ملغي"
+      : isSoftDeletedRecord(code) || ["disabled", "deleted"].includes(status) ? "موقوف"
         : status === "expired" || (!window.ok && window.reason.includes("انتهت")) ? "منتهي"
           : !window.ok ? "لم يبدأ"
             : isJoinCodeTemporarilyFrozen(code) ? "موقوف مؤقتاً"
