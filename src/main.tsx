@@ -276,8 +276,13 @@ const activateWaitingWorker = (worker: ServiceWorker | null | undefined) => {
 
 if ('serviceWorker' in navigator) {
   let mirasControllerReloaded = false;
+  // A first visit has no controller yet; the new worker claiming the page then
+  // fires controllerchange too. Reloading there loaded the page twice and cut
+  // the first-visit splash to a blink, so only a real update (an old worker
+  // being replaced) reloads.
+  const mirasHadController = !!navigator.serviceWorker.controller;
   navigator.serviceWorker.addEventListener('controllerchange', () => {
-    if (mirasControllerReloaded || isMirasSebEntry()) return;
+    if (!mirasHadController || mirasControllerReloaded || isMirasSebEntry()) return;
     mirasControllerReloaded = true;
     try {
       const key = `miras-sw-refresh:${MIRAS_CLIENT_BUILD_VERSION}`;
