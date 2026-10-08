@@ -20441,10 +20441,13 @@ function teacherCodeArchiveSource(req: express.Request) {
 app.get("/api/teacher/join-codes/archive", (req, res) => {
   setNoCache(res);
   if (!verifiedTeacherEmailFromSession(req)) return res.status(401).json({ code: "TEACHER_SESSION_REQUIRED" });
-  const rows = teacherCodeArchiveSource(req);
+  // Archived codes stay out of the list; they appear only when searched for.
+  const scoped = teacherCodeArchiveSource(req);
   const pageSize = Math.min(200, Math.max(1, Math.floor(Number(req.query.pageSize) || 50)));
   const status = String(req.query.status || "all").toLowerCase();
   const search = normalizeArabicDigits(String(req.query.q || "")).toLowerCase().trim();
+  const rows = search ? scoped : scoped.filter((jc: any) => !jc.isArchived);
+  const current = search ? scoped.filter((jc: any) => !jc.isArchived) : rows;
   const matches = rows.filter((jc: any) => {
     if (status !== "all" && jc.status !== status) return false;
     if (!search) return true;
@@ -20460,7 +20463,7 @@ app.get("/api/teacher/join-codes/archive", (req, res) => {
   const totalPages = Math.max(1, Math.ceil(matches.length / pageSize));
   const page = Math.min(totalPages, Math.max(1, Math.floor(Number(req.query.page) || 1)));
   let readyToPrint = 0, printed = 0, used = 0;
-  for (const jc of rows) {
+  for (const jc of current) {
     if (String(jc.printedAt || "").trim()) printed += 1;
     if (jc.status === "used") used += 1;
     if (jc.status === "active" && isFullMirasJoinCode(jc.code) && !jc.studentId && !jc.assignedStudentId &&
@@ -20469,7 +20472,7 @@ app.get("/api/teacher/join-codes/archive", (req, res) => {
   return sendLargeJson(req, res, {
     success: true,
     page, pageSize, total: matches.length, totalPages,
-    counts: { all: rows.length, readyToPrint, printed, used },
+    counts: { all: current.length, archived: scoped.length - current.length, readyToPrint, printed, used },
     joinCodes: matches.slice((page - 1) * pageSize, page * pageSize).map(presentJoinCodeForTeacher),
   });
 });
