@@ -18,7 +18,8 @@ const cases = [
   [{ status: 'active', activatedAt: '2026-01-01T00:00:00Z', studentId: '201912345' }, true, 'activation time'],
   [{ status: 'active', usedAt: '2026-01-01T00:00:00Z' }, true, 'usage time'],
   [{ status: 'active', usedByStudentId: '201912345' }, true, 'used by a student'],
-  [{ status: 'revoked', studentId: '201912345' }, true, 'legacy used then revoked'],
+  [{ status: 'revoked', studentId: '201912345' }, false, 'legacy assignment revoked before use'],
+  [{ status: 'revoked', studentId: '201912345', activatedAt: '2026-01-01T00:00:00Z' }, true, 'used then revoked'],
   [{ status: 'revoked' }, false, 'revoked unused'],
 ];
 for (const [code, expected, label] of cases) {
