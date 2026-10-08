@@ -5616,6 +5616,21 @@ function normalizeStudentId(value: any): string {
     .replace(/[^0-9]/g, "");
 }
 
+// Student :id route lookup. Some records store the id as a number or with
+// Arabic-Indic digits, so an exact string compare can miss a student who is
+// plainly in the list (this caused "الطالب غير موجود" on device transfer).
+// Match exactly first, then fall back to the normalized numeric id, like the
+// roster endpoints already do.
+function findStudentByRouteId(routeId: any): any {
+  const raw = String(routeId ?? "");
+  const students = dbInstance.getStudents();
+  const exact = students.find((s: any) => String(s.id) === raw);
+  if (exact) return exact;
+  const norm = normalizeStudentId(raw);
+  if (!norm) return null;
+  return students.find((s: any) => normalizeStudentId(s.id) === norm) || null;
+}
+
 const studentUniversityIdAliases = (student: any) =>
   [student?.id, student?.idNumber, student?.studentId, student?.studentNumber]
     .map(normalizeStudentId)
@@ -15824,9 +15839,7 @@ app.post("/api/learning-fingerprint", (req, res) => {
 // Single Student Detail
 app.get("/api/students/:id", (req, res) => {
   setNoCache(res);
-  const student = dbInstance
-    .getStudents()
-    .find((s) => s.id === String(req.params.id));
+  const student = findStudentByRouteId(req.params.id);
   if (!student) {
     return res.status(404).json({ error: "الطالب غير موجود" });
   }
@@ -15858,9 +15871,7 @@ app.get("/api/students/:id", (req, res) => {
 });
 
 app.get("/api/students/:id/session-status", (req, res) => {
-  const student = dbInstance
-    .getStudents()
-    .find((s) => s.id === String(req.params.id));
+  const student = findStudentByRouteId(req.params.id);
   if (!student)
     return res.json({
       blocked: true,
@@ -15917,9 +15928,7 @@ app.get("/api/students/:id/session-status", (req, res) => {
 
 // Save webcam live screenshot
 app.post("/api/students/:id/snapshot", (req, res) => {
-  const student = dbInstance
-    .getStudents()
-    .find((s) => s.id === String(req.params.id));
+  const student = findStudentByRouteId(req.params.id);
   if (!student) return res.status(404).json({ error: "الطالب غير كائن" });
 
   const { snapshot, purpose, verificationCode } = req.body;
@@ -15942,9 +15951,7 @@ app.post("/api/students/:id/snapshot", (req, res) => {
 
 // Log any student verification failures / security violations
 app.post("/api/students/:id/log-violation", (req, res) => {
-  const student = dbInstance
-    .getStudents()
-    .find((s) => s.id === String(req.params.id));
+  const student = findStudentByRouteId(req.params.id);
   if (!student) return res.status(404).json({ error: "الطالب غير كائن" });
 
   const { details, action } = req.body;
@@ -15976,9 +15983,7 @@ app.post("/api/students/:id/log-violation", (req, res) => {
 
 // Activate / Deactivate student from Admin or pay
 app.post("/api/students/:id/activate", (req, res) => {
-  const student = dbInstance
-    .getStudents()
-    .find((s) => s.id === String(req.params.id));
+  const student = findStudentByRouteId(req.params.id);
   if (!student) return res.status(404).json({ error: "الطالب غير مسجل" });
 
   const { isPaid } = req.body;
@@ -21340,9 +21345,7 @@ app.post("/api/teacher/students/:id/manual-activate", (req, res) => {
         error:
           "جلسة الأستاذ غير واضحة. لا يمكن التفعيل اليدوي من واجهة الطالب.",
       });
-  const student = dbInstance
-    .getStudents()
-    .find((s) => s.id === String(req.params.id));
+  const student = findStudentByRouteId(req.params.id);
   if (!student) return res.status(404).json({ error: "الطالب غير كائن" });
   if (!teacherCanManageStudent(student, teacherEmail)) {
     return res.status(403).json({ error: "لا يمكن تفعيل طالب خارج مقرراتك." });
@@ -21649,9 +21652,7 @@ app.post("/api/teacher/students/:idNumber/remove-course", (req, res) => {
 });
 
 app.post("/api/teacher/students/:id/reset-access", async (req, res) => {
-  const student = dbInstance
-    .getStudents()
-    .find((s) => s.id === String(req.params.id));
+  const student = findStudentByRouteId(req.params.id);
   if (!student) return res.status(404).json({ error: "الطالب غير موجود" });
   const teacherEmail = teacherEmailFromRequest(req);
   if (!teacherEmail || !teacherCanManageStudent(student, teacherEmail)) {
