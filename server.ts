@@ -11534,23 +11534,44 @@ app.get("/api/teacher/activation-attempts", (req, res) => {
   // كود مرفوض كُتب بحرف يشبه غيره (2 بدل Z مثلاً): يُرفق معه الكود الحقيقي
   // الوحيد المطابق بعد طيّ الأحرف المتشابهة، من الأكواد الحية والمؤرشفة وكود
   // التفعيل المحفوظ في ملف الطالب، حتى يظهر في السجل «قريب من» الكود الصحيح.
+  // الكود اعتماد تفعيل، فالمرشحون محصورون بنطاق الطلب نفسه: أكواد الأستاذ
+  // المستهدف فقط، ولا تُفتح القائمة الكاملة إلا للأدمن في نطاق «الكل».
+  const includeAllLookalikeSources = isAdmin && scope === "all";
+  const lookalikeScopeEmail = String(targetEmail || "").trim().toLowerCase();
+  const joinCodeInLookalikeScope = (row: any) =>
+    includeAllLookalikeSources ||
+    String(
+      row?.ownerEmail || row?.createdByEmail || joinCodeOwnerEmail(row) || joinCodeAuditOwner(row) || "",
+    ).trim().toLowerCase() === lookalikeScopeEmail;
+  const studentInLookalikeScope = (row: any) =>
+    includeAllLookalikeSources ||
+    getStudentActiveCourseCodes(row).some(
+      (course: string) => sectionOwnerEmail(course).trim().toLowerCase() === lookalikeScopeEmail,
+    );
+  // «موجود حرفياً» يبقى على القائمة الكاملة حتى لا تُلصق شارة «قريب من» بكودٍ
+  // صحيحٍ أصلاً يخص أستاذاً آخر؛ أما المرشحون للمطابقة فمن النطاق فقط.
+  const exactCodeKeys = new Set<string>();
   const lookalikeCandidateKeys = new Set<string>();
   const lookalikeCandidates: JoinCode[] = [];
-  for (const raw of [
-    ...dbInstance.getJoinCodes().map((row: any) => row?.code),
-    ...(typeof (dbInstance as any).getRetiredJoinCodes === "function"
-      ? (dbInstance as any).getRetiredJoinCodes().map((row: any) => row?.code)
-      : []),
-    ...students.map((row: any) => row?.activationCode),
+  const retiredJoinCodes =
+    typeof (dbInstance as any).getRetiredJoinCodes === "function"
+      ? (dbInstance as any).getRetiredJoinCodes()
+      : [];
+  for (const { raw, inScope } of [
+    ...dbInstance.getJoinCodes().map((row: any) => ({ raw: row?.code, inScope: joinCodeInLookalikeScope(row) })),
+    ...retiredJoinCodes.map((row: any) => ({ raw: row?.code, inScope: joinCodeInLookalikeScope(row) })),
+    ...students.map((row: any) => ({ raw: row?.activationCode, inScope: studentInLookalikeScope(row) })),
   ]) {
     const key = compactJoinCode(raw || "");
-    if (!key || lookalikeCandidateKeys.has(key)) continue;
+    if (!key) continue;
+    exactCodeKeys.add(key);
+    if (!inScope || lookalikeCandidateKeys.has(key)) continue;
     lookalikeCandidateKeys.add(key);
     lookalikeCandidates.push({ code: String(raw) } as JoinCode);
   }
   const lookalikeResolutionCache = new Map<string, string>();
   const resolveLookalikeCode = (compactAttempt: string): string => {
-    if (!compactAttempt || lookalikeCandidateKeys.has(compactAttempt)) return "";
+    if (!compactAttempt || exactCodeKeys.has(compactAttempt)) return "";
     if (lookalikeResolutionCache.has(compactAttempt)) {
       return lookalikeResolutionCache.get(compactAttempt) || "";
     }
