@@ -20871,11 +20871,17 @@ ${rows
 
   // بطاقة مؤشّر: سطح ولهجة واحدة لكل العدّادات. اللون محجوز لحالة التنبيه
   // وحدها، ويظهر فقط عندما تكون القيمة أكبر من صفر.
-  const TeacherMetricCard = ({ label, value, icon: Icon, alert = false }: any) => {
+  const TeacherMetricCard = ({ label, value, icon: Icon, alert = false, ratio }: any) => {
     const numeric = Number(
       normalizeArabicIndicDigits(String(value ?? "")).replace(/[^\d.]/g, ""),
     );
     const live = alert && Number.isFinite(numeric) && numeric > 0;
+    // حلقة النسبة من الأرقام نفسها المعروضة (لا بيانات جديدة): تظهر فقط حين تُمرَّر نسبة صالحة.
+    const ringShare =
+      typeof ratio === "number" && Number.isFinite(ratio)
+        ? Math.max(0, Math.min(1, ratio))
+        : null;
+    const valueParts = String(value ?? "").split(" من ");
 
     return (
       <div className="miras-metric-card relative isolate overflow-hidden rounded-[var(--miras-r-xl)] border border-slate-200/70 bg-white p-4">
@@ -20884,18 +20890,45 @@ ${rows
             <span className="block text-[11px] font-bold leading-[1.45] text-slate-500">
               {label}
             </span>
-            <span data-miras-literal="true" className="mt-0.5 block text-[1.65rem] font-black leading-tight tracking-tight text-slate-950">
-              {value}
+            <span data-miras-literal="true" className="miras-metric-value mt-0.5 block text-[1.65rem] font-black leading-tight tracking-tight text-slate-950">
+              {valueParts.length === 2 ? (
+                <>
+                  {valueParts[0]}{" "}
+                  <span className="miras-metric-of">من {valueParts[1]}</span>
+                </>
+              ) : (
+                value
+              )}
             </span>
           </div>
-          <div
-            className={`grid h-11 w-11 shrink-0 place-items-center rounded-[var(--miras-r-md)] ring-1 ${
-              live
-                ? "bg-amber-50 text-amber-700 ring-amber-200"
-                : "bg-indigo-50 text-indigo-700 ring-indigo-100"
-            }`}
-          >
-            <Icon className="h-5 w-5" />
+          <div className="miras-metric-icon-wrap relative h-11 w-11 shrink-0">
+            {ringShare !== null && (
+              <svg
+                className="miras-metric-ring"
+                viewBox="0 0 52 52"
+                aria-hidden="true"
+                focusable="false"
+              >
+                <circle className="miras-metric-ring-track" cx="26" cy="26" r="24" />
+                <circle
+                  className="miras-metric-ring-fill"
+                  cx="26"
+                  cy="26"
+                  r="24"
+                  pathLength={100}
+                  strokeDasharray={`${Math.round(ringShare * 100)} 100`}
+                />
+              </svg>
+            )}
+            <div
+              className={`grid h-11 w-11 place-items-center rounded-[var(--miras-r-md)] ring-1 ${
+                live
+                  ? "bg-amber-50 text-amber-700 ring-amber-200"
+                  : "bg-indigo-50 text-indigo-700 ring-indigo-100"
+              }`}
+            >
+              <Icon className="h-5 w-5" />
+            </div>
           </div>
         </div>
         {live && (
@@ -21768,9 +21801,9 @@ ${rows
             <p className="mb-2 text-[10px] font-medium text-slate-500">رابط مؤقت لمرة واحدة، يعمل من أي جهاز ولا يغيّر الجهاز الموثوق.</p>
             <div className="grid grid-cols-2 gap-2 text-[10px] font-bold text-slate-500 sm:grid-cols-4">
               <div className="rounded-2xl bg-slate-50 px-3 py-2"><span className="block text-slate-400">الرقم</span><span className="mt-1 block font-mono text-slate-900">{req.studentId || "-"}</span></div>
-              <div className="rounded-2xl bg-slate-50 px-3 py-2"><span className="block text-slate-400">المقرر</span><span className="mt-1 block truncate text-slate-700">{courseLabelForResetRequest(req)}</span></div>
+              <div className="order-first col-span-2 rounded-2xl bg-slate-50 px-3 py-2 sm:order-none sm:col-span-1"><span className="block text-slate-400">المقرر</span><span className="mt-1 block break-words text-slate-700 sm:truncate" title={courseLabelForResetRequest(req)}>{courseLabelForResetRequest(req)}</span></div>
               <div className="rounded-2xl bg-slate-50 px-3 py-2"><span className="block text-slate-400">الطلب</span><span className="mt-1 block font-mono text-slate-700">{formatKwDateTime(req.requestedAt || req.timestamp)}</span></div>
-              <div className="rounded-2xl bg-amber-50/70 px-3 py-2"><span className="block text-amber-600">ينتهي</span><span className="mt-1 block font-mono text-amber-800">{formatKwDateTime(req.expiresAt)}</span></div>
+              <div className="col-span-2 rounded-2xl bg-amber-50/70 px-3 py-2 sm:col-span-1"><span className="block text-amber-600">ينتهي</span><span className="mt-1 block font-mono text-amber-800">{formatKwDateTime(req.expiresAt)}</span></div>
             </div>
             <div className="mt-3 flex flex-wrap justify-end gap-2 border-t border-slate-100 pt-3">
               <button type="button" onClick={() => { setJoinQrModalCode(""); setPasswordResetQrLink(req.resetLink); }} disabled={!req.resetLink || ["used", "expired", "cancelled", "revoked"].includes(status) || (req.expiresAt && new Date(req.expiresAt).getTime() <= Date.now())} title="QR تغيير كلمة المرور" aria-label="QR تغيير كلمة المرور" className="inline-flex h-10 w-10 items-center justify-center rounded-2xl border border-indigo-100 bg-indigo-50 text-indigo-700 transition-colors hover:bg-indigo-100 disabled:text-slate-300 disabled:bg-slate-50"><QrCode className="h-4 w-4" /></button>
@@ -31114,7 +31147,7 @@ ${rows
     <section className="rounded-3xl border border-indigo-100 bg-white/90 p-4 shadow-sm sm:p-5" aria-label="التحقق من الكود">
                         <div className="flex flex-wrap items-center gap-2" dir="rtl">
                           <label className="flex h-11 min-w-[180px] flex-1 items-center rounded-2xl border border-slate-200 bg-slate-50 px-3">
-                            <input dir="ltr" autoCapitalize="characters" spellCheck={false} value={teacherCodeLookupInput} onChange={(event) => setTeacherCodeLookupInput(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter") void lookupTeacherCode(); }} className="min-w-0 flex-1 bg-transparent text-right text-xs font-semibold text-slate-800 outline-none" placeholder="أدخل الكود" aria-label="أدخل الكود للتحقق" />
+                            <input dir="ltr" autoCapitalize="characters" spellCheck={false} value={teacherCodeLookupInput} onChange={(event) => setTeacherCodeLookupInput(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter") void lookupTeacherCode(); }} className="miras-flat-input min-w-0 flex-1 bg-transparent text-right text-xs font-semibold text-slate-800 outline-none" placeholder="أدخل الكود" aria-label="أدخل الكود للتحقق" />
                           </label>
                           <button type="button" onClick={() => void startActivationQrScanner("code-lookup")} className="inline-flex h-11 w-11 items-center justify-center rounded-2xl border border-indigo-100 bg-indigo-50 text-indigo-700 transition hover:bg-indigo-100" title="مسح QR بالكاميرا" aria-label="مسح QR بالكاميرا">
                             <Camera className="h-5 w-5" />
@@ -37590,11 +37623,18 @@ ${rows
                     <TeacherMetricCard
                       label="الطلبة المفعّلون من الإجمالي"
                       value={`${scopedOverallReports.totalRegistered || 0} من ${scopedOverallReports.totalAllowed || 0}`}
+                      ratio={
+                        Number(scopedOverallReports.totalAllowed) > 0
+                          ? Number(scopedOverallReports.totalRegistered || 0) /
+                            Number(scopedOverallReports.totalAllowed)
+                          : undefined
+                      }
                       icon={Users}
                     />
                     <TeacherMetricCard
                       label="نسبة التقدم"
                       value={`${scopedOverallReports.percentCompleted || 0}%`}
+                      ratio={Number(scopedOverallReports.percentCompleted || 0) / 100}
                       icon={Award}
                     />
                     <TeacherMetricCard
@@ -44179,7 +44219,7 @@ ${rows
                             <div className="mt-3 space-y-3">
                             <div className="flex items-center gap-2 rounded-2xl border border-white bg-white/80 px-3">
                               <Search className="h-4 w-4 shrink-0 text-slate-400" />
-                              <input value={trustedDeviceSearch} onChange={(event) => setTrustedDeviceSearch(event.target.value)} className="h-11 min-w-0 flex-1 bg-transparent text-right text-xs font-semibold text-slate-800 outline-none placeholder:text-slate-400" placeholder="ابحث باسم الطالب أو رقمه" aria-label="ابحث في أجهزة البصمة" />
+                              <input value={trustedDeviceSearch} onChange={(event) => setTrustedDeviceSearch(event.target.value)} className="miras-flat-input h-11 min-w-0 flex-1 bg-transparent text-right text-xs font-semibold text-slate-800 outline-none placeholder:text-slate-400" placeholder="ابحث باسم الطالب أو رقمه" aria-label="ابحث في أجهزة البصمة" />
                               <button type="button" onClick={() => setPasskeyDevicesOpen(false)} className="rounded-xl p-2 text-slate-400 hover:bg-slate-50 hover:text-slate-700" aria-label="إغلاق قائمة الأجهزة"><X className="h-4 w-4" /></button>
                             </div>
                             <div className="grid grid-cols-1 gap-2 md:grid-cols-2">
@@ -45031,7 +45071,7 @@ ${rows
                               </div>
                               <label className="flex h-10 items-center gap-2 rounded-2xl border border-slate-200 bg-slate-50 px-3 text-slate-400">
                                 <Search className="h-4 w-4" />
-                                <input value={teacherCodeScanSearch} onChange={(event) => setTeacherCodeScanSearch(event.target.value)} className="min-w-0 flex-1 bg-transparent text-right text-xs font-medium text-slate-700 outline-none" placeholder="بحث بالاسم أو الرقم أو الكود" />
+                                <input value={teacherCodeScanSearch} onChange={(event) => setTeacherCodeScanSearch(event.target.value)} className="miras-flat-input min-w-0 flex-1 bg-transparent text-right text-xs font-medium text-slate-700 outline-none" placeholder="بحث بالاسم أو الرقم أو الكود" />
                               </label>
                               <div className="max-h-[50vh] space-y-2 overflow-y-auto overscroll-contain pr-0.5">
                                 {(teacherCodeScan.codes || []).filter((row: any) => {
@@ -45817,7 +45857,7 @@ ${rows
                                       className="w-full min-w-0 bg-white border border-slate-200 rounded-2xl pr-10 pl-3 py-3 text-right text-[11px] font-bold leading-5 outline-none placeholder:text-slate-400 sm:text-xs focus:ring-2 focus:ring-indigo-100"
                                     />
                                   </div>
-                                  <div className="lg:col-span-5 grid grid-cols-2 sm:grid-cols-4 gap-2 bg-white p-1.5 rounded-2xl border border-slate-200">
+                                  <div className="lg:col-span-5 grid grid-cols-4 gap-2 bg-white p-1.5 rounded-2xl border border-slate-200">
                                     {(
                                       [
                                         "all",
@@ -45902,6 +45942,7 @@ ${rows
                                 {pagedJoinCodes.map((c: any) => (
                                   <div
                                     key={c.code}
+                                    data-status={c.status}
                                     className={`miras-join-code-card rounded-3xl border p-4 transition-[box-shadow,border-color,background-color,opacity] shadow-sm ${c.status === "used" ? "border-slate-300 bg-slate-100 text-slate-500 hover:bg-slate-100" : c.status === "active" ? "border-emerald-100 bg-white hover:border-emerald-200 hover:shadow-md" : "border-slate-200 bg-slate-50/70 text-slate-400 opacity-60"}`}
                                   >
                                     <div className="flex flex-col gap-3">
@@ -47883,7 +47924,7 @@ ${rows
                   اضغط البطاقة لفتح الصفحة المناسبة، بدون بدء أي اختبار.
                 </p>
               </div>
-              <div className="max-h-[46dvh] space-y-2.5 overflow-y-auto pr-0.5">
+              <div className="max-h-[46dvh] space-y-2.5 overflow-y-auto pb-1 pr-0.5">
                 {studentUpcomingDeadlineCards.map((item: any, idx: number) => (
                   <button
                     key={`${item.kind}-${item.id}-${idx}`}
