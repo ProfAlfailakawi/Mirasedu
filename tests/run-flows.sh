@@ -99,6 +99,7 @@ node node_modules/.bin/tsx --test tests/atomic-cloud-write.test.ts || overall=1
 node node_modules/.bin/tsx --test tests/record-chunks.test.ts || overall=1
 node node_modules/.bin/tsx --test tests/record-chunk-sync.test.mjs || overall=1
 node node_modules/.bin/tsx --test tests/login-ip-limit.test.mjs || overall=1
+node node_modules/.bin/tsx --test tests/join-code-activated.test.mjs || overall=1
 node node_modules/.bin/tsx --test tests/cloud-mutation-barrier.test.ts || overall=1
 node node_modules/.bin/tsx --test tests/cloud-request-latency.test.mjs || overall=1
 node node_modules/.bin/tsx --test tests/enrollment-read-latency.test.mjs || overall=1
