@@ -59,4 +59,7 @@ if(aliasRequest){
  const aliasReset=await api('POST','/api/auth/reset-password',{token:new URL(aliasRequest.resetLink).searchParams.get('resetToken'),newPassword:'FreshAlias998'},{deviceToken:'tok-1001'});
  check('alias reset link updates the canonical student account',aliasReset.ok,JSON.stringify(aliasReset.data));
 }
+// A student changing their own password through the reset link is routine: no teacher alert.
+r=await api('GET',`/api/notifications/inbox?userId=${encodeURIComponent(AA)}&role=teacher`,undefined,{jar:owner});
+check('student self-service password change does not alert the teacher',r.ok && !(r.data.items || r.data.notifications || []).some(x=>(x.type||x.data?.type)==='password_changed'),JSON.stringify(r.data).slice(0,200));
 done();
