@@ -22533,6 +22533,7 @@ ${rows
           latestMs: 0,
           latestAttempt: null,
           codeCounts: new Map<string, number>(),
+          codeNearMatches: new Map<string, string>(),
           courses: new Set<string>(),
           devices: new Set<string>(),
           browsers: new Set<string>(),
@@ -22546,11 +22547,17 @@ ${rows
         group.latestMs = rowTime;
         group.latestAttempt = attempt;
       }
-      if (codeCompact)
+      if (codeCompact) {
         group.codeCounts.set(
           codeCompact,
           (group.codeCounts.get(codeCompact) || 0) + 1,
         );
+        const nearCompact = compactJoinCode(
+          attempt.lookalikeResolvedCode || "",
+        );
+        if (nearCompact && nearCompact !== codeCompact)
+          group.codeNearMatches.set(codeCompact, nearCompact);
+      }
       if (courseLabel) group.courses.add(courseLabel);
       if (device.device) group.devices.add(device.device);
       if (device.browser) group.browsers.add(device.browser);
@@ -22580,6 +22587,9 @@ ${rows
               code,
               formatted: formatJoinCode(code),
               count,
+              nearCode: group.codeNearMatches.get(code)
+                ? formatJoinCode(group.codeNearMatches.get(code))
+                : "",
             }))
             .sort(
               (a: any, b: any) =>
@@ -46728,6 +46738,17 @@ ${rows
                                                     }}
                                                   >
                                                     {item.formatted}
+                                                    {item.nearCode && (
+                                                      <b
+                                                        className="rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-bold text-emerald-700"
+                                                        dir="rtl"
+                                                      >
+                                                        قريب من{" "}
+                                                        <span dir="ltr">
+                                                          {item.nearCode}
+                                                        </span>
+                                                      </b>
+                                                    )}
                                                     {item.count > 1 && (
                                                       <b
                                                         className="rounded-full bg-amber-50 px-2 py-0.5 text-[11px] text-amber-700"
