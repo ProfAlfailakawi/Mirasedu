@@ -4324,13 +4324,14 @@ function joinCodeMatchesStudentCourse(jc: any, student: any, courseCode: any, te
   return !isStudentCourseRemoved(student, jcCourse, owner || teacherEmail);
 }
 
-// A legacy code assigned to a student (studentId set, status still "active",
-// no activation time) has not been used yet; only real usage markers count.
+// A code assigned to a student (studentId set) that was never entered has not
+// been used, whatever its status (active or revoked); only real usage markers
+// count.
 function joinCodeWasActivated(code: any): boolean {
   const status = String(code?.status || "active").trim().toLowerCase();
   if (["used", "active-used", "activated"].includes(status)) return true;
   if (String(code?.activatedAt || code?.usedAt || code?.usedByStudentId || "").trim()) return true;
-  return status !== "active" && !!String(code?.studentId || "").trim();
+  return false;
 }
 
 function getFreshJoinCodeForStudentCourse(student: any, courseCode: any, teacherEmail?: any): any | null {
