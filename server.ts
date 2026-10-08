@@ -20472,10 +20472,12 @@ app.get("/api/teacher/join-codes/archive", (req, res) => {
   const totalPages = Math.max(1, Math.ceil(matches.length / pageSize));
   const page = Math.min(totalPages, Math.max(1, Math.floor(Number(req.query.page) || 1)));
   let readyToPrint = 0, printed = 0, used = 0;
-  for (const jc of current) {
+  // Exported and used are lifetime totals over the whole scope, archive included;
+  // only the ready-to-print stock is a current-code figure.
+  for (const jc of scoped) {
     if (String(jc.printedAt || "").trim()) printed += 1;
     if (jc.status === "used") used += 1;
-    if (jc.status === "active" && isFullMirasJoinCode(jc.code) && !jc.studentId && !jc.assignedStudentId &&
+    if (!jc.isArchived && jc.status === "active" && isFullMirasJoinCode(jc.code) && !jc.studentId && !jc.assignedStudentId &&
         !jc.isFreeCode && !String(jc.printedAt || "").trim()) readyToPrint += 1;
   }
   return sendLargeJson(req, res, {
