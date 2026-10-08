@@ -19158,4 +19158,4 @@ html[data-theme="dark"] body .miras-teacher-alert-popover .miras-teacher-alert-d
   }
 }
 
-#root .miras-teacher-six-nav:not(#_):not(#_) { grid-template-columns: repeat(6, minmax(0, 1fr)) !important; }
+#root .miras-teacher-five-nav:not(#_):not(#_) { grid-template-columns: repeat(5, minmax(0, 1fr)) !important; }

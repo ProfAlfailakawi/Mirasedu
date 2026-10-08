@@ -1,4 +1,4 @@
-import { normalizeArabicIndicDigits, stripArabicIndicDigitsFromInput } from "../src/shared/arabic-text.ts";
+import { normalizeArabicIndicDigits, stripArabicIndicDigitsFromInput, westernizeInputDigits } from "../src/shared/arabic-text.ts";
 import { mirasPhoneticSkeleton, mirasPhoneticWordMatch } from "../src/shared/phonetic-search.ts";
 import { createReporter } from "./lib.mjs";
 
@@ -9,6 +9,9 @@ check("normalizeArabicIndicDigits - handles persian numerals", normalizeArabicIn
 check("normalizeArabicIndicDigits - leaves standard alone", normalizeArabicIndicDigits("123") === "123", normalizeArabicIndicDigits("123"));
 
 check("stripArabicIndicDigitsFromInput - removes them completely", stripArabicIndicDigitsFromInput("abc١٢٣def") === "abcdef", stripArabicIndicDigitsFromInput("abc١٢٣def"));
+
+check("westernizeInputDigits - keeps typed numbering as western digits", westernizeInputDigits("١. اذكر ٢٠ مثالاً") === "1. اذكر 20 مثالاً", westernizeInputDigits("١. اذكر ٢٠ مثالاً"));
+check("westernizeInputDigits - persian and full-width digits, same length", westernizeInputDigits("۳٤５") === "345" && westernizeInputDigits("أ١ب").length === 3, westernizeInputDigits("۳٤５"));
 
 check("mirasPhoneticSkeleton - handles english text", mirasPhoneticSkeleton("hello") === "hl", mirasPhoneticSkeleton("hello"));
 check("mirasPhoneticSkeleton - handles arabic text", mirasPhoneticSkeleton("مرحبا") === "mrhb", mirasPhoneticSkeleton("مرحبا"));
