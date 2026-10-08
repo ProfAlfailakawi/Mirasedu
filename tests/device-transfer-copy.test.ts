@@ -21,3 +21,19 @@ test('device action preserves its explicit copy instead of passing through delet
  assert.match(source,/options.preserveMessage \? message : compactMirasDialogMessage/);
  assert.match(source,/dialogState.confirmLabel \|\| "تأكيد"/);
 });
+test('batch transfer confirms once, names the students and caps a long list',()=>{
+ const names=Array.from({length:11},(_,i)=>`طالب ${i+1}`);
+ const message=copy.batchMessage(names);
+ assert.ok(message.includes('(11)'));
+ assert.ok(message.includes('طالب 8') && !message.includes('طالب 9،'));
+ assert.ok(message.includes('و3 آخرين'));
+ assert.ok(message.includes('أول دخول'));
+ assert.equal(copy.batchConfirmLabel(2),'تبديل الكل (2)');
+ assert.ok(copy.batchSuccess(2).length<28);
+ const source=fs.readFileSync(new URL('../App.tsx',import.meta.url),'utf8');
+ const start=source.indexOf('const transferSelectedStudentDevices =');
+ const action=source.slice(start,source.indexOf('const resetOrHoldStudentAccount =',start));
+ assert.match(action,/reset-access/);
+ assert.match(action,/mode: "reset_device"/);
+ assert.match(action,/preserveMessage: true/);
+});

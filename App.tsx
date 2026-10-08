@@ -1154,6 +1154,8 @@ const simplifyMirasMessage = (
   }
 
   if (tone === "error") {
+    // فشل تبديل جهاز يذكر أسماء الطلبة الذين لم يُبدَّل جهازهم: يُعرض كما هو.
+    if (/^تعذّ?ر تبديل جهاز/.test(text)) return text;
     if (any("أكمل البيانات", "تعبئة جميع الحقول", "الحقول المطلوبة"))
       return "راجع الحقول المطلوبة";
     if (any("اكتب", "أدخل", "يرجى إدخال", "اختر", "حدد")) {
@@ -5115,6 +5117,10 @@ export default function App() {
   // بحث سريع داخل "تفعيل فوري لملفات الطلبة يدوياً" بالرقم الجامعي أو الاسم —
   // ضروري عند وجود آلاف الطلبة حتى لا تُعرض القائمة كاملة.
   const [manualActivationSearch, setManualActivationSearch] = useState("");
+  // تحديد عدة طلبة لتبديل أجهزتهم بزر واحد. يبقى التحديد عند تغيير البحث،
+  // فيبحث الأستاذ عن كل اسم ويحدده ثم يبدّل الجميع مرة واحدة.
+  const [deviceBatchSelection, setDeviceBatchSelection] = useState<Record<string, string>>({});
+  const [deviceBatchBusy, setDeviceBatchBusy] = useState(false);
   const [submissionSubTab, setSubmissionSubTab] = useState<
     "projects" | "exams"
   >("projects");
@@ -29267,6 +29273,94 @@ ${rows
     }
   };
 
+  const toggleDeviceBatchStudent = (student: any) => {
+    const id = String(student.id || student.idNumber || "").trim();
+    if (!id) return;
+    setDeviceBatchSelection((prev) => {
+      const next = { ...prev };
+      if (next[id] !== undefined) delete next[id];
+      else next[id] = String(student.name || id);
+      return next;
+    });
+  };
+
+  // نفس عملية «تبديل الجهاز» لكل طالب محدد، واحداً بعد الآخر، بتأكيد واحد.
+  const transferSelectedStudentDevices = async () => {
+    if (deviceBatchBusy) return;
+    const entries = (Object.entries(deviceBatchSelection) as Array<[string, string]>).filter(([id]) => {
+      const registered = teacherStudents.find((st: any) => String(st.id) === id);
+      return !!registered && registered.isPaid && !registered.isAccessBlocked &&
+        !accessStoppedIds[id] && !accessBusyIds[id];
+    });
+    if (!entries.length) return;
+    if (
+      !(await confirmAction(
+        deviceTransferCopy.batchMessage(entries.map(([id, name]) => name || id)),
+        { title: deviceTransferCopy.batchTitle, confirmLabel: deviceTransferCopy.batchConfirmLabel(entries.length), icon: "device", preserveMessage: true },
+      ))
+    )
+      return;
+    setDeviceBatchBusy(true);
+    setErrorMsg("");
+    setSuccessMsg("");
+    const failed: string[] = [];
+    let transferred = 0;
+    for (const [id, name] of entries) {
+      setAccessBusyIds((prev) => ({ ...prev, [id]: true }));
+      try {
+        const resp = await fetch(
+          `/api/teacher/students/${encodeURIComponent(id)}/reset-access`,
+          {
+            method: "POST",
+            headers: teacherHeaders(),
+            body: JSON.stringify({
+              teacherEmail: activeTeacherEmail(),
+              mode: "reset_device",
+            }),
+          },
+        );
+        const d = await resp.json().catch(() => ({}));
+        if (!resp.ok) {
+          failed.push(name || id);
+          continue;
+        }
+        transferred += 1;
+        setAccessStoppedIds((prev) => {
+          const next = { ...prev };
+          delete next[id];
+          return next;
+        });
+        setTeacherStudents((prev) =>
+          prev.map((st: any) =>
+            String(st.id) === id ? { ...st, ...d.student } : st,
+          ),
+        );
+        setDeviceBatchSelection((prev) => {
+          const next = { ...prev };
+          delete next[id];
+          return next;
+        });
+      } catch {
+        failed.push(name || id);
+      } finally {
+        setAccessBusyIds((prev) => ({ ...prev, [id]: false }));
+      }
+    }
+    setDeviceBatchBusy(false);
+    if (failed.length) {
+      const shown = failed.slice(0, 5).join("، ") + (failed.length > 5 ? ` و${failed.length - 5} آخرين` : "");
+      setErrorMsg(`تعذر تبديل جهاز: ${shown}. التحديد باقٍ لإعادة المحاولة.`);
+    } else if (transferred) {
+      setSuccessMsg(deviceTransferCopy.batchSuccess(transferred));
+    }
+    if (transferred) {
+      window.setTimeout(() => {
+        void fetchReports();
+        void fetchLogs();
+      }, 300);
+    }
+  };
+
   const resetOrHoldStudentAccount = async (student: any) => {
     const id = String(student.id || student.idNumber || "").trim();
     if (
@@ -46862,6 +46956,36 @@ ${rows
                                   </button>
                                 )}
                               </div>
+                              {Object.keys(deviceBatchSelection).length > 0 && (
+                                <div className="mb-3 flex flex-wrap items-center justify-between gap-2 rounded-2xl border border-amber-100 bg-amber-50/80 px-3 py-2.5">
+                                  <span className="text-[11px] font-bold text-amber-800">
+                                    محدد لتبديل الجهاز: {Object.keys(deviceBatchSelection).length}
+                                  </span>
+                                  <div className="flex items-center gap-2">
+                                    <button
+                                      type="button"
+                                      onClick={() => setDeviceBatchSelection({})}
+                                      disabled={deviceBatchBusy}
+                                      className="rounded-2xl border border-slate-200 bg-white px-3 py-2 text-[11px] font-bold text-slate-600 hover:bg-slate-50 disabled:opacity-50"
+                                    >
+                                      إلغاء التحديد
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={() => void transferSelectedStudentDevices()}
+                                      disabled={deviceBatchBusy}
+                                      className="inline-flex items-center gap-2 rounded-2xl bg-amber-500 px-3 py-2 text-[11px] font-bold text-white shadow-sm hover:bg-amber-600 disabled:bg-slate-200 disabled:text-slate-500"
+                                    >
+                                      {deviceBatchBusy ? (
+                                        <MirasLoader size={16} role="current" label="جارٍ التنفيذ…" />
+                                      ) : (
+                                        <Smartphone className="h-4 w-4" />
+                                      )}
+                                      تبديل الكل
+                                    </button>
+                                  </div>
+                                </div>
+                              )}
                               <div className="grid grid-cols-1 xl:grid-cols-2 gap-3">
                                 {manualActivationStudents.map((student) => {
                                     const studentCourseCodes = Array.from(
@@ -47033,6 +47157,21 @@ ${rows
                                                   <Smartphone className="h-5 w-5" />
                                                 )}
                                               </button>
+                                              {!accessStoppedIds[String(student.id)] &&
+                                                !student.isAccessBlocked && (
+                                                  <button
+                                                    type="button"
+                                                    role="checkbox"
+                                                    aria-checked={deviceBatchSelection[String(student.id)] !== undefined}
+                                                    onClick={() => toggleDeviceBatchStudent(student)}
+                                                    disabled={deviceBatchBusy}
+                                                    title="تحديد لتبديل الجهاز مع غيره"
+                                                    aria-label="تحديد لتبديل الجهاز مع غيره"
+                                                    className={`inline-flex h-11 w-11 items-center justify-center rounded-2xl border-2 shadow-sm transition ${deviceBatchSelection[String(student.id)] !== undefined ? "border-amber-500 bg-amber-500 text-white" : "border-slate-200 bg-white text-slate-200 hover:border-amber-300 hover:text-amber-300"} disabled:opacity-60`}
+                                                  >
+                                                    <Check className="h-5 w-5" />
+                                                  </button>
+                                                )}
                                             </div>
                                           )}
                                         </div>
