@@ -20644,8 +20644,29 @@ app.post("/api/teacher/code-scan", teacherExactCodeScanRateLimit, (req, res) => 
   setNoCache(res);
   const requesterEmail = verifiedTeacherEmailFromSession(req);
   if (!requesterEmail) return res.status(401).json({ success: false, error: "سجّل الدخول من جديد." });
-  const compact = compactJoinCode(req.body?.code || "");
+  let compact = compactJoinCode(req.body?.code || "");
   if (!compact) return res.status(400).json({ success: false, error: "أدخل الكود." });
+
+  // كود كُتب بحرف يشبه غيره (2 بدل Z مثلاً): مثل تفعيل الطالب، لا يُجرَّب إلا
+  // إذا لم يوجد الكود بكتابته الحرفية، ولا يُعتمد إلا إذا طابق كوداً واحداً.
+  {
+    const liveCodes = dbInstance.getJoinCodes();
+    const retiredCodes: JoinCode[] = typeof (dbInstance as any).getRetiredJoinCodes === "function"
+      ? (dbInstance as any).getRetiredJoinCodes()
+      : [];
+    const exactExists =
+      liveCodes.some((row: any) => compactJoinCode(row?.code) === compact) ||
+      retiredCodes.some((row: any) => compactJoinCode(row?.code) === compact) ||
+      dbInstance.getStudents().some((row: any) => compactJoinCode(row?.activationCode || "") === compact);
+    if (!exactExists) {
+      const liveCompacts = new Set(liveCodes.map((row: any) => compactJoinCode(row?.code)));
+      const alias = findJoinCodeByLookalikeCharacters(
+        [...liveCodes, ...retiredCodes.filter((row: any) => !liveCompacts.has(compactJoinCode(row?.code)))],
+        compact,
+      );
+      if (alias) compact = compactJoinCode(alias.code);
+    }
+  }
 
   const current = dbInstance.getJoinCodes().filter((row: any) => compactJoinCode(row?.code) === compact);
   const retired = typeof (dbInstance as any).getRetiredJoinCodes === "function"
