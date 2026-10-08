@@ -20399,7 +20399,8 @@ function sendLargeJson(req: express.Request, res: express.Response, payload: any
   const json = JSON.stringify(payload);
   res.setHeader("Content-Type", "application/json; charset=utf-8");
   res.vary("Accept-Encoding");
-  if (json.length < 64 * 1024 || !/\bgzip\b/.test(String(req.headers["accept-encoding"] || ""))) {
+  // acceptsEncodings honours quality values, so "gzip;q=0" stays uncompressed.
+  if (json.length < 64 * 1024 || !req.headers["accept-encoding"] || req.acceptsEncodings("gzip") !== "gzip") {
     return res.end(json);
   }
   gzip(json, { level: 4 }, (error, compressed) => {
