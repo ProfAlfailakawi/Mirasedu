@@ -993,6 +993,18 @@ html[data-theme="dark"] .miras-app-teacher-root button[aria-label="تطهير ك
     opacity: 1 !important;
     border: 0 !important;
   }
+  /* الشريط داخل ترويسة القسم: يتّسع لعناوين التبويبات بدل قصّها (الأجهزة/تفعيل) */
+  #root .miras-section-hero .miras-inner-tabs:not(#_):not(#_):not(#_) {
+    width: auto !important;
+    grid-template-columns: none !important;
+    grid-auto-flow: column !important;
+    grid-auto-columns: max-content !important;
+  }
+  #root .miras-section-hero .miras-inner-tab:not(#_):not(#_):not(#_) {
+    width: auto !important;
+    min-width: max-content !important;
+    padding-inline: 0.75rem !important;
+  }
   html body .miras-integrity-switch:not(#_) {
     width: auto !important;
   }
