@@ -11,7 +11,7 @@ const parsed = ts.createSourceFile('server.ts', source, ts.ScriptTarget.Latest, 
 const helpers = new Map(parsed.statements.filter(ts.isFunctionDeclaration)
   .filter(node => node.name).map(node => [node.name.text, node.getText(parsed)]));
 const names = [
-  'normalizeStudentId', 'normalizeJoinCode', 'compactJoinCode',
+  'normalizeStudentId', 'normalizeJoinCode', 'normalizeJoinCodeValue', 'compactJoinCode',
   'isActiveRecord', 'activeSections', 'isSoftDeletedRecord', 'isArchivedJoinCodeRecord',
   'isUsableJoinCodeRecord', 'joinCodeCourse', 'joinCodeLinkedToStudent', 'joinCodeOwnerEmail',
   'extractEmailFromSectionCode', 'sectionDisplayCode', 'sectionCodeEquivalent',
@@ -72,7 +72,9 @@ const originalRemoved = `function isStudentCourseRemoved(student: any, courseCod
 }`;
 const constants = parsed.statements.filter(ts.isVariableStatement).filter(node =>
   node.declarationList.declarations.some(declaration =>
-    ['MIRAS_JOIN_CODE_PREFIX', 'MIRAS_JOIN_CODE_GROUPS', 'MIRAS_JOIN_CODE_GROUP_SIZE'].includes(declaration.name.getText(parsed))))
+    ['MIRAS_JOIN_CODE_PREFIX', 'MIRAS_JOIN_CODE_GROUPS', 'MIRAS_JOIN_CODE_GROUP_SIZE',
+      'NORMALIZED_CODE_CACHE_LIMIT', 'normalizedJoinCodeCache', 'compactJoinCodeCache', 'rememberNormalizedCode',
+    ].includes(declaration.name.getText(parsed))))
   .map(node => node.getText(parsed)).join('\n');
 async function compiler(legacy) {
   const body = names.map(name => legacy && name === 'latestStudentCourseActivationTime' ? originalLatest

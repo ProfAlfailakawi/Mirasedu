@@ -7706,9 +7706,11 @@ export default function App() {
     let cancelled = false;
     let timer = 0;
     let inFlight = false;
+    let attempt = 0;
     const check = async () => {
       if (cancelled || inFlight) return;
       inFlight = true;
+      attempt += 1;
       const path = `/api/cloud-status?t=${Date.now()}`;
       const urls = [path];
       // Production Hosting and Cloud Run are two paths to the same cloud guard.
@@ -7720,7 +7722,8 @@ export default function App() {
         setLoginCloudReady(true);
         return;
       }
-      timer = window.setTimeout(check, 4000);
+      // A waking server becomes ready within seconds: re-check quickly first.
+      timer = window.setTimeout(check, Math.min(4000, 500 * 2 ** (attempt - 1)));
     };
     void check();
     const onOnline = () => {
