@@ -715,6 +715,17 @@ function passkeyUserHandle(role: PasskeyRole, userId: string) {
   return Buffer.from(`${role}:${userId}`, "utf-8");
 }
 
+// Enrolling a passkey grants future logins, so only the signed-in owner of the
+// account may do it: the request must carry that same account's session.
+function passkeySessionMatchesUser(req: express.Request, role: PasskeyRole, user: { id: string; raw: any }): boolean {
+  if (role === "teacher") {
+    const email = verifiedTeacherEmailFromSession(req);
+    return !!email && email === String(user.raw?.email || user.id).trim().toLowerCase();
+  }
+  const studentId = verifiedStudentIdFromSession(req);
+  return !!studentId && studentId === normalizeStudentId(user.id);
+}
+
 function findPasskeyUser(role: PasskeyRole, userId: string) {
   const id = String(userId || "").trim();
   if (role === "teacher") {
@@ -14494,6 +14505,10 @@ app.post("/api/auth/passkey/register/start", async (req, res) => {
       return res
         .status(404)
         .json({ error: "لم يتم العثور على الحساب لتفعيل البصمة." });
+    if (!passkeySessionMatchesUser(req, role, user))
+      return res.status(401).json({
+        error: "سجّل الدخول بكلمة المرور أولاً ثم فعّل البصمة من نفس الحساب.",
+      });
     const existing = dbInstance
       .getPasskeyCredentials()
       .filter(
@@ -14574,6 +14589,10 @@ app.post("/api/auth/passkey/register/finish", async (req, res) => {
     pendingPasskeyRegistrations.delete(matchedChallenge);
     const user = findPasskeyUser(pending.role, pending.userId);
     if (!user) return res.status(404).json({ error: "الحساب لم يعد متاحاً." });
+    if (!passkeySessionMatchesUser(req, pending.role, user))
+      return res.status(401).json({
+        error: "سجّل الدخول بكلمة المرور أولاً ثم فعّل البصمة من نفس الحساب.",
+      });
     const credential = verification.registrationInfo.credential;
     dbInstance.upsertPasskeyCredential({
       id: `${pending.role}-${user.id}-${credential.id}`,
