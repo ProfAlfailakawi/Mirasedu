@@ -38497,7 +38497,18 @@ ${rows
                                 {card.total} تسليم
                               </p>
                             </div>
-                            <MirasRatioRing done={card.graded} total={card.total} />
+                            <div className="flex shrink-0 flex-col items-center gap-1.5">
+                              <MirasRatioRing done={card.graded} total={card.total} />
+                              {courseStudentDirectory.length > 0 && (
+                                <span
+                                  title="عدد طلبة الشعبة"
+                                  aria-label={`عدد طلبة الشعبة ${courseStudentDirectory.length}`}
+                                  className="text-xs font-black leading-none text-indigo-600"
+                                >
+                                  {courseStudentDirectory.length}
+                                </span>
+                              )}
+                            </div>
                             <ChevronLeft className="mt-1 h-4 w-4 shrink-0 text-slate-300 transition-transform group-hover:-translate-x-1 group-hover:text-indigo-500" />
                           </div>
                           {card.total > 0 && (
