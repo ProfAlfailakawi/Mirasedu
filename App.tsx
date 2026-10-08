@@ -35875,7 +35875,7 @@ ${rows
                                                 <span
                                                   className={`h-1.5 w-1.5 shrink-0 rounded-full ${studentCourseDotTone(courseMeta.courseCode, courseMeta.index)}`}
                                                 />
-                                                <span className="truncate">
+                                                <span className="min-w-0 break-words sm:truncate">
                                                   {courseMeta.courseName}
                                                 </span>
                                               </div>
@@ -36429,7 +36429,7 @@ ${rows
                                       <span className="miras-student-time-detail miras-dna-date inline-flex items-center gap-1 text-[11px] text-slate-500 font-mono">
                                         <CalendarDays className="h-3.5 w-3.5" aria-hidden="true" />
                                         تاريخ الاستحقاق الأكاديمي:{" "}
-                                        {ex.dueDate}
+                                        <span className="whitespace-nowrap">{ex.dueDate}</span>
                                       </span>
                                     </div>
                                     <h3 className="font-extrabold text-base text-slate-900">
@@ -41302,7 +41302,7 @@ ${rows
                                                     return (
                                                       <label
                                                         key={idx}
-                                                        className={`flex items-center gap-3 rounded-2xl border px-4 py-3 text-[12px] font-bold shadow-sm transition ${isCorrect ? "border-indigo-200 bg-white text-indigo-700 ring-2 ring-indigo-50" : "border-slate-200 bg-white text-slate-600"}`}
+                                                        className={`flex flex-wrap items-center gap-x-3 gap-y-2 rounded-2xl border px-4 py-3 text-[12px] font-bold shadow-sm transition ${isCorrect ? "border-indigo-200 bg-white text-indigo-700 ring-2 ring-indigo-50" : "border-slate-200 bg-white text-slate-600"}`}
                                                       >
                                                         <input
                                                           className="h-5 w-5 shrink-0 accent-indigo-600"
@@ -41367,7 +41367,7 @@ ${rows
                                                             );
                                                           }}
                                                           placeholder={`اكتب الخيار ${idx + 1}`}
-                                                          className="min-w-0 w-full flex-1 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-right outline-none focus:border-indigo-200 focus:bg-white"
+                                                          className="min-w-0 w-full basis-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-right outline-none focus:border-indigo-200 focus:bg-white sm:basis-0 sm:flex-1"
                                                         />
                                                       </label>
                                                     );
