@@ -2,7 +2,7 @@
 // digit (Z as 2, S as 5, B as 8, G as 6) or the reverse. The exact code still
 // wins; the look-alike is accepted only when it matches exactly one real code.
 import { randomUUID } from 'node:crypto';
-import { api, makeJar, createReporter, AA, S_A1 } from './lib.mjs';
+import { api, makeJar, createReporter, AA, BB, S_A1, S_B1 } from './lib.mjs';
 const { check, done } = createReporter('FLOWS / TYPED LOOK-ALIKE CODE');
 const pw = process.env.TEST_TEACHER_PASSWORD || 'change-me-in-ci';
 const A = { jar: makeJar(), deviceToken: 'lookalike-a' };
@@ -75,6 +75,25 @@ check('the rejected misread attempt is in the log', !!logged, JSON.stringify(log
 check('the log annotates it with the real code it is close to', compact(logged?.lookalikeResolvedCode) === compact(deleted), JSON.stringify({ got: logged?.lookalikeResolvedCode, want: deleted }));
 const exactLogged = (log?.attempts || []).find((a) => compact(a.normalizedCode || a.code) === compact('LAB-ZZZZ-ZZZZ-ZZZZ'));
 check('an attempt matching no real code carries no annotation', !exactLogged || !exactLogged.lookalikeResolvedCode, JSON.stringify(exactLogged?.lookalikeResolvedCode || ''));
+
+// The annotation is an activation credential: a request scoped to one teacher
+// must never resolve to another teacher's code (only admin scope=all may).
+const B = { jar: makeJar(), deviceToken: 'lookalike-b' };
+check('teacher B login', (await api('POST', '/api/auth/login', { idNumber: BB, password: pw }, B)).ok);
+let bCode = null, bTyped = null;
+for (let n = 0; n < 30 && !bTyped; n++) {
+  bCode = (await api('POST', '/api/teacher/join-codes/create', { sectionCode: S_B1, count: 1 }, B)).data.created?.[0]?.code;
+  bTyped = bCode ? misread(bCode) : null;
+}
+check('teacher B deletes the code', (await api('POST', '/api/teacher/join-codes/delete', { code: bCode }, B)).ok);
+const bRejected = await api('POST', '/api/auth/verify-otp', { idNumber: '1002', otp: bTyped, password: chosen, deviceToken: 'tok-lookalike-b' }, { deviceToken: 'tok-lookalike-b' });
+check('misread spelling of B\'s deleted code is rejected', !bRejected.ok, `${bRejected.status}`);
+const logAll = (await api('GET', '/api/teacher/activation-attempts?scope=all', null, admin)).data;
+const bLogged = (logAll?.attempts || []).find((a) => compact(a.normalizedCode || a.code) === compact(bTyped));
+check('admin scope=all annotates it with B\'s code', compact(bLogged?.lookalikeResolvedCode) === compact(bCode), JSON.stringify({ got: bLogged?.lookalikeResolvedCode, want: bCode }));
+const logScopedA = (await api('GET', `/api/teacher/activation-attempts?scope=${AA}`, null, admin)).data;
+const leaked = (logScopedA?.attempts || []).some((a) => compact(a.lookalikeResolvedCode) === compact(bCode));
+check('a request scoped to teacher A never reveals B\'s code', !leaked, JSON.stringify((logScopedA?.attempts || []).map((a) => a.lookalikeResolvedCode).filter(Boolean)));
 
 // Look-alike spellings of one code share its attempt limit (8 per code), so
 // alternating Z/2 cannot split the attempts into separate buckets.
