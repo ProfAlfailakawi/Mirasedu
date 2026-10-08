@@ -2598,7 +2598,7 @@ function RoleOnboardingOverlay({
                   <motion.button
                     key={dot}
                     onClick={() => setIndex(dot)}
-                    className="relative h-1.5 cursor-pointer rounded-full after:absolute after:-inset-x-1 after:-inset-y-4 after:content-['']"
+                    className="relative h-1.5 cursor-pointer rounded-full after:absolute after:-inset-x-1 after:-inset-y-5 after:content-['']"
                     animate={{
                       width: dot === index ? 26 : 8,
                       backgroundColor:
