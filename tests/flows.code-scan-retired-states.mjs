@@ -12,6 +12,7 @@ const expect = [
   ['LAB-ZQNR-QQQQ-QQQ8', 'ملغي', 'teacher delete'],
   ['LAB-ZQNR-QQQQ-QQQG', 'لم يُستخدم', 'course deleted'],
   ['LAB-ZQNR-QQQQ-QQGG', 'لم يُستخدم', 'full reset'],
+  ['LAB-ZQNR-QQQQ-QGGG', 'لم يُستخدم', 'legacy default course_closed'],
 ];
 for (const [code, want, label] of expect) {
   const r = (await api('POST', '/api/teacher/code-scan', { code }, admin)).data;

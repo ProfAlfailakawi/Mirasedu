@@ -20737,7 +20737,7 @@ app.post("/api/teacher/code-scan", teacherExactCodeScanRateLimit, (req, res) => 
   // القائمة أو أُرشف. «لم يُستخدم» محجوزة حصراً للكود الذي أُرشف تلقائياً مع
   // إغلاق مقرره (حذف المقرر أو التصفير)؛ أي سبب أرشفة آخر — معروفاً كان أو
   // قديماً بلا سبب مسجّل — هو فعلُ أستاذٍ تخلّص من الكود، فيُعرض «ملغي».
-  const retiredWithCourse = ["course_deleted", "course_closed_full_reset", "course_closed_custom_reset"]
+  const retiredWithCourse = ["course_deleted", "course_closed", "course_closed_full_reset", "course_closed_custom_reset"]
     .includes(String((code as any).retiredReason || ""));
   const cancelled = ["revoked", "cancelled", "canceled"].includes(status) ||
     (isRetired && !retiredWithCourse);

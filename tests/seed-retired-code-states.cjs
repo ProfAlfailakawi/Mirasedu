@@ -14,5 +14,6 @@ db.retiredJoinCodes = [
   { ...base, code: 'LAB-ZQNR-QQQQ-QQQ8', status: 'retired', retiredReason: 'teacher_deleted_code' },
   { ...base, code: 'LAB-ZQNR-QQQQ-QQQG', status: 'retired', retiredReason: 'course_deleted' },
   { ...base, code: 'LAB-ZQNR-QQQQ-QQGG', status: 'retired', retiredReason: 'course_closed_full_reset' },
+  { ...base, code: 'LAB-ZQNR-QQQQ-QGGG', status: 'retired', retiredReason: 'course_closed' },
 ];
 fs.writeFileSync(DB, JSON.stringify(db, null, 2), 'utf-8');
