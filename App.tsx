@@ -38500,15 +38500,12 @@ ${rows
                             <div className="flex shrink-0 flex-col items-center gap-1.5">
                               <MirasRatioRing done={card.graded} total={card.total} />
                               {scopedTeacherStudents.length > 0 && (
-                                <span className="whitespace-nowrap rounded-full bg-slate-100 px-2.5 py-0.5 text-[9px] font-bold text-slate-500">
-                                  الشعبة: {scopedTeacherStudents.length}{" "}
-                                  {scopedTeacherStudents.length === 1
-                                    ? "طالب"
-                                    : scopedTeacherStudents.length === 2
-                                      ? "طالبان"
-                                      : scopedTeacherStudents.length <= 10
-                                        ? "طلاب"
-                                        : "طالباً"}
+                                <span
+                                  title="عدد طلبة الشعبة"
+                                  aria-label={`عدد طلبة الشعبة ${scopedTeacherStudents.length}`}
+                                  className="text-xs font-black leading-none text-indigo-600"
+                                >
+                                  {scopedTeacherStudents.length}
                                 </span>
                               )}
                             </div>
