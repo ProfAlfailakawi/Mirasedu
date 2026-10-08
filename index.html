@@ -3,6 +3,13 @@
   <head>
     <link rel="preconnect" href="https://miras-api-538577909672.us-central1.run.app" crossorigin />
     <link rel="dns-prefetch" href="https://miras-api-538577909672.us-central1.run.app" />
+    <!-- Fonts load beside the page instead of through an @import in the CSS bundle,
+         which held the first paint until fonts.googleapis.com answered (display=swap
+         already shows text in a fallback font until the font files arrive). -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;800;900&family=JetBrains+Mono:wght@400;500;700&display=swap" media="print" onload="this.media='all'" />
+    <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;800;900&family=JetBrains+Mono:wght@400;500;700&display=swap" /></noscript>
     <meta name="theme-color" media="(prefers-color-scheme: light)" content="#FFFFFF" />
     <meta name="theme-color" media="(prefers-color-scheme: dark)" content="#0A0A12" />
     <meta name="color-scheme" content="light dark" />
