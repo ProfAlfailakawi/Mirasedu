@@ -46761,6 +46761,17 @@ ${rows
                                             {group.codeStats[0]?.formatted ||
                                               "—"}
                                           </span>
+                                          {group.codeStats[0]?.nearCode && (
+                                            <span className="mt-1.5 flex items-center justify-end gap-1.5 text-[10px] font-bold text-emerald-700">
+                                              قريب من
+                                              <span
+                                                className="truncate rounded-full bg-emerald-50 px-2 py-0.5 font-mono"
+                                                dir="ltr"
+                                              >
+                                                {group.codeStats[0].nearCode}
+                                              </span>
+                                            </span>
+                                          )}
                                         </div>
                                         <span className="inline-flex h-11 w-11 items-center justify-center rounded-2xl border border-slate-200 bg-white text-slate-600 shadow-sm">
                                           <ChevronDown
