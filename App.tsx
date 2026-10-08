@@ -13385,6 +13385,8 @@ export default function App() {
         "code_used",
         "student_registered",
         "student_logged_in",
+        // Routine self-service password change: not an alert (older ones hide too).
+        "password_changed",
       ].includes(type)
     )
       return false;
@@ -13394,7 +13396,6 @@ export default function App() {
         "login_blocked",
         "password_reset",
         "password_reset_resend",
-        "password_changed",
         "manual_password_changed",
         "seb_exit_before_submit",
         "exam_exited_before_submit",

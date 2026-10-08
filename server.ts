@@ -6952,6 +6952,7 @@ function isCriticalTeacherNotification(
       "code_used",
       "student_registered",
       "student_logged_in",
+      "password_changed",
     ].includes(type)
   ) {
     return false;
@@ -6974,7 +6975,6 @@ function isCriticalTeacherNotification(
       "login_blocked",
       "password_reset",
       "password_reset_resend",
-      "password_changed",
       "manual_password_changed",
       "seb_exit_before_submit",
       "exam_exited_before_submit",
@@ -14116,12 +14116,8 @@ app.post("/api/auth/reset-password", (req, res) => {
     browser: "رابط آمن",
     isViolationWarning: false,
   });
-  notifyTeachersForSection(
-    student.sectionCode,
-    "تم تغيير كلمة مرور طالب",
-    `${student.name} غيّر كلمة المرور عبر رابط الاسترجاع الآمن.`,
-    { type: "password_changed", studentId: student.id, link: "/" },
-  );
+  // A student resetting their own password through the secure link is routine;
+  // it stays in the activity log but no longer alerts the teacher.
   return res.json({
     success: true,
     message: "تم تغيير كلمة المرور بنجاح. يمكنك تسجيل الدخول الآن.",
