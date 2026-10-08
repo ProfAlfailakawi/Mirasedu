@@ -18168,7 +18168,7 @@ ${rows
       setPasskeyStatus("جاري فتح تحقق الجهاز...");
       const startResp = await fetch("/api/auth/passkey/register/start", {
         method: "POST",
-        headers: jsonHeaders({ auth: "none" }),
+        headers: jsonHeaders({ auth: role as "teacher" | "student" }),
         body: JSON.stringify({ role, userId, deviceToken: getMirasDeviceId() }),
       });
       const startData = await startResp.json().catch(() => ({}));
@@ -18182,7 +18182,7 @@ ${rows
       });
       const finishResp = await fetch("/api/auth/passkey/register/finish", {
         method: "POST",
-        headers: jsonHeaders({ auth: "none" }),
+        headers: jsonHeaders({ auth: role as "teacher" | "student" }),
         body: JSON.stringify({ response }),
       });
       const finishData = await finishResp.json().catch(() => ({}));
