@@ -22072,7 +22072,10 @@ ${rows
       if (!active) return;
       if (rosterRefreshing) { rosterRefreshQueue = [...(rosterRefreshQueue || []), ...keys]; return; }
       rosterRefreshing = true;
-      const release = () => keys.forEach((key) => seenActivations.delete(key));
+      const release = () => keys.forEach((key) => {
+        if (key === ROSTER_GAP_KEY) rosterGapPending = true;
+        else seenActivations.delete(key);
+      });
       void fetchReports(email, { quiet: true, isCurrent: () => active })
         .then((ok) => { if (!ok) release(); }, release)
         .finally(() => {
@@ -22091,8 +22094,12 @@ ${rows
       if (fresh.length) refreshRoster(fresh);
     };
     // Polls pause while the tab is hidden; an activation older than the 60 s
-    // window would then never be returned, so a gap re-reads the roster once.
-    let lastPollOkAt = 0;
+    // window would then never be returned, so a gap re-reads the roster once
+    // (and again on the next poll if that read fails). The roster was read
+    // when the tab opened, which counts as the first successful poll.
+    const ROSTER_GAP_KEY = "\u0000roster-gap";
+    let rosterGapPending = false;
+    let lastPollOkAt = Date.now();
     const refreshActivations = () => {
       if (!active || refreshing || document.visibilityState === "hidden") return;
       // A short overlap protects activations that land during a request or
@@ -22100,7 +22107,11 @@ ${rows
       // activated in this window, not the teacher's full code inventory.
       const startedAt = Date.now();
       const activatedSince = new Date(startedAt - 60_000).toISOString();
-      if (lastPollOkAt && startedAt - lastPollOkAt > 50_000) refreshRoster([]);
+      if (rosterGapPending || startedAt - lastPollOkAt > 50_000) {
+        rosterGapPending = false;
+        lastPollOkAt = startedAt;
+        refreshRoster([ROSTER_GAP_KEY]);
+      }
       refreshing = true;
       void fetchJoinCodes(undefined, { includeRetired: false, activatedSince, onActivations: refreshRosterOnNewActivations })
         .then((ok) => { if (ok) lastPollOkAt = startedAt; })
