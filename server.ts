@@ -14358,6 +14358,47 @@ app.get("/api/teacher/allowed-students", (req, res) => {
   return res.json({ success: true, allowedStudents });
 });
 
+// شاشة الدخول «الرقم الجامعي أولاً»: يكتب الطالب رقمه فقط فيُوجَّه تلقائياً،
+// فلا يختار بين «دخول» و«حساب جديد» ويخطئ. «عنده حساب» بنفس مطابقة
+// /api/auth/login، و«يحتاج تسجيلاً» بنفس مطابقة كشف التسجيل أعلاه. الاسم
+// الأول فقط للترحيب؛ الاسم الكامل يكشفه lookup-student لمن في الكشف أصلاً.
+app.get("/api/auth/identify/:id", (req, res) => {
+  setNoCache(res);
+  const normalizedIdNumber = normalizeStudentId(String(req.params.id || ""));
+  if (!/^\d{4,}$/.test(normalizedIdNumber)) {
+    return res.status(400).json({ success: false, error: "اكتب رقمك الجامعي بالأرقام." });
+  }
+  const firstName = (name: any) => String(name || "").trim().split(/\s+/)[0] || "";
+  const student = dbInstance
+    .getStudents()
+    .find((s) => normalizeStudentId(s.id) === normalizedIdNumber);
+  if (student) {
+    return res.json({ success: true, status: "account", firstName: firstName(student.name) });
+  }
+  // الأستاذ يدخل أيضاً برقم جواله (نفس أسماء الدخول البديلة في /api/auth/login)،
+  // فالأرقام ليست دائماً طالباً: يُوجَّه لكلمة المرور بلا اسم.
+  const teacherByDigits = dbInstance.getTeachers().some((t: any) =>
+    [t.email, t.id, t.phone, t.mobile, ...(Array.isArray(t.loginAliases) ? t.loginAliases : [])]
+      .map((value: any) => normalizeStudentId(normalizeArabicDigits(String(value || ""))))
+      .some((aliasDigits: string) => !!aliasDigits && aliasDigits === normalizedIdNumber),
+  );
+  if (teacherByDigits) {
+    return res.json({ success: true, status: "account", firstName: "" });
+  }
+  const allowed = dbInstance
+    .getAllowedStudents()
+    .find((s) => normalizeStudentId(s.idNumber) === normalizedIdNumber);
+  if (allowed) {
+    return res.json({ success: true, status: "signup", firstName: firstName(allowed.name) });
+  }
+  return res.status(404).json({
+    success: false,
+    status: "missing",
+    error:
+      "الرقم الجامعي غير مدرج في كشوفات أي مقرر معتمد. يرجى التواصل مع أستاذ المادة لإضافة اسمك في كشف المقرر.",
+  });
+});
+
 // Lookup allowed student by university ID for signup autofill
 app.get("/api/auth/lookup-student/:id", (req, res) => {
   const normalizedIdNumber = normalizeStudentId(String(req.params.id || ""));
