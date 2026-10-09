@@ -173,3 +173,39 @@ html[data-theme="dark"] body .meras-teacher-shell .miras-join-code-card div.mt-4
   box-shadow: none !important;
   background-image: none !important;
 }
+
+/* ---- lighter top of the page (follow-up) ---- */
+/* code field, camera and «تحقق» on one row on phones: the field may shrink below 180px */
+html body .meras-teacher-shell section[aria-label="التحقق من الكود"] label:not(#_):not(#_) {
+  min-width: 0 !important;
+}
+html body .meras-teacher-shell section[aria-label="التحقق من الكود"] > div:first-child:not(#_) {
+  flex-wrap: nowrap !important;
+}
+html body .meras-teacher-shell section[aria-label="التحقق من الكود"]:not(#_):not(#_) {
+  padding-block: 12px !important;
+}
+/* calmer vertical rhythm inside the data panel (was space-y-5 plus a tall header padding) */
+html body .meras-teacher-shell #join-codes-cards-anchor:not(#_):not(#_) {
+  row-gap: 12px;
+}
+html body .meras-teacher-shell #join-codes-cards-anchor > * + *:not(#_):not(#_) {
+  margin-top: 12px !important;
+}
+html body .meras-teacher-shell #join-codes-cards-anchor > div:first-child:not(#_):not(#_) {
+  padding-bottom: 0 !important;
+}
+
+/* ---- card rows at wide widths: course on its own row, student and timeline side by side ---- */
+@media (min-width: 768px) {
+  html body .meras-teacher-shell .miras-join-code-card div.mt-4.grid:not(#_):not(#_):not(#_):not(#_) {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    column-gap: 12px !important;
+  }
+  html body .meras-teacher-shell .miras-join-code-card div.mt-4.grid > div:nth-child(1):not(#_):not(#_):not(#_):not(#_) {
+    grid-column: 1 / -1 !important;
+  }
+  html body .meras-teacher-shell .miras-join-code-card div.mt-4.grid > div:nth-child(3):not(#_):not(#_):not(#_):not(#_) {
+    grid-column: auto !important;
+  }
+}
