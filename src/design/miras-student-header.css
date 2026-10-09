@@ -77,15 +77,24 @@
     font-size: 1rem !important;
     font-weight: 700 !important;
   }
-  html body .workspace-calm-shell .meras-topbar .miras-student-actions-row:not(#_):not(#_),
-  html body .workspace-calm-shell .meras-topbar .miras-student-actions-row > div:not(#_):not(#_) {
+  html body .workspace-calm-shell .meras-topbar .miras-student-actions-row:not(#_):not(#_) {
     width: 100% !important;
     justify-content: space-between !important;
     flex-wrap: nowrap !important;
     gap: 0.25rem !important;
   }
-  /* Only the header's own round buttons (direct children of the row), never the
-     buttons inside the notifications popover. */
+  /* The grouped buttons take their natural width (not 100%) so the sign-out
+     button beside them only drops to a second line when the row truly overflows. */
+  html body .workspace-calm-shell .meras-topbar .miras-student-actions-row > div:not(#_):not(#_) {
+    width: auto !important;
+    flex: 1 1 auto !important;
+    justify-content: space-between !important;
+    flex-wrap: nowrap !important;
+    gap: 0.25rem !important;
+  }
+  /* Only the header's own round buttons: direct children of the row, or of its
+     button group. Never the buttons inside the notifications popover. */
+  html body .workspace-calm-shell .meras-topbar .miras-student-actions-row > button:not(#_):not(#_),
   html body .workspace-calm-shell .meras-topbar .miras-student-actions-row > div > button:not(#_):not(#_) {
     width: 2.75rem !important;
     height: 2.75rem !important;
@@ -95,12 +104,10 @@
 
 /* Narrowest phones (320px): six 44px buttons plus gaps need about 284px but the
    header offers about 277px. Keep the 44px touch targets and let the row wrap
-   (centered) instead of overflowing sideways. 360px and wider are unchanged. */
+   only when it truly overflows. 360px and wider are unchanged. */
 @media (max-width: 350px) {
-  html body .workspace-calm-shell .meras-topbar .miras-student-actions-row:not(#_):not(#_),
-  html body .workspace-calm-shell .meras-topbar .miras-student-actions-row > div:not(#_):not(#_) {
+  html body .workspace-calm-shell .meras-topbar .miras-student-actions-row:not(#_):not(#_) {
     flex-wrap: wrap !important;
-    justify-content: center !important;
     gap: 0.35rem !important;
   }
 }
