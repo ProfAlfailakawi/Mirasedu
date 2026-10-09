@@ -21679,6 +21679,13 @@ ${rows
     if (accountName && !accountName.includes("@")) return accountName;
     return teacherDisplayNameForMessage(e);
   };
+  // A teacher's own name beside his own courses is noise. Name the owner only
+  // when it is someone else: another teacher for the admin, or a colleague's
+  // shared course.
+  const otherTeacherLabel = (email: string) =>
+    email && !isSameTeacherIdentity(email, currentTeacherEmail)
+      ? teacherAccountLabel(email)
+      : "";
   const normalizedAccountName = (name: string) => name
     .replace(/[ً-ٰٟ]/g, "")
     .replace(/^(?:د\s*[.،]?|الدكتور|الدكتورة)\s+/, "")
@@ -31645,7 +31652,7 @@ ${rows
                               <div className="rounded-2xl bg-white/90 px-3 py-2.5 sm:col-span-2"><span className="block text-[9px] font-bold text-slate-400">الطالب</span><p className="mt-1 text-xs font-black text-slate-900">{teacherCodeLookupResult.studentName || "غير مرتبط بطالب"}</p><div className="mt-1 flex flex-wrap gap-2 text-[10px] font-semibold text-slate-500">{teacherCodeLookupResult.studentId && <span>جامعي: <bdi className="font-mono">{teacherCodeLookupResult.studentId}</bdi></span>}{teacherCodeLookupResult.civilId && <span>مدني: <bdi className="font-mono">{teacherCodeLookupResult.civilId}</bdi></span>}</div></div>
                               {teacherCodeLookupResult.activated !== false && <div className="rounded-2xl bg-white/90 px-3 py-2.5"><span className="block text-[9px] font-bold text-slate-400">المقرر / الشعبة</span><p className="mt-1 text-[11px] font-bold text-slate-800">{teacherCodeLookupResult.courseName}{teacherCodeLookupResult.sectionCode && stripOwnerEmailFromCourseCode(teacherCodeLookupResult.sectionCode) !== teacherCodeLookupResult.courseName ? ` • ${stripOwnerEmailFromCourseCode(teacherCodeLookupResult.sectionCode)}` : ""}</p></div>}
                               {teacherCodeLookupResult.activated !== false && teacherCodeLookupResult.semester && <div className="rounded-2xl bg-white/90 px-3 py-2.5"><span className="block text-[9px] font-bold text-slate-400">الفصل</span><p className="mt-1 text-[11px] font-bold text-slate-800">{teacherCodeLookupResult.semester}</p></div>}
-                              {teacherCodeLookupResult.activated !== false && teacherCodeLookupResult.teacherName && <div className="rounded-2xl bg-white/90 px-3 py-2.5 sm:col-span-2"><span className="block text-[9px] font-bold text-slate-400">الأستاذ</span><p className="mt-1 text-[11px] font-bold text-slate-800">{teacherCodeLookupResult.teacherName}</p></div>}
+                              {teacherCodeLookupResult.activated !== false && teacherCodeLookupResult.teacherName && !!otherTeacherLabel(courseOwnerEmail(teacherCodeLookupResult.sectionCode || "")) && <div className="rounded-2xl bg-white/90 px-3 py-2.5 sm:col-span-2"><span className="block text-[9px] font-bold text-slate-400">الأستاذ</span><p className="mt-1 text-[11px] font-bold text-slate-800">{teacherCodeLookupResult.teacherName}</p></div>}
                             </div>
                           </article>
                         )}
@@ -45126,7 +45133,9 @@ ${rows
                                               ? `طالب ${log.studentId}`
                                               : "") ||
                                             (actorEmail
-                                              ? `حركة ${teacherAccountLabel(actorEmail)}`
+                                              ? otherTeacherLabel(actorEmail)
+                                                ? `حركة ${otherTeacherLabel(actorEmail)}`
+                                                : "حركاتك"
                                               : "أحداث عامة");
                                           courseStudentGroups[groupName] = [
                                             ...(courseStudentGroups[
@@ -45634,7 +45643,6 @@ ${rows
                                     <div className="min-w-0 text-right">
                                       <p className="truncate text-xs font-black text-slate-900">{row.studentName}{row.civilId ? <span className="mr-2 font-mono text-[10px] font-semibold text-slate-500">مدني: {row.civilId}</span> : null}{row.studentId ? <span className="mr-2 font-mono text-[10px] font-semibold text-slate-500">جامعي: {row.studentId}</span> : null}</p>
                                       <p className="mt-1 truncate text-[10px] font-medium text-slate-500">{row.courseName}{row.sectionCode ? ` • ${row.sectionCode}` : ""}{row.semester ? ` • ${row.semester}` : ""}</p>
-                                      <p className="mt-1 truncate text-[10px] text-slate-400">{row.teacherName}</p>
                                     </div>
                                     <div className="flex items-center justify-between gap-2 sm:flex-col sm:items-end">
                                       <code dir="ltr" className="rounded-lg bg-white px-2 py-1 font-mono text-[10px] font-bold text-indigo-700">{row.code}</code>
@@ -45997,7 +46005,10 @@ ${rows
                               >
                                 {joinCodeIssueCourseOptions.map((sec: any) => (
                                   <option key={sec.code} value={sec.code}>
-                                    {`${sec.courseName || courseNameForCode(sec.code)} • ${teacherAccountLabel(courseOwnerEmail(sec.code))}`}
+                                    {(() => {
+                                      const owner = otherTeacherLabel(courseOwnerEmail(sec.code));
+                                      return `${sec.courseName || courseNameForCode(sec.code)}${owner ? ` • ${owner}` : ""}`;
+                                    })()}
                                   </option>
                                 ))}
                               </select>
@@ -46544,19 +46555,26 @@ ${rows
                                     </div>
                                     <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-2 text-[11px] font-bold leading-6">
                                       <div className="rounded-2xl bg-slate-50 border border-slate-100 p-3">
-                                        <span className="block text-[10px] font-bold text-slate-400">
-                                          المقرر / المعلم
-                                        </span>
-                                        <span className="text-slate-700">
-                                          {displayCourseLabelForCode(c)} •{" "}
-                                          {teacherAccountLabel(
+                                        {(() => {
+                                          const owner = otherTeacherLabel(
                                             courseOwnerEmail(
                                               c.studentSection ||
                                                 c.sectionCode ||
                                                 activeCourseCode,
                                             ),
-                                          )}
-                                        </span>
+                                          );
+                                          return (
+                                            <>
+                                              <span className="block text-[10px] font-bold text-slate-400">
+                                                {owner ? "المقرر / المعلم" : "المقرر"}
+                                              </span>
+                                              <span className="text-slate-700">
+                                                {displayCourseLabelForCode(c)}
+                                                {owner ? ` • ${owner}` : ""}
+                                              </span>
+                                            </>
+                                          );
+                                        })()}
                                       </div>
                                       <div className="rounded-2xl bg-slate-50 border border-slate-100 p-3">
                                         <span className="block text-[10px] font-bold text-slate-400">
