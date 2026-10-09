@@ -253,6 +253,11 @@ html[data-theme="dark"] #root .miras-metric-of:not(#_):not(#_):not(.meras-exam-s
   color: #94a3b8 !important;
 }
 
+/* Empty-state hint (DnaEmpty): muted grey on the pale card measured 4.3:1 in light mode. */
+html:not([data-theme="dark"]) body .dna .dna-voids:not(#_):not(.meras-exam-shell *) {
+  color: #566176;
+}
+
 /* ---- 9. contrast measured on the real pixels behind the text ----
    Method: screenshot with all text transparent, sample the background inside each
    text box, compute WCAG ratio against the computed text colour. */
