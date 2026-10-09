@@ -21,6 +21,7 @@ import '../index.css';
 import './design/dna.css';
 import './design/miras-dna-theme.css';
 import './design/miras-calm.css';
+import './design/miras-final.css';
 
 // ───────────────────────────────────────────────────────────────────────────
 // حاجز عرض الواجهة (Render Guard)
