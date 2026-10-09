@@ -14788,14 +14788,15 @@ export default function App() {
       }
     })();
     // خطوات التفعيل مختصرة على وجه الكرت نفسه (بجانبي رمز QR) حتى لا يحسبه
-    // الطالب إعلاناً فيرميه. لا يتغير مقاس الكرت ولا الشعار ولا الكود ولا الرمز.
+    // الطالب إعلاناً فيرميه، وبنفس ترتيب شاشة الدخول «الرقم الجامعي أولاً».
+    // لا يتغير مقاس الكرت ولا الشعار ولا الكود ولا الرمز.
     const howIcon = (paths: string) =>
       `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${paths}</svg>`;
     const howStep = (n: number, icon: string, text: string) =>
       `<div class="how-step"><div class="how-ico">${howIcon(icon)}<span class="how-num">${n}</span></div><div class="how-txt">${text}</div></div>`;
     // سهم نزول بين خطوتي العمود الواحد: يُقرأ العمود الأيمن من أعلى لأسفل ثم الأيسر.
     const howArrow = `<div class="how-arrow" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4v15"/><path d="m6 13 6 6 6-6"/></svg></div>`;
-    const howSteps = `<div class="how how-r">${howStep(1, '<path d="M3 7V5a2 2 0 0 1 2-2h2"/><path d="M17 3h2a2 2 0 0 1 2 2v2"/><path d="M21 17v2a2 2 0 0 1-2 2h-2"/><path d="M7 21H5a2 2 0 0 1-2-2v-2"/><rect x="7" y="7" width="4" height="4" rx="1"/><path d="M13 13h4v4h-4z"/>', "امسح الرمز")}${howArrow}${howStep(2, '<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M19 8v6"/><path d="M22 11h-6"/>', "إنشاء حساب جديد")}</div><div class="how how-l">${howStep(3, '<rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>', "أدخل رقمك الجامعي<br/>وكلمة مرور")}${howArrow}${howStep(4, '<path d="M2.586 17.414A2 2 0 0 0 2 18.828V21a1 1 0 0 0 1 1h3a1 1 0 0 0 1-1v-1a1 1 0 0 1 1-1h1a1 1 0 0 0 1-1v-1a1 1 0 0 1 1-1h.172a2 2 0 0 0 1.414-.586l.814-.814a6.5 6.5 0 1 0-4-4z"/><circle cx="16.5" cy="7.5" r=".5" fill="currentColor"/>', "اكتب الكود<br/>وفعّل")}</div>`;
+    const howSteps = `<div class="how how-r">${howStep(1, '<path d="M3 7V5a2 2 0 0 1 2-2h2"/><path d="M17 3h2a2 2 0 0 1 2 2v2"/><path d="M21 17v2a2 2 0 0 1-2 2h-2"/><path d="M7 21H5a2 2 0 0 1-2-2v-2"/><rect x="7" y="7" width="4" height="4" rx="1"/><path d="M13 13h4v4h-4z"/>', "امسح الرمز")}${howArrow}${howStep(2, '<rect x="3" y="5" width="18" height="14" rx="2"/><circle cx="9" cy="11" r="2"/><path d="M6.5 15.5c.6-1.1 1.5-1.7 2.5-1.7s1.9.6 2.5 1.7"/><path d="M14 10h4"/><path d="M14 13.5h3"/>', "اكتب رقمك<br/>الجامعي")}</div><div class="how how-l">${howStep(3, '<rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>', "اختر كلمة<br/>مرور")}${howArrow}${howStep(4, '<path d="M2.586 17.414A2 2 0 0 0 2 18.828V21a1 1 0 0 0 1 1h3a1 1 0 0 0 1-1v-1a1 1 0 0 1 1-1h1a1 1 0 0 0 1-1v-1a1 1 0 0 1 1-1h.172a2 2 0 0 0 1.414-.586l.814-.814a6.5 6.5 0 1 0-4-4z"/><circle cx="16.5" cy="7.5" r=".5" fill="currentColor"/>', "اكتب الكود<br/>وفعّل")}</div>`;
     // تنبيه الأحرف المتشابهة تحت الكود، بالأزواج الموجودة في هذا الكود فقط
     // (الأكواد بلا O/I/0/1 أصلاً). كود بلا حرف ملتبس لا يحمل أي تنبيه.
     const lookalikeHint = (code: string) => {
