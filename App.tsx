@@ -30570,6 +30570,15 @@ ${rows
                     </div>
                   );
                 })}
+                {filteredCourseStudentDirectory.length === 0 && (
+                  <DnaEmpty
+                    icon={<Users size={22} />}
+                    tone="indigo"
+                    title="لا يوجد طلبة في القائمة"
+                    hint="أضف طالباً أو ارفع ملف Excel لتظهر الأسماء هنا."
+                    className="col-span-full"
+                  />
+                )}
               </div>
             </div>
           </div>
@@ -38681,11 +38690,12 @@ ${rows
                   {!selectedSubmissionActivityId ? (
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                       {submissionActivityCards.length === 0 && (
-                        <div className="col-span-full rounded-3xl bg-slate-50 p-10 text-center text-xs font-bold text-slate-400">
-                          لا توجد تسليمات{" "}
-                          {submissionSubTab === "exams" ? "اختبارات" : "مشاريع"}{" "}
-                          مرتبطة بالمقرر المحدد حالياً.
-                        </div>
+                        <DnaEmpty
+                          icon={<FileText size={22} />}
+                          tone="indigo"
+                          title={`لا توجد تسليمات ${submissionSubTab === "exams" ? "اختبارات" : "مشاريع"} مرتبطة بالمقرر المحدد حالياً.`}
+                          className="col-span-full rounded-3xl bg-slate-50"
+                        />
                       )}
                       {submissionActivityCards.map((card) => (
                         <button
