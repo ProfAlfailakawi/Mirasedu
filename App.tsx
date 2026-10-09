@@ -8445,6 +8445,27 @@ export default function App() {
       );
     };
   }, [studentSession?.id, teacherSession?.email]);
+  // Opening Miras is reading the bell, so the phone's notification center is
+  // cleared of Miras banners, as messaging apps do. A push that arrives later
+  // for something already seen in the app then has nothing stale to sit next
+  // to, and the bell still holds every notice.
+  useEffect(() => {
+    if (!studentSession?.id && !teacherSession?.email) return;
+    if (typeof navigator === "undefined" || !("serviceWorker" in navigator))
+      return;
+    const clearDeliveredBanners = () => {
+      if (document.visibilityState !== "visible") return;
+      navigator.serviceWorker
+        .getRegistration()
+        .then((registration) => registration?.getNotifications?.())
+        .then((delivered) => delivered?.forEach((note) => note.close()))
+        .catch(() => undefined);
+    };
+    clearDeliveredBanners();
+    document.addEventListener("visibilitychange", clearDeliveredBanners);
+    return () =>
+      document.removeEventListener("visibilitychange", clearDeliveredBanners);
+  }, [studentSession?.id, teacherSession?.email]);
   const getErrorToastDurationMs = (message: string) => {
     const text = String(message || "");
     if (
