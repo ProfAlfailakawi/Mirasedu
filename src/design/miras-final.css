@@ -32,10 +32,17 @@ html body .miras-notification-badge:not(#_):not(.meras-exam-shell *) {
   height: 20px;
   padding-inline: 4px;
 }
-html body .miras-dock-v2 button.miras-dock-item .miras-dock-label:not(#_):not(#_):not(#_):not(.meras-exam-shell *),
+/* Phone dock with five slots (the teacher dock): 12px fits down to 320px with no
+   clipping (measured at 320/360/390/412). Docks with seven slots keep the fitted
+   sizes from index.css and the (max-width: 400px) rule in App.tsx on purpose. */
+html body .miras-teacher-five-nav.miras-dock-v2 button.miras-dock-item .miras-dock-label:not(#_):not(#_):not(#_):not(#_) {
+  font-size: 12px !important;
+  letter-spacing: -0.01em !important;
+}
+/* desktop dock: the phone dock keeps its fitted sizes from index.css and the
+   (max-width: 400px) rule in App.tsx so «التسليمات» never clips (see PR notes). */
 html body .teacher-nav-desktop .teacher-orbit-dock-track .miras-dock-label:not(#_):not(#_):not(.meras-exam-shell *) {
   font-size: 12px !important;
-  letter-spacing: 0 !important;
 }
 html body .tabular-nums.relative:not(#_):not(.meras-exam-shell *) { font-size: max(12px, 1em); }
 
@@ -63,3 +70,160 @@ html[data-theme="dark"] #root span.rounded-full.bg-white.text-amber-700:not(#_):
   color: #fcd34d !important;
   box-shadow: none !important;
 }
+
+/* ---- 5. GENERATED type floor for every stylesheet/Tailwind source below 12px ----
+   Each part is its own rule so one unsupported selector cannot drop the rest.
+   Dock labels, notification badges, @media print and the exam shell are excluded on purpose. */
+html body .clean-tab:not(#_):not(#_):not(#_):not(#_):not(.meras-exam-shell *) { font-size: 12px !important; }
+html body .dna-bdg:not(#_):not(#_):not(#_):not(#_):not(.meras-exam-shell *) { font-size: 12px !important; }
+html body .dna-hubv:not(#_):not(#_):not(#_):not(#_):not(.meras-exam-shell *) { font-size: 12px !important; }
+html body .dna-over:not(#_):not(#_):not(#_):not(#_):not(.meras-exam-shell *) { font-size: 12px !important; }
+html body .dna-ringc small:not(#_):not(#_):not(#_):not(#_):not(.meras-exam-shell *) { font-size: 12px !important; }
+html body .dna-segb .dna-count:not(#_):not(#_):not(#_):not(#_):not(.meras-exam-shell *) { font-size: 12px !important; }
+html body .dna-steps[data-size='sm'] .dna-lbl:not(#_):not(#_):not(#_):not(#_):not(.meras-exam-shell *) { font-size: 12px !important; }
+html body .dna-tileb:not(#_):not(#_):not(#_):not(#_):not(.meras-exam-shell *) { font-size: 12px !important; }
+html body .meras-teacher-shell .miras-teacher-alert-popover .miras-teacher-alert-card .miras-teacher-alert-date:not(#_):not(#_):not(#_):not(#_):not(.meras-exam-shell *) { font-size: 12px !important; }
+html body .meras-teacher-shell .miras-teacher-alert-popover .miras-teacher-alert-card-clean .miras-teacher-alert-date:not(#_):not(#_):not(#_):not(#_):not(.meras-exam-shell *) { font-size: 12px !important; }
+html body .meras-teacher-shell .miras-teacher-alert-popover .miras-teacher-alert-date:not(#_):not(#_):not(#_):not(#_):not(.meras-exam-shell *) { font-size: 12px !important; }
+html body .meras-teacher-shell.teacher-calm-shell .miras-submissions-panel .miras-radar-filter:not(#_):not(#_):not(#_):not(#_):not(.meras-exam-shell *) { font-size: 12px !important; }
+html body .meras-teacher-shell.teacher-calm-shell .miras-submissions-panel input:not(#_):not(#_):not(#_):not(#_):not(.meras-exam-shell *) { font-size: 12px !important; }
+html body .meras-teacher-shell.teacher-calm-shell .miras-teacher-alert-popover .miras-teacher-alert-date:not(#_):not(#_):not(#_):not(#_):not(.meras-exam-shell *) { font-size: 12px !important; }
+html body .meras-teacher-shell.teacher-calm-shell .miras-teacher-alert-popover .teacher-important-item > span[dir="ltr"]:not(#_):not(#_):not(#_):not(#_):not(.meras-exam-shell *) { font-size: 12px !important; }
+html body .meras-teacher-shell.teacher-calm-shell .teacher-command-header .miras-teacher-heading-block > div:first-child:not(#_):not(#_):not(#_):not(#_):not(.meras-exam-shell *) { font-size: 12px !important; }
+html body .meras-teacher-shell.teacher-calm-shell .teacher-command-header .text-right > div:first-child:not(#_):not(#_):not(#_):not(#_):not(.meras-exam-shell *) { font-size: 12px !important; }
+html body .meras-teacher-shell.teacher-calm-shell .teacher-important-popover .student-popover-row:not(#_):not(#_):not(#_):not(#_):not(.meras-exam-shell *) { font-size: 12px !important; }
+html body .meras-teacher-shell.teacher-calm-shell .teacher-important-popover .teacher-important-item:not(#_):not(#_):not(#_):not(#_):not(.meras-exam-shell *) { font-size: 12px !important; }
+html body .meras-teacher-shell.teacher-calm-shell .teacher-important-popover .teacher-important-item > span:first-of-type:not(#_):not(#_):not(#_):not(#_):not(.meras-exam-shell *) { font-size: 12px !important; }
+html body .meras-teacher-shell.teacher-calm-shell .teacher-important-popover .teacher-important-item > span[dir="ltr"]:not(#_):not(#_):not(#_):not(#_):not(.meras-exam-shell *) { font-size: 12px !important; }
+html body .meras-teacher-shell.teacher-calm-shell .teacher-important-popover .teacher-important-item span:first-of-type:not(#_):not(#_):not(#_):not(#_):not(.meras-exam-shell *) { font-size: 12px !important; }
+html body .meras-teacher-shell.teacher-calm-shell .teacher-important-popover .teacher-important-item span:last-child:not(#_):not(#_):not(#_):not(#_):not(.meras-exam-shell *) { font-size: 12px !important; }
+html body .meras-teacher-shell.teacher-calm-shell .teacher-important-popover .teacher-important-item span:last-of-type:not(#_):not(#_):not(#_):not(#_):not(.meras-exam-shell *) { font-size: 12px !important; }
+html body .miras-admin-code-security-status p:not(#_):not(#_):not(#_):not(#_):not(.meras-exam-shell *) { font-size: 12px !important; }
+html body .miras-app-teacher-root.miras-teacher-viewport-v5 .miras-zero-name-pill:not(#_):not(#_):not(#_):not(#_):not(.meras-exam-shell *) { font-size: 12px !important; }
+html body .miras-app-teacher-root.miras-teacher-viewport-v5 .teacher-command-header .miras-teacher-heading-block > div:first-child:not(#_):not(#_):not(#_):not(#_):not(.meras-exam-shell *) { font-size: 12px !important; }
+html body .miras-cmdk-esc:not(#_):not(#_):not(#_):not(#_):not(.meras-exam-shell *) { font-size: 12px !important; }
+html body .miras-cmdk-foot:not(#_):not(#_):not(#_):not(#_):not(.meras-exam-shell *) { font-size: 12px !important; }
+html body .miras-cmdk-foot kbd:not(#_):not(#_):not(#_):not(#_):not(.meras-exam-shell *) { font-size: 12px !important; }
+html body .miras-cmdk-group:not(#_):not(#_):not(#_):not(#_):not(.meras-exam-shell *) { font-size: 12px !important; }
+html body .miras-cmdk-hint:not(#_):not(#_):not(#_):not(#_):not(.meras-exam-shell *) { font-size: 12px !important; }
+html body .miras-cmdk-sub:not(#_):not(#_):not(#_):not(#_):not(.meras-exam-shell *) { font-size: 12px !important; }
+html body .miras-code-legend-label:not(#_):not(#_):not(#_):not(#_):not(.meras-exam-shell *) { font-size: 12px !important; }
+html body .miras-code-legend-n small:not(#_):not(#_):not(#_):not(#_):not(.meras-exam-shell *) { font-size: 12px !important; }
+html body .miras-code-legend-note:not(#_):not(#_):not(#_):not(#_):not(.meras-exam-shell *) { font-size: 12px !important; }
+html body .miras-code-monitor .miras-code-item:not(#_):not(#_):not(#_):not(#_):not(.meras-exam-shell *) { font-size: 12px !important; }
+html body .miras-code-monitor .miras-code-item .rounded-full:not(#_):not(#_):not(#_):not(#_):not(.meras-exam-shell *) { font-size: 12px !important; }
+html body .miras-code-monitor .miras-code-report:not(#_):not(#_):not(#_):not(#_):not(.meras-exam-shell *) { font-size: 12px !important; }
+html body .miras-code-monitor .rounded-2xl.bg-white\/10:not(#_):not(#_):not(#_):not(#_):not(.meras-exam-shell *) { font-size: 12px !important; }
+html body .miras-code-monitor .rounded-full:not(#_):not(#_):not(#_):not(#_):not(.meras-exam-shell *) { font-size: 12px !important; }
+html body .miras-code-monitor h4:not(#_):not(#_):not(#_):not(#_):not(.meras-exam-shell *) { font-size: 12px !important; }
+html body .miras-code-report-tab-count:not(#_):not(#_):not(#_):not(#_):not(.meras-exam-shell *) { font-size: 12px !important; }
+html body .miras-connection-status:not(#_):not(#_):not(#_):not(#_):not(.meras-exam-shell *) { font-size: 12px !important; }
+html body .miras-course-picker-title:not(#_):not(#_):not(#_):not(#_):not(.meras-exam-shell *) { font-size: 12px !important; }
+html body .miras-course-select-soft:not(#_):not(#_):not(#_):not(#_):not(.meras-exam-shell *) { font-size: 12px !important; }
+html body .miras-course-select-soft option:not(#_):not(#_):not(#_):not(#_):not(.meras-exam-shell *) { font-size: 12px !important; }
+html body .miras-deadline-banner-count:not(#_):not(#_):not(#_):not(#_):not(.meras-exam-shell *) { font-size: 12px !important; }
+html body .miras-deadline-chip-kind:not(#_):not(#_):not(#_):not(#_):not(.meras-exam-shell *) { font-size: 12px !important; }
+html body .miras-deadline-chip-time:not(#_):not(#_):not(#_):not(#_):not(.meras-exam-shell *) { font-size: 12px !important; }
+html body .miras-document-simple-open:not(#_):not(#_):not(#_):not(#_):not(.meras-exam-shell *) { font-size: 12px !important; }
+html body .miras-document-theater__brand small:not(#_):not(#_):not(#_):not(#_):not(.meras-exam-shell *) { font-size: 12px !important; }
+html body .miras-document-theater__brand-copy small:not(#_):not(#_):not(#_):not(#_):not(.meras-exam-shell *) { font-size: 12px !important; }
+html body .miras-document-theater__brand-copy strong:not(#_):not(#_):not(#_):not(#_):not(.meras-exam-shell *) { font-size: 12px !important; }
+html body .miras-document-theater__chip:not(#_):not(#_):not(#_):not(#_):not(.meras-exam-shell *) { font-size: 12px !important; }
+html body .miras-document-theater__hint:not(#_):not(#_):not(#_):not(#_):not(.meras-exam-shell *) { font-size: 12px !important; }
+html body .miras-document-theater__open:not(#_):not(#_):not(#_):not(#_):not(.meras-exam-shell *) { font-size: 12px !important; }
+html body .miras-document-theater__rail-card b:not(#_):not(#_):not(#_):not(#_):not(.meras-exam-shell *) { font-size: 12px !important; }
+html body .miras-document-theater__rail-card small:not(#_):not(#_):not(#_):not(#_):not(.meras-exam-shell *) { font-size: 12px !important; }
+html body .miras-document-theater__type-badge:not(#_):not(#_):not(#_):not(#_):not(.meras-exam-shell *) { font-size: 12px !important; }
+html body .miras-document-theater__zoom button:not(#_):not(#_):not(#_):not(#_):not(.meras-exam-shell *) { font-size: 12px !important; }
+html body .miras-document-theater__zoom strong:not(#_):not(#_):not(#_):not(#_):not(.meras-exam-shell *) { font-size: 12px !important; }
+html body .miras-funnel-label:not(#_):not(#_):not(#_):not(#_):not(.meras-exam-shell *) { font-size: 12px !important; }
+html body .miras-funnel-pct:not(#_):not(#_):not(#_):not(#_):not(.meras-exam-shell *) { font-size: 12px !important; }
+html body .miras-guide-step-p:not(#_):not(#_):not(#_):not(#_):not(.meras-exam-shell *)::before { font-size: 12px !important; }
+html body .miras-guide-steps > li:not(#_):not(#_):not(#_):not(#_):not(.meras-exam-shell *)::before { font-size: 12px !important; }
+html body .miras-inner-tab-active:not(#_):not(#_):not(#_):not(#_):not(.meras-exam-shell *)::after { font-size: 12px !important; }
+html body .miras-integrity-body .miras-event-pill span:last-child:not(#_):not(#_):not(#_):not(#_):not(.meras-exam-shell *) { font-size: 12px !important; }
+html body .miras-integrity-body[data-integrity-focus="health"] .miras-risk-tile > span:not(#_):not(#_):not(#_):not(#_):not(#_):not(#_):not(.meras-exam-shell *) { font-size: 12px !important; }
+html body .miras-integrity-body[data-integrity-focus="health"] .miras-risk-tile span:not(#_):not(#_):not(#_):not(#_):not(.meras-exam-shell *) { font-size: 12px !important; }
+html body .miras-integrity-body[data-integrity-focus="overview"] .miras-integrity-overview .mt-5.grid.grid-cols-5 > div > span:last-child:not(#_):not(#_):not(#_):not(#_):not(.meras-exam-shell *) { font-size: 12px !important; }
+html body .miras-integrity-overview .mt-5.grid.grid-cols-5 > div > span:first-child:not(#_):not(#_):not(#_):not(#_):not(.meras-exam-shell *) { font-size: 12px !important; }
+html body .miras-integrity-overview .mt-5.grid.grid-cols-5 > div > span:last-child:not(#_):not(#_):not(#_):not(#_):not(.meras-exam-shell *) { font-size: 12px !important; }
+html body .miras-integrity-switch-btn:not(#_):not(#_):not(#_):not(#_):not(.meras-exam-shell *) { font-size: 12px !important; }
+html body .miras-ios-pdf-primary:not(#_):not(#_):not(#_):not(#_):not(.meras-exam-shell *) { font-size: 12px !important; }
+html body .miras-ios-pdf-secondary:not(#_):not(#_):not(#_):not(#_):not(.meras-exam-shell *) { font-size: 12px !important; }
+html body .miras-locked-course-chip:not(#_):not(#_):not(#_):not(#_):not(.meras-exam-shell *) { font-size: 12px !important; }
+html body .miras-locked-course-input:not(#_):not(#_):not(#_):not(#_):not(.meras-exam-shell *) { font-size: 12px !important; }
+html body .miras-metric-card .miras-metric-of:not(#_):not(#_):not(#_):not(#_):not(.meras-exam-shell *) { font-size: 12px !important; }
+html body .miras-now-available button span[class*="text-[10px]"]:not(#_):not(#_):not(#_):not(#_):not(.meras-exam-shell *) { font-size: 12px !important; }
+html body .miras-pulse-hub .dna-hubl:not(#_):not(#_):not(#_):not(#_):not(.meras-exam-shell *) { font-size: 12px !important; }
+html body .miras-q-meta > span:not(#_):not(#_):not(#_):not(#_):not(.meras-exam-shell *) { font-size: 12px !important; }
+html body .miras-radar-filter-pill:not(#_):not(#_):not(#_):not(#_):not(.meras-exam-shell *) { font-size: 12px !important; }
+html body .miras-ratio-ring > span:not(#_):not(#_):not(#_):not(#_):not(.meras-exam-shell *) { font-size: 12px !important; }
+html body .miras-return-exception .col-span-2:not(#_):not(#_):not(#_):not(#_):not(.meras-exam-shell *) { font-size: 12px !important; }
+html body .miras-return-exception p:not(#_):not(#_):not(#_):not(#_):not(.meras-exam-shell *) { font-size: 12px !important; }
+html body .miras-return-head p:not(#_):not(#_):not(#_):not(#_):not(.meras-exam-shell *) { font-size: 12px !important; }
+html body .miras-return-hour:not(#_):not(#_):not(#_):not(#_):not(.meras-exam-shell *) { font-size: 12px !important; }
+html body .miras-return-hour-input:not(#_):not(#_):not(#_):not(#_):not(.meras-exam-shell *) { font-size: 12px !important; }
+html body .miras-return-modal > .relative.mt-3:not(.miras-return-exception):not(#_):not(#_):not(#_):not(#_):not(.meras-exam-shell *) { font-size: 12px !important; }
+html body .miras-return-summary span:first-child:not(#_):not(#_):not(#_):not(#_):not(.meras-exam-shell *) { font-size: 12px !important; }
+html body .miras-return-summary span:last-child:not(#_):not(#_):not(#_):not(#_):not(.meras-exam-shell *) { font-size: 12px !important; }
+html body .miras-ring-label:not(#_):not(#_):not(#_):not(#_):not(.meras-exam-shell *) { font-size: 12px !important; }
+html body .miras-section-eyebrow:not(#_):not(#_):not(#_):not(#_):not(.meras-exam-shell *) { font-size: 12px !important; }
+html body .miras-section-subtitle:not(#_):not(#_):not(#_):not(#_):not(.meras-exam-shell *) { font-size: 12px !important; }
+html body .miras-student-notice-card .miras-student-notice-date-badge:not(#_):not(#_):not(#_):not(#_):not(.meras-exam-shell *) { font-size: 12px !important; }
+html body .miras-student-popover .student-popover-row:not(#_):not(#_):not(#_):not(#_):not(.meras-exam-shell *) { font-size: 12px !important; }
+html body .miras-student-time-detail:not(#_):not(#_):not(#_):not(#_):not(.meras-exam-shell *) { font-size: 12px !important; }
+html body .miras-super-scope-copy span:not(#_):not(#_):not(#_):not(#_):not(.meras-exam-shell *) { font-size: 12px !important; }
+html body .miras-super-scope-select:not(#_):not(#_):not(#_):not(#_):not(.meras-exam-shell *) { font-size: 12px !important; }
+html body .miras-teacher-alert-card .miras-teacher-alert-date:not(#_):not(#_):not(#_):not(#_):not(.meras-exam-shell *) { font-size: 12px !important; }
+html body .miras-teacher-alert-count-badge:not(#_):not(#_):not(#_):not(#_):not(.meras-exam-shell *) { font-size: 12px !important; }
+html body .miras-teacher-alert-popover .miras-teacher-alert-card .miras-teacher-alert-date:not(#_):not(#_):not(#_):not(#_):not(.meras-exam-shell *) { font-size: 12px !important; }
+html body .miras-teacher-alert-popover .miras-teacher-alert-card-clean .miras-teacher-alert-date:not(#_):not(#_):not(#_):not(#_):not(.meras-exam-shell *) { font-size: 12px !important; }
+html body .miras-teacher-v5-shell .teacher-command-header .miras-teacher-heading-block > div:first-child:not(#_):not(#_):not(#_):not(#_):not(.meras-exam-shell *) { font-size: 12px !important; }
+html body .sm\:text-\[9\.5px\]:not(#_):not(#_):not(#_):not(#_):not(.meras-exam-shell *) { font-size: 12px !important; }
+html body .student-activity-kind:not(#_):not(#_):not(#_):not(#_):not(.meras-exam-shell *) { font-size: 12px !important; }
+html body .student-activity-mini b:not(#_):not(#_):not(#_):not(#_):not(.meras-exam-shell *) { font-size: 12px !important; }
+html body .student-activity-mini span:not(#_):not(#_):not(#_):not(#_):not(.meras-exam-shell *) { font-size: 12px !important; }
+html body .student-popover-row:not(#_):not(#_):not(#_):not(#_):not(.meras-exam-shell *) { font-size: 12px !important; }
+html body .teacher-calm-shell .grid.grid-cols-2 > * [class*="rounded-full"]:not(#_):not(#_):not(#_):not(#_):not(.meras-exam-shell *) { font-size: 12px !important; }
+html body .teacher-calm-shell .meras-topbar .inline-flex.rounded-full:not(#_):not(#_):not(#_):not(#_):not(.meras-exam-shell *) { font-size: 12px !important; }
+html body .teacher-calm-shell .meras-topbar p:not(#_):not(#_):not(#_):not(#_):not(.meras-exam-shell *) { font-size: 12px !important; }
+html body .teacher-calm-shell .teacher-command-header .miras-teacher-heading-block > div:first-child:not(#_):not(#_):not(#_):not(#_):not(.meras-exam-shell *) { font-size: 12px !important; }
+html body .teacher-calm-shell .teacher-mini-nav:not(#_):not(#_):not(#_):not(#_):not(.meras-exam-shell *) { font-size: 12px !important; }
+html body .teacher-clean-tab:not(#_):not(#_):not(#_):not(#_):not(.meras-exam-shell *) { font-size: 12px !important; }
+html body .teacher-command-header .rounded-full.bg-emerald-50:not(#_):not(#_):not(#_):not(#_):not(.meras-exam-shell *) { font-size: 12px !important; }
+html body .teacher-important-body:not(#_):not(#_):not(#_):not(#_):not(.meras-exam-shell *) { font-size: 12px !important; }
+html body .teacher-important-date:not(#_):not(#_):not(#_):not(#_):not(.meras-exam-shell *) { font-size: 12px !important; }
+html body .teacher-important-title:not(#_):not(#_):not(#_):not(#_):not(.meras-exam-shell *) { font-size: 12px !important; }
+html body .teacher-mini-nav:not(#_):not(#_):not(#_):not(#_):not(.meras-exam-shell *) { font-size: 12px !important; }
+html body .workspace-calm-shell .meras-topbar .inline-flex.rounded-full:not(#_):not(#_):not(#_):not(#_):not(.meras-exam-shell *) { font-size: 12px !important; }
+html body .workspace-calm-shell .meras-topbar p:not(#_):not(#_):not(#_):not(#_):not(.meras-exam-shell *) { font-size: 12px !important; }
+html body .workspace-calm-shell .miras-student-alert-popover .miras-student-notice-date-badge:not(#_):not(#_):not(#_):not(#_):not(.meras-exam-shell *) { font-size: 12px !important; }
+html body .workspace-calm-shell .miras-student-alert-popover .miras-student-notice-date-badge.miras-teacher-alert-date:not(#_):not(#_):not(#_):not(#_):not(.meras-exam-shell *) { font-size: 12px !important; }
+html body .workspace-calm-shell .miras-student-alert-popover .miras-student-return-chip:not(#_):not(#_):not(#_):not(#_):not(.meras-exam-shell *) { font-size: 12px !important; }
+html body .workspace-calm-shell .miras-student-popover.miras-student-alert-popover:not(.teacher-important-popover) .miras-student-notice-date-badge:not(#_):not(#_):not(#_):not(#_):not(.meras-exam-shell *) { font-size: 12px !important; }
+html body .workspace-calm-shell .miras-student-popover.miras-student-alert-popover:not(.teacher-important-popover) .miras-student-return-chip:not(#_):not(#_):not(#_):not(#_):not(.meras-exam-shell *) { font-size: 12px !important; }
+html body .workspace-calm-shell .miras-student-popover:not(.teacher-important-popover) .student-popover-row:not(#_):not(#_):not(#_):not(#_):not(.meras-exam-shell *) { font-size: 12px !important; }
+html body .workspace-calm-shell .miras-student-popover:not(.teacher-important-popover) > .mb-2 > span:not(#_):not(#_):not(#_):not(#_):not(.meras-exam-shell *) { font-size: 12px !important; }
+html body .workspace-calm-shell .miras-student-time-detail:not(#_):not(#_):not(#_):not(#_):not(.meras-exam-shell *) { font-size: 12px !important; }
+html body .workspace-calm-shell .miras-study-path .mt-3.flex.flex-wrap:not(#_):not(#_):not(#_):not(#_):not(.meras-exam-shell *) { font-size: 12px !important; }
+html .meras-teacher-shell.teacher-calm-shell .student-popover.teacher-important-popover.miras-teacher-alert-popover .miras-teacher-alert-meta > .miras-teacher-alert-date:not(#_):not(#_):not(#_):not(#_):not(.meras-exam-shell *) { font-size: 12px !important; }
+html body .miras-student-alert-popover .miras-notice-timeline-card .miras-student-notice-body:not(#_):not(#_):not(#_):not(#_):not(#_):not(.meras-exam-shell *) { font-size: 12px !important; }
+html body .miras-student-alert-popover .miras-notice-timeline-card .miras-student-notice-date-badge:not(#_):not(#_):not(#_):not(#_):not(#_):not(.meras-exam-shell *) { font-size: 12px !important; }
+html body .miras-student-alert-popover .miras-notice-timeline-card .miras-teacher-alert-body:not(#_):not(#_):not(#_):not(#_):not(#_):not(.meras-exam-shell *) { font-size: 12px !important; }
+html body .miras-student-alert-popover .miras-notice-timeline-card .miras-teacher-alert-date:not(#_):not(#_):not(#_):not(#_):not(#_):not(.meras-exam-shell *) { font-size: 12px !important; }
+html.miras-teacher-scroll-locked .meras-teacher-shell.teacher-calm-shell .teacher-command-header .miras-teacher-heading-block > div:first-child:not(#_):not(#_):not(#_):not(#_):not(.meras-exam-shell *) { font-size: 12px !important; }
+html.miras-teacher-scroll-locked .meras-teacher-shell.teacher-calm-shell .teacher-command-header .text-right > div:first-child:not(#_):not(#_):not(#_):not(#_):not(.meras-exam-shell *) { font-size: 12px !important; }
+html.miras-teacher-scroll-locked .miras-teacher-v5-shell .teacher-command-header .miras-teacher-heading-block > div:first-child:not(#_):not(#_):not(#_):not(#_):not(.meras-exam-shell *) { font-size: 12px !important; }
+html body .md\:text-\[11px\]:not(.meras-exam-shell *) { font-size: 12px !important; }
+html body .sm\:text-\[0\.7rem\]:not(.meras-exam-shell *) { font-size: 12px !important; }
+html body .sm\:text-\[10px\]:not(.meras-exam-shell *) { font-size: 12px !important; }
+html body .sm\:text-\[11px\]:not(.meras-exam-shell *) { font-size: 12px !important; }
+html body .text-\[0\.55rem\]:not(.meras-exam-shell *) { font-size: 12px !important; }
+html body .text-\[0\.66rem\]:not(.meras-exam-shell *) { font-size: 12px !important; }
+html body .text-\[10\.5px\]:not(.meras-exam-shell *) { font-size: 12px !important; }
+html body .text-\[10px\]:not(.meras-exam-shell *) { font-size: 12px !important; }
+html body .text-\[11\.5px\]:not(.meras-exam-shell *) { font-size: 12px !important; }
+html body .text-\[11px\]:not(.meras-exam-shell *) { font-size: 12px !important; }
+html body .text-\[8\.5px\]:not(.meras-exam-shell *) { font-size: 12px !important; }
+html body .text-\[8\.8px\]:not(.meras-exam-shell *) { font-size: 12px !important; }
+html body .text-\[9px\]:not(.meras-exam-shell *) { font-size: 12px !important; }
