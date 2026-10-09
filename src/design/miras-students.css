@@ -1,0 +1,47 @@
+/*
+ * Teacher students tab in the codes-page language (presentation only, no markup, no text).
+ * - the three nested frames around the roster (white card, grey box, scroll box) become
+ *   transparent surfaces, so the roster cards stand alone;
+ * - roster cards get a status rail on the inline-start edge (from their own data-status);
+ * - the «25 / 25 طالب» chip becomes a larger stat chip.
+ */
+html body .meras-teacher-shell div.bg-white.rounded-3xl.border.space-y-4.shadow-sm:has(.miras-roster-card):not(#_):not(#_):not(.meras-exam-shell *),
+html body .meras-teacher-shell div.rounded-3xl.border.bg-slate-50.p-4:has(.miras-roster-card):not(#_):not(#_):not(.meras-exam-shell *),
+html body .meras-teacher-shell div.overflow-auto.rounded-2xl.border.shadow-inner:has(.miras-roster-card):not(#_):not(#_):not(.meras-exam-shell *) {
+  background: transparent !important;
+  border-color: transparent !important;
+  box-shadow: none !important;
+  backdrop-filter: none !important;
+}
+html body .meras-teacher-shell div.bg-white.rounded-3xl.border.space-y-4.shadow-sm:has(.miras-roster-card):not(#_):not(#_) {
+  padding-inline: 0 !important;
+}
+html body .meras-teacher-shell div.rounded-3xl.border.bg-slate-50.p-4:has(.miras-roster-card):not(#_):not(#_) {
+  padding-inline: 0 !important;
+}
+
+html body .meras-teacher-shell .miras-roster-card:not(#_):not(#_) {
+  border: 0 !important;
+  border-inline-start: 5px solid #94a3b8 !important;
+  background: #fff !important;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.05), 0 14px 26px -20px rgba(67, 56, 202, 0.38) !important;
+}
+html body .meras-teacher-shell .miras-roster-card[data-status="registered"]:not(#_):not(#_) { border-inline-start-color: #10b981 !important; }
+html body .meras-teacher-shell .miras-roster-card[data-status="suspended"]:not(#_):not(#_) { border-inline-start-color: #f43f5e !important; }
+html[data-theme="dark"] body .meras-teacher-shell .miras-roster-card:not(#_):not(#_) {
+  background: rgba(255, 255, 255, 0.05) !important;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06), 0 14px 26px -20px rgba(0, 0, 0, 0.75) !important;
+}
+
+html body .meras-teacher-shell div.flex.items-center.gap-2 > span.rounded-full.bg-indigo-50.text-indigo-700:not(#_):not(#_):not(.meras-exam-shell *) {
+  padding: 8px 16px !important;
+  font-size: 14px !important;
+  font-weight: 800 !important;
+  font-variant-numeric: tabular-nums;
+  background: #fff !important;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.05), 0 10px 20px -14px rgba(67, 56, 202, 0.4);
+}
+html[data-theme="dark"] body .meras-teacher-shell div.flex.items-center.gap-2 > span.rounded-full.bg-indigo-50.text-indigo-700:not(#_):not(#_) {
+  background: rgba(129, 140, 248, 0.14) !important;
+  color: #e0e7ff !important;
+}
