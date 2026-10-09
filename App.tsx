@@ -22509,6 +22509,24 @@ ${rows
       devices: devices.size,
     };
   }, [filteredActivationAttemptRows]);
+  // الكود كما كتبه الطالب مع تظليل الحرف المختلف عن الكود الحقيقي (Z↔2 مثلاً)،
+  // بنفس أسلوب شريط «ما أدخلته» في «تحقق».
+  const typedCodeWithMismatch = (typed: string, real: string) => {
+    let bodyIndex = 0;
+    const realCompact = compactJoinCode(real);
+    return [...String(typed || "")].map((ch, i) => {
+      if (!/[A-Z0-9]/.test(ch)) return <span key={i}>{ch}</span>;
+      const mismatch = realCompact[bodyIndex] !== ch;
+      bodyIndex += 1;
+      return mismatch ? (
+        <mark key={i} className="rounded bg-amber-200 px-0.5 text-amber-900">
+          {ch}
+        </mark>
+      ) : (
+        <span key={i}>{ch}</span>
+      );
+    });
+  };
   const activationAttemptStudentGroups = useMemo(() => {
     const groups = new Map<string, any>();
     filteredActivationAttemptRows.forEach((attempt: any) => {
@@ -46749,7 +46767,7 @@ ${rows
                                         {group.loggedInAfterAttempts && <p className="mt-2 text-[10px] font-bold text-emerald-700">آخر دخول ناجح: {formatKwDateTime(group.lastSuccessfulLoginAt)}</p>}
                                       </div>
                                       <div className="flex items-center justify-between gap-3 lg:justify-end">
-                                        <div className="hidden min-w-[170px] rounded-2xl border border-slate-100 bg-white px-4 py-3 text-right shadow-sm sm:block">
+                                        <div className={`hidden min-w-[170px] rounded-2xl border border-slate-100 bg-white px-4 py-3 text-right shadow-sm ${isOpen ? "" : "sm:block"}`}>
                                           <span className="block text-[11px] font-bold text-slate-400">
                                             أكثر كود تكرر رفضه
                                           </span>
@@ -46758,17 +46776,18 @@ ${rows
                                             dir="ltr"
                                             style={{ unicodeBidi: "plaintext" }}
                                           >
-                                            {group.codeStats[0]?.formatted ||
+                                            {group.codeStats[0]?.nearCode ||
+                                              group.codeStats[0]?.formatted ||
                                               "—"}
                                           </span>
                                           {group.codeStats[0]?.nearCode && (
-                                            <span className="mt-1.5 flex items-center justify-end gap-1.5 text-[10px] font-bold text-emerald-700">
-                                              قريب من
-                                              <span
-                                                className="truncate rounded-full bg-emerald-50 px-2 py-0.5 font-mono"
-                                                dir="ltr"
-                                              >
-                                                {group.codeStats[0].nearCode}
+                                            <span className="mt-1.5 flex items-center justify-end gap-1.5 text-[10px] font-bold text-slate-500">
+                                              كتبه الطالب
+                                              <span className="truncate font-mono text-slate-700" dir="ltr">
+                                                {typedCodeWithMismatch(
+                                                  group.codeStats[0].formatted,
+                                                  group.codeStats[0].nearCode,
+                                                )}
                                               </span>
                                             </span>
                                           )}
@@ -46803,15 +46822,18 @@ ${rows
                                                       unicodeBidi: "plaintext",
                                                     }}
                                                   >
-                                                    {item.formatted}
+                                                    {item.nearCode || item.formatted}
                                                     {item.nearCode && (
                                                       <b
-                                                        className="rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-bold text-emerald-700"
+                                                        className="rounded-full bg-slate-50 px-2 py-0.5 text-[10px] font-bold text-slate-500"
                                                         dir="rtl"
                                                       >
-                                                        قريب من{" "}
-                                                        <span dir="ltr">
-                                                          {item.nearCode}
+                                                        كتبه الطالب{" "}
+                                                        <span className="text-slate-700" dir="ltr">
+                                                          {typedCodeWithMismatch(
+                                                            item.formatted,
+                                                            item.nearCode,
+                                                          )}
                                                         </span>
                                                       </b>
                                                     )}
