@@ -261,7 +261,9 @@ async function broadcastMirasInAppNotification(title, body, data) {
     userId: data.userId || data.studentId || '',
     targetRole: data.targetRole || data.role || '',
     data: { ...(data || {}), source: 'fcm' },
-    createdAt: new Date().toISOString()
+    // When it was sent, not when it reached the phone: a push held overnight
+    // must not land in the bell as today's notice.
+    createdAt: validSentAt(data) || new Date().toISOString()
   };
   try {
     const clientsList = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
@@ -280,6 +282,40 @@ async function broadcastMirasInAppNotification(title, body, data) {
     channel.close();
   } catch (e) {}
   return payload;
+}
+
+function validSentAt(data) {
+  const at = Date.parse(String((data && data.sentAt) || ''));
+  return Number.isFinite(at) && at > 0 ? new Date(at).toISOString() : '';
+}
+
+// A push the phone receives well after it was sent says so ("أُرسل أمس 9:14 م")
+// instead of passing as new. Fresh pushes are left untouched.
+const MIRAS_LATE_PUSH_MS = 15 * 60 * 1000;
+function lateDeliveryNote(data, now = Date.now()) {
+  const sentAt = Date.parse(String((data && data.sentAt) || ''));
+  if (!Number.isFinite(sentAt) || now - sentAt < MIRAS_LATE_PUSH_MS) return '';
+  const sent = new Date(sentAt);
+  const today = new Date(now);
+  const startOfDay = (d) => new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
+  const daysAgo = Math.round((startOfDay(today) - startOfDay(sent)) / 86400000);
+  let clock = '';
+  try {
+    clock = new Intl.DateTimeFormat('ar-KW-u-nu-latn', { hour: 'numeric', minute: '2-digit' }).format(sent);
+  } catch (e) {
+    clock = `${sent.getHours()}:${String(sent.getMinutes()).padStart(2, '0')}`;
+  }
+  let day = '';
+  if (daysAgo <= 0) day = 'اليوم';
+  else if (daysAgo === 1) day = 'أمس';
+  else {
+    try {
+      day = new Intl.DateTimeFormat('ar-KW-u-nu-latn', { weekday: 'long', day: 'numeric', month: 'numeric' }).format(sent);
+    } catch (e) {
+      day = `${sent.getDate()}/${sent.getMonth() + 1}`;
+    }
+  }
+  return `أُرسل ${day} ${clock}`;
 }
 
 async function showMirasNotification(payload) {
@@ -304,8 +340,9 @@ async function showMirasNotification(payload) {
     const appVisible = wins.some((c) => c.visibilityState === 'visible');
     if (appVisible) return;
   } catch (e) {}
+  const lateNote = lateDeliveryNote(data);
   return self.registration.showNotification(title, {
-    body,
+    body: lateNote ? `${body}\n${lateNote}` : body,
     icon: '/ios-icon-192-v8.png',
     badge: '/ios-icon-192-v8.png',
     dir: 'rtl',

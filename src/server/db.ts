@@ -3597,9 +3597,28 @@ export class LocalDatabase {
     if (!this.data.notificationSeenKeys) this.data.notificationSeenKeys = {};
     const uk = String(userKey || "");
     if (!uk) return;
-    const capped = Array.from(
+    // "dock|<tab>|<count>" keys only ever matter as the highest count per tab
+    // (the client reads the max), yet a new one was kept on every visit. They
+    // filled the 5000-key cap and pushed out real "read" keys, so notices the
+    // user had read came back unread. Keep one dock key per tab.
+    const dockMax = new Map<string, number>();
+    const unique = Array.from(
       new Set((keys || []).map((k) => String(k || "")).filter(Boolean)),
-    ).slice(-5000);
+    );
+    unique.forEach((k) => {
+      if (!k.startsWith("dock|")) return;
+      const [, tab, n] = k.split("|");
+      const num = Number(n);
+      if (tab && Number.isFinite(num))
+        dockMax.set(tab, Math.max(dockMax.get(tab) ?? -1, num));
+    });
+    const capped = unique
+      .filter((k) => {
+        if (!k.startsWith("dock|")) return true;
+        const [, tab, n] = k.split("|");
+        return Number(n) === dockMax.get(tab);
+      })
+      .slice(-5000);
     (this.data.notificationSeenKeys as any)[uk] = {
       keys: capped,
       updatedAt: new Date().toISOString(),

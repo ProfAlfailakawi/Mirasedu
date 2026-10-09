@@ -257,3 +257,42 @@ html[data-theme="dark"] #root .miras-metric-of:not(#_):not(#_):not(.meras-exam-s
 html:not([data-theme="dark"]) body .dna .dna-voids:not(#_):not(.meras-exam-shell *) {
   color: #566176;
 }
+
+/* ---- 9. contrast measured on the real pixels behind the text ----
+   Method: screenshot with all text transparent, sample the background inside each
+   text box, compute WCAG ratio against the computed text colour. */
+/* Dock count badges: white digits on indigo-500 / violet-500 were 4.4:1 and 4.2:1. */
+html body .teacher-orbit-dock-track button span.absolute.z-10.bg-indigo-500:not(#_):not(.meras-exam-shell *) {
+  background-color: #4f46e5 !important;
+}
+html body .teacher-orbit-dock-track button span.absolute.z-10.bg-violet-500:not(#_):not(.meras-exam-shell *) {
+  background-color: #7c3aed !important;
+}
+/* Dark mode: indigo-500 text on the near-black surface was 2.4:1 («وضع التصحيح السريع»). */
+html[data-theme="dark"] #root .text-indigo-500:not(#_):not(.meras-exam-shell *) {
+  color: #a5b4fc !important;
+}
+/* Light mode: the codes page counter inherited slate-500 on a grey chip (3.9:1). */
+html:not([data-theme="dark"]) #root span.rounded-xl.bg-white.border.text-center.font-black:not(#_):not(.meras-exam-shell *) {
+  color: #475569 !important;
+}
+html[data-theme="dark"] #root .miras-roster-avatar:not(#_):not(.meras-exam-shell *) {
+  color: #c4b5fd !important;
+}
+/* Light mode: the codes list summary line sat on a grey chip at 4.25:1. */
+html:not([data-theme="dark"]) #root div.justify-between.text-\[11px\].font-bold.text-slate-500:not(#_):not(.meras-exam-shell *) {
+  color: #475569 !important;
+}
+
+/* Placeholders: slate-400 / half-alpha ink on near-white read about 2.6-3:1. Raised to
+   >= 4.5:1 in both themes. Inputs inside the exam shell are excluded. */
+html:not([data-theme="dark"]) body input:not(#_):not(.meras-exam-shell *)::placeholder,
+html:not([data-theme="dark"]) body textarea:not(#_):not(.meras-exam-shell *)::placeholder {
+  color: #64748b !important;
+  opacity: 1 !important;
+}
+html[data-theme="dark"] body input:not(#_):not(.meras-exam-shell *)::placeholder,
+html[data-theme="dark"] body textarea:not(#_):not(.meras-exam-shell *)::placeholder {
+  color: #94a3b8 !important;
+  opacity: 1 !important;
+}

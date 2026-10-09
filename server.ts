@@ -6511,6 +6511,8 @@ async function getFcmAccessToken(): Promise<string | null> {
   return fcmAccessTokenCache.token;
 }
 
+const MIRAS_PUSH_TTL_SECONDS = 6 * 60 * 60;
+
 async function sendFcmToToken(
   token: string,
   title: string,
@@ -6527,10 +6529,14 @@ async function sendFcmToToken(
   // Data-only هو المسار الوحيد للعرض: حين نرسل notification + webpush.notification
   // تعرض Firebase البانر تلقائياً، ثم كان الـSW يعرضه يدوياً مرة ثانية. نرسل حدثاً
   // واحداً يحمل النص داخل data، والـSW يقرر العرض/الكتم ويطبّق منع التكرار.
+  // TTL: how long FCM holds a push for a phone that is off or asleep. At 24h a
+  // notice from yesterday popped up today as if new, often after it had been
+  // read in the bell. Past 6 hours the push is dropped instead; the bell keeps
+  // every notice, so nothing is lost.
   const webpush: any = {
     headers: {
       Urgency: "high",
-      TTL: "86400",
+      TTL: String(MIRAS_PUSH_TTL_SECONDS),
     },
   };
   if (clickLink) webpush.fcm_options = { link: clickLink };
