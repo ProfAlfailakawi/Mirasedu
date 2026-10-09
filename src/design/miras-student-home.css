@@ -71,3 +71,30 @@ html body .miras-student-overview-card .miras-study-path .miras-segbar:not(#_) {
   html body .miras-student-overview-card .miras-study-path { animation-delay: 90ms; }
   html body .miras-student-overview-card .miras-student-last-submission-wrap { animation-delay: 180ms; }
 }
+
+/* ---- one frame instead of three ----
+   The home stacked an outer white card, a gradient wrapper and the three panels, each with
+   its own border and shadow. The outer card is flattened (no fill, border, shadow or padding)
+   so the gradient wrapper is the single frame and the panels keep their own depth. */
+html body .miras-student-overview-card:not(#_):not(#_) {
+  background: transparent !important;
+  border-color: transparent !important;
+  box-shadow: none !important;
+  padding: 0 !important;
+  backdrop-filter: none !important;
+}
+
+/* Inner cards that repeated their parent's border: the parent keeps the border and depth,
+   the inner card becomes a soft tint. */
+html body .miras-student-overview-card .miras-student-last-submission-wrap .miras-student-last-submission-card:not(#_):not(#_) {
+  border-color: transparent !important;
+  box-shadow: none !important;
+  background: transparent !important;
+}
+html body .miras-student-overview-card .miras-study-path > div.mt-2\.5:not(#_):not(#_) {
+  border-color: transparent !important;
+  background: rgba(99, 102, 241, 0.06) !important;
+}
+html[data-theme="dark"] body .miras-student-overview-card .miras-study-path > div.mt-2\.5:not(#_):not(#_) {
+  background: rgba(129, 140, 248, 0.08) !important;
+}
