@@ -48,3 +48,33 @@ html body .meras-teacher-shell div.bg-slate-50\/80.rounded-3xl.space-y-4 > div.g
   height: 44px !important;
   border-radius: 14px !important;
 }
+
+/* ---- follow-up after review ---- */
+/* 1) the big white panel around the course cards becomes a transparent surface, so the cards
+      stand alone instead of a frame inside a frame */
+html body .meras-teacher-shell div.rounded-\[var\(--miras-r-xl\)\].miras-shadow-2:has(.miras-course-ring):not(#_):not(#_):not(.meras-exam-shell *) {
+  background: transparent !important;
+  border-color: transparent !important;
+  box-shadow: none !important;
+  backdrop-filter: none !important;
+  padding-inline: 0 !important;
+}
+/* 2) four courses lay out 2 x 2 on wide screens instead of 3 + 1 */
+@media (min-width: 768px) {
+  html body .meras-teacher-shell div.grid:has(> div.bg-slate-50\/80:nth-child(4):last-child):not(#_):not(#_) {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  }
+}
+/* 3) the student count becomes the card's stat: a bigger ring and figure */
+html body .meras-teacher-shell .miras-course-ring:not(#_):not(#_) {
+  width: 56px !important;
+  height: 56px !important;
+}
+html body .meras-teacher-shell .miras-course-ring b:not(#_):not(#_) {
+  font-size: 1.15rem !important;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+html body .meras-teacher-shell .miras-course-ring svg circle:not(#_):not(#_) {
+  stroke-width: 2.6 !important;
+}
