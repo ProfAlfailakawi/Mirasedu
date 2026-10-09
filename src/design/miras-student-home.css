@@ -1,0 +1,73 @@
+/*
+ * Student home: depth, rhythm and clearer numbers (presentation only).
+ *
+ * Scope: the three stacked panels inside `.miras-student-overview-card`
+ * («المتاح الآن», «مسارك الدراسي», last submission). No markup or logic changes.
+ * Colours come from the existing brand ramp (indigo / emerald); every text colour
+ * keeps >= 4.5:1. The staged reveal only runs when reduced motion is not requested
+ * and the resting state is fully visible.
+ */
+
+/* ---- calm layered depth on the three panels ---- */
+html body .miras-student-overview-card .miras-now-available:not(#_),
+html body .miras-student-overview-card .miras-study-path:not(#_),
+html body .miras-student-overview-card .miras-student-last-submission-wrap:not(#_) {
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.9),
+    0 1px 2px rgba(15, 23, 42, 0.05),
+    0 14px 28px -18px rgba(67, 56, 202, 0.38) !important;
+}
+html[data-theme="dark"] body .miras-student-overview-card .miras-now-available:not(#_),
+html[data-theme="dark"] body .miras-student-overview-card .miras-study-path:not(#_),
+html[data-theme="dark"] body .miras-student-overview-card .miras-student-last-submission-wrap:not(#_) {
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.06),
+    0 1px 2px rgba(0, 0, 0, 0.5),
+    0 16px 30px -18px rgba(0, 0, 0, 0.75) !important;
+}
+
+/* ---- «المتاح الآن»: the counts become clear filled badges ---- */
+html body .miras-student-overview-card .miras-now-available .miras-now-count:not(#_) {
+  min-width: 2.25rem;
+  height: 2.25rem;
+  border: 0 !important;
+  border-radius: 999px;
+  background: linear-gradient(135deg, #e0e7ff, #c7d2fe) !important;
+  color: #312e81 !important;
+  font-size: 15px !important;
+  font-weight: 800 !important;
+  font-variant-numeric: tabular-nums;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.7), 0 4px 10px -6px rgba(67, 56, 202, 0.55);
+}
+html[data-theme="dark"] body .miras-student-overview-card .miras-now-available .miras-now-count:not(#_) {
+  background: linear-gradient(135deg, rgba(129, 140, 248, 0.28), rgba(99, 102, 241, 0.18)) !important;
+  color: #e0e7ff !important;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08);
+}
+
+/* ---- progress: bigger ring figure, rounder bar ---- */
+html body .miras-student-overview-card .miras-study-path .dna-ringc:not(#_) {
+  font-size: 15px;
+  font-weight: 800;
+}
+html body .miras-student-overview-card .miras-study-path .miras-segbar:not(#_) {
+  height: 0.75rem !important;
+  min-height: 0.75rem !important;
+  gap: 3px;
+  box-shadow: inset 0 1px 2px rgba(15, 23, 42, 0.08);
+}
+
+/* ---- gentle staged reveal (motion allowed only) ---- */
+@keyframes miras-home-rise {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: none; }
+}
+@media (prefers-reduced-motion: no-preference) {
+  html body .miras-student-overview-card .miras-now-available,
+  html body .miras-student-overview-card .miras-study-path,
+  html body .miras-student-overview-card .miras-student-last-submission-wrap {
+    animation: miras-home-rise 520ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
+  html body .miras-student-overview-card .miras-study-path { animation-delay: 90ms; }
+  html body .miras-student-overview-card .miras-student-last-submission-wrap { animation-delay: 180ms; }
+}
