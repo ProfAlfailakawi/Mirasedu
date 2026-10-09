@@ -2616,7 +2616,9 @@ function RoleOnboardingOverlay({
 
             <div className="relative z-10 flex items-center justify-between gap-3">
               <span className="font-mono text-[11px] font-bold text-white/55">
-                {index + 1} / {steps.length}
+                <bdi dir="ltr">
+                  {index + 1} / {steps.length}
+                </bdi>
               </span>
               <div className="flex gap-2">
                 {steps.map((_: any, dot: number) => (
@@ -35457,9 +35459,13 @@ ${rows
                           >
                             <div className="mb-2 flex items-center justify-between gap-3 rounded-2xl border border-slate-100 bg-slate-50/80 px-3 py-2 w-full">
                               <span className="text-[11.5px] font-black text-slate-500 whitespace-nowrap shrink-0">
-                                {studentNotificationTotal > 0
-                                  ? `${studentNotificationBadgeCount} / ${studentNotificationTotal}`
-                                  : "لا تنبيهات"}
+                                {studentNotificationTotal > 0 ? (
+                                  <bdi dir="ltr">
+                                    {`${studentNotificationBadgeCount} / ${studentNotificationTotal}`}
+                                  </bdi>
+                                ) : (
+                                  "لا تنبيهات"
+                                )}
                               </span>
                               <div className="flex shrink-0 items-center justify-end gap-1.5 ml-0.5">
                                 <button
@@ -46439,7 +46445,9 @@ ${rows
                                       <ChevronRight className="h-5 w-5" />
                                     </button>
                                     <span className="rounded-xl bg-white border border-slate-200 px-3 py-2 text-center font-black">
-                                      {safeCodesPage} / {codesTotalPages}
+                                      <bdi dir="ltr">
+                                        {safeCodesPage} / {codesTotalPages}
+                                      </bdi>
                                     </span>
                                     <button
                                       disabled={
