@@ -241,3 +241,14 @@ html body h3.line-clamp-2:not(.meras-exam-shell *),
 html body h4.line-clamp-2:not(.meras-exam-shell *) {
   text-wrap: balance;
 }
+
+/* ---- 8. dark-mode contrast (measured against the real background) ----
+   "الرقم الجامعي" label on the teacher roster: slate-700 on #12121c = 1.8:1.
+   The "من 25" part of the metric tile: slate-500 on #12121c = 3.9:1.
+   Both are raised to pass 4.5:1. Dark mode only; light mode untouched. */
+html[data-theme="dark"] #root .miras-roster-label:not(#_):not(#_):not(.meras-exam-shell *) {
+  color: #cbd5e1 !important;
+}
+html[data-theme="dark"] #root .miras-metric-of:not(#_):not(#_):not(.meras-exam-shell *) {
+  color: #94a3b8 !important;
+}
