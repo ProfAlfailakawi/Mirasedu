@@ -46749,7 +46749,7 @@ ${rows
                                         {group.loggedInAfterAttempts && <p className="mt-2 text-[10px] font-bold text-emerald-700">آخر دخول ناجح: {formatKwDateTime(group.lastSuccessfulLoginAt)}</p>}
                                       </div>
                                       <div className="flex items-center justify-between gap-3 lg:justify-end">
-                                        <div className="hidden min-w-[170px] rounded-2xl border border-slate-100 bg-white px-4 py-3 text-right shadow-sm sm:block">
+                                        <div className={`hidden min-w-[170px] rounded-2xl border border-slate-100 bg-white px-4 py-3 text-right shadow-sm ${isOpen ? "" : "sm:block"}`}>
                                           <span className="block text-[11px] font-bold text-slate-400">
                                             أكثر كود تكرر رفضه
                                           </span>
