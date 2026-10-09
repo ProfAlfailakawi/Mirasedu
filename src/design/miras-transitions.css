@@ -1,0 +1,19 @@
+/*
+ * Soft tab transitions (presentation only).
+ *
+ * When a tab opens, its content is created fresh, so a CSS animation on the
+ * content wrapper's children replays exactly then and not on data refreshes.
+ * Opacity only (no transform), so fixed-position dialogs inside are never
+ * displaced. Runs only when reduced motion is not requested; the resting state
+ * is fully visible.
+ */
+@keyframes miras-tab-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+@media (prefers-reduced-motion: no-preference) {
+  html body .meras-teacher-shell div.space-y-5.p-3 > *:not(.meras-exam-shell):not(#_),
+  html body .workspace-calm-shell main > *:not(header):not(#_) {
+    animation: miras-tab-in 260ms ease-out both;
+  }
+}
