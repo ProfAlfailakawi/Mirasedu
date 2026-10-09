@@ -23,3 +23,28 @@ html[data-theme="dark"] body .meras-teacher-shell div.bg-slate-50\/80.rounded-3x
     0 1px 2px rgba(0, 0, 0, 0.5),
     0 16px 28px -18px rgba(0, 0, 0, 0.75);
 }
+
+/* ---- course cards in the codes-page language: status rail, white surface, 44px actions ---- */
+html body .meras-teacher-shell div.bg-slate-50\/80.rounded-3xl.space-y-4:not(#_):not(#_):not(.meras-exam-shell *) {
+  background: #fff !important;
+  border: 0 !important;
+  border-inline-start: 5px solid #10b981 !important;
+}
+html body .meras-teacher-shell div.bg-slate-50\/80.rounded-3xl.space-y-4:has(.miras-course-ring.is-closed):not(#_):not(#_) {
+  border-inline-start-color: #94a3b8 !important;
+}
+html[data-theme="dark"] body .meras-teacher-shell div.bg-slate-50\/80.rounded-3xl.space-y-4:not(#_):not(#_):not(.meras-exam-shell *) {
+  background: rgba(255, 255, 255, 0.05) !important;
+}
+html body .meras-teacher-shell div.bg-slate-50\/80.rounded-3xl.space-y-4 > div > p.text-slate-400:not(#_):not(.meras-exam-shell *) {
+  font-size: 12px !important;
+  color: #55637a !important;
+}
+html[data-theme="dark"] body .meras-teacher-shell div.bg-slate-50\/80.rounded-3xl.space-y-4 > div > p.text-slate-400:not(#_) {
+  color: #aab4c8 !important;
+}
+html body .meras-teacher-shell div.bg-slate-50\/80.rounded-3xl.space-y-4 > div.grid.grid-cols-3 > button:not(#_):not(.meras-exam-shell *) {
+  min-height: 44px;
+  height: 44px !important;
+  border-radius: 14px !important;
+}
