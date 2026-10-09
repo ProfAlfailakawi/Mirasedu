@@ -46289,36 +46289,36 @@ ${rows
                           className="xl:col-span-12 lg:col-span-12 bg-white rounded-[var(--miras-r-xl)] border border-slate-200 p-4 sm:p-6 space-y-5 shadow-sm overflow-hidden"
                         >
                           <div className="flex w-full flex-col xl:flex-row justify-between items-start xl:items-center gap-4 border-b border-slate-100 pb-4 text-right">
-                            <div className="flex flex-wrap items-center gap-2 rounded-2xl px-2 py-1 text-right">
+                            <div className="miras-code-stats flex flex-wrap items-center gap-2 rounded-2xl px-2 py-1 text-right">
                               <h3 className="font-black text-base text-slate-900">
                                 بيانات كروت حالة الرموز والتفعيل
                               </h3>
                               <span
                                 title="أكواد عامة فعّالة لم تُصدَّر للمطبعة بعد — وهي وحدها ما يدخل ملف التصدير القادم"
-                                className="inline-flex items-center gap-1.5 rounded-full border border-emerald-100 bg-emerald-50 px-3 py-1 text-[11px] font-black text-emerald-700"
+                                className="miras-code-stat inline-flex items-center gap-1.5 rounded-full border border-emerald-100 bg-emerald-50 px-3 py-1 text-[11px] font-black text-emerald-700"
                               >
                                 <Key className="h-3.5 w-3.5" />
-                                جاهز للتصدير:
+                                <span className="miras-code-stat-label">جاهز للتصدير</span>
                                 <span className="font-mono tabular-nums">
                                   {joinCodesAwaitingCloud ? "…" : readyToPrintCodesCount}
                                 </span>
                               </span>
                               <span
                                 title="أكواد خرجت في ملف مطبعة سابق — مختومة نهائياً ولن تتكرر في أي تصدير قادم"
-                                className="inline-flex items-center gap-1.5 rounded-full border border-indigo-100 bg-indigo-50 px-3 py-1 text-[11px] font-black text-indigo-700"
+                                className="miras-code-stat inline-flex items-center gap-1.5 rounded-full border border-indigo-100 bg-indigo-50 px-3 py-1 text-[11px] font-black text-indigo-700"
                               >
                                 <FileText className="h-3.5 w-3.5" />
-                                سبق تصديره:
+                                <span className="miras-code-stat-label">سبق تصديره</span>
                                 <span className="font-mono tabular-nums">
                                   {codeArchiveView.counts ? printedJoinCodesCount : "…"}
                                 </span>
                               </span>
                               <span
                                 title="أكواد فعّلها الطلبة فعلياً"
-                                className="inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-[11px] font-black text-slate-600"
+                                className="miras-code-stat inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-[11px] font-black text-slate-600"
                               >
                                 <CheckCircle className="h-3.5 w-3.5" />
-                                تم استخدامه:
+                                <span className="miras-code-stat-label">تم استخدامه</span>
                                 <span className="font-mono tabular-nums">
                                   {codeArchiveView.counts ? codeArchiveView.counts.used : "…"}
                                 </span>
