@@ -14,8 +14,14 @@ html body .meras-teacher-shell div.bg-white.rounded-3xl.border.space-y-4.shadow-
   border-color: transparent !important;
   box-shadow: none !important;
   backdrop-filter: none !important;
+}
+
+/* padding reset for the panel and the grey box only; the scroll list keeps its own p-3 / p-4 */
+html body .meras-teacher-shell div.bg-white.rounded-3xl.border.space-y-4.shadow-sm:has(> div.rounded-2xl.bg-slate-50.p-4 > div > h3.font-extrabold):not(#_):not(#_),
+html body .meras-teacher-shell div.bg-white.rounded-3xl.border.space-y-4.shadow-sm:has(> div.rounded-2xl.bg-slate-50.p-4 > div > h3.font-extrabold) div.rounded-3xl.border.bg-slate-50.p-4:not(#_):not(#_) {
   padding-inline: 0 !important;
 }
+
 
 html body .meras-teacher-shell .miras-roster-card:not(#_):not(#_) {
   border: 0 !important;
