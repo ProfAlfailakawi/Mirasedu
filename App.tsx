@@ -883,7 +883,10 @@ const simplifyStudentMessage = (
   if (any("تم الدخول بالبصمة", "تم فتح جلسة SEB", "أهلاً بك مجدداً", "مرحباً"))
     return "تم الدخول بنجاح";
   if (any("تم تفعيل الدخول بالبصمة")) return "تم تفعيل البصمة";
-  if (any("هذا الجهاز لا يدعم الدخول بالبصمة")) return "البصمة غير مدعومة";
+  // «البصمة غير مدعومة» نفسها تمر هنا مرة ثانية عند العرض، فتبقى كما هي ولا
+  // تُقرأ «غير مدعومة» فيها كأنها رسالة صيغة ملف.
+  if (any("هذا الجهاز لا يدعم الدخول بالبصمة", "البصمة غير مدعومة"))
+    return "البصمة غير مدعومة";
   if (any("تعذر بدء تفعيل البصمة", "تعذر اعتماد البصمة"))
     return "تعذر تفعيل البصمة";
   if (any("تم إلغاء ثقة الجهاز")) return "تم إلغاء الجهاز";
@@ -18139,26 +18142,29 @@ ${rows
     if (reason === "background") setPasskeyStatus("");
   };
 
-  const ensurePasskeyAvailable = async () => {
+  // silent: المحاولة التلقائية (بلا لمسة) تتوقف بصمت كبقية أخطائها، فلا تظهر
+  // للطالب رسالة لم يطلبها وزر القفل أمامه للدخول بكلمة المرور.
+  const ensurePasskeyAvailable = async (silent = false) => {
+    const fail = (message: string) => {
+      if (!silent) setErrorMsg(message);
+      return false;
+    };
     let webAuthn: typeof import("@simplewebauthn/browser");
     try {
       webAuthn = await loadMirasWebAuthn();
     } catch {
-      setErrorMsg("تعذر تجهيز الدخول بالبصمة الآن.");
-      return false;
+      return fail("تعذر تجهيز الدخول بالبصمة الآن.");
     }
     const { browserSupportsWebAuthn, platformAuthenticatorIsAvailable } =
       webAuthn;
     if (!browserSupportsWebAuthn()) {
-      setErrorMsg("هذا الجهاز لا يدعم الدخول بالبصمة.");
-      return false;
+      return fail("هذا الجهاز لا يدعم الدخول بالبصمة.");
     }
     const platformAvailable = await platformAuthenticatorIsAvailable().catch(
       () => false,
     );
     if (!platformAvailable) {
-      setErrorMsg("هذا الجهاز لا يدعم الدخول بالبصمة.");
-      return false;
+      return fail("هذا الجهاز لا يدعم الدخول بالبصمة.");
     }
     return true;
   };
@@ -18317,7 +18323,7 @@ ${rows
       );
       return;
     }
-    if (!(await ensurePasskeyAvailable())) {
+    if (!(await ensurePasskeyAvailable(!!_options?.automatic))) {
       mirasPasskeyProbe("توقّف: البصمة غير متاحة على هذا الجهاز");
       return;
     }
