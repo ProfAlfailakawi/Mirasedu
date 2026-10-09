@@ -7663,6 +7663,9 @@ export default function App() {
     document
       .querySelector('meta[name="theme-color"]')
       ?.setAttribute("content", theme === "dark" ? "#0A0A12" : "#FFFFFF");
+    document
+      .querySelector('meta[name="color-scheme"]')
+      ?.setAttribute("content", theme === "dark" ? "dark" : "light");
   }, [theme]);
 
   const toggleTheme = () => {
