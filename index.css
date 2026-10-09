@@ -17548,15 +17548,13 @@ button[data-miras-action-busy="true"] svg {
   background:rgba(148,163,184,.16);border-radius:6px;padding:2px 6px;margin:0 2px;
 }
 /* الوضع الداكن */
-@media (prefers-color-scheme:dark){
-  .miras-cmdk{background:rgba(17,24,39,.9);border-color:rgba(51,65,85,.8);box-shadow:0 34px 90px rgba(0,0,0,.55),0 1px 0 rgba(255,255,255,.05) inset}
-  .miras-cmdk-search{border-bottom-color:rgba(51,65,85,.7)}
-  .miras-cmdk-search input{color:#f1f5f9}
-  .miras-cmdk-item{color:#e2e8f0}
-  .miras-cmdk-item:hover{background:rgba(129,140,248,.1)}
-  .miras-cmdk-item.is-active{background:linear-gradient(90deg,rgba(129,140,248,.18),rgba(56,189,248,.12));box-shadow:inset 0 0 0 1px rgba(129,140,248,.3)}
-  .miras-cmdk-foot,.miras-cmdk-group{border-color:rgba(51,65,85,.7)}
-}
+:root[data-theme="dark"] .miras-cmdk{background:rgba(17,24,39,.9);border-color:rgba(51,65,85,.8);box-shadow:0 34px 90px rgba(0,0,0,.55),0 1px 0 rgba(255,255,255,.05) inset}
+:root[data-theme="dark"] .miras-cmdk-search{border-bottom-color:rgba(51,65,85,.7)}
+:root[data-theme="dark"] .miras-cmdk-search input{color:#f1f5f9}
+:root[data-theme="dark"] .miras-cmdk-item{color:#e2e8f0}
+:root[data-theme="dark"] .miras-cmdk-item:hover{background:rgba(129,140,248,.1)}
+:root[data-theme="dark"] .miras-cmdk-item.is-active{background:linear-gradient(90deg,rgba(129,140,248,.18),rgba(56,189,248,.12));box-shadow:inset 0 0 0 1px rgba(129,140,248,.3)}
+:root[data-theme="dark"] .miras-cmdk-foot,:root[data-theme="dark"] .miras-cmdk-group{border-color:rgba(51,65,85,.7)}
 :root[data-theme="dark"] .miras-cmdk{background:rgba(17,24,39,.9);border-color:rgba(51,65,85,.8)}
 :root[data-theme="dark"] .miras-cmdk-search input{color:#f1f5f9}
 :root[data-theme="dark"] .miras-cmdk-item{color:#e2e8f0}
@@ -17608,14 +17606,12 @@ button[data-miras-action-busy="true"] svg {
   max-width:180px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
 }
 .miras-deadline-chip-time{font-size:11px;font-weight:900;color:#b45309;flex:none}
-@media (prefers-color-scheme:dark){
-  .miras-deadline-banner{background:linear-gradient(120deg,rgba(69,26,3,.5),rgba(41,37,36,.55));border-color:rgba(245,158,11,.3)}
-  .miras-deadline-banner-title{color:#fcd34d}
-  .miras-deadline-chip{background:rgba(30,41,59,.6);border-color:rgba(245,158,11,.24)}
-  .miras-deadline-chip:hover{background:rgba(30,41,59,.85)}
-  .miras-deadline-chip-title{color:#e2e8f0}
-  .miras-deadline-chip-time{color:#fbbf24}
-}
+:root[data-theme="dark"] .miras-deadline-banner{background:linear-gradient(120deg,rgba(69,26,3,.5),rgba(41,37,36,.55));border-color:rgba(245,158,11,.3)}
+:root[data-theme="dark"] .miras-deadline-banner-title{color:#fcd34d}
+:root[data-theme="dark"] .miras-deadline-chip{background:rgba(30,41,59,.6);border-color:rgba(245,158,11,.24)}
+:root[data-theme="dark"] .miras-deadline-chip:hover{background:rgba(30,41,59,.85)}
+:root[data-theme="dark"] .miras-deadline-chip-title{color:#e2e8f0}
+:root[data-theme="dark"] .miras-deadline-chip-time{color:#fbbf24}
 :root[data-theme="dark"] .miras-deadline-banner-title{color:#fcd34d}
 :root[data-theme="dark"] .miras-deadline-chip-title{color:#e2e8f0}
 

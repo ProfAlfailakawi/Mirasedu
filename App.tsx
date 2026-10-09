@@ -7649,7 +7649,8 @@ export default function App() {
   const [uploadText, setUploadText] = useState("");
   const [uploadFileName, setUploadFileName] = useState("");
   const [isProjectGenerating, setIsProjectGenerating] = useState(false);
-  // السِمة: تتبع تفضيل النظام افتراضياً، مع تجاوز يدوي يُحفظ محلياً.
+  // السِمة: النهاري هو الافتراضي للمعلم والطالب، ولا يتحول لليلي إلا باختيار
+  // المستخدم نفسه (يُحفظ محلياً). لا نتبع وضع النظام.
   const [theme, setTheme] = useState<"light" | "dark">(() => {
     if (typeof document === "undefined") return "light";
     return document.documentElement.getAttribute("data-theme") === "dark"
@@ -7659,21 +7660,10 @@ export default function App() {
 
   useEffect(() => {
     document.documentElement.setAttribute("data-theme", theme);
+    document
+      .querySelector('meta[name="theme-color"]')
+      ?.setAttribute("content", theme === "dark" ? "#0A0A12" : "#FFFFFF");
   }, [theme]);
-
-  useEffect(() => {
-    if (typeof window === "undefined" || !window.matchMedia) return;
-    const mq = window.matchMedia("(prefers-color-scheme: dark)");
-    const onChange = (e: MediaQueryListEvent) => {
-      // تغيّر النظام يُتبع فقط ما لم يختر المستخدم سِمة بنفسه.
-      try {
-        if (localStorage.getItem("miras_theme")) return;
-      } catch {}
-      setTheme(e.matches ? "dark" : "light");
-    };
-    mq.addEventListener("change", onChange);
-    return () => mq.removeEventListener("change", onChange);
-  }, []);
 
   const toggleTheme = () => {
     setTheme((prev) => {
@@ -35226,6 +35216,15 @@ ${rows
                             <Home className="h-5 w-5" />
                           </button>
                         )}
+                        <button
+                          type="button"
+                          title={theme === "dark" ? "الوضع النهاري" : "الوضع الليلي"}
+                          aria-label={theme === "dark" ? "الوضع النهاري" : "الوضع الليلي"}
+                          onClick={toggleTheme}
+                          className="inline-flex h-12 w-12 items-center justify-center rounded-2xl border border-slate-200 bg-white text-slate-900 shadow-sm hover:bg-indigo-50 hover:text-indigo-700"
+                        >
+                          {theme === "dark" ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
+                        </button>
                         {!isAppStandalone && (
                           <button
                             title="تثبيت منصة مِراس على الشاشة الرئيسية"
