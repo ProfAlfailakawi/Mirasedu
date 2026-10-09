@@ -20518,7 +20518,8 @@ ${rows
 
     rows.forEach((row) => {
       const name = repairArabicText(row.cells[excelNameCol]);
-      const idNumber = String(row.cells[excelIdCol] || "")
+      // Sheets typed in Arabic hold IDs like ٢٢٠١١٠٠١; \d below only matches 0-9.
+      const idNumber = westernizeInputDigits(String(row.cells[excelIdCol] || ""))
         .replace(/\s/g, "")
         .trim();
       const joinedCells = row.cells
