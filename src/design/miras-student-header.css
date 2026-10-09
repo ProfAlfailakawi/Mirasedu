@@ -1,0 +1,50 @@
+/*
+ * Student header, wide screens (>= 768px): presentation only.
+ *
+ * Before: the header stacked three rows (status pill, name, a left-aligned row
+ * of round buttons), so a third of the first screen was spent on chrome.
+ * After: one calm RTL row. The name leads on the right with the status pill
+ * beside it; the action buttons sit on the left. No markup or logic changed.
+ *
+ * The stacking comes from `!important` rules in index.css
+ * (.workspace-calm-shell .miras-student-*), so the overrides below are scoped
+ * to the same shell and use :not(#_) to win, instead of adding more !important
+ * to unrelated rules. Phones keep the stacked layout.
+ */
+@media (min-width: 768px) {
+  html body .workspace-calm-shell .meras-topbar .miras-student-header-stack:not(#_):not(#_) {
+    flex-direction: row !important;
+    align-items: center !important;
+    justify-content: space-between !important;
+    gap: 1rem !important;
+    flex-wrap: wrap !important;
+  }
+  html body .workspace-calm-shell .meras-topbar .miras-student-identity:not(#_):not(#_) {
+    width: auto !important;
+    flex: 1 1 auto !important;
+    min-width: 0 !important;
+    flex-direction: row-reverse !important;
+    align-items: center !important;
+    justify-content: flex-end !important;
+    gap: 0.75rem !important;
+    flex-wrap: wrap !important;
+    padding-top: 0 !important;
+  }
+  html body .workspace-calm-shell .meras-topbar .miras-student-identity .miras-student-account-pill:not(#_):not(#_) {
+    margin: 0 !important;
+    align-self: center !important;
+  }
+  html body .workspace-calm-shell .meras-topbar .miras-student-identity .miras-student-name:not(#_):not(#_) {
+    display: block !important;
+    width: auto !important;
+    max-width: 100% !important;
+    font-size: 1rem !important;
+    font-weight: 700 !important;
+  }
+  html body .workspace-calm-shell .meras-topbar .miras-student-actions-row:not(#_):not(#_) {
+    width: auto !important;
+    flex: 0 0 auto !important;
+    margin: 0 !important;
+    justify-content: flex-start !important;
+  }
+}
