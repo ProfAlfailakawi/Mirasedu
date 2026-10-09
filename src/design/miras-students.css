@@ -45,3 +45,8 @@ html[data-theme="dark"] body .meras-teacher-shell div.flex.items-center.gap-2 > 
   background: rgba(129, 140, 248, 0.14) !important;
   color: #e0e7ff !important;
 }
+
+/* the directory count («25») was slate-500 on a pale tint, 4.4:1 */
+html:not([data-theme="dark"]) body .meras-teacher-shell span.min-w-6.text-center.font-mono:not(#_):not(#_) {
+  color: #475569 !important;
+}
