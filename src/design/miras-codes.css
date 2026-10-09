@@ -128,3 +128,48 @@ html body .meras-teacher-shell .miras-join-code-card button:not(#_) {
   height: 44px !important;
   border-radius: 14px !important;
 }
+
+/* ---- export button joins the header row (was an orphan under the tiles) ---- */
+html body .meras-teacher-shell #join-codes-cards-anchor > div:first-child:not(#_) {
+  position: relative;
+}
+html body .meras-teacher-shell #join-codes-cards-anchor > div:first-child > div:nth-child(2):not(#_) {
+  position: absolute;
+  inset-block-start: -6px;
+  inset-inline-end: 0;
+  width: auto !important;
+  z-index: 2;
+}
+html body .meras-teacher-shell #join-codes-cards-anchor > div:first-child .miras-code-stats > h3:not(#_) {
+  min-height: 40px;
+  display: flex;
+  align-items: center;
+  padding-inline-end: 56px;
+}
+
+/* ---- fewer frames at the top of the page ----
+   The data panel and the filter panel inside it kept their own borders, fills and shadows,
+   stacking four frames. They become transparent surfaces; the controls inside (search pill,
+   segmented switch, tiles, cards) keep their own white surfaces, as in the reference. */
+html body .meras-teacher-shell #join-codes-cards-anchor:not(#_):not(#_) {
+  background: transparent !important;
+  border-color: transparent !important;
+  box-shadow: none !important;
+  padding-inline: 0 !important;
+}
+html body .meras-teacher-shell #join-codes-cards-anchor > div.rounded-3xl.border:not(#_):not(#_) {
+  background: transparent !important;
+  border-color: transparent !important;
+  box-shadow: none !important;
+  padding-inline: 0 !important;
+}
+html body .meras-teacher-shell #join-codes-cards-anchor > div:first-child:not(#_):not(#_) {
+  border-bottom-color: transparent !important;
+}
+
+/* ---- dark timeline row: no darker band behind it ---- */
+html[data-theme="dark"] body .meras-teacher-shell .miras-join-code-card div.mt-4.grid > div:not(#_):not(#_):not(#_):not(#_) {
+  background: transparent !important;
+  box-shadow: none !important;
+  background-image: none !important;
+}
