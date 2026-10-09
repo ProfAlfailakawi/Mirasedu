@@ -235,3 +235,9 @@ html body .miras-zero-name-pill div[style*="font-size: 0.62rem"]:not(#_):not(#_)
 html body div[style*="font-size: 0.62rem"]:not(#_):not(#_):not(.meras-exam-shell *) {
   font-size: 12px !important;
 }
+
+/* ---- 7. card titles: balanced wrapping so a dash never hangs alone at a line end ---- */
+html body h3.line-clamp-2:not(.meras-exam-shell *),
+html body h4.line-clamp-2:not(.meras-exam-shell *) {
+  text-wrap: balance;
+}
