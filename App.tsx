@@ -35,6 +35,25 @@ import LearningIntelligencePanel from "./src/features/learning-intelligence/Lear
 import LoginRevealOverlay from "./src/components/LoginRevealOverlay";
 import MirasLoader from "./src/components/MirasLoader";
 import { normalizeArabicIndicDigits, westernizeInputDigits } from "./src/shared/arabic-text";
+
+// Rewrites a field's text the way typing does. React wraps each controlled
+// field's `value` setter to remember what it last saw; assigning
+// `target.value` directly updates that memory too, so React decides nothing
+// changed, skips onChange, and the next render puts the old state back (an
+// Arabic digit typed mid-number vanished). The prototype setter leaves React's
+// memory alone, so it sees the westernized text and keeps it in state.
+const setFieldValueLikeTyping = (
+  target: HTMLInputElement | HTMLTextAreaElement,
+  value: string,
+) => {
+  // The element's own class (input, textarea, select) holds the native setter.
+  const setter = Object.getOwnPropertyDescriptor(
+    Object.getPrototypeOf(target),
+    "value",
+  )?.set;
+  if (setter) setter.call(target, value);
+  else target.value = value;
+};
 import { DnaHubMap, DnaIconTile, DnaStepper, DnaTimeline, DnaHeat, DnaRing, DnaStat, DnaStatusHeader, type DnaEvent, type DnaStep, type DnaHubNode } from "./src/design/DnaKit";
 import { mirasPhoneticWordMatch } from "./src/shared/phonetic-search";
 import {
@@ -3288,7 +3307,7 @@ export default function App() {
           : currentValue.slice(0, start).length -
             westernizeInputDigits(currentValue.slice(0, start))
               .length;
-      target.value = next;
+      setFieldValueLikeTyping(target, next);
       try {
         if (start !== null && end !== null)
           target.setSelectionRange(
@@ -10570,7 +10589,7 @@ export default function App() {
           ? 0
           : value.slice(0, start).length -
             westernizeInputDigits(value.slice(0, start)).length;
-      target.value = normalized;
+      setFieldValueLikeTyping(target, normalized);
       try {
         if (start !== null && end !== null)
           target.setSelectionRange(
@@ -13957,7 +13976,7 @@ export default function App() {
           ? 0
           : value.slice(0, start).length -
             westernizeInputDigits(value.slice(0, start)).length;
-      target.value = normalized;
+      setFieldValueLikeTyping(target, normalized);
       try {
         if (start !== null && end !== null)
           target.setSelectionRange(
@@ -46273,13 +46292,14 @@ ${rows
                               </button>
                               {isAdminTeacher && (
                                 <input
-                                  type="number"
-                                  min={1}
-                                  max={readyToPrintCodesCount || undefined}
+                                  // text + numeric keyboard: a number field drops
+                                  // Arabic digits before any handler can convert them.
+                                  type="text"
                                   inputMode="numeric"
+                                  pattern="[0-9]*"
                                   value={printCardsLimit}
                                   onChange={(e) => {
-                                    const raw = e.target.value;
+                                    const raw = e.target.value.replace(/\D/g, "");
                                     if (raw === "") {
                                       setPrintCardsLimit("");
                                       return;
