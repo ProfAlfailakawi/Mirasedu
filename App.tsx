@@ -26145,6 +26145,76 @@ ${rows
     return Array.from(map.values());
   })();
 
+  // Each section holds its own copy of an exam or project (its own id), so
+  // after switching section while an activity was open, the old id matched
+  // nobody and the student list went empty until the teacher went back and
+  // reopened it. Follow the teacher instead: open the same activity (same
+  // title) in the new section, wait for it while that section loads, and
+  // fall back to the activity list when the section has no such activity.
+  const normalizedActivityTitle = (value: any) =>
+    String(value || "").replace(/\s+/g, " ").trim().toLowerCase();
+  const openedSubmissionActivityTitleRef = useRef("");
+  const openedSubmissionActivityCourseRef = useRef("");
+  const pendingSubmissionActivityTitleRef = useRef("");
+  const submissionActivityCardsKey = submissionActivityCards
+    .map((card) => `${card.id}\u0001${card.title}`)
+    .join("\u0002");
+  useEffect(() => {
+    if (teacherTab !== "submissions") return;
+    const cards = submissionActivityCards;
+    if (selectedSubmissionActivityId) {
+      const current = cards.find(
+        (card) => card.id === selectedSubmissionActivityId,
+      );
+      if (current) {
+        openedSubmissionActivityTitleRef.current = normalizedActivityTitle(
+          current.title,
+        );
+        openedSubmissionActivityCourseRef.current = String(activeCourseCode || "");
+        pendingSubmissionActivityTitleRef.current = "";
+        return;
+      }
+      // Only a section switch moves the selection. An activity opened from a
+      // link before its submissions loaded is left to appear on its own.
+      if (
+        !openedSubmissionActivityTitleRef.current ||
+        openedSubmissionActivityCourseRef.current === String(activeCourseCode || "")
+      )
+        return;
+      const title = openedSubmissionActivityTitleRef.current;
+      const sameActivity =
+        title &&
+        cards.find((card) => normalizedActivityTitle(card.title) === title);
+      setSelectedSubmissionIds({});
+      if (sameActivity) {
+        setSelectedSubmissionActivityId(sameActivity.id);
+        return;
+      }
+      pendingSubmissionActivityTitleRef.current = title;
+      setSelectedSubmissionActivityId(null);
+      return;
+    }
+    const pending = pendingSubmissionActivityTitleRef.current;
+    if (!pending) return;
+    const arrived = cards.find(
+      (card) => normalizedActivityTitle(card.title) === pending,
+    );
+    if (arrived) {
+      pendingSubmissionActivityTitleRef.current = "";
+      setSelectedSubmissionActivityId(arrived.id);
+    }
+  }, [
+    teacherTab,
+    activeCourseCode,
+    selectedSubmissionActivityId,
+    submissionActivityCardsKey,
+  ]);
+  // Any manual move (back, another card, the projects/exams switch) cancels
+  // a pending follow, so the screen never jumps somewhere unasked.
+  const cancelPendingSubmissionActivityFollow = () => {
+    pendingSubmissionActivityTitleRef.current = "";
+  };
+
   // تسليمات النشاط المختار فقط (عند الضغط على بطاقة نشاط)
   const drilledSubmissions = selectedSubmissionActivityId
     ? latestDisplayedActiveCourseSubmissions.filter(
@@ -38666,6 +38736,7 @@ ${rows
                               aria-label={label}
                               aria-pressed={active}
                               onClick={() => {
+                                cancelPendingSubmissionActivityFollow();
                                 setSubmissionSubTab(id as any);
                                 setSelectedSubmissionActivityId(null);
                                 setSelectedSubmissionIds({});
@@ -38709,6 +38780,7 @@ ${rows
                           key={card.id}
                           type="button"
                           onClick={() => {
+                            cancelPendingSubmissionActivityFollow();
                             setSelectedSubmissionActivityId(card.id);
                             setSelectedSubmissionIds({});
                             setSubmissionStatusFilter(null);
@@ -38782,6 +38854,7 @@ ${rows
                         <button
                           type="button"
                           onClick={() => {
+                            cancelPendingSubmissionActivityFollow();
                             setSelectedSubmissionActivityId(null);
                             setSelectedSubmissionIds({});
                             setSubmissionStatusFilter(null);
