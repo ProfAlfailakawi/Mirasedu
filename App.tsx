@@ -46299,7 +46299,10 @@ ${rows
                                   pattern="[0-9]*"
                                   value={printCardsLimit}
                                   onChange={(e) => {
-                                    const raw = e.target.value.replace(/\D/g, "");
+                                    const raw = e.target.value.trim();
+                                    // A non-digit (12.5, -10) is refused, not dropped:
+                                    // deleting it would merge the digits around it.
+                                    if (/\D/.test(raw)) return;
                                     if (raw === "") {
                                       setPrintCardsLimit("");
                                       return;
