@@ -95,6 +95,7 @@ run_group tests/flows.audit-scope.mjs tests/seed-audit-scope.cjs
 run_group tests/flows.authz-audit.mjs
 run_group tests/flows.demo-hosting.mjs
 run_group tests/flows.login-ip-limit.mjs
+run_group tests/flows.login-identify.mjs tests/seed-login-identify.cjs
 node node_modules/.bin/tsx --test tests/general-code-reset.test.mjs || overall=1
 node node_modules/.bin/tsx tests/flows.arabic-text.mjs || overall=1
 node node_modules/.bin/tsx --test tests/device-audit.test.ts || overall=1

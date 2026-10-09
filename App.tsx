@@ -5990,6 +5990,11 @@ export default function App() {
     exists: boolean;
     passkeyEnabled: boolean;
   } | null>(null);
+  // «الرقم الجامعي أولاً»: يكتب رقمه فقط ثم يُوجَّه تلقائياً لكلمة المرور أو
+  // لإنشاء الحساب، فلا يختار الطالب الجديد «دخول» خطأً.
+  const [loginStep, setLoginStep] = useState<"identify" | "password">("identify");
+  const [loginIdentifyBusy, setLoginIdentifyBusy] = useState(false);
+  const [loginGreetingName, setLoginGreetingName] = useState("");
   const [publicDeviceLogin, setPublicDeviceLogin] = useState<any>({
     phase: "idle",
   });
@@ -17036,6 +17041,12 @@ ${rows
       // لا ننتقل لشاشة كود التسجيل إلا إذا أثبت السيرفر جاهزية التسجيل (success).
       if (resp.ok && data.success === true) {
         setOtpSent(""); // Not used anymore
+        // طالب وصل بمسح QR الكرت: الكود محفوظ لهذه الجلسة، ويُمسح من الحقل في
+        // أول هذه الدالة؛ نعيده هنا حتى يجد كوده جاهزاً في شاشة التفعيل.
+        try {
+          const scannedCode = sessionStorage.getItem("miras_pending_join_code") || "";
+          if (scannedCode) setOtpInput(formatJoinCode(scannedCode));
+        } catch {}
         setCurrentView("otp");
         // هذه خطوة تحقق أولية فقط وليست تفعيلًا للحساب؛ لا نعرض رسالة نجاح
         // حتى لا يظن الطالب أن الحساب فُعّل قبل إدخال رمز المقرر واعتماده.
@@ -17613,6 +17624,60 @@ ${rows
       data.error ||
         "خطأ في بيانات الدخول. الرجاء التحقق من البيانات والمحاولة مرة أخرى.",
     );
+  };
+
+  // كل خروج من شاشة الدخول يعيدها لخطوة الرقم بدل خطوة كلمة المرور.
+  useEffect(() => {
+    if (currentView === "signup") return;
+    setLoginStep("identify");
+    setLoginGreetingName("");
+  }, [currentView]);
+
+  const handleLoginIdentify = async () => {
+    if (loginIdentifyBusy || loginCloudGateActive) return;
+    setErrorMsg("");
+    setSuccessMsg("");
+    const identity = String(loginForm.idNumber || "").trim();
+    if (!identity) {
+      setErrorMsg("اكتب رقمك الجامعي أولاً.");
+      return;
+    }
+    // بريد الأستاذ لا يمر بكشف ولا تسجيل: كلمة المرور مباشرة.
+    if (/[A-Za-z@.]/.test(identity)) {
+      setLoginGreetingName("");
+      setLoginStep("password");
+      return;
+    }
+    setLoginIdentifyBusy(true);
+    try {
+      const resp = await fetch(
+        `/api/auth/identify/${encodeURIComponent(identity)}`,
+        { cache: "no-store" },
+      );
+      const data = await resp.json().catch(() => ({}));
+      if (resp.ok && data.status === "account") {
+        setLoginGreetingName(String(data.firstName || ""));
+        setLoginStep("password");
+        return;
+      }
+      if (resp.ok && data.status === "signup") {
+        setSignupForm((prev) => ({ ...prev, idNumber: identity }));
+        openSignupWithInstallGate();
+        return;
+      }
+      if (resp.status === 400 || resp.status === 404) {
+        setErrorMsg(data.error || "الرقم الجامعي غير مدرج في الكشف.");
+        return;
+      }
+      // أي عطل آخر لا يقفل الدخول: نعرض كلمة المرور كما كانت الشاشة سابقاً.
+      setLoginGreetingName("");
+      setLoginStep("password");
+    } catch {
+      setLoginGreetingName("");
+      setLoginStep("password");
+    } finally {
+      setLoginIdentifyBusy(false);
+    }
   };
 
   const handleLogin = async () => {
@@ -31374,9 +31439,6 @@ ${rows
     loginAccountOptions.checking === false;
   const canShowLoginPasskey =
     loginAccountStateIsCurrent && loginAccountOptions?.passkeyEnabled === true;
-  const shouldShowCreateAccount =
-    instructorMode ||
-    !(loginAccountStateIsCurrent && loginAccountOptions?.exists === true);
   const isTransientActivationCameraMessage = (message: any) =>
     /تعذر تشغيل الكاميرا|تعذّر تشغيل الكاميرا|العدسة لم تجهز|camera-video-not-ready|NotReadable|TrackStart|Overconstrained|AbortError|Could not start video source|camera-unavailable/i.test(
       String(message || ""),
@@ -34017,56 +34079,114 @@ ${rows
                     </div>
                   ) : (
                     <>
-                      <div className="space-y-1.5">
-                        <label className="block text-[11px] font-bold text-slate-700">
-                          الرقم الجامعي
-                        </label>
-                        <input
-                          type="text"
-                          inputMode="text"
-                          autoComplete="off"
-                          placeholder="ادخل رقمك الجامعي"
-                          value={loginForm.idNumber}
-                          onChange={(e) =>
-                            setLoginForm({
-                              ...loginForm,
-                              idNumber: /[A-Za-z@.]/.test(e.target.value)
-                                ? normalizeArabicDigits(e.target.value).trim()
-                                : normalizeArabicDigits(e.target.value).replace(
-                                    /\D/g,
-                                    "",
-                                  ),
-                            })
-                          }
-                          className="w-full bg-white/60 border border-slate-200/80 rounded-2xl px-4 py-3.5 text-sm font-sans focus:bg-white text-slate-900 shadow-sm"
-                        />
-                      </div>
+                      {loginStep === "identify" ? (
+                        <div className="space-y-1.5">
+                          <label
+                            htmlFor="miras-login-identity"
+                            className="block text-[11px] font-bold text-slate-700"
+                          >
+                            الرقم الجامعي
+                          </label>
+                          <input
+                            id="miras-login-identity"
+                            type="text"
+                            inputMode="text"
+                            autoComplete="username"
+                            placeholder="ادخل رقمك الجامعي"
+                            value={loginForm.idNumber}
+                            onChange={(e) =>
+                              setLoginForm({
+                                ...loginForm,
+                                idNumber: /[A-Za-z@.]/.test(e.target.value)
+                                  ? normalizeArabicDigits(e.target.value).trim()
+                                  : normalizeArabicDigits(e.target.value).replace(
+                                      /\D/g,
+                                      "",
+                                    ),
+                              })
+                            }
+                            onKeyDown={(e) => {
+                              if (e.key === "Enter") {
+                                e.preventDefault();
+                                void handleLoginIdentify();
+                              }
+                            }}
+                            className="w-full bg-white/60 border border-slate-200/80 rounded-2xl px-4 py-3.5 text-sm font-sans focus:bg-white text-slate-900 shadow-sm"
+                          />
+                          <p className="pt-1 text-[11px] font-bold leading-5 text-slate-500">
+                            اكتب رقمك فقط، ونوجّهك للدخول أو لإنشاء حسابك.
+                          </p>
+                        </div>
+                      ) : (
+                        <>
+                          <div className="flex items-center justify-between gap-3 rounded-2xl border border-indigo-100 bg-indigo-50/50 px-4 py-3">
+                            <div className="min-w-0 text-right">
+                              {loginGreetingName && (
+                                <p className="truncate text-sm font-black text-slate-900">
+                                  أهلاً {loginGreetingName}
+                                </p>
+                              )}
+                              <p
+                                className="truncate font-mono text-xs font-bold text-slate-600"
+                                dir="ltr"
+                                style={{ unicodeBidi: "plaintext" }}
+                              >
+                                {loginForm.idNumber}
+                              </p>
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setLoginForm({ ...loginForm, password: "" });
+                                setLoginGreetingName("");
+                                setErrorMsg("");
+                                setLoginStep("identify");
+                              }}
+                              className="shrink-0 rounded-full border border-indigo-200 bg-white px-3 py-1.5 text-[11px] font-bold text-indigo-700 transition hover:bg-indigo-50"
+                            >
+                              تغيير
+                            </button>
+                          </div>
 
-                      <div className="space-y-1.5">
-                        <label className="block text-[11px] font-bold text-slate-700">
-                          كلمة المرور
-                        </label>
-                        <input
-                          type="password"
-                          placeholder="●●●●●●●●"
-                          value={loginForm.password}
-                          onChange={(e) =>
-                            setLoginForm({
-                              ...loginForm,
-                              password: e.target.value,
-                            })
-                          }
-                          className="w-full bg-white/60 border border-slate-200/80 rounded-2xl px-4 py-3.5 text-sm text-slate-900"
-                        />
-                      </div>
+                          <div className="space-y-1.5">
+                            <label
+                              htmlFor="miras-login-password"
+                              className="block text-[11px] font-bold text-slate-700"
+                            >
+                              كلمة المرور
+                            </label>
+                            <input
+                              id="miras-login-password"
+                              type="password"
+                              autoComplete="current-password"
+                              autoFocus
+                              placeholder="●●●●●●●●"
+                              value={loginForm.password}
+                              onChange={(e) =>
+                                setLoginForm({
+                                  ...loginForm,
+                                  password: e.target.value,
+                                })
+                              }
+                              onKeyDown={(e) => {
+                                if (e.key === "Enter") {
+                                  e.preventDefault();
+                                  void handleLogin();
+                                }
+                              }}
+                              className="w-full bg-white/60 border border-slate-200/80 rounded-2xl px-4 py-3.5 text-sm text-slate-900"
+                            />
+                          </div>
 
-                      <button
-                        type="button"
-                        onClick={handleForgotPassword}
-                        className="text-[11px] font-bold text-indigo-700 hover:underline"
-                      >
-                        نسيت كلمة المرور؟
-                      </button>
+                          <button
+                            type="button"
+                            onClick={handleForgotPassword}
+                            className="text-[11px] font-bold text-indigo-700 hover:underline"
+                          >
+                            نسيت كلمة المرور؟
+                          </button>
+                        </>
+                      )}
 
                       {/* «الدخول بهاتفي من جهاز عام» يظهر فقط على جهاز غير شخصي:
                           إذا كان لهذا الجهاز بصمة مسجّلة (activeLocalPasskeyLock)
@@ -34094,17 +34214,34 @@ ${rows
 
                       <div className="miras-login-actions flex items-start justify-center gap-5">
                         <div className="miras-login-action flex flex-col items-center gap-1.5">
-                        <button
-                          type="button"
-                          title="تسجيل الدخول"
-                          aria-label="تسجيل الدخول"
-                          onClick={handleLogin}
-                          disabled={loginCloudGateActive}
-                          className="miras-login-primary flex h-16 w-16 items-center justify-center rounded-3xl text-white transition-colors duration-200 btn-spring-active"
-                        >
-                          <Lock className="h-7 w-7" />
-                        </button>
-                          <span className="miras-login-action-label text-[11px] font-bold text-slate-500" aria-hidden="true">تسجيل الدخول</span>
+                        {loginStep === "identify" ? (
+                          <button
+                            type="button"
+                            title="متابعة"
+                            aria-label="متابعة"
+                            onClick={() => void handleLoginIdentify()}
+                            disabled={loginIdentifyBusy || loginCloudGateActive}
+                            className="miras-login-primary flex h-16 w-16 items-center justify-center rounded-3xl text-white transition-colors duration-200 btn-spring-active disabled:opacity-70"
+                          >
+                            {loginIdentifyBusy ? (
+                              <MirasLoader size={26} role="current" delay={0} label="جارٍ التحقق من الرقم…" />
+                            ) : (
+                              <ChevronLeft className="h-8 w-8" />
+                            )}
+                          </button>
+                        ) : (
+                          <button
+                            type="button"
+                            title="تسجيل الدخول"
+                            aria-label="تسجيل الدخول"
+                            onClick={handleLogin}
+                            disabled={loginCloudGateActive}
+                            className="miras-login-primary flex h-16 w-16 items-center justify-center rounded-3xl text-white transition-colors duration-200 btn-spring-active"
+                          >
+                            <Lock className="h-7 w-7" />
+                          </button>
+                        )}
+                          <span className="miras-login-action-label text-[11px] font-bold text-slate-500" aria-hidden="true">{loginStep === "identify" ? "متابعة" : "تسجيل الدخول"}</span>
                         </div>
                         {canShowLoginPasskey && <div className="miras-login-action flex flex-col items-center gap-1.5">
                         <button
@@ -34128,20 +34265,6 @@ ${rows
                         </button>
                           <span className="miras-login-action-label text-[11px] font-bold text-slate-500" aria-hidden="true">الدخول بالبصمة</span>
                         </div>}
-                        {shouldShowCreateAccount && (
-                        <div className="miras-login-action flex flex-col items-center gap-1.5">
-                        <button
-                          type="button"
-                          title="إنشاء حساب جديد"
-                          aria-label="إنشاء حساب جديد"
-                          onClick={openSignupWithInstallGate}
-                          className="flex h-16 w-16 items-center justify-center rounded-3xl border border-indigo-100 bg-indigo-50 text-indigo-700 transition-all duration-300 btn-spring-active hover:bg-indigo-100"
-                        >
-                          <Plus className="h-6 w-6" />
-                        </button>
-                          <span className="miras-login-action-label text-[11px] font-bold text-slate-500" aria-hidden="true">إنشاء حساب جديد</span>
-                        </div>
-                        )}
                       </div>
                       {passkeyStatus && (
                         <div className="rounded-2xl border border-emerald-100 bg-emerald-50 px-4 py-3 text-center text-[11px] font-bold text-emerald-700">
