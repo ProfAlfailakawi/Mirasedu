@@ -227,3 +227,11 @@ html body .text-\[11px\]:not(.meras-exam-shell *) { font-size: 12px !important; 
 html body .text-\[8\.5px\]:not(.meras-exam-shell *) { font-size: 12px !important; }
 html body .text-\[8\.8px\]:not(.meras-exam-shell *) { font-size: 12px !important; }
 html body .text-\[9px\]:not(.meras-exam-shell *) { font-size: 12px !important; }
+
+/* ---- 6. sources outside the stylesheets: App.tsx <style> block and one inline style ---- */
+html body .miras-app-teacher-root.miras-teacher-viewport-v5 .teacher-command-header .miras-teacher-heading-block > div:first-child:not(#_):not(#_):not(#_):not(#_):not(.meras-exam-shell *),
+html body .miras-app-teacher-root.miras-teacher-viewport-v5 .miras-zero-name-pill:not(#_):not(#_):not(#_):not(#_):not(.meras-exam-shell *),
+html body .miras-zero-name-pill div[style*="font-size: 0.62rem"]:not(#_):not(#_):not(#_):not(#_):not(.meras-exam-shell *),
+html body div[style*="font-size: 0.62rem"]:not(#_):not(#_):not(.meras-exam-shell *) {
+  font-size: 12px !important;
+}
