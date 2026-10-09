@@ -19,3 +19,11 @@ html body .meras-teacher-shell .miras-submissions-panel button.group.rounded-\[v
   min-height: 10px;
   border-radius: 999px;
 }
+
+/* progress bar: the calm sheet gives .miras-stack-bar 0.3rem; make it 10px with rounded ends */
+html body .meras-teacher-shell .miras-submissions-panel .miras-stack-bar:not(#_):not(#_):not(.meras-exam-shell *) {
+  height: 10px !important;
+  min-height: 10px;
+  border-radius: 999px !important;
+  overflow: hidden;
+}
