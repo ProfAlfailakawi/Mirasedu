@@ -10,8 +10,8 @@
     "browser"
   ],
   "orientation": "portrait-primary",
-  "background_color": "#0A0A12",
-  "theme_color": "#0A0A12",
+  "background_color": "#FFFFFF",
+  "theme_color": "#FFFFFF",
   "dir": "rtl",
   "lang": "ar",
   "categories": [
