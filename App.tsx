@@ -54,7 +54,7 @@ const setFieldValueLikeTyping = (
   if (setter) setter.call(target, value);
   else target.value = value;
 };
-import { DnaHubMap, DnaIconTile, DnaStepper, DnaTimeline, DnaHeat, DnaRing, DnaStat, DnaStatusHeader, type DnaEvent, type DnaStep, type DnaHubNode } from "./src/design/DnaKit";
+import { DnaEmpty, DnaHubMap, DnaIconTile, DnaStepper, DnaTimeline, DnaHeat, DnaRing, DnaStat, DnaStatusHeader, type DnaEvent, type DnaStep, type DnaHubNode } from "./src/design/DnaKit";
 import { mirasPhoneticWordMatch } from "./src/shared/phonetic-search";
 import {
   allowDemoTransportOrigin,
@@ -36440,9 +36440,7 @@ ${rows
                                     );
                                   })}
                                 {studentSubmissionTimeline.length === 0 && (
-                                  <div className="rounded-[var(--miras-r-lg)] border border-dashed border-slate-200 bg-white py-8 text-center text-xs font-bold text-slate-400">
-                                    لا يوجد تسليمات مسجلة حتى اللحظة
-                                  </div>
+                                  <DnaEmpty icon={<FileText size={22} />} tone="indigo" title="لا يوجد تسليمات مسجلة حتى اللحظة" hint="ستظهر هنا عندما تسلّم أول عمل لك." className="rounded-[var(--miras-r-lg)] border border-dashed border-slate-200 bg-white" />
                                 )}
                               </div>
                             </div>
@@ -47860,9 +47858,7 @@ ${rows
                 );
               })}
               {studentSubmissionTimeline.length === 0 && (
-                <div className="rounded-[var(--miras-r-lg)] border border-dashed border-slate-200 bg-white py-8 text-center text-xs font-bold text-slate-400">
-                  لا يوجد تسليمات مسجلة حتى اللحظة
-                </div>
+                <DnaEmpty icon={<FileText size={22} />} tone="indigo" title="لا يوجد تسليمات مسجلة حتى اللحظة" hint="ستظهر هنا عندما تسلّم أول عمل لك." className="rounded-[var(--miras-r-lg)] border border-dashed border-slate-200 bg-white" />
               )}
             </div>
           </div>

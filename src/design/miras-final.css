@@ -252,3 +252,8 @@ html[data-theme="dark"] #root .miras-roster-label:not(#_):not(#_):not(.meras-exa
 html[data-theme="dark"] #root .miras-metric-of:not(#_):not(#_):not(.meras-exam-shell *) {
   color: #94a3b8 !important;
 }
+
+/* Empty-state hint (DnaEmpty): muted grey on the pale card measured 4.3:1 in light mode. */
+html:not([data-theme="dark"]) body .dna .dna-voids:not(#_):not(.meras-exam-shell *) {
+  color: #566176;
+}
