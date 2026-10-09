@@ -35384,7 +35384,7 @@ ${rows
                       </div>
                     )}
 
-                    <div className="miras-student-actions-row flex w-full shrink-0 flex-wrap items-center justify-end gap-2">
+                    <div className="miras-student-actions-row miras-student-toolbar flex w-full shrink-0 flex-wrap items-center justify-end gap-2">
                       <div
                         className="relative flex items-center justify-end gap-2"
                         onClick={(e) => e.stopPropagation()}
@@ -35396,7 +35396,7 @@ ${rows
                               closeStudentPanels();
                               setStudentTab("overview");
                             }}
-                            className="inline-flex h-12 w-12 items-center justify-center rounded-2xl border border-slate-200 bg-white text-slate-900 shadow-sm hover:bg-indigo-50 hover:text-indigo-700"
+                            className="miras-student-tool inline-flex h-12 w-12 items-center justify-center rounded-2xl border border-slate-200 bg-white text-slate-900 shadow-sm hover:bg-indigo-50 hover:text-indigo-700"
                           >
                             <Home className="h-5 w-5" />
                           </button>
@@ -35406,7 +35406,7 @@ ${rows
                           title={theme === "dark" ? "الوضع النهاري" : "الوضع الليلي"}
                           aria-label={theme === "dark" ? "الوضع النهاري" : "الوضع الليلي"}
                           onClick={toggleTheme}
-                          className="inline-flex h-12 w-12 items-center justify-center rounded-2xl border border-slate-200 bg-white text-slate-900 shadow-sm hover:bg-indigo-50 hover:text-indigo-700"
+                          className="miras-student-tool inline-flex h-12 w-12 items-center justify-center rounded-2xl border border-slate-200 bg-white text-slate-900 shadow-sm hover:bg-indigo-50 hover:text-indigo-700"
                         >
                           {theme === "dark" ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
                         </button>
@@ -35415,7 +35415,7 @@ ${rows
                             title="تثبيت منصة مِراس على الشاشة الرئيسية"
                             aria-label="تثبيت مِراس على جهازك"
                             onClick={triggerPwaInstallation}
-                            className="inline-flex h-12 w-12 items-center justify-center rounded-2xl border border-indigo-100 bg-gradient-to-br from-white to-indigo-50/50 text-indigo-700 shadow-sm hover:bg-indigo-100 relative pwa-glowing-btn"
+                            className="miras-student-tool inline-flex h-12 w-12 items-center justify-center rounded-2xl border border-indigo-100 bg-gradient-to-br from-white to-indigo-50/50 text-indigo-700 shadow-sm hover:bg-indigo-100 relative pwa-glowing-btn"
                           >
                             <Smartphone className="h-4.5 w-4.5 text-indigo-600" />
                           </button>
@@ -35427,7 +35427,7 @@ ${rows
                               aria-label="تفعيل الدخول بالبصمة لهذا الجهاز"
                               onClick={registerPasskeyForCurrentSession}
                               disabled={passkeyBusy}
-                              className="inline-flex h-12 w-12 items-center justify-center rounded-2xl border border-emerald-100 bg-emerald-50 text-emerald-700 shadow-sm hover:bg-emerald-100 disabled:opacity-60"
+                              className="miras-student-tool miras-student-tool--passkey inline-flex h-12 w-12 items-center justify-center rounded-2xl border border-emerald-100 bg-emerald-50 text-emerald-700 shadow-sm hover:bg-emerald-100 disabled:opacity-60"
                             >
                               {passkeyBusy ? (
                                 <MirasLoader size={20} role="current" label="جارٍ التنفيذ…" />
@@ -35470,7 +35470,7 @@ ${rows
                                 await fetchInAppNotifications();
                               }
                             }}
-                            className={`inline-flex h-12 w-12 items-center justify-center rounded-2xl border border-indigo-100 text-indigo-700 relative bg-gradient-to-br from-white to-indigo-50/50 ${studentNotificationBadgeCount > 0 ? "notification-alert-glowing-btn ring-1 ring-indigo-200" : ""}`}
+                            className={`miras-student-tool miras-student-tool--notify inline-flex h-12 w-12 items-center justify-center rounded-2xl border border-indigo-100 text-indigo-700 relative bg-gradient-to-br from-white to-indigo-50/50 ${studentNotificationBadgeCount > 0 ? "notification-alert-glowing-btn ring-1 ring-indigo-200" : ""}`}
                           >
                             <Bell className="h-5 w-5" />
                             {studentNotificationBadgeCount > 0 && (
@@ -35763,7 +35763,8 @@ ${rows
                           closeStudentPanels();
                           secureLogout();
                         }}
-                        className="inline-flex h-12 w-12 items-center justify-center rounded-2xl border border-rose-100 bg-rose-50 text-rose-700 hover:bg-rose-100"
+                        aria-label="خروج"
+                        className="miras-student-tool miras-student-tool--logout inline-flex h-12 w-12 items-center justify-center rounded-2xl border border-rose-100 bg-rose-50 text-rose-700 hover:bg-rose-100"
                       >
                         <LogOut className="h-4 w-4" />
                       </button>
