@@ -84,9 +84,23 @@
     flex-wrap: nowrap !important;
     gap: 0.25rem !important;
   }
-  html body .workspace-calm-shell .meras-topbar .miras-student-actions-row button:not(#_):not(#_) {
+  /* Only the header's own round buttons (direct children of the row), never the
+     buttons inside the notifications popover. */
+  html body .workspace-calm-shell .meras-topbar .miras-student-actions-row > div > button:not(#_):not(#_) {
     width: 2.75rem !important;
     height: 2.75rem !important;
     flex: 0 0 auto !important;
+  }
+}
+
+/* Narrowest phones (320px): six 44px buttons plus gaps need about 284px but the
+   header offers about 277px. Keep the 44px touch targets and let the row wrap
+   (centered) instead of overflowing sideways. 360px and wider are unchanged. */
+@media (max-width: 350px) {
+  html body .workspace-calm-shell .meras-topbar .miras-student-actions-row:not(#_):not(#_),
+  html body .workspace-calm-shell .meras-topbar .miras-student-actions-row > div:not(#_):not(#_) {
+    flex-wrap: wrap !important;
+    justify-content: center !important;
+    gap: 0.35rem !important;
   }
 }
