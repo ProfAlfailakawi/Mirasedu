@@ -1,0 +1,29 @@
+/*
+ * Teacher submissions tab in the codes-page language (presentation only, no markup, no text).
+ * Activity cards get a status-neutral indigo rail, a white surface and the layered shadow;
+ * the three-colour progress bar is thicker and rounder.
+ */
+html body .meras-teacher-shell .miras-submissions-panel button.group.rounded-\[var\(--miras-r-lg\)\]:not(#_):not(#_):not(.meras-exam-shell *) {
+  border: 0 !important;
+  border-inline-start: 5px solid #6366f1 !important;
+  background: #fff !important;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.05), 0 14px 26px -20px rgba(67, 56, 202, 0.38) !important;
+}
+html[data-theme="dark"] body .meras-teacher-shell .miras-submissions-panel button.group.rounded-\[var\(--miras-r-lg\)\]:not(#_):not(#_) {
+  background: rgba(255, 255, 255, 0.05) !important;
+  border-inline-start-color: #818cf8 !important;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06), 0 14px 26px -20px rgba(0, 0, 0, 0.75) !important;
+}
+html body .meras-teacher-shell .miras-submissions-panel button.group.rounded-\[var\(--miras-r-lg\)\] [class*="h-1.5"],
+html body .meras-teacher-shell .miras-submissions-panel button.group.rounded-\[var\(--miras-r-lg\)\] [class*="h-2"]:not(#_) {
+  min-height: 10px;
+  border-radius: 999px;
+}
+
+/* progress bar: the calm sheet gives .miras-stack-bar 0.3rem; make it 10px with rounded ends */
+html body .meras-teacher-shell .miras-submissions-panel .miras-stack-bar:not(#_):not(#_):not(.meras-exam-shell *) {
+  height: 10px !important;
+  min-height: 10px;
+  border-radius: 999px !important;
+  overflow: hidden;
+}
