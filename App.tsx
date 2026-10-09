@@ -38526,9 +38526,6 @@ ${rows
                               <h4 className="text-sm font-bold text-slate-900 leading-6">
                                 {card.title}
                               </h4>
-                              <p className="mt-1.5 text-[11px] font-medium text-slate-500">
-                                {card.total} تسليم
-                              </p>
                             </div>
                             <div className="flex shrink-0 flex-col items-center gap-1.5">
                               <MirasRatioRing done={card.graded} total={card.total} />
@@ -38556,11 +38553,6 @@ ${rows
                             </div>
                           )}
                           <div className="miras-sub-chips mt-3 flex flex-wrap gap-1.5">
-                            {card.graded > 0 && (
-                              <span className="rounded-full bg-emerald-50 px-2.5 py-1 text-[10px] font-bold text-emerald-700">
-                                {card.graded} مصحح
-                              </span>
-                            )}
                             {card.pending > 0 && (
                               <span className="rounded-full bg-slate-100 px-2.5 py-1 text-[10px] font-bold text-slate-600">
                                 {card.pending} بانتظار
