@@ -111,3 +111,94 @@
     gap: 0.35rem !important;
   }
 }
+
+/*
+ * Student header buttons as one connected toolbar, like the teacher's: a single
+ * pill with round transparent buttons inside, the bell tinted, and sign-out set
+ * apart by a hairline in a soft warning colour. They were six separate tiles
+ * spread across the whole row. Presentation only; the buttons and their
+ * behaviour are unchanged. Scoped to .miras-student-tool, so buttons inside the
+ * notifications popover are never touched.
+ */
+html body .workspace-calm-shell .meras-topbar .miras-student-toolbar:not(#_):not(#_):not(#_) {
+  width: auto !important;
+  flex: 0 0 auto !important;
+  justify-content: flex-start !important;
+  flex-wrap: nowrap !important;
+  gap: 0 !important;
+  margin: 0 !important;
+  padding: 0.15rem !important;
+  border-radius: 999px !important;
+  border: 1px solid var(--miras-line, rgba(226, 232, 240, 0.9)) !important;
+  background: var(--miras-surface-2, rgba(248, 250, 252, 0.9)) !important;
+}
+html body .workspace-calm-shell .meras-topbar .miras-student-toolbar > div:not(#_):not(#_):not(#_) {
+  width: auto !important;
+  flex: 0 0 auto !important;
+  justify-content: flex-start !important;
+  flex-wrap: nowrap !important;
+  gap: 0 !important;
+}
+html body .workspace-calm-shell .meras-topbar .miras-student-toolbar .miras-student-tool:not(#_):not(#_):not(#_) {
+  position: relative !important;
+  flex: 0 0 auto !important;
+  width: 2.75rem !important;
+  height: 2.75rem !important;
+  min-width: 2.75rem !important;
+  border-radius: 999px !important;
+  border-color: transparent !important;
+  background: transparent !important;
+  background-image: none !important;
+  box-shadow: none !important;
+  color: var(--miras-ink-2, #46506a) !important;
+}
+html body .workspace-calm-shell .meras-topbar .miras-student-toolbar .miras-student-tool--notify:not(#_):not(#_):not(#_) {
+  background: var(--miras-brand-tint, #eef0fe) !important;
+  color: var(--miras-brand, #4f46e5) !important;
+}
+html body .workspace-calm-shell .meras-topbar .miras-student-toolbar .miras-student-tool--notify .miras-notification-badge:not(#_) {
+  top: 0.1rem !important;
+  left: 0.1rem !important;
+  right: auto !important;
+}
+html body .workspace-calm-shell .meras-topbar .miras-student-toolbar .miras-student-tool--passkey:not(#_):not(#_):not(#_) {
+  color: #059669 !important;
+}
+html body .workspace-calm-shell .meras-topbar .miras-student-toolbar .miras-student-tool--logout:not(#_):not(#_):not(#_) {
+  margin-inline-start: 0.3rem !important;
+  color: #e11d48 !important;
+}
+html body .workspace-calm-shell .meras-topbar .miras-student-toolbar .miras-student-tool--logout::before {
+  content: "";
+  position: absolute;
+  inset-inline-start: -0.2rem;
+  top: 25%;
+  height: 50%;
+  width: 1px;
+  background: var(--miras-line, rgba(203, 213, 225, 0.9));
+}
+/* Phones: the toolbar sits under the name, on the left like the teacher's. */
+@media (max-width: 767.98px) {
+  html body .workspace-calm-shell .meras-topbar .miras-student-toolbar:not(#_):not(#_):not(#_) {
+    align-self: flex-end !important;
+  }
+}
+/* Wide screens: beside the name on the same row; slightly smaller buttons. */
+@media (min-width: 768px) {
+  html body .workspace-calm-shell .meras-topbar .miras-student-toolbar:not(#_):not(#_):not(#_) {
+    align-self: center !important;
+  }
+  html body .workspace-calm-shell .meras-topbar .miras-student-toolbar .miras-student-tool:not(#_):not(#_):not(#_) {
+    width: 2.5rem !important;
+    height: 2.5rem !important;
+    min-width: 2.5rem !important;
+  }
+}
+/* 320px phones: six buttons stay on one line inside the pill. */
+@media (max-width: 350px) {
+  html body .workspace-calm-shell .meras-topbar .miras-student-toolbar .miras-student-tool:not(#_):not(#_):not(#_) {
+    width: 2.55rem !important;
+    height: 2.55rem !important;
+    min-width: 2.55rem !important;
+  }
+}
