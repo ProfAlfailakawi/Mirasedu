@@ -1,0 +1,30 @@
+/*
+ * Teacher screens: readable question text and calmer chrome (presentation only).
+ *
+ * Question bank cards set the question itself in a 12px bold paragraph (the shell scales
+ * Tailwind's text-sm down), so the main content was the smallest thing on the card. It is
+ * raised to 14px with a more open line height. Scoped to question cards
+ * (`rounded-2xl border bg-white p-4 shadow-sm` holding a `p.text-sm.font-bold.leading-6`).
+ */
+html body .meras-teacher-shell div.rounded-2xl.border.bg-white.p-4.shadow-sm p.text-sm.font-bold.leading-6:not(#_):not(.meras-exam-shell *) {
+  font-size: 14px !important;
+  line-height: 1.75;
+  text-wrap: pretty;
+}
+
+/*
+ * Code cards: the three field boxes (course, student, timeline) each had their own border
+ * inside a bordered card. They become borderless soft tints, so the card reads as one
+ * surface with calm groups instead of boxes inside boxes.
+ */
+html body .meras-teacher-shell div.mt-4.grid.gap-2.leading-6 > div.rounded-2xl.border.p-3:not(#_):not(.meras-exam-shell *) {
+  border-color: transparent !important;
+  background: rgba(99, 102, 241, 0.055) !important;
+}
+html[data-theme="dark"] body .meras-teacher-shell div.mt-4.grid.gap-2.leading-6 > div.rounded-2xl.border.p-3:not(#_):not(.meras-exam-shell *) {
+  background: rgba(129, 140, 248, 0.09) !important;
+}
+/* The small captions in those boxes were slate-400 on a pale tint (about 2.6:1 in light mode). */
+html:not([data-theme="dark"]) body .meras-teacher-shell div.mt-4.grid.gap-2.leading-6 > div.rounded-2xl.border.p-3 > span.block:not(#_):not(.meras-exam-shell *) {
+  color: #55637a !important;
+}
