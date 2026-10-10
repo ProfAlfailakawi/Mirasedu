@@ -1,0 +1,20 @@
+/*
+ * Student exam / project lists had two card shells side by side: «open» cards carried a glass blur
+ * and a bright white top edge (very visible on the dark theme), the others a flat shadow. Both now
+ * share one shell: the same depth, no blur, no white edge. Shell only; no markup, order or
+ * display condition changed.
+ */
+html body .workspace-calm-shell main div.group.relative.overflow-hidden.rounded-\[var\(--miras-r-xl\)\]:not(#_):not(#__) {
+  -webkit-backdrop-filter: none !important;
+  backdrop-filter: none !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.85),
+    0 1px 2px rgba(15, 23, 42, 0.05),
+    0 14px 26px -18px rgba(67, 56, 202, 0.34) !important;
+}
+html[data-theme="dark"] body .workspace-calm-shell main div.group.relative.overflow-hidden.rounded-\[var\(--miras-r-xl\)\]:not(#_):not(#__) {
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.06),
+    0 1px 2px rgba(0, 0, 0, 0.5),
+    0 16px 28px -18px rgba(0, 0, 0, 0.75) !important;
+}
