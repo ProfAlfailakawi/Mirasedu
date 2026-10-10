@@ -28674,7 +28674,18 @@ ${rows
         .replace(/\s+/g, " ")
         .trim()}`;
     const seen = new Set<string>();
+    // تنبيهات الأحداث (سجل أمني/نزاهة/إشعار داخلي) لها عمر: ما مضى عليه أكثر من ٢٤ ساعة
+    // لا يُعرض كتنبيه «جديد» — كان يعود من الصندوق على جهاز آخر أو بعد مسح التخزين فيبدو
+    // تنبيه الأمس وكأنه وصل الآن (مثل ‎09/10 00:00‎). أما الحالات المعلّقة الفعلية (طلب
+    // استرجاع، اعتماد جهاز، اختبار بلا أسئلة…) فلا عمر لها وتبقى حتى تُعالج.
+    const EVENT_ALERT_MAX_AGE_MS = 24 * 60 * 60 * 1000;
+    const isStaleEventAlert = (item: any) => {
+      if (!/^(?:teacher|admin)-(?:log|inapp)-|^device-review-/.test(String(item?.key || ""))) return false;
+      const at = timeValue(item);
+      return at > 0 && now - at > EVENT_ALERT_MAX_AGE_MS;
+    };
     return groupSecurityNotifications(items)
+      .filter((item) => !isStaleEventAlert(item))
       .map((item) => ({
         ...item,
         readFingerprint: teacherNotificationReadFingerprint(item),
