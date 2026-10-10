@@ -106,7 +106,7 @@ html body .workspace-calm-shell .miras-student-last-submission-card .dna-stepi[d
     to { opacity: 1; transform: none; }
   }
   html body .workspace-calm-shell .miras-now-available button:not(#_):not(#_):not(#__) {
-    animation: miras-home-rise 0.5s cubic-bezier(0.2, 0.7, 0.2, 1) both;
+    animation: miras-home-rise 0.5s cubic-bezier(0.2, 0.7, 0.2, 1) backwards;
   }
   html body .workspace-calm-shell .miras-now-available button:nth-child(2):not(#_):not(#_):not(#__) { animation-delay: 70ms; }
 }
