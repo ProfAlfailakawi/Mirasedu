@@ -59,11 +59,14 @@ export default function LoginRevealOverlay({
   role,
   onDone,
   ready = true,
+  trouble = false,
 }: {
   role: RevealRole;
   onDone: () => void;
   /** تبقى الشاشة ظاهرة حتى تصير true (اكتمال تحميل بيانات الحساب من السحابة). */
   ready?: boolean;
+  /** عرضٌ فقط: يظهر سطر تنبيه إن تعذّر الاتصال أثناء الانتظار؛ لا يغيّر مدة الانتظار ولا شرط المغادرة. */
+  trouble?: boolean;
 }) {
   const [leaving, setLeaving] = useState(false);
   // مسارات سفر الشارات إلى عناصر اللوحة الحقيقية — تُقاس لحظة المغادرة فقط.
@@ -159,6 +162,11 @@ export default function LoginRevealOverlay({
           <p className={`mt-1.5 text-center text-[12px] font-bold ${accentText}`}>
             {subtitle}
           </p>
+          {trouble && (
+            <p className="mt-2 text-center text-[12px] font-bold text-amber-700" role="alert">
+              تعذّر تحديث البيانات — تحقّق من اتصالك بالإنترنت.
+            </p>
+          )}
         </div>
       </div>
     );
@@ -168,6 +176,17 @@ export default function LoginRevealOverlay({
   const easeLift: [number, number, number, number] = [0.32, 0.72, 0, 1];
 
   return (
+    <>
+    {/* السطر التنبيهي خارج الشجرة المخفيّة (aria-hidden) كي يقرأه قارئ الشاشة؛ موضعه ثابت تحت مركز التكوين */}
+    {trouble && (
+      <p
+        className="fixed left-1/2 z-[221] w-[260px] -translate-x-1/2 text-center text-[12px] font-bold text-amber-700"
+        style={{ top: "calc(50% + 146px)" }}
+        role="alert"
+      >
+        تعذّر تحديث البيانات — تحقّق من اتصالك بالإنترنت.
+      </p>
+    )}
     <div
       dir="rtl"
       className="fixed inset-0 z-[220] grid place-items-center overflow-hidden"
@@ -330,5 +349,6 @@ export default function LoginRevealOverlay({
         </motion.div>
       </motion.div>
     </div>
+    </>
   );
 }
