@@ -1,0 +1,35 @@
+/*
+ * Exam top bar (presentation only: no text, no markup, no height change).
+ * From a heavy near-black slab to a light glass bar: translucent surface with blur, a hairline
+ * border and an inline-start accent rail drawn with inset shadow (so it adds no height), dark
+ * text, and a clearer split between the exam name (bold) and the timer chip (capsule).
+ */
+.meras-exam-shell .miras-exam-header-bar:not(#_):not(#_) {
+  background: rgba(255, 255, 255, 0.72) !important;
+  -webkit-backdrop-filter: blur(14px);
+  backdrop-filter: blur(14px);
+  color: #0f172a !important;
+  box-shadow: inset -4px 0 0 #6366f1, inset 0 0 0 1px rgba(99, 102, 241, 0.18), 0 10px 24px -16px rgba(67, 56, 202, 0.4) !important;
+}
+.meras-exam-shell .miras-exam-header-bar > span:first-child:not(#_) {
+  color: #0f172a !important;
+  font-weight: 800 !important;
+}
+.meras-exam-shell .miras-exam-header-bar > span:nth-child(2):not(#_) {
+  color: #312e81 !important;
+  background: rgba(99, 102, 241, 0.12) !important;
+  border-color: rgba(99, 102, 241, 0.28) !important;
+}
+html[data-theme="dark"] .meras-exam-shell .miras-exam-header-bar:not(#_):not(#_) {
+  background: rgba(255, 255, 255, 0.06) !important;
+  color: #f1f5f9 !important;
+  box-shadow: inset -4px 0 0 #818cf8, inset 0 0 0 1px rgba(255, 255, 255, 0.1), 0 10px 24px -16px rgba(0, 0, 0, 0.7) !important;
+}
+html[data-theme="dark"] .meras-exam-shell .miras-exam-header-bar > span:first-child:not(#_) {
+  color: #f1f5f9 !important;
+}
+html[data-theme="dark"] .meras-exam-shell .miras-exam-header-bar > span:nth-child(2):not(#_) {
+  color: #e0e7ff !important;
+  background: rgba(129, 140, 248, 0.2) !important;
+  border-color: rgba(129, 140, 248, 0.35) !important;
+}
