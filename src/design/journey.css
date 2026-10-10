@@ -25,9 +25,12 @@
 }
 .dna-stepi + .dna-stepi[data-link='done']::after { transform: scaleX(1); }
 .dna-stepi + .dna-stepi[data-link='done']::before { background: var(--dna-line-2); }
-:dir(rtl) .dna-stepi + .dna-stepi::after { transform-origin: right center; }
+/* attribute rules first (browsers without :dir()), then :dir() last so the
+   nearest computed direction wins even for an LTR island inside RTL (or back) */
 [dir='rtl'] .dna-stepi + .dna-stepi::after { transform-origin: right center; }
 [dir='ltr'] .dna-stepi + .dna-stepi::after { transform-origin: left center; }
+:dir(ltr) .dna-stepi + .dna-stepi::after { transform-origin: left center; }
+:dir(rtl) .dna-stepi + .dna-stepi::after { transform-origin: right center; }
 
 .dna-steps[data-size='xs'] .dna-stepi + .dna-stepi::after {
   inset-block-start: calc(var(--node) / 2 - 0.75px);
@@ -102,13 +105,27 @@
   background: rgba(255, 255, 255, 0.32);
   transition: background-color 0.3s var(--dna-ease, ease), box-shadow 0.3s var(--dna-ease, ease);
 }
+.journey-rail .journey-rail-dot {
+  /* app-wide button rules (44px touch minimum; 2.55rem inside the tour panel on
+     phones, both !important) would stretch the 10px dot into an oval. The ::after
+     below is the real touch target. */
+  min-width: 0 !important;
+  min-height: 0 !important;
+  border-radius: 50% !important;
+}
 .journey-rail-dot::after { content: ''; position: absolute; inset: -14px -6px; }
 .journey-rail-dot[data-state='done'] { background: #fff; }
 .journey-rail-dot[data-state='current'] {
   background: #fff;
   box-shadow: 0 0 0 4px rgba(255, 255, 255, 0.22);
 }
-.journey-rail-dot:focus-visible { outline: 2px solid #fff; outline-offset: 4px; }
+.journey-rail-dot:focus-visible {
+  outline: 2px solid #fff;
+  outline-offset: 4px;
+  /* the app-wide focus ring is a faint blue box-shadow; on the dark stage use
+     a clear white ring (same specificity fight, hence !important) */
+  box-shadow: 0 0 0 4px rgba(255, 255, 255, 0.35) !important;
+}
 .journey-rail-seg {
   position: relative;
   flex: none;
@@ -127,8 +144,10 @@
   transform-origin: left center;
   transition: transform 0.4s var(--dna-ease, ease);
 }
-:dir(rtl) .journey-rail-seg::after { transform-origin: right center; }
 [dir='rtl'] .journey-rail-seg::after { transform-origin: right center; }
+[dir='ltr'] .journey-rail-seg::after { transform-origin: left center; }
+:dir(ltr) .journey-rail-seg::after { transform-origin: left center; }
+:dir(rtl) .journey-rail-seg::after { transform-origin: right center; }
 .journey-rail-seg[data-on='true']::after { transform: scaleX(1); }
 @media (prefers-reduced-motion: reduce) {
   .journey-rail-dot, .journey-rail-seg::after { transition: none !important; }

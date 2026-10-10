@@ -31834,12 +31834,14 @@ ${rows
                 <p className="mt-2 text-[12px] font-bold leading-6 text-slate-500">
                   لن تُرسل كلمة المرور، ولن يُعتمد الكمبيوتر كجهاز شخصي.
                 </p>
-                <DnaStepper
-                  size="sm"
-                  className="mt-5"
-                  steps={publicLoginApprovalSteps(publicLoginApproval.phase) || []}
-                  ariaLabel="مراحل الدخول من جهاز عام"
-                />
+                <div className="mt-5">
+                  <DnaStepper
+                    size="sm"
+                    still
+                    steps={publicLoginApprovalSteps(publicLoginApproval.phase) || []}
+                    ariaLabel="مراحل الدخول من جهاز عام"
+                  />
+                </div>
 
                 <div className="mt-5 rounded-[var(--miras-r-lg)] border border-slate-100 bg-slate-50/80 p-4 text-right">
                   <div className="flex items-center gap-3">
@@ -31903,12 +31905,14 @@ ${rows
                 <span className="mx-auto grid h-16 w-16 place-items-center rounded-full bg-emerald-50 text-emerald-600 ring-8 ring-emerald-50/60">
                   <CheckCircle2 className="h-8 w-8" />
                 </span>
-                <DnaStepper
-                  size="sm"
-                  className="mt-6"
-                  steps={publicLoginApprovalSteps("success") || []}
-                  ariaLabel="مراحل الدخول من جهاز عام"
-                />
+                <div className="mt-6">
+                  <DnaStepper
+                    size="sm"
+                    still
+                    steps={publicLoginApprovalSteps("success") || []}
+                    ariaLabel="مراحل الدخول من جهاز عام"
+                  />
+                </div>
                 <h1 className="mt-5 text-xl font-black text-slate-950">
                   تم اعتماد الدخول
                 </h1>
@@ -31976,12 +31980,14 @@ ${rows
 
             {publicDeviceLogin.phase === "starting" && (
               <div className="py-12">
-                <DnaStepper
-                  size="sm"
-                  className="mb-8"
-                  steps={publicDeviceLoginSteps("starting", false) || []}
-                  ariaLabel="مراحل الدخول من جهاز عام"
-                />
+                <div className="mb-8">
+                  <DnaStepper
+                    size="sm"
+                    still
+                    steps={publicDeviceLoginSteps("starting", false) || []}
+                    ariaLabel="مراحل الدخول من جهاز عام"
+                  />
+                </div>
                 <MirasLoader
                   size={36}
                   role="neutral"
@@ -32048,6 +32054,7 @@ ${rows
                 <div className="mt-5 border-t border-slate-100 pt-5">
                   <DnaStepper
                     size="sm"
+                    still
                     steps={publicDeviceLoginSteps(publicDeviceLogin.phase, !!publicDeviceLogin.requestId) || []}
                     ariaLabel="مراحل الدخول من جهاز عام"
                   />
@@ -32058,12 +32065,14 @@ ${rows
             {(publicDeviceLogin.phase === "expired" ||
               publicDeviceLogin.phase === "error") && (
               <div className="py-8">
-                <DnaStepper
-                  size="sm"
-                  className="mb-6"
-                  steps={publicDeviceLoginSteps(publicDeviceLogin.phase, !!publicDeviceLogin.requestId) || []}
-                  ariaLabel="مراحل الدخول من جهاز عام"
-                />
+                <div className="mb-8">
+                  <DnaStepper
+                    size="sm"
+                    still
+                    steps={publicDeviceLoginSteps(publicDeviceLogin.phase, !!publicDeviceLogin.requestId) || []}
+                    ariaLabel="مراحل الدخول من جهاز عام"
+                  />
+                </div>
                 <span className="mx-auto grid h-14 w-14 place-items-center rounded-full bg-amber-50 text-amber-600">
                   <AlertTriangle className="h-7 w-7" />
                 </span>
@@ -34837,6 +34846,7 @@ ${rows
                 className="mb-8"
                 size="sm"
                 ariaLabel="مراحل كود الاشتراك"
+                stateText={{ current: "", pending: "", done: "" }}
                 reveal
                 playKey="subscription-code-stages"
                 steps={[
@@ -37004,7 +37014,7 @@ ${rows
                                       {priorSubmission ? (
                                         <DnaStepper
                                           size="sm"
-                                          {...submissionJourneyProps(priorSubmission, priorSubmission?.status === EXAM_IN_PROGRESS_STATUS || isExamInProgressSubmission(priorSubmission))}
+                                          {...submissionJourneyProps(priorSubmission, priorSubmission?.status === EXAM_IN_PROGRESS_STATUS || isExamInProgressSubmission(priorSubmission), true)}
                                           steps={studentSubmissionLifecycleSteps(
                                             priorSubmission,
                                           )}
@@ -47990,7 +48000,7 @@ ${rows
                     )}
                     <DnaStepper
                       size="sm"
-                      {...submissionJourneyProps(sub, sub?.status === EXAM_IN_PROGRESS_STATUS || isExamInProgressSubmission(sub))}
+                      {...submissionJourneyProps(sub, sub?.status === EXAM_IN_PROGRESS_STATUS || isExamInProgressSubmission(sub), true)}
                       steps={studentSubmissionLifecycleSteps(sub)}
                       ariaLabel={`مراحل التسليم: ${statusText}`}
                     />

@@ -97,8 +97,40 @@ test('hook survives StrictMode setup/cleanup/setup: played is marked only when p
   const { readFileSync } = await import('node:fs');
   const src = readFileSync(new URL('../src/design/useJourneyReveal.ts', import.meta.url), 'utf8');
   assert.equal((src.match(/journeyMarkPlayed\(playKey\)/g) || []).length, 1);
-  const cb = src.slice(src.indexOf('new IntersectionObserver'), src.indexOf('io.observe'));
-  assert.match(cb, /journeyMarkPlayed\(playKey\)/);
+  const play = src.slice(src.indexOf('const play = () =>'), src.indexOf('// Seen, but a modal'));
+  assert.match(play, /journeyMarkPlayed\(playKey\)/);
   const cleanup = src.slice(src.indexOf('return () => {'), src.indexOf('}, [enabled, hasTarget, playKey]'));
   assert.match(cleanup, /armed\.current = false/);
+  assert.match(cleanup, /stopWaiting\(\)/);
+});
+
+test('hook waits (bounded) while an overlay covers the stepper and then still converges to the real state', async () => {
+  const { readFileSync } = await import('node:fs');
+  const src = readFileSync(new URL('../src/design/useJourneyReveal.ts', import.meta.url), 'utf8');
+  assert.match(src, /journeyIsCovered\(el\)/);
+  assert.match(src, /COVER_GIVE_UP_MS/);
+  assert.match(src, /setLit\(null\); \/\/ show the real state; the intro is not consumed/);
+});
+
+test('css: rail dots opt out of the global 44px button minimum (they are 10px dots, the ::after is the touch target)', async () => {
+  const { readFileSync } = await import('node:fs');
+  const css = readFileSync(new URL('../src/design/journey.css', import.meta.url), 'utf8');
+  const dot = css.match(/\.journey-rail \.journey-rail-dot \{[^}]*\}/)![0];
+  assert.match(dot, /min-width: 0 !important;/);
+  assert.match(dot, /min-height: 0 !important;/);
+  assert.match(css, /\.journey-rail-dot::after \{ content: ''; position: absolute; inset: -14px -6px; \}/);
+});
+
+test('css: fill origin follows the nearest direction (:dir() last, attribute fallbacks first)', async () => {
+  const { readFileSync } = await import('node:fs');
+  const css = readFileSync(new URL('../src/design/journey.css', import.meta.url), 'utf8');
+  for (const sel of ['\\.dna-stepi \\+ \\.dna-stepi', '\\.journey-rail-seg']) {
+    const at = (re: string) => css.search(new RegExp(re + '::after \\{ transform-origin'));
+    const attrLtr = at("\\[dir='ltr'\\] " + sel), dirLtr = at(':dir\\(ltr\\) ' + sel), dirRtl = at(':dir\\(rtl\\) ' + sel);
+    assert.ok(attrLtr >= 0 && dirLtr > attrLtr && dirRtl > dirLtr, sel);
+  }
+});
+
+test('dense submission rows are static and do not consume the main card intro', () => {
+  assert.deepEqual(submissionJourneyProps({ id: 3 }, false, true), { reveal: false, still: true, playKey: undefined });
 });

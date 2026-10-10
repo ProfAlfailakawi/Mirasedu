@@ -8,7 +8,7 @@ import * as React from 'react';
 import './dna.css';
 import './journey.css';
 import { useJourneyReveal } from './useJourneyReveal';
-import { journeyDisplayState, journeyStepMs, journeyTarget } from './journeyReveal';
+import { journeyDisplayState, journeyMarkPlayed, journeyStepMs, journeyTarget } from './journeyReveal';
 
 export type DnaTone =
   | 'accent'
@@ -158,6 +158,11 @@ export function DnaStepper({
     hold,
     playKey,
   });
+  // Seen while still (exam in progress): when it later turns submitted only the
+  // single state change animates, the whole row is not replayed.
+  React.useEffect(() => {
+    if (still) journeyMarkPlayed(playKey);
+  }, [still, playKey]);
   return (
     <ol
       ref={ref}
