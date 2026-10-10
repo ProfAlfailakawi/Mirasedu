@@ -35351,7 +35351,7 @@ ${rows
                           return (
                             <div className="miras-grade-visual mx-auto mt-4 flex w-full max-w-[220px] flex-col items-center gap-3" aria-hidden="true">
                               <div className="relative grid h-24 w-24 place-items-center">
-                                <svg viewBox="0 0 36 36" className="absolute inset-0 -rotate-90">
+                                <svg viewBox="0 0 36 36" className="absolute inset-0 h-full w-full -rotate-90">
                                   <circle cx="18" cy="18" r="15.5" fill="none" strokeWidth="3" className="miras-grade-track" />
                                   <circle cx="18" cy="18" r="15.5" fill="none" strokeWidth="3.4" strokeLinecap="round" pathLength={100} strokeDasharray={`${Math.round(share * 100)} 100`} className="miras-grade-arc" />
                                 </svg>
