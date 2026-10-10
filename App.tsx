@@ -48700,6 +48700,7 @@ ${rows
         <LoginRevealOverlay
           role={loginRevealRole}
           ready={loginRevealDataReady}
+          trouble={loginRevealRole === "student" && (liveConnectionTrouble || isAppOffline)}
           onDone={() => setLoginRevealRole(null)}
         />
       )}
