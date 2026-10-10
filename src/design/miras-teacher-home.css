@@ -1,0 +1,34 @@
+/*
+ * Teacher home (presentation only, no markup, no text).
+ * 1. The percentage ring around each stat icon was rendered 25x25 and off-centre (an
+ *    inherited svg size and an over-constrained inset in RTL), so only a stray arc showed.
+ *    It is pinned to a 52px square centred on the 44px icon tile.
+ * 2. Stat tiles get the codes-page depth: white surface, no border, layered shadow, and a
+ *    larger figure.
+ */
+html body .meras-teacher-shell .miras-metric-card .miras-metric-ring:not(#_):not(#_) {
+  position: absolute !important;
+  inset: auto !important;
+  top: -4px !important;
+  left: -4px !important;
+  width: 52px !important;
+  height: 52px !important;
+  max-width: none !important;
+}
+html body .meras-teacher-shell .miras-metric-card:not(#_):not(#_):not(.meras-exam-shell *) {
+  border: 0 !important;
+  background: #fff !important;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.05), 0 14px 26px -20px rgba(67, 56, 202, 0.38) !important;
+}
+html[data-theme="dark"] body .meras-teacher-shell .miras-metric-card:not(#_):not(#_) {
+  background: rgba(255, 255, 255, 0.05) !important;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06), 0 14px 26px -20px rgba(0, 0, 0, 0.75) !important;
+}
+html body .meras-teacher-shell .miras-metric-card .miras-metric-value:not(#_):not(#_) {
+  font-size: 1.9rem !important;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+html:not([data-theme="dark"]) body .meras-teacher-shell .miras-metric-card > div > div > span.block.text-slate-500:not(#_):not(#_) {
+  color: #55637a !important;
+}
