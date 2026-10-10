@@ -12,9 +12,19 @@ html body .workspace-calm-shell main div.group.relative.overflow-hidden.rounded-
 }
 html body .workspace-calm-shell main div.group.relative.overflow-hidden.rounded-\[var\(--miras-r-xl\)\]:has(> div.flex-1.space-y-3 + button) > div.flex-1:not(#_):not(#__):not(#___) {
   min-width: 0;
-  text-align: right;
+  text-align: start;
 }
 html body .workspace-calm-shell main div.group.relative.overflow-hidden.rounded-\[var\(--miras-r-xl\)\]:has(> div.flex-1.space-y-3 + button) > button:not(#_):not(#__):not(#___) {
   margin: 0 !important;
   align-self: flex-start;
+}
+
+/* due-date pill: the monospace face made label + date wider than the narrower text column, so the
+   date dropped to a second line. The pill uses the page face with tabular digits instead, which fits
+   on one line at 393 and wraps cleanly (centred, tight rows) when a language or font is wider. */
+html body .workspace-calm-shell main .miras-student-time-detail:not(#_):not(#__):not(#___) {
+  font-family: inherit !important;
+  font-variant-numeric: tabular-nums;
+  justify-content: center;
+  row-gap: 2px;
 }
