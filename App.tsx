@@ -18384,17 +18384,23 @@ ${rows
       setPasskeyBusy(true);
       setPasskeyStatus("");
       const localLock = readMirasPasskeyLocalLock();
+      // يحصر الخادم المفاتيح في مفاتيح حساب واحد حتى لا يقدّم الجهاز مفتاحاً قديماً.
+      // الحساب المكتوب في نموذج الدخول الكامل يتقدّم على البصمة المحفوظة على الجهاز:
+      // من اختار كلمة المرور وكتب حساباً آخر يجب ألا تُحصر بصمته في الحساب المحفوظ.
+      const typedLoginId =
+        loginStep === "password" ? String(loginForm.idNumber || "").trim() : "";
+      const typedIsOtherAccount =
+        !!typedLoginId &&
+        typedLoginId.toLowerCase() !== String(localLock?.userId || "").toLowerCase();
       const startResp = await fetch("/api/auth/passkey/login/start", {
         method: "POST",
         headers: jsonHeaders({ auth: "none" }),
         body: JSON.stringify({
           deviceToken: getMirasDeviceId(),
-          role: localLock?.role,
-          // يحصر الخادم المفاتيح في مفاتيح هذا الحساب حتى لا يقدّم الجهاز مفتاحاً قديماً.
-          userId:
-            localLock?.userId ||
-            String(loginForm.idNumber || "").trim() ||
-            undefined,
+          role: typedIsOtherAccount ? undefined : localLock?.role,
+          userId: typedIsOtherAccount
+            ? typedLoginId
+            : localLock?.userId || typedLoginId || undefined,
         }),
       });
       const startData = await startResp.json().catch(() => ({}));
