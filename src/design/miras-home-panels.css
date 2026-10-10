@@ -1,0 +1,86 @@
+/*
+ * Teacher home panels «استرجاع» and «نبض الاختبار», creative pass (CSS only; same text, counts,
+ * controls and conditions).
+ * - Restore panel: amber duotone surface with a corner glow and a gradient rail on its
+ *   inline-start edge; the heading is larger; the request card inside floats with a soft shadow.
+ * - Live-pulse panel: indigo glow and rail, heading larger, the chevron control is a tinted tile.
+ * No blur, no filters, no animation.
+ */
+html body .meras-teacher-shell .miras-teacher-home-panel > div.border-amber-100.bg-amber-50\/80:not(#_):not(#__):not(#___) {
+  position: relative;
+  border: 0 !important;
+  border-radius: 24px !important;
+  background:
+    radial-gradient(90% 120% at 100% 0%, rgba(245, 158, 11, 0.2), transparent 60%),
+    linear-gradient(180deg, #fffbeb, #fef7e0) !important;
+  box-shadow: 0 1px 2px rgba(120, 53, 15, 0.06), 0 18px 30px -22px rgba(217, 119, 6, 0.55) !important;
+}
+html body .meras-teacher-shell .miras-teacher-home-panel > div.border-amber-100.bg-amber-50\/80:not(#_):not(#__):not(#___)::before {
+  content: "";
+  position: absolute;
+  inset-block: 14px;
+  inset-inline-start: 0;
+  width: 5px;
+  border-radius: 0 5px 5px 0;
+  background: linear-gradient(180deg, #fbbf24, #d97706);
+  pointer-events: none;
+}
+html[data-theme="dark"] body .meras-teacher-shell .miras-teacher-home-panel > div.border-amber-100.bg-amber-50\/80:not(#_):not(#__):not(#___) {
+  background:
+    radial-gradient(90% 120% at 100% 0%, rgba(245, 158, 11, 0.24), transparent 62%),
+    rgba(255, 255, 255, 0.04) !important;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05), 0 18px 30px -22px rgba(0, 0, 0, 0.8) !important;
+}
+html body .meras-teacher-shell .miras-teacher-home-panel > div.border-amber-100.bg-amber-50\/80 h3:not(#_):not(#__):not(#___) {
+  font-size: 1.0625rem !important;
+  letter-spacing: -0.01em;
+}
+html body .meras-teacher-shell .miras-teacher-home-panel > div.border-amber-100.bg-amber-50\/80 h3 svg:not(#_):not(#__):not(#___) {
+  width: 2rem;
+  height: 2rem;
+  padding: 0.45rem;
+  border-radius: 12px;
+  background: linear-gradient(145deg, rgba(245, 158, 11, 0.28), rgba(245, 158, 11, 0.08));
+  color: #b45309;
+}
+html[data-theme="dark"] body .meras-teacher-shell .miras-teacher-home-panel > div.border-amber-100.bg-amber-50\/80 h3 svg:not(#_):not(#__):not(#___) { color: #fbbf24; }
+
+/* live pulse */
+html body .meras-teacher-shell .miras-teacher-live-pulse-card:not(#_):not(#__):not(#___) {
+  position: relative;
+  border: 0 !important;
+  border-radius: 24px !important;
+  background:
+    radial-gradient(90% 120% at 100% 0%, rgba(99, 102, 241, 0.16), transparent 60%),
+    linear-gradient(180deg, #ffffff, #fafaff) !important;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.05), 0 18px 30px -22px rgba(67, 56, 202, 0.5) !important;
+}
+html body .meras-teacher-shell .miras-teacher-live-pulse-card:not(#_):not(#__):not(#___)::before {
+  content: "";
+  position: absolute;
+  inset-block: 14px;
+  inset-inline-start: 0;
+  width: 5px;
+  border-radius: 0 5px 5px 0;
+  background: linear-gradient(180deg, #818cf8, #4f46e5);
+  pointer-events: none;
+}
+html[data-theme="dark"] body .meras-teacher-shell .miras-teacher-live-pulse-card:not(#_):not(#__):not(#___) {
+  background:
+    radial-gradient(90% 120% at 100% 0%, rgba(129, 140, 248, 0.26), transparent 62%),
+    rgba(255, 255, 255, 0.045) !important;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05), 0 18px 30px -22px rgba(0, 0, 0, 0.8) !important;
+}
+html body .meras-teacher-shell .miras-teacher-live-pulse-card h3:not(#_):not(#__):not(#___) {
+  font-size: 1.125rem !important;
+  letter-spacing: -0.01em;
+}
+html body .meras-teacher-shell .miras-teacher-live-pulse-card h3 svg:not(#_):not(#__):not(#___) {
+  width: 2rem;
+  height: 2rem;
+  padding: 0.4rem;
+  border-radius: 12px;
+  background: linear-gradient(145deg, rgba(99, 102, 241, 0.26), rgba(99, 102, 241, 0.07));
+  color: #4f46e5;
+}
+html[data-theme="dark"] body .meras-teacher-shell .miras-teacher-live-pulse-card h3 svg:not(#_):not(#__):not(#___) { color: #a5b4fc; }
