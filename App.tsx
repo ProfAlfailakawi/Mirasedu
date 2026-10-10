@@ -23775,8 +23775,13 @@ ${rows
   const updateSubmissionGrade = (
     id: string,
     grade: string,
-    options: { forceVisibleGrade?: boolean; notifyStudent?: boolean } = {},
-  ) => {
+    options: {
+      forceVisibleGrade?: boolean;
+      notifyStudent?: boolean;
+      // يُحدَّث الصف محلياً فقط بعد تأكيد الخادم، ويُرمى الخطأ عند الفشل (للرصد الجماعي).
+      requireServerPersist?: boolean;
+    } = {},
+  ): Promise<any> | undefined => {
     const itemToUpdate = teacherSubmissions.find((item: any) => item.id === id);
     const validation = validateSubmissionGradeValue(itemToUpdate || {}, grade);
     if (!validation.ok) {
@@ -23860,7 +23865,11 @@ ${rows
             ? itemToUpdate.gradeAuditTrail
             : [],
       };
-      saveTeacherSubmission(updatedItem);
+      return saveTeacherSubmission(
+        options.requireServerPersist
+          ? { ...updatedItem, requireServerPersist: true }
+          : updatedItem,
+      );
     } else {
       setTeacherSubmissions((prev) => {
         const next = prev.map((item: any) =>
@@ -26516,15 +26525,43 @@ ${rows
         return;
       }
     }
-    pool.forEach((sub: any) =>
-      updateSubmissionGrade(sub.id, normalizedGrade, {
-        forceVisibleGrade: true,
-        notifyStudent: true,
+    // الرصد الجماعي لا يعلن النجاح قبل تأكيد الخادم لكل طالب: كان يظهر «تم رصد الدرجات»
+    // فوراً ثم تعود الدرجة عند أول تحديث إن لم تُحفظ فعلاً دون أي سبب ظاهر.
+    const results = await Promise.allSettled(
+      pool.map((sub: any) => {
+        if (String(sub.id).startsWith("demo-")) {
+          updateSubmissionGrade(sub.id, normalizedGrade, { forceVisibleGrade: true });
+          return Promise.resolve();
+        }
+        const pending = updateSubmissionGrade(sub.id, normalizedGrade, {
+          forceVisibleGrade: true,
+          notifyStudent: true,
+          requireServerPersist: true,
+        });
+        return pending ?? Promise.reject(new Error("الصف غير موجود في قائمة التسليمات المحمّلة."));
       }),
     );
-    setSuccessMsg(
-      `تم تثبيت الدرجة (${normalizedGrade}) على ${pool.length} طالب/طالبة من المحددين.`,
-    );
+    const failed = results
+      .map((result, index) => ({ result, sub: pool[index] }))
+      .filter((item) => item.result.status === "rejected");
+    const savedCount = pool.length - failed.length;
+    if (savedCount > 0) {
+      setSuccessMsg(
+        `تم تثبيت الدرجة (${normalizedGrade}) على ${savedCount} طالب/طالبة من المحددين.`,
+      );
+    }
+    if (failed.length) {
+      const names = failed
+        .slice(0, 3)
+        .map((item) => item.sub.studentName || item.sub.studentId || "طالب")
+        .join("، ");
+      const reason = String(
+        (failed[0].result as PromiseRejectedResult).reason?.message || "",
+      ).trim();
+      setErrorMsg(
+        `لم تُحفظ الدرجة لـ ${failed.length} طالب/طالبة (${names}${failed.length > 3 ? "…" : ""})${reason ? `: ${reason}` : ""} — أعد المحاولة.`,
+      );
+    }
   };
   const submissionFullAnswerText = (sub: any) => {
     if (!sub) return "";
