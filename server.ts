@@ -2389,7 +2389,7 @@ function renderSebLaunchPage(req: express.Request, pass: SebPass) {
   h1{font-size:24px;margin:0 0 10px;font-weight:900}.muted{color:#64748b;line-height:1.8;font-size:14px;margin:0 0 18px}
   .btn{display:flex;align-items:center;justify-content:center;width:100%;box-sizing:border-box;border:0;border-radius:18px;padding:15px 18px;font-weight:900;font-size:15px;text-decoration:none;cursor:pointer;margin-top:10px;transition:transform .2s ease,box-shadow .2s ease,background .2s ease}
   .btn:hover{transform:translateY(-1px)}
-  .primary{background:linear-gradient(135deg,#6366f1,#4338ca);color:white;box-shadow:0 14px 26px -14px rgba(67,56,202,.75)}.ghost{background:#f8fafc;color:#334155;border:1px solid #e2e8f0}.ios{background:#eef2ff;color:#312e81;border:1px solid rgba(99,102,241,.2)}
+  .primary{background:linear-gradient(135deg,#4f46e5,#4338ca);color:white;box-shadow:0 14px 26px -14px rgba(67,56,202,.75)}.ghost{background:#f8fafc;color:#334155;border:1px solid #e2e8f0}.ios{background:#eef2ff;color:#312e81;border:1px solid rgba(99,102,241,.2)}
   :focus-visible{outline:3px solid rgba(99,102,241,.55);outline-offset:2px}
   .hint{margin-top:14px;color:#64748b;font-size:12px;line-height:1.8}.warn{margin-top:12px;border-radius:16px;background:#fff7ed;border:1px solid #fed7aa;color:#9a3412;padding:12px;font-size:12px;line-height:1.8;text-align:right;display:none}
   .lockNotice{margin-bottom:16px;border-radius:18px;background:linear-gradient(180deg,#f8faff,#eef2ff);border:1px solid #c7d2fe;border-inline-start:4px solid #6366f1;color:#312e81;padding:14px;font-size:13px;line-height:2;text-align:right}
@@ -2570,12 +2570,12 @@ function renderSebStartPage(req: express.Request, pass: SebPass) {
   h2{font-size:18px;margin:0;font-weight:900;color:var(--ink)}.hidden{display:none!important}
   .desc{color:var(--ink2);font-size:14px;line-height:2;margin:14px 0;padding:14px 16px;border-radius:18px;background:linear-gradient(180deg,#f8faff,#f1f5ff);border:1px solid var(--line)}
   .desc b{color:var(--ind-dd);display:block;margin-top:6px;margin-bottom:6px}
-  .desc .ok{color:var(--ok);font-weight:900}.desc .no{color:var(--bad);font-weight:900}
-  .start{display:block;width:100%;box-sizing:border-box;border:0;border-radius:18px;padding:16px;background:linear-gradient(135deg,#22c55e,#16a34a);color:white;font-weight:900;font-size:16px;text-decoration:none;text-align:center;cursor:pointer;margin-top:18px;box-shadow:0 14px 26px -14px rgba(22,163,74,.7);transition:transform .2s ease,box-shadow .2s ease}
+  .desc .ok{color:#15803d;font-weight:900}.desc .no{color:var(--bad);font-weight:900}
+  .start{display:block;width:100%;box-sizing:border-box;border:0;border-radius:18px;padding:16px;background:linear-gradient(135deg,#15803d,#166534);color:white;font-weight:900;font-size:16px;text-decoration:none;text-align:center;cursor:pointer;margin-top:18px;box-shadow:0 14px 26px -14px rgba(22,163,74,.7);transition:transform .2s ease,box-shadow .2s ease}
   .start:hover{transform:translateY(-1px);box-shadow:0 18px 30px -14px rgba(22,163,74,.75)}
   .quit{display:block;width:100%;box-sizing:border-box;border:1px solid rgba(220,38,38,.28);border-radius:18px;padding:13px;background:#fff;color:#b91c1c;font-weight:800;font-size:13px;text-decoration:none;text-align:center;margin-top:10px;transition:background .2s ease}
   .quit:hover{background:#fef2f2}
-  .quitBig{display:block;width:100%;box-sizing:border-box;border:0;border-radius:18px;padding:16px;background:linear-gradient(135deg,#ef4444,#dc2626);color:white;font-weight:900;font-size:15px;text-decoration:none;text-align:center;cursor:pointer;margin-top:10px;box-shadow:0 14px 26px -14px rgba(220,38,38,.65)}
+  .quitBig{display:block;width:100%;box-sizing:border-box;border:0;border-radius:18px;padding:16px;background:linear-gradient(135deg,#dc2626,#b91c1c);color:white;font-weight:900;font-size:15px;text-decoration:none;text-align:center;cursor:pointer;margin-top:10px;box-shadow:0 14px 26px -14px rgba(220,38,38,.65)}
   .retry{display:block;width:100%;box-sizing:border-box;border:1px solid var(--line);border-radius:18px;padding:13px;background:var(--ind-l);color:var(--ind-dd);font-weight:800;font-size:13px;cursor:pointer;margin-top:10px}
   .rescue{margin-top:16px;border-radius:18px;background:#fffbeb;border:1px solid #fde68a;color:#92400e;padding:14px;text-align:right}
   .rescue h3{margin:0 0 8px;font-size:14px;font-weight:900;color:#78350f}
@@ -2622,7 +2622,7 @@ function renderSebStartPage(req: express.Request, pass: SebPass) {
   .pager-dot{width:28px;height:28px;border-radius:10px;border:1px solid #cbd5e1;background:#fff;color:var(--mute);font-size:12px;font-weight:900;display:grid;place-items:center;cursor:pointer;transition:all 0.3s cubic-bezier(0.16, 1, 0.3, 1)}
   .pager-dot:hover{background:var(--ind-l);color:var(--ind-d);border-color:rgba(99,102,241,.45)}
   .pager-dot.answered{border-color:rgba(99,102,241,0.45);background:rgba(99,102,241,0.14);color:var(--ind-d)}
-  .pager-dot.active-dot{border-color:var(--ind-d);background:linear-gradient(135deg,#6366f1,#4338ca);color:#fff;box-shadow:0 8px 16px -8px rgba(67,56,202,.7);transform:scale(1.1)}
+  .pager-dot.active-dot{border-color:var(--ind-d);background:linear-gradient(135deg,#4f46e5,#4338ca);color:#fff;box-shadow:0 8px 16px -8px rgba(67,56,202,.7);transform:scale(1.1)}
 
   /* Question sliders with animations */
   .question-slide{animation:slideEntrance 0.4s cubic-bezier(0.16, 1, 0.3, 1)}
@@ -2638,7 +2638,7 @@ function renderSebStartPage(req: express.Request, pass: SebPass) {
   .choices{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:10px}
   .choice{border:1px solid #dbe3f3;background:#f8faff;color:var(--ink2);border-radius:16px;padding:14px;font-weight:800;text-align:right;font-size:14px;transition:all 0.2s ease;cursor:pointer}
   .choice:hover{background:var(--ind-l);border-color:rgba(99,102,241,.5);color:var(--ind-dd)}
-  .choice.selected{background:linear-gradient(135deg,#6366f1,#4338ca);border-color:#4338ca;color:white;box-shadow:0 12px 22px -12px rgba(67,56,202,.7)}
+  .choice.selected{background:linear-gradient(135deg,#4f46e5,#4338ca);border-color:#4338ca;color:white;box-shadow:0 12px 22px -12px rgba(67,56,202,.7)}
 
   /* Text input & short text */
   textarea,input{width:100%;box-sizing:border-box;border:1px solid #cbd5e1;background:#fff;color:var(--ink);border-radius:14px;padding:14px;font:inherit;font-size:14px;outline:none;transition:border-color .2s,box-shadow .2s}
@@ -2653,7 +2653,7 @@ function renderSebStartPage(req: express.Request, pass: SebPass) {
 
   /* General submission action buttons */
   .actions{display:flex;flex-direction:column;gap:10px;margin-top:24px;border-top:1px solid rgba(99,102,241,.12);padding-top:18px}
-  .submit{border:0;border-radius:18px;background:linear-gradient(135deg,#6366f1,#4338ca);color:white;padding:16px;font-size:15px;font-weight:900;cursor:pointer;transition:all 0.2s;box-shadow:0 14px 26px -14px rgba(67,56,202,.75)}
+  .submit{border:0;border-radius:18px;background:linear-gradient(135deg,#4f46e5,#4338ca);color:white;padding:16px;font-size:15px;font-weight:900;cursor:pointer;transition:all 0.2s;box-shadow:0 14px 26px -14px rgba(67,56,202,.75)}
   .submit:hover{box-shadow:0 18px 32px -14px rgba(67,56,202,.85);transform:translateY(-1px)}
   .muted{color:var(--mute);font-size:12px;line-height:1.8;text-align:center}
   :focus-visible{outline:3px solid rgba(99,102,241,.55);outline-offset:2px}
@@ -9895,7 +9895,7 @@ app.post("/seb/open", (req, res) => {
     res.setHeader("Content-Type", "text/html; charset=utf-8");
     res.setHeader("Cache-Control", "no-store");
     return res.send(
-      `<!doctype html><html lang="ar" dir="rtl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>تعذر تشغيل SEB</title><style>body{font-family:system-ui,-apple-system,Segoe UI,Tahoma,sans-serif;background:radial-gradient(900px 480px at 85% -10%,rgba(99,102,241,.16),transparent 60%),linear-gradient(135deg,#eef2ff,#f8fafc);color:#0f172a;display:grid;place-items:center;min-height:100vh;margin:0}.box{box-sizing:border-box;width:min(560px,calc(100vw - 32px));background:rgba(255,255,255,.94);border:1px solid rgba(99,102,241,.18);border-top:4px solid #ef4444;border-radius:28px;padding:28px;box-shadow:0 28px 70px -28px rgba(67,56,202,.38);animation:boxIn .5s cubic-bezier(.16,1,.3,1) backwards}@keyframes boxIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}h1{font-size:24px;margin:0 0 12px}p{line-height:1.8;color:#475569}.back{display:inline-flex;margin-top:16px;background:linear-gradient(135deg,#6366f1,#4338ca);color:white;text-decoration:none;border-radius:16px;padding:12px 18px;font-weight:800;box-shadow:0 14px 26px -14px rgba(67,56,202,.75)}@media (prefers-reduced-motion:reduce){.box{animation:none}}@media (forced-colors:active){.box,.back{border:1px solid CanvasText}}</style></head><body><main class="box"><h1>تعذر تشغيل Safe Exam Browser</h1><p>${xmlEscape(launched.error)}</p><a class="back" href="/">الرجوع إلى مراس</a></main></body></html>`,
+      `<!doctype html><html lang="ar" dir="rtl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>تعذر تشغيل SEB</title><style>body{font-family:system-ui,-apple-system,Segoe UI,Tahoma,sans-serif;background:radial-gradient(900px 480px at 85% -10%,rgba(99,102,241,.16),transparent 60%),linear-gradient(135deg,#eef2ff,#f8fafc);color:#0f172a;display:grid;place-items:center;min-height:100vh;margin:0}.box{box-sizing:border-box;width:min(560px,calc(100vw - 32px));background:rgba(255,255,255,.94);border:1px solid rgba(99,102,241,.18);border-top:4px solid #ef4444;border-radius:28px;padding:28px;box-shadow:0 28px 70px -28px rgba(67,56,202,.38);animation:boxIn .5s cubic-bezier(.16,1,.3,1) backwards}@keyframes boxIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}h1{font-size:24px;margin:0 0 12px}p{line-height:1.8;color:#475569}.back{display:inline-flex;margin-top:16px;background:linear-gradient(135deg,#4f46e5,#4338ca);color:white;text-decoration:none;border-radius:16px;padding:12px 18px;font-weight:800;box-shadow:0 14px 26px -14px rgba(67,56,202,.75)}@media (prefers-reduced-motion:reduce){.box{animation:none}}@media (forced-colors:active){.box,.back{border:1px solid CanvasText}}</style></head><body><main class="box"><h1>تعذر تشغيل Safe Exam Browser</h1><p>${xmlEscape(launched.error)}</p><a class="back" href="/">الرجوع إلى مراس</a></main></body></html>`,
     );
   }
   res.setHeader("Content-Type", "text/html; charset=utf-8");
@@ -9954,7 +9954,7 @@ function renderSebStartErrorPage(
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>تعذر فتح الاختبار الآمن</title>
-<style>:root{color-scheme:light}body{margin:0;min-height:100vh;display:grid;place-items:center;background:radial-gradient(900px 480px at 85% -10%,rgba(99,102,241,.16),transparent 60%),linear-gradient(135deg,#eef2ff,#f8fafc);color:#0f172a;font-family:system-ui,-apple-system,Segoe UI,Tahoma,sans-serif;padding:22px;box-sizing:border-box}.box{max-width:560px;text-align:center;padding:32px;border:1px solid rgba(99,102,241,.18);border-top:4px solid #ef4444;border-radius:28px;background:rgba(255,255,255,.92);box-shadow:0 28px 70px -28px rgba(67,56,202,.38);animation:boxIn .5s cubic-bezier(.16,1,.3,1) backwards}@keyframes boxIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}h1{font-size:22px;margin:0 0 12px}p{line-height:1.8;color:#475569;font-size:14px}.pass{display:inline-block;margin-top:12px;border-radius:14px;background:#eef2ff;border:1px solid rgba(99,102,241,.25);color:#312e81;padding:10px 16px;font-size:22px;font-weight:900;letter-spacing:1px}a.btn{display:inline-flex;margin-top:18px;background:linear-gradient(135deg,#6366f1,#4338ca);color:#fff;text-decoration:none;border-radius:16px;padding:12px 22px;font-weight:900;font-size:14px;box-shadow:0 14px 26px -14px rgba(67,56,202,.75)}@media (prefers-reduced-motion:reduce){.box{animation:none}}@media (forced-colors:active){.box,.pass,a.btn{border:1px solid CanvasText}}</style>
+<style>:root{color-scheme:light}body{margin:0;min-height:100vh;display:grid;place-items:center;background:radial-gradient(900px 480px at 85% -10%,rgba(99,102,241,.16),transparent 60%),linear-gradient(135deg,#eef2ff,#f8fafc);color:#0f172a;font-family:system-ui,-apple-system,Segoe UI,Tahoma,sans-serif;padding:22px;box-sizing:border-box}.box{max-width:560px;text-align:center;padding:32px;border:1px solid rgba(99,102,241,.18);border-top:4px solid #ef4444;border-radius:28px;background:rgba(255,255,255,.92);box-shadow:0 28px 70px -28px rgba(67,56,202,.38);animation:boxIn .5s cubic-bezier(.16,1,.3,1) backwards}@keyframes boxIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}h1{font-size:22px;margin:0 0 12px}p{line-height:1.8;color:#475569;font-size:14px}.pass{display:inline-block;margin-top:12px;border-radius:14px;background:#eef2ff;border:1px solid rgba(99,102,241,.25);color:#312e81;padding:10px 16px;font-size:22px;font-weight:900;letter-spacing:1px}a.btn{display:inline-flex;margin-top:18px;background:linear-gradient(135deg,#4f46e5,#4338ca);color:#fff;text-decoration:none;border-radius:16px;padding:12px 22px;font-weight:900;font-size:14px;box-shadow:0 14px 26px -14px rgba(67,56,202,.75)}@media (prefers-reduced-motion:reduce){.box{animation:none}}@media (forced-colors:active){.box,.pass,a.btn{border:1px solid CanvasText}}</style>
 </head>
 <body>
 <div class="box"><h1>تعذر فتح الاختبار الآمن</h1><p>${xmlEscape(message)}</p><p>إذا بقيت داخل SEB استخدم كلمة الخروج لدى المراقب:</p><span class="pass">Miras</span>${quitUrl ? `<br><a class="btn" href="${xmlEscape(quitUrl)}">إغلاق الجلسة والخروج من SEB</a>` : ""}</div>
