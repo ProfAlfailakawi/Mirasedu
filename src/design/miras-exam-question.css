@@ -21,5 +21,5 @@
   padding: 12px !important;
 }
 .meras-exam-shell div.p-4.rounded-2xl.border.space-y-3.font-sans .grid.pt-1 > button.bg-indigo-600:not(#_):not(#_) {
-  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.28), 0 8px 18px -10px rgba(67, 56, 202, 0.6);
+  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.28), 0 8px 18px -10px rgba(67, 56, 202, 0.6) !important;
 }
