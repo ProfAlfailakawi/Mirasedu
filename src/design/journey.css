@@ -1,0 +1,135 @@
+/* ==========================================================================
+   Journey stepper — directional connector fill, one-time reveal and halo for
+   <DnaStepper>. Lives apart from dna.css / index.css on purpose (those files
+   are re-uploaded from AI Studio). Colour: one token, flipped in one line.
+   ========================================================================== */
+.dna-steps {
+  --journey-fill: var(--dna-accent);
+}
+
+/* connector: ::before stays the track, ::after is the fill layer that grows
+   from the inline-start side (right in RTL, left in LTR) */
+.dna-stepi + .dna-stepi::after {
+  content: '';
+  position: absolute;
+  inset-block-start: calc(var(--node) / 2 - 1px);
+  inset-inline-start: calc(-50% + var(--node) / 2 + 5px);
+  inline-size: calc(100% - var(--node) - 10px);
+  block-size: 2px;
+  border-radius: 2px;
+  background: var(--journey-fill);
+  transform: scaleX(0);
+  transform-origin: left center;
+  transition: transform 0.5s var(--dna-ease);
+  pointer-events: none;
+}
+.dna-stepi + .dna-stepi[data-link='done']::after { transform: scaleX(1); }
+.dna-stepi + .dna-stepi[data-link='done']::before { background: var(--dna-line-2); }
+:dir(rtl) .dna-stepi + .dna-stepi::after { transform-origin: right center; }
+[dir='rtl'] .dna-stepi + .dna-stepi::after { transform-origin: right center; }
+[dir='ltr'] .dna-stepi + .dna-stepi::after { transform-origin: left center; }
+
+.dna-steps[data-size='xs'] .dna-stepi + .dna-stepi::after {
+  inset-block-start: calc(var(--node) / 2 - 0.75px);
+  inset-inline-start: calc(-50% + var(--node) / 2 + 2px);
+  inline-size: calc(100% - var(--node) - 4px);
+  block-size: 1.5px;
+}
+
+/* node + glyph take the single fill token */
+.dna-stepi[data-state='done'] .dna-node,
+.dna-ok { background: var(--journey-fill); }
+.dna-stepi[data-stamp='true'][data-state='done'] .dna-node { background: var(--dna-surface); }
+.dna-lbl { transition: color 0.3s var(--dna-ease); }
+
+/* still: no pulsing at all (live exam, sensitive screens) */
+.dna-steps[data-still='true'] .dna-stepi .dna-node { animation: none; }
+
+/* reveal mode: the base infinite halo is switched off (static ring); only the
+   dedicated one-shot below plays, so there is never a second pulse */
+.dna-steps[data-journey] .dna-stepi[data-state='current'] .dna-node { animation: none; }
+.dna-steps[data-journey] .dna-stepi[data-just] .dna-node {
+  animation: dna-journey-halo 1.5s var(--dna-ease) 1 backwards;
+}
+.dna-steps[data-journey] .dna-stepi[data-state='current'][data-just] .dna-node {
+  animation-name: dna-journey-halo-current;
+}
+@keyframes dna-journey-halo-current {
+  0% { box-shadow: inset 0 0 0 2px var(--dna-accent), 0 0 0 4px color-mix(in srgb, var(--journey-fill) 38%, transparent); }
+  100% { box-shadow: inset 0 0 0 2px var(--dna-accent), 0 0 0 9px color-mix(in srgb, var(--journey-fill) 0%, transparent); }
+}
+@keyframes dna-journey-halo {
+  0% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--journey-fill) 38%, transparent); }
+  100% { box-shadow: 0 0 0 9px color-mix(in srgb, var(--journey-fill) 0%, transparent); }
+}
+
+/* mobile: tighter nodes and labels so 4-5 stations never overflow */
+@media (max-width: 640px) {
+  .dna-steps[data-journey] .dna-lbl { font-size: 11px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .dna-stepi + .dna-stepi::after,
+  .dna-lbl { transition: none !important; }
+  .dna-steps[data-journey] .dna-stepi .dna-node { animation: none !important; }
+}
+
+/* compact horizontal strip (teacher submission-review header) */
+.dna-steps.journey-strip {
+  --node: 20px;
+  --icon: 11px;
+  max-inline-size: 34rem;
+  margin: 6px auto 2px;
+}
+.dna-steps.journey-strip .dna-stepi { gap: 3px; }
+.dna-steps.journey-strip .dna-lbl { font-size: 11px; line-height: 1.2; }
+
+/* ---------- progress rail (user-paced tours, on a dark stage) ---------- */
+.journey-rail {
+  display: flex;
+  align-items: center;
+  --jr-dot: 10px;
+}
+.journey-rail-dot {
+  position: relative;
+  flex: none;
+  inline-size: var(--jr-dot);
+  block-size: var(--jr-dot);
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  cursor: pointer;
+  background: rgba(255, 255, 255, 0.32);
+  transition: background-color 0.3s var(--dna-ease, ease), box-shadow 0.3s var(--dna-ease, ease);
+}
+.journey-rail-dot::after { content: ''; position: absolute; inset: -14px -6px; }
+.journey-rail-dot[data-state='done'] { background: #fff; }
+.journey-rail-dot[data-state='current'] {
+  background: #fff;
+  box-shadow: 0 0 0 4px rgba(255, 255, 255, 0.22);
+}
+.journey-rail-dot:focus-visible { outline: 2px solid #fff; outline-offset: 4px; }
+.journey-rail-seg {
+  position: relative;
+  flex: none;
+  inline-size: 26px;
+  block-size: 2px;
+  border-radius: 2px;
+  background: rgba(255, 255, 255, 0.22);
+  overflow: hidden;
+}
+.journey-rail-seg::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: #fff;
+  transform: scaleX(0);
+  transform-origin: left center;
+  transition: transform 0.4s var(--dna-ease, ease);
+}
+:dir(rtl) .journey-rail-seg::after { transform-origin: right center; }
+[dir='rtl'] .journey-rail-seg::after { transform-origin: right center; }
+.journey-rail-seg[data-on='true']::after { transform: scaleX(1); }
+@media (prefers-reduced-motion: reduce) {
+  .journey-rail-dot, .journey-rail-seg::after { transition: none !important; }
+}
