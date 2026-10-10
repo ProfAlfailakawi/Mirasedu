@@ -1,0 +1,20 @@
+/*
+ * Student exam / project lists: the two card types now share one inner layout. The «open» cards
+ * keep the content on the inline-start side with the play button at the top of the opposite
+ * side; the other cards stacked the button under the text. They now use the same row (CSS only;
+ * no markup, text, order or display condition changed).
+ */
+html body .workspace-calm-shell main div.group.relative.overflow-hidden.rounded-\[var\(--miras-r-xl\)\]:has(> div.flex-1.space-y-3 + button):not(#_):not(#__):not(#___) {
+  display: flex !important;
+  flex-direction: row;
+  align-items: flex-start;
+  gap: 1rem;
+}
+html body .workspace-calm-shell main div.group.relative.overflow-hidden.rounded-\[var\(--miras-r-xl\)\]:has(> div.flex-1.space-y-3 + button) > div.flex-1:not(#_):not(#__):not(#___) {
+  min-width: 0;
+  text-align: right;
+}
+html body .workspace-calm-shell main div.group.relative.overflow-hidden.rounded-\[var\(--miras-r-xl\)\]:has(> div.flex-1.space-y-3 + button) > button:not(#_):not(#__):not(#___) {
+  margin: 0 !important;
+  align-self: flex-start;
+}
