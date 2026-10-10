@@ -1,0 +1,15 @@
+/*
+ * Grade card visual (decorative; the grade line above it, its text and its visibility gate are
+ * unchanged). A ring with the score figure and a ratio bar, in the indigo / emerald identity.
+ */
+.meras-exam-shell .miras-grade-track { stroke: rgba(99, 102, 241, 0.16); }
+.meras-exam-shell .miras-grade-arc { stroke: #10b981; transition: stroke-dasharray 0.8s ease; }
+.meras-exam-shell .miras-grade-figure { color: #0f172a; }
+.meras-exam-shell .miras-grade-bar { background: rgba(99, 102, 241, 0.14); }
+.meras-exam-shell .miras-grade-bar-fill { background: linear-gradient(90deg, #6366f1, #10b981); }
+html[data-theme="dark"] .meras-exam-shell .miras-grade-track { stroke: rgba(255, 255, 255, 0.14); }
+html[data-theme="dark"] .meras-exam-shell .miras-grade-figure { color: #f1f5f9; }
+html[data-theme="dark"] .meras-exam-shell .miras-grade-bar { background: rgba(255, 255, 255, 0.12); }
+@media (prefers-reduced-motion: reduce) {
+  .meras-exam-shell .miras-grade-arc { transition: none; }
+}

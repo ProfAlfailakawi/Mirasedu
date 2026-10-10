@@ -35335,6 +35335,34 @@ ${rows
                             </p>
                           );
                         })()}
+                        {(() => {
+                          // Decorative ring + ratio bar for a grade the student is already
+                          // allowed to see (same canStudentSeeExamGrade gate as the line above).
+                          const activeExam = teacherCreatedExams.find(
+                            (exam: any) =>
+                              String(exam.id) === String(selectedChapterQuiz),
+                          );
+                          if (!activeExam || !canStudentSeeExamGrade(activeExam)) return null;
+                          const rawScore = quizScoreResult.score ?? quizScoreResult.percentage;
+                          const total = Number(activeExam.points || quizScoreResult.totalPoints || 0);
+                          const got = Number(rawScore);
+                          if (String(rawScore ?? "").trim() === "" || !Number.isFinite(got) || !(total > 0)) return null;
+                          const share = Math.max(0, Math.min(1, got / total));
+                          return (
+                            <div className="miras-grade-visual mx-auto mt-4 flex w-full max-w-[220px] flex-col items-center gap-3" aria-hidden="true">
+                              <div className="relative grid h-24 w-24 place-items-center">
+                                <svg viewBox="0 0 36 36" className="absolute inset-0 -rotate-90">
+                                  <circle cx="18" cy="18" r="15.5" fill="none" strokeWidth="3" className="miras-grade-track" />
+                                  <circle cx="18" cy="18" r="15.5" fill="none" strokeWidth="3.4" strokeLinecap="round" pathLength={100} strokeDasharray={`${Math.round(share * 100)} 100`} className="miras-grade-arc" />
+                                </svg>
+                                <span className="miras-grade-figure text-2xl font-black tabular-nums">{String(rawScore)}</span>
+                              </div>
+                              <div className="miras-grade-bar h-2 w-full overflow-hidden rounded-full">
+                                <div className="miras-grade-bar-fill h-full rounded-full" style={{ width: `${Math.round(share * 100)}%` }} />
+                              </div>
+                            </div>
+                          );
+                        })()}
                       </div>
 
                       {isSafeExamBrowserSession() &&
