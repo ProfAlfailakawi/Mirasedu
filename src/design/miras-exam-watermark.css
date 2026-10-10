@@ -1,0 +1,10 @@
+/*
+ * Exam watermark, harmonised with the dark background (presentation only; the layer's
+ * image, density, position, z-index, rotation and opacity are untouched).
+ * The identity tile is painted as slate at 5% alpha, which is dark-on-dark and effectively
+ * invisible in the dark theme, defeating its purpose. In dark mode only, the layer is inverted
+ * (a filter), so the same tile, at the same alpha, renders light-on-dark. Light mode is unchanged.
+ */
+html[data-theme="dark"] .meras-exam-shell > div[aria-hidden="true"].pointer-events-none:not(#_) {
+  filter: invert(1);
+}
