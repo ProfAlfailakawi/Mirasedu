@@ -72,3 +72,12 @@ test('public-device login stations follow the phase, never time', () => {
   assert.deepEqual(publicLoginApprovalSteps('ready')!.map((s) => s.state), ['done', 'done', 'current', 'pending']);
   assert.equal(publicLoginApprovalSteps('loading'), null);
 });
+
+test('css: the one-shot halo keyframes are only applied under [data-just]; reveal-mode current is static', async () => {
+  const { readFileSync } = await import('node:fs');
+  const css = readFileSync(new URL('../src/design/journey.css', import.meta.url), 'utf8');
+  const rules = css.split('}').map((r) => r.trim()).filter((r) => /animation(-name)?:/.test(r) && /dna-journey-halo/.test(r) && !r.startsWith('@keyframes'));
+  assert.ok(rules.length >= 2);
+  for (const r of rules) assert.match(r.split('{')[0], /\[data-just\]/);
+  assert.match(css, /\[data-journey\] \.dna-stepi\[data-state='current'\] \.dna-node \{ animation: none; \}/);
+});
