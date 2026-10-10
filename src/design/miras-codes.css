@@ -129,21 +129,35 @@ html body .meras-teacher-shell .miras-join-code-card button:not(#_) {
   border-radius: 14px !important;
 }
 
-/* ---- export button joins the header row (was an orphan under the tiles) ---- */
+/* ---- export button joins the header row (was an orphan under the tiles) ----
+   Only when that actions group holds the single export button. Admin accounts also get a
+   count field and two more buttons there; that group stays in normal flow, wraps, and sits
+   under the title instead of overlapping it. */
 html body .meras-teacher-shell #join-codes-cards-anchor > div:first-child:not(#_) {
   position: relative;
 }
-html body .meras-teacher-shell #join-codes-cards-anchor > div:first-child > div:nth-child(2):not(#_) {
+html body .meras-teacher-shell #join-codes-cards-anchor > div:first-child > div:nth-child(2):has(> button:only-child):not(#_) {
   position: absolute;
   inset-block-start: -6px;
   inset-inline-end: 0;
   width: auto !important;
   z-index: 2;
 }
+html body .meras-teacher-shell #join-codes-cards-anchor > div:first-child > div:nth-child(2):not(:has(> button:only-child)):not(#_) {
+  position: static;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 8px;
+  width: 100%;
+}
 html body .meras-teacher-shell #join-codes-cards-anchor > div:first-child .miras-code-stats > h3:not(#_) {
   min-height: 40px;
   display: flex;
   align-items: center;
+}
+html body .meras-teacher-shell #join-codes-cards-anchor > div:first-child:has(> div:nth-child(2) > button:only-child) .miras-code-stats > h3:not(#_) {
   padding-inline-end: 56px;
 }
 
