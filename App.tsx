@@ -2568,7 +2568,7 @@ function RoleOnboardingOverlay({
 
   return (
     <div
-      className="miras-onboarding-overlay fixed inset-0 z-[120] flex items-center justify-center p-3 sm:p-6"
+      className="miras-onboarding-overlay fixed inset-0 z-[121] flex items-center justify-center p-3 sm:p-6"
       dir="rtl"
       role="dialog"
       aria-modal="true"
