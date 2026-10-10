@@ -1,0 +1,50 @@
+/*
+ * Code cards (codes archive list), creative pass (CSS only; same code, chips, rows, buttons).
+ * - Corner glow in the status colour on top of the existing status rail.
+ * - The code + chips header sits on a soft tinted band, like a ticket stub.
+ * - The three icon tiles take their own colour (course indigo, student emerald, time amber).
+ * - Short rise-in, reduced-motion safe, fill-mode backwards, no forced opacity. No blur/filters.
+ */
+html body .meras-teacher-shell .miras-join-code-card:not(#_):not(#__):not(#___):not(#____) {
+  --acc: 100 116 139;
+  background:
+    radial-gradient(100% 70% at 100% 0%, rgb(var(--acc) / 0.13), transparent 62%),
+    linear-gradient(180deg, #ffffff, #fbfbfd) !important;
+}
+html body .meras-teacher-shell .miras-join-code-card[data-status="active"]:not(#_):not(#__):not(#___):not(#____) { --acc: 16 185 129; }
+html body .meras-teacher-shell .miras-join-code-card[data-status="used"]:not(#_):not(#__):not(#___):not(#____) { --acc: 99 102 241; }
+html body .meras-teacher-shell .miras-join-code-card[data-status="revoked"]:not(#_):not(#__):not(#___):not(#____) { --acc: 244 63 94; }
+html[data-theme="dark"] body .meras-teacher-shell .miras-join-code-card:not(#_):not(#__):not(#___):not(#____) {
+  background:
+    radial-gradient(100% 70% at 100% 0%, rgb(var(--acc) / 0.22), transparent 64%),
+    rgba(255, 255, 255, 0.045) !important;
+}
+/* ticket-stub header */
+html body .meras-teacher-shell .miras-join-code-card > div.flex.flex-col.gap-3 > div:not(#_):not(#__):not(#___) {
+  padding: 12px 14px;
+  border-radius: 18px;
+  background: linear-gradient(145deg, rgb(var(--acc) / 0.14), rgb(var(--acc) / 0.04));
+  box-shadow: inset 0 0 0 1px rgb(var(--acc) / 0.16);
+}
+html body .meras-teacher-shell .miras-join-code-card span[dir="ltr"].font-mono:not(#_):not(#__):not(#___) {
+  font-size: 1.0625rem !important;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+}
+/* coloured icon tiles */
+html body .meras-teacher-shell .miras-join-code-card div.mt-4.grid > div.rounded-2xl:nth-child(2)::before {
+  background-color: rgba(16, 185, 129, 0.14);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23059669' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='12' cy='8' r='4'/%3E%3Cpath d='M4 21c0-4 4-7 8-7s8 3 8 7'/%3E%3C/svg%3E");
+}
+html body .meras-teacher-shell .miras-join-code-card div.mt-4.grid > div.rounded-2xl:nth-child(3)::before {
+  background-color: rgba(245, 158, 11, 0.16);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23b45309' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='12' cy='12' r='9'/%3E%3Cpath d='M12 7v5l3 2'/%3E%3C/svg%3E");
+}
+html[data-theme="dark"] body .meras-teacher-shell .miras-join-code-card div.mt-4.grid > div.rounded-2xl:nth-child(2)::before {
+  background-color: rgba(52, 211, 153, 0.18);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%236ee7b7' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='12' cy='8' r='4'/%3E%3Cpath d='M4 21c0-4 4-7 8-7s8 3 8 7'/%3E%3C/svg%3E");
+}
+html[data-theme="dark"] body .meras-teacher-shell .miras-join-code-card div.mt-4.grid > div.rounded-2xl:nth-child(3)::before {
+  background-color: rgba(251, 191, 36, 0.18);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23fcd34d' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='12' cy='12' r='9'/%3E%3Cpath d='M12 7v5l3 2'/%3E%3C/svg%3E");
+}
