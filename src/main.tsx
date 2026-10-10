@@ -51,6 +51,7 @@ import './design/miras-student-lists.css';
 import './design/miras-teacher-courses.css';
 import './design/miras-student-header.css';
 import './design/miras-student-home.css';
+import './design/miras-visual-complete.css';
 
 // ───────────────────────────────────────────────────────────────────────────
 // حاجز عرض الواجهة (Render Guard)
