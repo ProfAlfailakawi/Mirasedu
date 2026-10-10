@@ -176,6 +176,17 @@ export default function LoginRevealOverlay({
   const easeLift: [number, number, number, number] = [0.32, 0.72, 0, 1];
 
   return (
+    <>
+    {/* السطر التنبيهي خارج الشجرة المخفيّة (aria-hidden) كي يقرأه قارئ الشاشة؛ موضعه ثابت تحت مركز التكوين */}
+    {trouble && (
+      <p
+        className="fixed left-1/2 z-[221] w-[260px] -translate-x-1/2 text-center text-[12px] font-bold text-amber-700"
+        style={{ top: "calc(50% + 146px)" }}
+        role="alert"
+      >
+        تعذّر تحديث البيانات — تحقّق من اتصالك بالإنترنت.
+      </p>
+    )}
     <div
       dir="rtl"
       className="fixed inset-0 z-[220] grid place-items-center overflow-hidden"
@@ -249,17 +260,6 @@ export default function LoginRevealOverlay({
               className={`mt-3 h-px w-16 origin-center bg-gradient-to-l from-transparent ${hairline} to-transparent`}
             />
           </motion.div>
-
-          {/* عرضٌ فقط: سطر تنبيه تحت التكوين، لا يغيّر مقاس الإطار ولا مواقع الشارات */}
-          {trouble && (
-            <p
-              className="absolute left-1/2 z-30 w-[260px] -translate-x-1/2 text-center text-[12px] font-bold text-amber-700"
-              style={{ top: "calc(50% + 146px)" }}
-              role="alert"
-            >
-              تعذّر تحديث البيانات — تحقّق من اتصالك بالإنترنت.
-            </p>
-          )}
 
           {/* حلقة شعرية خارجية تلتئم حول الشعار */}
           <motion.div
@@ -349,5 +349,6 @@ export default function LoginRevealOverlay({
         </motion.div>
       </motion.div>
     </div>
+    </>
   );
 }
