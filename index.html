@@ -103,7 +103,7 @@
   <body>
     <!-- رابط التخطّي: يظهر عند التنقّل بلوحة المفاتيح فقط، وينقل التركيز إلى
          المحتوى الرئيسي دون المرور على شريط التنقّل كاملاً. -->
-    <a id="miras-skip" href="#" class="miras-skip">تخطَّ إلى المحتوى</a>
+    <a id="miras-skip" href="#" class="miras-skip" style="position:fixed;top:-100px;inset-inline-start:0">تخطَّ إلى المحتوى</a>
     <div id="root"></div>
     <script>
       (function () {
@@ -181,6 +181,46 @@
           // الإنقاذ فوراً بدل ترك الشاشة بيضاء بلا أي مخرج.
           window.addEventListener("error", showRescue);
           window.addEventListener("unhandledrejection", showRescue);
+        } catch (e) {}
+      })();
+    </script>
+
+    <!-- حارس الإقلاع: إن لم تظهر الواجهة (ملف JS/CSS لم يصل بعد نشر نسخة جديدة أو ضعف شبكة)
+         تُعاد الصفحة مرة واحدة تلقائياً، وإن تكرر الفشل يظهر زر إعادة بدل الصفحة البيضاء. -->
+    <script>
+      (function () {
+        try {
+          var KEY = "miras-boot-retry";
+          function mounted() {
+            var root = document.getElementById("root");
+            return !!window.__mirasAppMounted || !!(root && root.firstChild);
+          }
+          function showRetry() {
+            if (mounted() || document.getElementById("miras-boot-retry")) return;
+            var box = document.createElement("div");
+            box.id = "miras-boot-retry";
+            box.setAttribute("dir", "rtl");
+            box.style.cssText = "position:fixed;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;padding:24px;background:#fff;color:#0f172a;font-family:system-ui,-apple-system,Tajawal,sans-serif;text-align:center;z-index:2147483645;";
+            box.innerHTML = '<div style="font-weight:900;font-size:17px;">تعذّر تحميل مِراس</div><div style="font-size:13px;color:#475569;line-height:1.9;">قد يكون السبب ضعف الاتصال أو تحديثاً جديداً للتطبيق.</div><button type="button" style="border:0;border-radius:14px;padding:12px 28px;background:#4f46e5;color:#fff;font-weight:900;font-size:14px;cursor:pointer;">إعادة التحميل</button>';
+            box.querySelector("button").addEventListener("click", function () { window.location.reload(); });
+            document.body.appendChild(box);
+          }
+          function recover() {
+            if (mounted()) return;
+            var tried = false;
+            try { tried = sessionStorage.getItem(KEY) === "1"; sessionStorage.setItem(KEY, "1"); } catch (e) {}
+            if (!tried) { window.location.reload(); return; }
+            showRetry();
+          }
+          // فشل تحميل سكربت/تنسيق (404 بعد نشر جديد، انقطاع): استرجاع فوري.
+          window.addEventListener("error", function (e) {
+            var t = e && e.target;
+            if (t && (t.tagName === "SCRIPT" || t.tagName === "LINK")) recover();
+          }, true);
+          setTimeout(recover, 12000);
+          window.addEventListener("load", function () {
+            setTimeout(function () { if (mounted()) { try { sessionStorage.removeItem(KEY); } catch (e) {} } }, 3000);
+          });
         } catch (e) {}
       })();
     </script>
