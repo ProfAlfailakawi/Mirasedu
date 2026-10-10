@@ -1,0 +1,10 @@
+/*
+ * Native checkboxes / radios inherit a global button-like inset white top edge and a 44px minimum
+ * height (touch target). The 16px glyph is centred in the 44px box, so the edge showed as a stray
+ * white dash above it, clearly visible on the dark theme (e.g. the teacher grading list).
+ * The edge is removed; the 44px hit area is kept.
+ */
+html body input[type="checkbox"]:not(#_):not(#__),
+html body input[type="radio"]:not(#_):not(#__) {
+  box-shadow: none !important;
+}
