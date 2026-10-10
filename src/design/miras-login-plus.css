@@ -1,0 +1,56 @@
+/*
+ * Login screen, creative pass (CSS only; same fields, texts and behaviour).
+ * - Backdrop: soft aurora built from static radial gradients (indigo, teal, violet) over a faint
+ *   dot grid. No blur, no filter, no animation on the backdrop, so it is cheap on phones.
+ * - Card: deeper layered shadow, rounder corners, gradient continue button with a glow.
+ * - The card rises in once (reduced-motion safe).
+ */
+html[data-theme] body #root .meras-auth-shell.miras-calm-auth:not(#_):not(#__) {
+  background-color: #f4f5fb !important;
+  background-image:
+    radial-gradient(60% 50% at 88% 8%, rgba(99, 102, 241, 0.24), transparent 70%),
+    radial-gradient(55% 48% at 8% 92%, rgba(20, 184, 166, 0.2), transparent 70%),
+    radial-gradient(42% 36% at 50% 50%, rgba(167, 139, 250, 0.1), transparent 72%),
+    radial-gradient(rgba(79, 70, 229, 0.1) 1px, transparent 1.3px) !important;
+  background-size: auto, auto, auto, 22px 22px !important;
+}
+html[data-theme="dark"] body #root .meras-auth-shell.miras-calm-auth:not(#_):not(#__) {
+  background-color: #0b0b14 !important;
+  background-image:
+    radial-gradient(60% 50% at 88% 8%, rgba(99, 102, 241, 0.3), transparent 70%),
+    radial-gradient(55% 48% at 8% 92%, rgba(20, 184, 166, 0.2), transparent 70%),
+    radial-gradient(42% 36% at 50% 50%, rgba(139, 92, 246, 0.12), transparent 72%),
+    radial-gradient(rgba(165, 180, 252, 0.09) 1px, transparent 1.3px) !important;
+  background-size: auto, auto, auto, 22px 22px !important;
+}
+html[data-theme] body #root .miras-calm-auth .meras-auth-card:not(#_):not(#__) {
+  border-radius: 28px !important;
+  box-shadow:
+    0 2px 6px rgba(15, 23, 42, 0.06),
+    0 34px 60px -32px rgba(67, 56, 202, 0.45) !important;
+}
+html[data-theme="dark"] body #root .miras-calm-auth .meras-auth-card:not(#_):not(#__) {
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.06),
+    0 34px 60px -30px rgba(0, 0, 0, 0.85) !important;
+}
+html[data-theme] body #root .miras-calm-auth .miras-login-primary:not(#_):not(#__) {
+  background-image: linear-gradient(145deg, #6366f1, #4338ca) !important;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.28), 0 14px 24px -12px rgba(67, 56, 202, 0.7) !important;
+}
+html[data-theme="dark"] body #root .miras-calm-auth .miras-login-primary:not(#_):not(#__) {
+  background-image: linear-gradient(145deg, #818cf8, #6366f1) !important;
+}
+html[data-theme] body #root .miras-calm-auth input:focus:not(#_):not(#__) {
+  box-shadow: 0 0 0 4px rgba(99, 102, 241, 0.18) !important;
+  border-color: #6366f1 !important;
+}
+@media (prefers-reduced-motion: no-preference) {
+  @keyframes miras-auth-rise {
+    from { opacity: 0; transform: translateY(14px) scale(0.985); }
+    to { transform: none; }
+  }
+  html[data-theme] body #root .miras-calm-auth .meras-auth-card:not(#_):not(#__) {
+    animation: miras-auth-rise 0.55s cubic-bezier(0.2, 0.7, 0.2, 1) backwards;
+  }
+}
