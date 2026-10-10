@@ -1184,11 +1184,12 @@ const simplifyMirasMessage = (
     if (any("أكمل البيانات", "تعبئة جميع الحقول", "الحقول المطلوبة"))
       return "راجع الحقول المطلوبة";
     if (any("اكتب", "أدخل", "يرجى إدخال", "اختر", "حدد")) {
-      if (any("الرقم الجامعي") && any("كلمة المرور", "كلمة مرور"))
+      if (any("الرقم") && any("كلمة المرور", "كلمة مرور"))
         return "اكتب الرقم وكلمة المرور";
       if (any("درجة")) return "اكتب الدرجة";
       if (any("طالب", "طلبة")) return "اختر الطالب";
-      if (any("كلمة مرور")) return "اكتب كلمة المرور";
+      if (any("كلمة المرور", "كلمة مرور")) return "اكتب كلمة المرور";
+      if (any("رقمك الجامعي", "الرقم الجامعي")) return "اكتب رقمك الجامعي";
       if (any("رمز", "كود") && any("مقرر", "انضمام", "تفعيل"))
         return "اكتب رمز المقرر";
       if (any("مقرر")) return "اختر المقرر";
@@ -17730,6 +17731,10 @@ ${rows
     if (loginCloudGateActive) return;
     setErrorMsg("");
     setSuccessMsg("");
+    if (!String(loginForm.password || "").trim()) {
+      setErrorMsg("اكتب كلمة المرور.");
+      return;
+    }
     try {
       const resp = await fetch("/api/auth/login", {
         method: "POST",
@@ -18379,12 +18384,23 @@ ${rows
       setPasskeyBusy(true);
       setPasskeyStatus("");
       const localLock = readMirasPasskeyLocalLock();
+      // يحصر الخادم المفاتيح في مفاتيح حساب واحد حتى لا يقدّم الجهاز مفتاحاً قديماً.
+      // الحساب المكتوب في نموذج الدخول الكامل يتقدّم على البصمة المحفوظة على الجهاز:
+      // من اختار كلمة المرور وكتب حساباً آخر يجب ألا تُحصر بصمته في الحساب المحفوظ.
+      const typedLoginId =
+        loginStep === "password" ? String(loginForm.idNumber || "").trim() : "";
+      const typedIsOtherAccount =
+        !!typedLoginId &&
+        typedLoginId.toLowerCase() !== String(localLock?.userId || "").toLowerCase();
       const startResp = await fetch("/api/auth/passkey/login/start", {
         method: "POST",
         headers: jsonHeaders({ auth: "none" }),
         body: JSON.stringify({
           deviceToken: getMirasDeviceId(),
-          role: localLock?.role,
+          role: typedIsOtherAccount ? undefined : localLock?.role,
+          userId: typedIsOtherAccount
+            ? typedLoginId
+            : localLock?.userId || typedLoginId || undefined,
         }),
       });
       const startData = await startResp.json().catch(() => ({}));
@@ -18493,6 +18509,7 @@ ${rows
           body: JSON.stringify({
             role: "teacher",
             deviceToken: getMirasDeviceId(),
+            userId: teacherSession?.email || undefined,
           }),
         });
         const startData = await startResp.json().catch(() => ({}));
@@ -34417,7 +34434,7 @@ ${rows
                               type="password"
                               autoComplete="current-password"
                               autoFocus
-                              placeholder="●●●●●●●●"
+                              placeholder="اكتب كلمة المرور"
                               value={loginForm.password}
                               onChange={(e) =>
                                 setLoginForm({

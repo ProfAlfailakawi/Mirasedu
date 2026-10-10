@@ -14948,12 +14948,32 @@ app.post("/api/auth/passkey/login/start", async (req, res) => {
       return res
         .status(404)
         .json({ error: "لا توجد بصمة مفعّلة بعد على هذا النظام." });
+    // إن عُرف الحساب (بصمة محفوظة على الجهاز أو بريد مكتوب في شاشة الدخول) نحصر
+    // المفاتيح المقبولة في مفاتيحه المسجّلة: الجهاز قد يحتفظ بمفتاح قديم لمِراس لم
+    // يعد في الخادم، وفي التدفّق المفتوح كان يختاره أحياناً فيُرفض «غير مسجلة».
+    const hintId = normalizeArabicDigits(String(req.body?.userId || "")).trim();
+    const hintedUser = hintId
+      ? (role ? [role] : (["teacher", "student"] as PasskeyRole[]))
+          .map((candidateRole) => ({ candidateRole, user: findPasskeyUser(candidateRole, hintId) }))
+          .find((entry) => !!entry.user)
+      : undefined;
+    const hintedCredentials = hintedUser
+      ? credentials.filter(
+          (item: any) =>
+            item.role === hintedUser.candidateRole &&
+            String(item.userId || "").toLowerCase() ===
+              String(hintedUser.user!.id || "").toLowerCase(),
+        )
+      : [];
     const options = await generateAuthenticationOptions({
       rpID: getPasskeyRpId(req),
       // قائمة فارغة = تدفّق passkey "قابل للاكتشاف": يفتح Face ID مباشرة دون نافذة
       // "Use Passkey" واختيار الحساب. يتطلب أن تكون البصمة مسجّلة كـ resident
       // (انظر residentKey: "required" في التسجيل) — فيُعاد تفعيل البصمة مرة واحدة بعد التحديث.
-      allowCredentials: [],
+      allowCredentials: hintedCredentials.map((item: any) => ({
+        id: item.credentialId,
+        transports: item.transports,
+      })),
       userVerification: "required",
       timeout: 60000,
     });
@@ -14981,7 +15001,7 @@ app.post("/api/auth/passkey/login/finish", async (req, res) => {
       .getPasskeyCredentials()
       .find((item: any) => item.credentialId === response.id);
     if (!saved)
-      return res.status(404).json({ error: "هذه البصمة غير مسجلة في مِراس." });
+      return res.status(404).json({ error: "هذه البصمة غير معروفة لمِراس. ادخل بكلمة المرور ثم فعّل البصمة من جديد." });
     let matchedChallenge = "";
     const verification = await verifyAuthenticationResponse({
       response,
