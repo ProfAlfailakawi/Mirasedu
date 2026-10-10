@@ -10,10 +10,12 @@
  * even when `target` grows (e.g. submitted -> graded) while it is running.
  */
 import * as React from 'react';
-import { journeyAlreadyPlayed, journeyMarkPlayed } from './journeyReveal';
+import { journeyAlreadyPlayed, journeyIsCovered, journeyMarkPlayed } from './journeyReveal';
 
 const useIsoLayoutEffect = typeof window === 'undefined' ? React.useEffect : React.useLayoutEffect;
 const SETTLE_MS = 1600; // lets the one-shot halo finish before data-just is removed
+const COVER_POLL_MS = 250; // re-check while a full-screen overlay covers the stepper
+const COVER_GIVE_UP_MS = 20000; // then just show the real state (never stay unlit)
 
 export interface JourneyRevealOptions {
   target: number;
@@ -52,17 +54,46 @@ export function useJourneyReveal<T extends HTMLElement = HTMLOListElement>({
     const eff = Math.max(0.1, Math.min(threshold, vh > 0 ? (0.9 * vh) / h : threshold));
     armed.current = true;
     setLit(0); // before first paint: no flash of the final state
+    let poll: ReturnType<typeof setInterval> | undefined;
+    let giveUp: ReturnType<typeof setTimeout> | undefined;
+    const stopWaiting = () => {
+      if (poll) clearInterval(poll);
+      if (giveUp) clearTimeout(giveUp);
+      poll = giveUp = undefined;
+    };
+    const visibleEnough = () => {
+      const r = el.getBoundingClientRect();
+      const vhh = window.innerHeight || document.documentElement.clientHeight || 0;
+      const seen = Math.min(r.bottom, vhh) - Math.max(r.top, 0);
+      return r.height > 0 && seen / r.height >= eff - 0.01;
+    };
+    const play = () => {
+      stopWaiting();
+      io.disconnect();
+      journeyMarkPlayed(playKey);
+      setStarted(true);
+    };
+    // Seen, but a modal / tour overlay may be covering it: the intro would be
+    // used up unseen. Wait until it is uncovered (bounded), then play.
     const io = new IntersectionObserver(
       (entries) => {
         if (!entries.some((e) => e.isIntersecting && e.intersectionRatio >= eff - 0.01)) return;
-        io.disconnect();
-        journeyMarkPlayed(playKey);
-        setStarted(true);
+        if (!journeyIsCovered(el)) return play();
+        if (poll) return;
+        poll = setInterval(() => {
+          if (visibleEnough() && !journeyIsCovered(el)) play();
+        }, COVER_POLL_MS);
+        giveUp = setTimeout(() => {
+          stopWaiting();
+          io.disconnect();
+          setLit(null); // show the real state; the intro is not consumed
+        }, COVER_GIVE_UP_MS);
       },
       { threshold: [eff] },
     );
     io.observe(el);
     return () => {
+      stopWaiting();
       io.disconnect();
       armed.current = false;
       setStarted(false);

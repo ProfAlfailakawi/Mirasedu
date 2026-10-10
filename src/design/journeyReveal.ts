@@ -67,8 +67,30 @@ export function journeyResetPlayed(): void {
 /**
  * Stepper props for a student submission card: one intro per submission id,
  * and never any motion while the exam is still being taken.
+ * `dense` (timeline modal, per-project list rows): static, no intro and no
+ * pulse, and no playKey so it never uses up the intro of the main card.
+ * An in-progress card keeps its playKey: DnaStepper records it as seen while
+ * `still`, so when the exam is submitted only the single state change
+ * animates, never the whole row.
  */
-export function submissionJourneyProps(sub: { id?: unknown } | null | undefined, inProgress: boolean) {
+export function submissionJourneyProps(sub: { id?: unknown } | null | undefined, inProgress: boolean, dense = false) {
+  if (dense) return { reveal: false, still: true, playKey: undefined };
   const id = sub?.id == null ? '' : String(sub.id);
   return { reveal: !inProgress, still: inProgress, playKey: id ? `submission:${id}` : undefined };
+}
+
+/**
+ * True when something other than `el` (a modal, the tour overlay) covers the
+ * visible part of it, so an intro started now would play unseen.
+ */
+export function journeyIsCovered(el: Element): boolean {
+  if (typeof document === 'undefined' || typeof document.elementFromPoint !== 'function') return false;
+  const r = el.getBoundingClientRect();
+  const vw = window.innerWidth || document.documentElement.clientWidth || 0;
+  const vh = window.innerHeight || document.documentElement.clientHeight || 0;
+  const x0 = Math.max(0, r.left), x1 = Math.min(vw, r.right);
+  const y0 = Math.max(0, r.top), y1 = Math.min(vh, r.bottom);
+  if (x1 <= x0 || y1 <= y0) return false;
+  const hit = document.elementFromPoint((x0 + x1) / 2, (y0 + y1) / 2);
+  return !!hit && !el.contains(hit) && !hit.contains(el);
 }
