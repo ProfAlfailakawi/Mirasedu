@@ -1,0 +1,112 @@
+/*
+ * Student home, creative pass (CSS only; same elements, numbers and text).
+ * - «المتاح الآن»: each shortcut gets its own accent (indigo for exams, teal for projects), a
+ *   duotone icon tile and a solid gradient count disc with a display numeral.
+ * - Last-submission card: a gradient accent rail on its inline-start edge, larger title, and the
+ *   completed steps glow in the accent gradient.
+ * - Desktop (1024px+): the overview card becomes two columns (shortcuts | study path) with the
+ *   last submission spanning the full width, so the page uses its width.
+ * - No blur added, no filters, motion only when reduced motion is not requested.
+ */
+html body .workspace-calm-shell .miras-now-available button:not(#_):not(#_):not(#__) {
+  --acc: 79 70 229;
+  background:
+    radial-gradient(120% 140% at 100% 0%, rgb(var(--acc) / 0.14), transparent 60%),
+    linear-gradient(180deg, #ffffff, #fafaff) !important;
+  border: 0 !important;
+  box-shadow:
+    inset 0 -3px 0 rgb(var(--acc) / 0.75),
+    0 1px 2px rgba(15, 23, 42, 0.05),
+    0 14px 24px -18px rgb(var(--acc) / 0.55) !important;
+  border-radius: 18px !important;
+}
+html body .workspace-calm-shell .miras-now-available button:nth-child(2):not(#_):not(#_):not(#__) { --acc: 13 148 136; }
+html[data-theme="dark"] body .workspace-calm-shell .miras-now-available button:not(#_):not(#_):not(#__) {
+  background:
+    radial-gradient(120% 140% at 100% 0%, rgb(var(--acc) / 0.28), transparent 62%),
+    rgba(255, 255, 255, 0.05) !important;
+  box-shadow:
+    inset 0 -3px 0 rgb(var(--acc) / 0.9),
+    inset 0 1px 0 rgba(255, 255, 255, 0.06),
+    0 14px 24px -18px rgba(0, 0, 0, 0.8) !important;
+}
+html body .workspace-calm-shell .miras-now-available button > span > span:first-child:not(#_):not(#_):not(#__) {
+  background: linear-gradient(145deg, rgb(var(--acc) / 0.22), rgb(var(--acc) / 0.07)) !important;
+  color: rgb(var(--acc)) !important;
+  border-color: rgb(var(--acc) / 0.25) !important;
+}
+html[data-theme="dark"] body .workspace-calm-shell .miras-now-available button > span > span:first-child:not(#_):not(#_):not(#__) {
+  color: color-mix(in srgb, rgb(var(--acc)) 55%, white) !important;
+}
+html body .workspace-calm-shell .miras-now-available button > span > span:nth-child(2) > span:last-child:not(#_):not(#_):not(#__) {
+  color: rgb(var(--acc)) !important;
+}
+html[data-theme="dark"] body .workspace-calm-shell .miras-now-available button > span > span:nth-child(2) > span:last-child:not(#_):not(#_):not(#__) {
+  color: color-mix(in srgb, rgb(var(--acc)) 50%, white) !important;
+}
+html body .workspace-calm-shell .miras-now-available .miras-now-count:not(#_):not(#_):not(#__):not(#___) {
+  min-width: 2.6rem;
+  height: 2.6rem;
+  background: linear-gradient(145deg, rgb(var(--acc)), rgb(var(--acc) / 0.72)) !important;
+  color: #fff !important;
+  font-size: 1.2rem !important;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.35), 0 8px 14px -8px rgb(var(--acc) / 0.75);
+}
+html[data-theme="dark"] body .workspace-calm-shell .miras-now-available .miras-now-count:not(#_):not(#_):not(#__):not(#___) {
+  color: #fff !important;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.2);
+}
+
+/* last submission: accent rail, larger title, glowing completed steps */
+html body .workspace-calm-shell .miras-student-last-submission-card:not(#_):not(#_):not(#__) {
+  position: relative;
+}
+html body .workspace-calm-shell .miras-student-last-submission-card:not(#_):not(#_):not(#__)::before {
+  content: "";
+  position: absolute;
+  inset-block: 12px;
+  inset-inline-start: 0;
+  width: 4px;
+  border-radius: 0 4px 4px 0;
+  background: linear-gradient(180deg, #818cf8, #10b981);
+  pointer-events: none;
+}
+html body .workspace-calm-shell .miras-student-last-submission-card p.font-black:not(#_):not(#_):not(#__) {
+  font-size: 1.0625rem !important;
+  letter-spacing: -0.01em;
+}
+html body .workspace-calm-shell .miras-student-last-submission-card .dna-stepi[data-state="done"] .dna-node:not(#_):not(#_):not(#__) {
+  background: linear-gradient(145deg, #6366f1, #4338ca);
+  box-shadow: 0 6px 12px -6px rgba(67, 56, 202, 0.7);
+}
+
+@media (min-width: 1024px) {
+  html body .miras-student-overview-card .relative.z-10.space-y-3:has(> .miras-now-available):not(#_):not(#_):not(#__) {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    gap: 1rem;
+    align-items: stretch;
+  }
+  html body .miras-student-overview-card .relative.z-10.space-y-3:has(> .miras-now-available) > *:not(#_):not(#_):not(#__) {
+    margin: 0 !important;
+  }
+  html body .miras-student-overview-card .relative.z-10.space-y-3:has(> .miras-now-available) > :nth-child(3):not(#_):not(#_):not(#__) {
+    grid-column: 1 / -1;
+  }
+  html body .workspace-calm-shell .miras-now-available .grid:not(#_):not(#_):not(#__) {
+    grid-template-columns: 1fr !important;
+  }
+  html body .workspace-calm-shell .miras-now-available button:not(#_):not(#_):not(#__) { padding: 0.9rem 1rem !important; }
+  html body .workspace-calm-shell .miras-now-available button .text-\[15px\]:not(#_):not(#_):not(#__) { font-size: 1.1rem !important; }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  @keyframes miras-home-rise {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: none; }
+  }
+  html body .workspace-calm-shell .miras-now-available button:not(#_):not(#_):not(#__) {
+    animation: miras-home-rise 0.5s cubic-bezier(0.2, 0.7, 0.2, 1) both;
+  }
+  html body .workspace-calm-shell .miras-now-available button:nth-child(2):not(#_):not(#_):not(#__) { animation-delay: 70ms; }
+}
