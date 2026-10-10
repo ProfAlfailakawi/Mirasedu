@@ -15,9 +15,13 @@ const end=source.indexOf('\n\n  // يخفي زر جرس المعلم',begin);
 assert.ok(begin>0&&end>begin);
 const {code}=await transform(source.slice(begin,end),{loader:'tsx'});
 const execute=new Function('context','with(context){'+code+';return criticalTeacherNotifications;}');
+// الفيد يُسقط تنبيهات الأحداث الأقدم من ٢٤ ساعة؛ فنثبّت «الآن» عند وقت بيانات الاختبار
+// القديمة نفسها (2026-10-06) حتى تبقى حالاتها حالية، ونمرّر Date الحقيقي في اختبار العمر.
+const FIXED_NOW=Date.parse('2026-10-06T13:00:00Z');
+class FixedDate extends Date{constructor(...args){args.length?super(...args):super(FIXED_NOW)}static now(){return FIXED_NOW}}
 function feed(patch={}){
   const owns=item=>teacherOwnsNotification(item,email,value=>String(value).split('-').slice(1).join('-'),(a,b)=>String(a).toLowerCase()===String(b).toLowerCase());
-  const values={useMemo:callback=>callback(),groupSecurityNotifications,teacherOwnsNotification,duplicatesCodeIntegrityLog,pendingDeviceApprovalNotifications,deviceReviewNotifications,deviceReviewPushNotifications,hideResolvedActivationAlerts,deviceAuditForDisplay,homePasswordResets,currentTeacherEmail:email,courseOwnerEmail:value=>String(value).split('-').slice(1).join('-'),isSameTeacherIdentity:(a,b)=>String(a).toLowerCase()===String(b).toLowerCase(),isAdminTeacher:true,systemLogs:[],deviceProblemAttempts:[],codeIntegrity:{attempts:[]},passwordResetRequests:[],homePasswordResetRequests:[],teacherImportantReadKeys:new Set(),localNotifications:[],teacherCreatedExams:[],teacherProjects:[],teacherStudents:[],teacherSubmissions:[],activeCourseExamSubmissions:[],livePulseStudentRows:[],assignedNotActivatedCodes:[],firestoreQuotaExceededState:false,activeCourseCode:'',teacherSession:{email},normalizeLocalNotification:item=>item,notificationTargetsTeacher:owns,isCriticalTeacherInAppNotification:note=>['code_integrity','exam_warning','password_reset','second_hand_device_approval'].includes(note.type),stableNotificationId:notificationIdentity,sanitizeCourseIdentifiersForDisplay:x=>x,logActionLabel:x=>x,openTeacherTab:()=>{},studentBelongsToCourse:()=>false,...patch};
+  const values={Date:FixedDate,useMemo:callback=>callback(),groupSecurityNotifications,teacherOwnsNotification,duplicatesCodeIntegrityLog,pendingDeviceApprovalNotifications,deviceReviewNotifications,deviceReviewPushNotifications,hideResolvedActivationAlerts,deviceAuditForDisplay,homePasswordResets,currentTeacherEmail:email,courseOwnerEmail:value=>String(value).split('-').slice(1).join('-'),isSameTeacherIdentity:(a,b)=>String(a).toLowerCase()===String(b).toLowerCase(),isAdminTeacher:true,systemLogs:[],deviceProblemAttempts:[],codeIntegrity:{attempts:[]},passwordResetRequests:[],homePasswordResetRequests:[],teacherImportantReadKeys:new Set(),localNotifications:[],teacherCreatedExams:[],teacherProjects:[],teacherStudents:[],teacherSubmissions:[],activeCourseExamSubmissions:[],livePulseStudentRows:[],assignedNotActivatedCodes:[],firestoreQuotaExceededState:false,activeCourseCode:'',teacherSession:{email},normalizeLocalNotification:item=>item,notificationTargetsTeacher:owns,isCriticalTeacherInAppNotification:note=>['code_integrity','exam_warning','password_reset','second_hand_device_approval'].includes(note.type),stableNotificationId:notificationIdentity,sanitizeCourseIdentifiersForDisplay:x=>x,logActionLabel:x=>x,openTeacherTab:()=>{},studentBelongsToCourse:()=>false,...patch};
   return execute(new Proxy(values,{has:()=>true,get:(target,key)=>key===Symbol.unscopables?undefined:(key in target?target[key]:globalThis[key])}));
 }
 const log={id:'one',studentId:'1',sectionCode:course,studentName:'طالب',action:'محاولة كود مرفوضة',details:'محاولة دخول بتوكن منسوخ دون سر المتصفح الأصلي — الرمز: LAB-AAAA-BBBB-CCCC',timestamp:'2026-10-06T00:21:00Z',isViolationWarning:true};
@@ -70,4 +74,16 @@ test('successful activation removes only the outdated failed-code alert from the
  const success={id:'activated',studentId:log.studentId,studentName:log.studentName,sectionCode:course,action:'تفعيل مقرر إضافي',details:'تم تفعيل المقرر',timestamp:'2026-10-06T00:45:00Z',isViolationWarning:false};
  assert.equal(feed({systemLogs:[failed,success]}).length,0);
  assert.equal(feed({systemLogs:[failed]}).length,1);
+});
+
+test('event alerts older than a day are not shown as new, while recent ones and pending states stay',()=>{
+  const hoursAgo=h=>new Date(Date.now()-h*3600000).toISOString();
+  const row=(id,h)=>({...log,id,details:'محاولة دخول مرفوضة — الرمز: LAB-AAAA-BBBB-CC'+id.length,timestamp:hoursAgo(h)});
+  const result=feed({Date,systemLogs:[row('old',48),row('new',1)]});
+  assert.equal(result.length,1);assert.equal(result[0].key,'admin-log-new');
+  const note=(id,h)=>({id,userId:email,type:'code_integrity',title:'تنبيه نزاهة كود',body:'محاولة مرفوضة للطالب '+id,createdAt:hoursAgo(h),data:{studentId:id,teacherEmail:email}});
+  const pushed=feed({Date,localNotifications:[note('a',50),note('b',2)]});
+  assert.equal(pushed.length,1);assert.match(pushed[0].body,/b$/);
+  const pending={id:'req',studentId:'9',teacherEmail:email,sectionCode:course,status:'new',requestedAt:hoursAgo(23),expiresAt:new Date(Date.now()+3600000).toISOString()};
+  assert.equal(feed({Date,passwordResetRequests:[pending]}).length,1);
 });
