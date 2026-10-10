@@ -1,0 +1,53 @@
+/*
+ * Teacher course cards, creative pass (CSS only; same text, counts, buttons, order).
+ * Each card gets a soft corner glow in its status colour (emerald when open, slate when closed),
+ * a bigger ring with a display numeral, a duotone-tinted status chip, and a staggered rise-in
+ * (reduced-motion safe). On wide screens the cards sit in a roomier grid.
+ */
+html body .meras-teacher-shell div.bg-slate-50\/80.rounded-3xl.space-y-4:not(#_):not(#_):not(#__):not(.meras-exam-shell *) {
+  --acc: 16 185 129;
+  background:
+    radial-gradient(110% 90% at 100% 0%, rgb(var(--acc) / 0.14), transparent 55%),
+    linear-gradient(180deg, #ffffff, #fafcfb) !important;
+  border-radius: 24px !important;
+}
+html body .meras-teacher-shell div.bg-slate-50\/80.rounded-3xl.space-y-4:has(.miras-course-ring.is-closed):not(#_):not(#_):not(#__) {
+  --acc: 100 116 139;
+}
+html[data-theme="dark"] body .meras-teacher-shell div.bg-slate-50\/80.rounded-3xl.space-y-4:not(#_):not(#_):not(#__):not(.meras-exam-shell *) {
+  background:
+    radial-gradient(110% 90% at 100% 0%, rgb(var(--acc) / 0.24), transparent 58%),
+    rgba(255, 255, 255, 0.045) !important;
+}
+html body .meras-teacher-shell .miras-course-ring:not(#_):not(#_):not(#__) {
+  width: 68px !important;
+  height: 68px !important;
+}
+html body .meras-teacher-shell .miras-course-ring b:not(#_):not(#_):not(#__) {
+  font-size: 1.55rem !important;
+  letter-spacing: -0.02em;
+}
+html body .meras-teacher-shell .miras-course-ring svg circle:not(#_):not(#_):not(#__) {
+  stroke-width: 3 !important;
+}
+html body .meras-teacher-shell div.bg-slate-50\/80.rounded-3xl.space-y-4 h3.font-bold:not(#_):not(#_):not(#__) {
+  font-size: 1.0625rem !important;
+  letter-spacing: -0.01em;
+}
+@media (min-width: 1024px) {
+  html body .meras-teacher-shell div.grid:has(> div.bg-slate-50\/80:nth-child(4):last-child):not(#_):not(#_):not(#__) {
+    gap: 1.25rem !important;
+  }
+}
+@media (prefers-reduced-motion: no-preference) {
+  @keyframes miras-course-rise {
+    from { opacity: 0; transform: translateY(12px); }
+    to { opacity: 1; transform: none; }
+  }
+  html body .meras-teacher-shell div.bg-slate-50\/80.rounded-3xl.space-y-4:not(#_):not(#_):not(#__) {
+    animation: miras-course-rise 0.5s cubic-bezier(0.2, 0.7, 0.2, 1) backwards;
+  }
+  html body .meras-teacher-shell div.bg-slate-50\/80.rounded-3xl.space-y-4:nth-child(2):not(#_):not(#_):not(#__) { animation-delay: 60ms; }
+  html body .meras-teacher-shell div.bg-slate-50\/80.rounded-3xl.space-y-4:nth-child(3):not(#_):not(#_):not(#__) { animation-delay: 120ms; }
+  html body .meras-teacher-shell div.bg-slate-50\/80.rounded-3xl.space-y-4:nth-child(4):not(#_):not(#_):not(#__) { animation-delay: 180ms; }
+}
