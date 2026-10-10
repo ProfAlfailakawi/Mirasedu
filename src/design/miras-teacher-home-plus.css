@@ -59,9 +59,12 @@ html body .meras-teacher-shell .miras-metric-card .miras-metric-value .miras-met
     grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
     gap: 1.1rem !important;
   }
+  html body #root .meras-teacher-shell .miras-metric-card:not(#_):not(#_):not(#__):not(#___):not(#____) {
+    min-height: 8.5rem !important;
+  }
   html body .meras-teacher-shell .miras-metric-card:not(#_):not(#_):not(#__) {
     padding: 1.5rem 1.6rem !important;
-    min-height: 8.5rem;
+    min-height: 8.5rem !important;
     display: flex;
     align-items: center;
   }
@@ -94,7 +97,7 @@ html body .meras-teacher-shell .miras-metric-card .miras-metric-value .miras-met
     to { opacity: 1; transform: none; }
   }
   html body .meras-teacher-shell .miras-metric-card:not(#_):not(#_):not(#__) {
-    animation: miras-tile-rise 0.5s cubic-bezier(0.2, 0.7, 0.2, 1) both;
+    animation: miras-tile-rise 0.5s cubic-bezier(0.2, 0.7, 0.2, 1) backwards;
   }
   html body .meras-teacher-shell .miras-metric-card:nth-child(2):not(#_):not(#_):not(#__) { animation-delay: 50ms; }
   html body .meras-teacher-shell .miras-metric-card:nth-child(3):not(#_):not(#_):not(#__) { animation-delay: 100ms; }
@@ -104,5 +107,5 @@ html body .meras-teacher-shell .miras-metric-card .miras-metric-value .miras-met
 }
 @media (prefers-reduced-motion: no-preference) and (hover: hover) {
   html body .meras-teacher-shell .miras-metric-card:not(#_):not(#_):not(#__) { transition: transform 0.2s ease, box-shadow 0.2s ease; }
-  html body .meras-teacher-shell .miras-metric-card:hover:not(#_):not(#_):not(#__) { transform: translateY(-3px); }
+  html body #root .meras-teacher-shell .miras-metric-card:hover:not(#_):not(#_):not(#__):not(#___):not(#____) { transform: translateY(-3px) !important; }
 }
