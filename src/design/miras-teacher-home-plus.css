@@ -1,0 +1,111 @@
+/*
+ * Teacher home, creative pass (CSS only; every number, label and icon is the one already shown).
+ * - Each stat tile gets its own accent (one coherent six-colour palette) drawn as a soft
+ *   corner glow, a tinted icon tile, a coloured figure and a thin accent rail at the bottom.
+ * - Display numerals: bigger tabular figures, larger still on desktop.
+ * - Desktop: three roomy tiles per row instead of six slivers, so the page uses its width.
+ * - Staggered rise-in, only when reduced motion is not requested. No blur, no filters.
+ */
+html body .meras-teacher-shell .miras-metric-card:not(#_):not(#_):not(#__):not(.meras-exam-shell *) {
+  --acc: 79 70 229;
+  background:
+    radial-gradient(120% 130% at 100% 0%, rgb(var(--acc) / 0.15), transparent 58%),
+    linear-gradient(180deg, #ffffff, #fafaff) !important;
+  box-shadow:
+    inset 0 -3px 0 rgb(var(--acc) / 0.8),
+    0 1px 2px rgba(15, 23, 42, 0.05),
+    0 16px 28px -20px rgb(var(--acc) / 0.5) !important;
+  border-radius: 22px !important;
+}
+html body .meras-teacher-shell .miras-metric-card:nth-child(2):not(#_):not(#_):not(#__) { --acc: 5 150 105; }
+html body .meras-teacher-shell .miras-metric-card:nth-child(3):not(#_):not(#_):not(#__) { --acc: 124 58 237; }
+html body .meras-teacher-shell .miras-metric-card:nth-child(4):not(#_):not(#_):not(#__) { --acc: 2 132 199; }
+html body .meras-teacher-shell .miras-metric-card:nth-child(5):not(#_):not(#_):not(#__) { --acc: 13 148 136; }
+html body .meras-teacher-shell .miras-metric-card:nth-child(6):not(#_):not(#_):not(#__) { --acc: 217 119 6; }
+html[data-theme="dark"] body .meras-teacher-shell .miras-metric-card:not(#_):not(#_):not(#__) {
+  background:
+    radial-gradient(120% 130% at 100% 0%, rgb(var(--acc) / 0.28), transparent 60%),
+    rgba(255, 255, 255, 0.045) !important;
+  box-shadow:
+    inset 0 -3px 0 rgb(var(--acc) / 0.9),
+    inset 0 1px 0 rgba(255, 255, 255, 0.06),
+    0 16px 28px -20px rgba(0, 0, 0, 0.8) !important;
+}
+/* icon tile: duotone */
+html body .meras-teacher-shell .miras-metric-card .miras-metric-icon-wrap > div:last-child:not(#_):not(#_):not(#__) {
+  background: linear-gradient(145deg, rgb(var(--acc) / 0.2), rgb(var(--acc) / 0.06)) !important;
+  color: rgb(var(--acc)) !important;
+  --tw-ring-color: rgb(var(--acc) / 0.25) !important;
+}
+html[data-theme="dark"] body .meras-teacher-shell .miras-metric-card .miras-metric-icon-wrap > div:last-child:not(#_):not(#_):not(#__) {
+  color: color-mix(in srgb, rgb(var(--acc)) 55%, white) !important;
+}
+/* display numerals */
+html body .meras-teacher-shell .miras-metric-card .miras-metric-value:not(#_):not(#_):not(#__) {
+  font-size: 2.1rem !important;
+  letter-spacing: -0.02em;
+  line-height: 1.05;
+}
+html:not([data-theme="dark"]) body .meras-teacher-shell .miras-metric-card .miras-metric-value:not(#_):not(#_):not(#__) {
+  color: #0b1020 !important;
+}
+html body .meras-teacher-shell .miras-metric-card .miras-metric-value .miras-metric-of:not(#_):not(#_):not(#__) {
+  font-size: 0.8125rem !important;
+  letter-spacing: 0;
+}
+
+@media (min-width: 1024px) {
+  html body .meras-teacher-shell .miras-teacher-home-panel > .grid:has(> .miras-metric-card):not(#_):not(#_):not(#__) {
+    grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+    gap: 1.1rem !important;
+  }
+  html body #root .meras-teacher-shell .miras-metric-card:not(#_):not(#_):not(#__):not(#___):not(#____) {
+    min-height: 8.5rem !important;
+  }
+  html body .meras-teacher-shell .miras-metric-card:not(#_):not(#_):not(#__) {
+    padding: 1.5rem 1.6rem !important;
+    min-height: 8.5rem !important;
+    display: flex;
+    align-items: center;
+  }
+  html body .meras-teacher-shell .miras-metric-card > div:not(#_):not(#_):not(#__) { width: 100%; }
+  html body .meras-teacher-shell .miras-metric-card .miras-metric-value:not(#_):not(#_):not(#__) { font-size: 3rem !important; }
+  html body .meras-teacher-shell .miras-metric-card .miras-metric-icon-wrap:not(#_):not(#_):not(#__) {
+    width: 3.5rem !important;
+    height: 3.5rem !important;
+  }
+  html body .meras-teacher-shell .miras-metric-card .miras-metric-icon-wrap > div:last-child:not(#_):not(#_):not(#__) {
+    width: 3.5rem !important;
+    height: 3.5rem !important;
+    border-radius: 18px !important;
+  }
+  html body .meras-teacher-shell .miras-metric-card .miras-metric-icon-wrap svg.lucide:not(#_):not(#_):not(#__) {
+    width: 1.6rem !important;
+    height: 1.6rem !important;
+  }
+  html body .meras-teacher-shell .miras-metric-card .miras-metric-ring:not(#_):not(#_):not(#__):not(#___) {
+    width: 64px !important;
+    height: 64px !important;
+    top: -4px !important;
+    left: -4px !important;
+  }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  @keyframes miras-tile-rise {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: none; }
+  }
+  html body .meras-teacher-shell .miras-metric-card:not(#_):not(#_):not(#__) {
+    animation: miras-tile-rise 0.5s cubic-bezier(0.2, 0.7, 0.2, 1) backwards;
+  }
+  html body .meras-teacher-shell .miras-metric-card:nth-child(2):not(#_):not(#_):not(#__) { animation-delay: 50ms; }
+  html body .meras-teacher-shell .miras-metric-card:nth-child(3):not(#_):not(#_):not(#__) { animation-delay: 100ms; }
+  html body .meras-teacher-shell .miras-metric-card:nth-child(4):not(#_):not(#_):not(#__) { animation-delay: 150ms; }
+  html body .meras-teacher-shell .miras-metric-card:nth-child(5):not(#_):not(#_):not(#__) { animation-delay: 200ms; }
+  html body .meras-teacher-shell .miras-metric-card:nth-child(6):not(#_):not(#_):not(#__) { animation-delay: 250ms; }
+}
+@media (prefers-reduced-motion: no-preference) and (hover: hover) {
+  html body .meras-teacher-shell .miras-metric-card:not(#_):not(#_):not(#__) { transition: transform 0.2s ease, box-shadow 0.2s ease; }
+  html body #root .meras-teacher-shell .miras-metric-card:hover:not(#_):not(#_):not(#__):not(#___):not(#____) { transform: translateY(-3px) !important; }
+}
