@@ -1,0 +1,24 @@
+/*
+ * Loading curtain: a soft shimmer sweep across the central frame, so the screen reads as
+ * "loading" and not as a still poster. Presentation only: no timing, no logic. The sweep is
+ * a pseudo-element, so the frame's content is untouched. It exists only when reduced motion
+ * is not requested (the reduced-motion curtain is a separate static render with no shimmer).
+ */
+.miras-reveal-frame {
+  position: relative;
+  overflow: hidden;
+}
+@keyframes miras-reveal-shimmer {
+  from { transform: translateX(120%); }
+  to { transform: translateX(-120%); }
+}
+@media (prefers-reduced-motion: no-preference) {
+  .miras-reveal-frame::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    background: linear-gradient(100deg, transparent 30%, rgba(99, 102, 241, 0.14) 50%, transparent 70%);
+    animation: miras-reveal-shimmer 1.6s ease-in-out infinite;
+  }
+}
