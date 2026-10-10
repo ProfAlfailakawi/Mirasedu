@@ -69,7 +69,7 @@ export function useJourneyReveal<T extends HTMLElement = HTMLOListElement>({
       setLit(null);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [enabled, hasTarget]);
+  }, [enabled, hasTarget, playKey]);
 
   // ticker: always converges to lit = null, whatever `target` does meanwhile
   React.useEffect(() => {

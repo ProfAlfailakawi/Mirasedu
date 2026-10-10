@@ -81,3 +81,24 @@ test('css: the one-shot halo keyframes are only applied under [data-just]; revea
   for (const r of rules) assert.match(r.split('{')[0], /\[data-just\]/);
   assert.match(css, /\[data-journey\] \.dna-stepi\[data-state='current'\] \.dna-node \{ animation: none; \}/);
 });
+
+test('hook re-arms per playKey (key is part of the arming effect lifecycle)', async () => {
+  const { readFileSync } = await import('node:fs');
+  const src = readFileSync(new URL('../src/design/useJourneyReveal.ts', import.meta.url), 'utf8');
+  assert.match(src, /\[enabled, hasTarget, playKey\]/);
+  // memory is per key: a played key never blocks another
+  journeyResetPlayed();
+  journeyMarkPlayed('submission:A');
+  assert.equal(journeyAlreadyPlayed('submission:A'), true);
+  assert.equal(journeyAlreadyPlayed('submission:B'), false);
+});
+
+test('hook survives StrictMode setup/cleanup/setup: played is marked only when playback starts, cleanup resets armed', async () => {
+  const { readFileSync } = await import('node:fs');
+  const src = readFileSync(new URL('../src/design/useJourneyReveal.ts', import.meta.url), 'utf8');
+  assert.equal((src.match(/journeyMarkPlayed\(playKey\)/g) || []).length, 1);
+  const cb = src.slice(src.indexOf('new IntersectionObserver'), src.indexOf('io.observe'));
+  assert.match(cb, /journeyMarkPlayed\(playKey\)/);
+  const cleanup = src.slice(src.indexOf('return () => {'), src.indexOf('}, [enabled, hasTarget, playKey]'));
+  assert.match(cleanup, /armed\.current = false/);
+});
