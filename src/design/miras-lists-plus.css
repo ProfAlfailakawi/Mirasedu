@@ -1,0 +1,35 @@
+/*
+ * Student exam / project lists, creative pass (CSS only; same cards, text and order).
+ * A soft indigo glow in the card corner, a glowing gradient play button, a slightly larger title,
+ * and a short staggered rise-in (reduced-motion safe). No blur, no filters.
+ */
+html body .workspace-calm-shell main div.group.relative.overflow-hidden.rounded-\[var\(--miras-r-xl\)\]:not(#_):not(#__):not(#___) {
+  background:
+    radial-gradient(110% 100% at 100% 0%, rgba(99, 102, 241, 0.12), transparent 58%),
+    linear-gradient(180deg, #ffffff, #fafaff) !important;
+}
+html[data-theme="dark"] body .workspace-calm-shell main div.group.relative.overflow-hidden.rounded-\[var\(--miras-r-xl\)\]:not(#_):not(#__):not(#___) {
+  background:
+    radial-gradient(110% 100% at 100% 0%, rgba(129, 140, 248, 0.2), transparent 60%),
+    rgba(255, 255, 255, 0.045) !important;
+}
+html body .workspace-calm-shell main div.group.relative.overflow-hidden.rounded-\[var\(--miras-r-xl\)\] button.h-11.w-11:not(#_):not(#__):not(#___) {
+  background-image: linear-gradient(145deg, #6366f1, #4338ca) !important;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.28), 0 12px 20px -10px rgba(67, 56, 202, 0.75) !important;
+}
+html body .workspace-calm-shell main div.group.relative.overflow-hidden.rounded-\[var\(--miras-r-xl\)\] h3:not(#_):not(#__):not(#___),
+html body .workspace-calm-shell main div.group.relative.overflow-hidden.rounded-\[var\(--miras-r-xl\)\] p.font-black:not(#_):not(#__):not(#___) {
+  letter-spacing: -0.01em;
+}
+@media (prefers-reduced-motion: no-preference) {
+  @keyframes miras-list-rise {
+    from { opacity: 0; transform: translateY(12px); }
+    to { transform: none; }
+  }
+  html body .workspace-calm-shell main div.group.relative.overflow-hidden.rounded-\[var\(--miras-r-xl\)\]:not(#_):not(#__):not(#___) {
+    animation: miras-list-rise 0.45s cubic-bezier(0.2, 0.7, 0.2, 1) backwards;
+  }
+  html body .workspace-calm-shell main div.group.relative.overflow-hidden.rounded-\[var\(--miras-r-xl\)\]:nth-child(2):not(#_):not(#__):not(#___) { animation-delay: 60ms; }
+  html body .workspace-calm-shell main div.group.relative.overflow-hidden.rounded-\[var\(--miras-r-xl\)\]:nth-child(3):not(#_):not(#__):not(#___) { animation-delay: 120ms; }
+  html body .workspace-calm-shell main div.group.relative.overflow-hidden.rounded-\[var\(--miras-r-xl\)\]:nth-child(n+4):not(#_):not(#__):not(#___) { animation-delay: 180ms; }
+}
