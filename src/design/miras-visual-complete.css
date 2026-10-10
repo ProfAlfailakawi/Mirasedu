@@ -111,3 +111,19 @@ html body .meras-teacher-shell .miras-submissions-panel .miras-sub-chips > span:
     animation: mv-rise 0.5s cubic-bezier(0.22, 1, 0.36, 1) backwards;
   }
 }
+
+/* export button hover: keep the label readable (the utility turns the text white) */
+html body .meras-teacher-shell .miras-submissions-panel > div.mb-3 > button:hover:not(#_):not(#__):not(.meras-exam-shell *) {
+  color: #065f46 !important;
+  background: linear-gradient(145deg, rgba(16, 185, 129, 0.34), rgba(16, 185, 129, 0.14)) !important;
+}
+
+/* dark teacher home: index.css clears background-image on this panel with !important */
+@media (min-width: 1024px) {
+  html[data-theme="dark"] body .meras-teacher-shell .teacher-command-main > .miras-teacher-home-panel.miras-teacher-home-panel:not(#_):not(#__):not(.meras-exam-shell *) {
+    background-image: var(--mv-wave) !important;
+    background-repeat: no-repeat !important;
+    background-position: center bottom !important;
+    background-size: 100% min(300px, 38vh) !important;
+  }
+}
