@@ -37315,8 +37315,6 @@ ${rows
                                   : days <= 2 ? "bg-amber-50 text-amber-700"
                                   : "bg-emerald-50 text-emerald-700";
                                 const selected = String(project.id) === String(studentSelectedProjectId);
-                                const prior = latestStudentSubmissionForActivity("project", project.id);
-                                const submitted = !!prior && !isReturnedSubmissionStatus(prior?.status);
                                 return (
                                   <button
                                     key={project.id}
@@ -37327,8 +37325,8 @@ ${rows
                                     className={`flex shrink-0 max-w-[14rem] flex-col items-start gap-1 rounded-2xl border px-4 py-2.5 text-right transition ${selected ? "border-indigo-400 bg-white shadow-md ring-2 ring-indigo-100" : "border-slate-200 bg-white/70 hover:bg-white"}`}
                                   >
                                     <span className="w-full truncate text-xs font-black text-slate-900">{project.title}</span>
-                                    <span className={`rounded-full px-2 py-0.5 text-[10px] font-extrabold ${submitted ? "bg-emerald-50 text-emerald-700" : tone}`}>
-                                      {submitted ? "✓ تم التسليم" : days === null ? "بلا موعد" : days < 0 ? "متأخر" : days === 0 ? "اليوم" : `بعد ${days} يوم`}
+                                    <span className={`rounded-full px-2 py-0.5 text-[10px] font-extrabold ${tone}`}>
+                                      {days === null ? "بلا موعد" : days < 0 ? "متأخر" : days === 0 ? "اليوم" : `بعد ${days} يوم`}
                                     </span>
                                   </button>
                                 );

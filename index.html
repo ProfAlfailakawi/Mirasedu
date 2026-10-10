@@ -99,11 +99,13 @@
     <link rel="apple-touch-startup-image" media="screen and (device-width: 834px) and (device-height: 1194px) and (-webkit-device-pixel-ratio: 2) and (orientation: landscape)" href="/launch/launch-2388x1668.png" />
     <link rel="apple-touch-startup-image" media="screen and (device-width: 1024px) and (device-height: 1366px) and (-webkit-device-pixel-ratio: 2) and (orientation: portrait)" href="/launch/launch-2048x2732.png" />
     <link rel="apple-touch-startup-image" media="screen and (device-width: 1024px) and (device-height: 1366px) and (-webkit-device-pixel-ratio: 2) and (orientation: landscape)" href="/launch/launch-2732x2048.png" />
+    <!-- إخفاء رابط التخطّي حتى لو لم يُحمَّل index.css؛ وضع التركيز في index.css أعلى تخصيصاً فيتغلّب عليه. -->
+    <style>.miras-skip{position:fixed;top:-100px;inset-inline-start:0}</style>
   </head>
   <body>
     <!-- رابط التخطّي: يظهر عند التنقّل بلوحة المفاتيح فقط، وينقل التركيز إلى
          المحتوى الرئيسي دون المرور على شريط التنقّل كاملاً. -->
-    <a id="miras-skip" href="#" class="miras-skip" style="position:fixed;top:-100px;inset-inline-start:0">تخطَّ إلى المحتوى</a>
+    <a id="miras-skip" href="#" class="miras-skip">تخطَّ إلى المحتوى</a>
     <div id="root"></div>
     <script>
       (function () {
@@ -208,7 +210,7 @@
           function recover() {
             if (mounted()) return;
             var tried = false;
-            try { tried = sessionStorage.getItem(KEY) === "1"; sessionStorage.setItem(KEY, "1"); } catch (e) {}
+            try { tried = sessionStorage.getItem(KEY) === "1"; sessionStorage.setItem(KEY, "1"); } catch (e) { tried = true; /* لا تخزين = لا علامة تمنع التكرار، فنعرض زر الإعادة بدل الحلقة */ }
             if (!tried) { window.location.reload(); return; }
             showRetry();
           }
