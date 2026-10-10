@@ -9,7 +9,7 @@
   -webkit-backdrop-filter: blur(14px);
   backdrop-filter: blur(14px);
   color: #0f172a !important;
-  box-shadow: inset 4px 0 0 #6366f1, inset 0 0 0 1px rgba(99, 102, 241, 0.18), 0 10px 24px -16px rgba(67, 56, 202, 0.4) !important;
+  box-shadow: inset -4px 0 0 #6366f1, inset 0 0 0 1px rgba(99, 102, 241, 0.18), 0 10px 24px -16px rgba(67, 56, 202, 0.4) !important;
 }
 .meras-exam-shell .miras-exam-header-bar > span:first-child:not(#_) {
   color: #0f172a !important;
@@ -23,7 +23,7 @@
 html[data-theme="dark"] .meras-exam-shell .miras-exam-header-bar:not(#_):not(#_) {
   background: rgba(255, 255, 255, 0.06) !important;
   color: #f1f5f9 !important;
-  box-shadow: inset 4px 0 0 #818cf8, inset 0 0 0 1px rgba(255, 255, 255, 0.1), 0 10px 24px -16px rgba(0, 0, 0, 0.7) !important;
+  box-shadow: inset -4px 0 0 #818cf8, inset 0 0 0 1px rgba(255, 255, 255, 0.1), 0 10px 24px -16px rgba(0, 0, 0, 0.7) !important;
 }
 html[data-theme="dark"] .meras-exam-shell .miras-exam-header-bar > span:first-child:not(#_) {
   color: #f1f5f9 !important;
