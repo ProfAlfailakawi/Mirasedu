@@ -161,14 +161,6 @@ html body .meras-teacher-shell #join-codes-cards-anchor > div:first-child:has(> 
   padding-inline-end: 56px;
 }
 
-/* ---- the fixed bottom dock never covers the last card ---- */
-@media (max-width: 767px) {
-  html body .meras-teacher-shell .miras-submissions-panel,
-  html body .meras-teacher-shell #join-codes-cards-anchor:not(#_) {
-    padding-bottom: calc(104px + env(safe-area-inset-bottom)) !important;
-  }
-}
-
 /* ---- fewer frames at the top of the page ----
    The data panel and the filter panel inside it kept their own borders, fills and shadows,
    stacking four frames. They become transparent surfaces; the controls inside (search pill,
