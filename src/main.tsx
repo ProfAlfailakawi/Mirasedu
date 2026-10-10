@@ -22,6 +22,7 @@ import './design/dna.css';
 import './design/miras-dna-theme.css';
 import './design/miras-calm.css';
 import './design/miras-final.css';
+import './design/miras-exam-bar.css';
 import './design/miras-reveal.css';
 import './design/miras-teacher-home.css';
 import './design/miras-submissions.css';
