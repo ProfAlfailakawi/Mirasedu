@@ -55,6 +55,9 @@ const setFieldValueLikeTyping = (
   else target.value = value;
 };
 import { DnaEmpty, DnaHubMap, DnaIconTile, DnaStepper, DnaTimeline, DnaHeat, DnaRing, DnaStat, DnaStatusHeader, type DnaEvent, type DnaStep, type DnaHubNode } from "./src/design/DnaKit";
+import { submissionJourneyProps } from "./src/design/journeyReveal";
+import { JourneyRail } from "./src/design/JourneyRail";
+import { publicDeviceLoginSteps, publicLoginApprovalSteps } from "./src/design/publicLoginJourney";
 import { mirasPhoneticWordMatch } from "./src/shared/phonetic-search";
 import {
   allowDemoTransportOrigin,
@@ -2620,23 +2623,7 @@ function RoleOnboardingOverlay({
                   {index + 1} / {steps.length}
                 </bdi>
               </span>
-              <div className="flex gap-2">
-                {steps.map((_: any, dot: number) => (
-                  <motion.button
-                    key={dot}
-                    onClick={() => setIndex(dot)}
-                    className="relative h-1.5 cursor-pointer rounded-full after:absolute after:-inset-x-1 after:-inset-y-5 after:content-['']"
-                    animate={{
-                      width: dot === index ? 26 : 8,
-                      backgroundColor:
-                        dot === index ? "rgba(255,255,255,1)" : "rgba(255,255,255,0.32)",
-                    }}
-                    transition={{ type: "spring", stiffness: 220, damping: 20 }}
-                    title={`خطوة ${dot + 1}`}
-                    aria-label={`خطوة ${dot + 1}`}
-                  />
-                ))}
-              </div>
+              <JourneyRail count={steps.length} index={index} onSelect={setIndex} />
             </div>
           </div>
 
@@ -31847,6 +31834,12 @@ ${rows
                 <p className="mt-2 text-[12px] font-bold leading-6 text-slate-500">
                   لن تُرسل كلمة المرور، ولن يُعتمد الكمبيوتر كجهاز شخصي.
                 </p>
+                <DnaStepper
+                  size="sm"
+                  className="mt-5"
+                  steps={publicLoginApprovalSteps(publicLoginApproval.phase) || []}
+                  ariaLabel="مراحل الدخول من جهاز عام"
+                />
 
                 <div className="mt-5 rounded-[var(--miras-r-lg)] border border-slate-100 bg-slate-50/80 p-4 text-right">
                   <div className="flex items-center gap-3">
@@ -31910,6 +31903,12 @@ ${rows
                 <span className="mx-auto grid h-16 w-16 place-items-center rounded-full bg-emerald-50 text-emerald-600 ring-8 ring-emerald-50/60">
                   <CheckCircle2 className="h-8 w-8" />
                 </span>
+                <DnaStepper
+                  size="sm"
+                  className="mt-6"
+                  steps={publicLoginApprovalSteps("success") || []}
+                  ariaLabel="مراحل الدخول من جهاز عام"
+                />
                 <h1 className="mt-5 text-xl font-black text-slate-950">
                   تم اعتماد الدخول
                 </h1>
@@ -31977,6 +31976,12 @@ ${rows
 
             {publicDeviceLogin.phase === "starting" && (
               <div className="py-12">
+                <DnaStepper
+                  size="sm"
+                  className="mb-8"
+                  steps={publicDeviceLoginSteps("starting", false) || []}
+                  ariaLabel="مراحل الدخول من جهاز عام"
+                />
                 <MirasLoader
                   size={36}
                   role="neutral"
@@ -32040,19 +32045,12 @@ ${rows
                     </>
                   )}
                 </div>
-                <div className="mt-5 grid grid-cols-3 gap-2 border-t border-slate-100 pt-5">
-                  {["امسح", "طابق الرمز", "وافق بالبصمة"].map(
-                    (label, index) => (
-                      <div key={label} className="text-center">
-                        <span className="mx-auto grid h-7 w-7 place-items-center rounded-full bg-slate-100 font-mono text-[10px] font-bold text-slate-600">
-                          {index + 1}
-                        </span>
-                        <p className="mt-1.5 text-[11px] font-bold text-slate-500">
-                          {label}
-                        </p>
-                      </div>
-                    ),
-                  )}
+                <div className="mt-5 border-t border-slate-100 pt-5">
+                  <DnaStepper
+                    size="sm"
+                    steps={publicDeviceLoginSteps(publicDeviceLogin.phase, !!publicDeviceLogin.requestId) || []}
+                    ariaLabel="مراحل الدخول من جهاز عام"
+                  />
                 </div>
               </>
             )}
@@ -32060,6 +32058,12 @@ ${rows
             {(publicDeviceLogin.phase === "expired" ||
               publicDeviceLogin.phase === "error") && (
               <div className="py-8">
+                <DnaStepper
+                  size="sm"
+                  className="mb-6"
+                  steps={publicDeviceLoginSteps(publicDeviceLogin.phase, !!publicDeviceLogin.requestId) || []}
+                  ariaLabel="مراحل الدخول من جهاز عام"
+                />
                 <span className="mx-auto grid h-14 w-14 place-items-center rounded-full bg-amber-50 text-amber-600">
                   <AlertTriangle className="h-7 w-7" />
                 </span>
@@ -33172,6 +33176,13 @@ ${rows
                   <span className="rounded-xl bg-white px-2.5 py-1 text-[10px] font-bold text-slate-400">لا نتيجة</span>
                 )}
               </div>
+              <DnaStepper
+                size="sm"
+                className="journey-strip"
+                still
+                steps={studentSubmissionLifecycleSteps(selectedSubmissionDetail)}
+                ariaLabel={`مراحل التسليم: ${studentSubmissionStatusForDisplay(selectedSubmissionDetail)}`}
+              />
             </div>
 
             {/* Split Panel / Single Page Workspace */}
@@ -34826,7 +34837,8 @@ ${rows
                 className="mb-8"
                 size="sm"
                 ariaLabel="مراحل كود الاشتراك"
-                stateText={{ current: "", pending: "", done: "" }}
+                reveal
+                playKey="subscription-code-stages"
                 steps={[
                   { key: "unused", label: "غير مستخدم", state: "current", icon: <Key className="h-4 w-4" /> },
                   { key: "binds", label: "يربط الحساب", state: "pending", icon: <Link2 className="h-4 w-4" /> },
@@ -36539,6 +36551,7 @@ ${rows
                                             )}
                                             <DnaStepper
                                               size="sm"
+                                              {...submissionJourneyProps(sub, sub?.status === EXAM_IN_PROGRESS_STATUS || isExamInProgressSubmission(sub))}
                                               steps={studentSubmissionLifecycleSteps(sub)}
                                               ariaLabel={`مراحل التسليم: ${statusText}`}
                                             />
@@ -36768,6 +36781,7 @@ ${rows
                                   {priorExamSubmission ? (
                                     <DnaStepper
                                       size="sm"
+                                      {...submissionJourneyProps(priorExamSubmission, priorExamSubmission?.status === EXAM_IN_PROGRESS_STATUS || isExamInProgressSubmission(priorExamSubmission))}
                                       steps={studentSubmissionLifecycleSteps(
                                         priorExamSubmission,
                                       )}
@@ -36990,6 +37004,7 @@ ${rows
                                       {priorSubmission ? (
                                         <DnaStepper
                                           size="sm"
+                                          {...submissionJourneyProps(priorSubmission, priorSubmission?.status === EXAM_IN_PROGRESS_STATUS || isExamInProgressSubmission(priorSubmission))}
                                           steps={studentSubmissionLifecycleSteps(
                                             priorSubmission,
                                           )}
@@ -47975,6 +47990,7 @@ ${rows
                     )}
                     <DnaStepper
                       size="sm"
+                      {...submissionJourneyProps(sub, sub?.status === EXAM_IN_PROGRESS_STATUS || isExamInProgressSubmission(sub))}
                       steps={studentSubmissionLifecycleSteps(sub)}
                       ariaLabel={`مراحل التسليم: ${statusText}`}
                     />
