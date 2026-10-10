@@ -5132,6 +5132,14 @@ export default function App() {
   const [manualActivationSearch, setManualActivationSearch] = useState("");
   // مشاريع الطالب: مشروع واحد مفتوح في كل مرة، والبقية شرائح في شريط أفقي.
   const [studentActiveProjectId, setStudentActiveProjectId] = useState<string | null>(null);
+  // رسالة نجاح/خطأ قديمة (مثل «تم تسليم المشروع» من تسليم سابق) لا تُترك فوق مشروع آخر:
+  // دخول تبويب المشروع أو التبديل بين المشاريع يبدأ بشاشة نظيفة، فلا يظن الطالب أنه سلّم.
+  useEffect(() => {
+    if (studentTab === "project") {
+      setSuccessMsg("");
+      setErrorMsg("");
+    }
+  }, [studentTab]);
   // التفعيل اليدوي: لا تُعرض الأسماء إلا عند البحث أو اختيار فلتر حالة، وبحدّ أقصى للنتائج.
   const [manualActivationFilter, setManualActivationFilter] = useState<"all" | "active" | "pending" | "blocked">("all");
   const [manualActivationLimit, setManualActivationLimit] = useState(8);
@@ -37321,7 +37329,11 @@ ${rows
                                     type="button"
                                     role="tab"
                                     aria-selected={selected}
-                                    onClick={() => setStudentActiveProjectId(String(project.id))}
+                                    onClick={() => {
+                                      setStudentActiveProjectId(String(project.id));
+                                      setSuccessMsg("");
+                                      setErrorMsg("");
+                                    }}
                                     className={`flex shrink-0 max-w-[14rem] flex-col items-start gap-1 rounded-2xl border px-4 py-2.5 text-right transition ${selected ? "border-indigo-400 bg-white shadow-md ring-2 ring-indigo-100" : "border-slate-200 bg-white/70 hover:bg-white"}`}
                                   >
                                     <span className="w-full truncate text-xs font-black text-slate-900">{project.title}</span>
