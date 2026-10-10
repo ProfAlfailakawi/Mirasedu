@@ -59,11 +59,14 @@ export default function LoginRevealOverlay({
   role,
   onDone,
   ready = true,
+  trouble = false,
 }: {
   role: RevealRole;
   onDone: () => void;
   /** تبقى الشاشة ظاهرة حتى تصير true (اكتمال تحميل بيانات الحساب من السحابة). */
   ready?: boolean;
+  /** عرضٌ فقط: يظهر سطر تنبيه إن تعذّر الاتصال أثناء الانتظار؛ لا يغيّر مدة الانتظار ولا شرط المغادرة. */
+  trouble?: boolean;
 }) {
   const [leaving, setLeaving] = useState(false);
   // مسارات سفر الشارات إلى عناصر اللوحة الحقيقية — تُقاس لحظة المغادرة فقط.
@@ -159,6 +162,11 @@ export default function LoginRevealOverlay({
           <p className={`mt-1.5 text-center text-[12px] font-bold ${accentText}`}>
             {subtitle}
           </p>
+          {trouble && (
+            <p className="mt-2 text-center text-[12px] font-bold text-amber-700" role="alert">
+              تعذّر تحديث البيانات — تحقّق من اتصالك بالإنترنت.
+            </p>
+          )}
         </div>
       </div>
     );
@@ -241,6 +249,17 @@ export default function LoginRevealOverlay({
               className={`mt-3 h-px w-16 origin-center bg-gradient-to-l from-transparent ${hairline} to-transparent`}
             />
           </motion.div>
+
+          {/* عرضٌ فقط: سطر تنبيه تحت التكوين، لا يغيّر مقاس الإطار ولا مواقع الشارات */}
+          {trouble && (
+            <p
+              className="absolute left-1/2 z-30 w-[260px] -translate-x-1/2 text-center text-[12px] font-bold text-amber-700"
+              style={{ top: "calc(50% + 146px)" }}
+              role="alert"
+            >
+              تعذّر تحديث البيانات — تحقّق من اتصالك بالإنترنت.
+            </p>
+          )}
 
           {/* حلقة شعرية خارجية تلتئم حول الشعار */}
           <motion.div
