@@ -214,7 +214,7 @@ export default function LoginRevealOverlay({
         >
           {/* الإطار الشعري المركزي حول عنوان الدور */}
           <motion.div
-            className={`relative z-10 flex w-[176px] flex-col items-center rounded-[22px] border ${frameBorder} bg-white/85 px-5 py-5 shadow-[0_18px_50px_-24px_rgba(15,23,42,0.28)] sm:w-[196px]`}
+            className={`miras-reveal-frame relative z-10 flex w-[176px] flex-col items-center rounded-[22px] border ${frameBorder} bg-white/85 px-5 py-5 shadow-[0_18px_50px_-24px_rgba(15,23,42,0.28)] sm:w-[196px]`}
             initial={{ scale: 0.88, opacity: 0 }}
             animate={leaving ? { scale: 1.14, opacity: 0 } : { scale: 1, opacity: 1 }}
             transition={
