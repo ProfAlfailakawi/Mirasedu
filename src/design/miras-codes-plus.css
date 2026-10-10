@@ -37,7 +37,7 @@ html[data-theme="dark"] body .meras-teacher-shell .miras-code-stat:not(#_):not(#
 @media (prefers-reduced-motion: no-preference) {
   @keyframes miras-code-rise {
     from { opacity: 0; transform: translateY(10px); }
-    to { opacity: 1; transform: none; }
+    to { transform: none; }
   }
   html body .meras-teacher-shell .miras-code-stat:not(#_):not(#_):not(#__),
   html body .meras-teacher-shell .miras-join-code-card:not(#_):not(#_):not(#__) {
