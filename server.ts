@@ -1,6 +1,7 @@
 import { sameDeviceReviewIncident, normalizeDeviceReviewReason } from "./src/shared/device-review-notifications";
 import { teacherOwnsNotification, currentPasswordResetNotification } from "./src/shared/teacher-notification-scope";
 import { notificationRole, notificationSignature, notificationEventIdentity } from "./src/shared/notification-identity";
+import { recordLateAttempt } from "./src/shared/late-attempts";
 import { resolvePasswordResetRoute, passwordResetDeletionIds } from "./src/shared/password-reset-routing";
 import { recoverResetGeneralCode } from "./src/server/generalJoinCodes";
 import express from "express";
@@ -5428,7 +5429,7 @@ function projectExtensionUntilMs(project: any, studentId: any): number {
 // ما يراه الطالب: لا قائمة بباقي الطلبة، ووقت تمديده وحده.
 function projectForStudentView(project: any, studentId: any) {
   if (!project || typeof project !== "object") return project;
-  const { studentExtensions, ...rest } = project;
+  const { studentExtensions, lateAttempts, ...rest } = project;
   const until = projectExtensionUntilMs(project, studentId);
   return until ? { ...rest, myExtensionUntil: new Date(until).toISOString() } : rest;
 }
@@ -23599,6 +23600,10 @@ app.post("/api/teacher/projects", async (req, res) => {
     studentExtensions: Array.isArray(existingProject?.studentExtensions)
       ? existingProject.studentExtensions
       : undefined,
+    // محاولات التسليم بعد الإغلاق يكتبها الخادم وحده؛ حفظ الأستاذ للمشروع لا يمسحها.
+    lateAttempts: Array.isArray(existingProject?.lateAttempts)
+      ? existingProject.lateAttempts
+      : undefined,
   };
   dbInstance.upsertTeacherProject(saved);
   if (!(await ensureDurableSync(res))) return;
@@ -24143,6 +24148,21 @@ app.post("/api/student/submissions", (req, res) => {
         Date.now() > closeMs &&
         !projectExtensionUntilMs(matchedProject, student.id)
       ) {
+        // يظهر للأستاذ على بطاقة النشاط أن طالباً حاول التسليم بعد الإغلاق ليمنحه تمديداً إن أراد.
+        try {
+          const stored = dbInstance
+            .getTeacherProjects()
+            .find((item: any) => String(item.id) === String(matchedProject.id));
+          const lateAttempts = stored
+            ? recordLateAttempt(stored.lateAttempts, { id: student.id, name: student.name })
+            : null;
+          if (stored && lateAttempts) {
+            dbInstance.upsertTeacherProject({ ...stored, lateAttempts });
+            bumpLiveContentRevision();
+          }
+        } catch (error) {
+          console.warn("late submission attempt was not recorded:", error);
+        }
         return res.status(403).json({
           error: "انتهى وقت التسليم. أرسل المشروع قبل نهاية تاريخ الإغلاق.",
         });

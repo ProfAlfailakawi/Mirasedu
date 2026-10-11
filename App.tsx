@@ -6,6 +6,7 @@ import { keepSolutionBottomRoom } from "./src/shared/solution-scroll-room";
 import { joinCodeIssueScopeEmail as joinCodeIssueScopeEmailFor } from "./src/shared/join-code-issue-scope";
 import { notSubmittedListOpen } from "./src/shared/not-submitted-gate";
 import { lateUnderGrace } from "./src/shared/late-under-grace";
+import { pendingLateAttempts, attemptStudentId } from "./src/shared/late-attempts";
 import { daysUntilDeadline } from "./src/shared/deadline-days";
 import { createCloudSingleFlight, cloudSessionKey } from "./src/shared/cloud-single-flight";
 import { teacherWorkspaceReady } from "./src/shared/teacher-workspace-ready";
@@ -26299,6 +26300,7 @@ ${rows
         inProgress: number;
         returned: number;
         lateWaiting: number;
+        attempts: number;
       }
     >();
     latestDisplayedActiveCourseSubmissions.forEach((sub: any) => {
@@ -26321,6 +26323,7 @@ ${rows
         inProgress: 0,
         returned: 0,
         lateWaiting: 0,
+        attempts: 0,
       };
       existing.total += 1;
       if (isTeacherReturnedSubmission(sub)) existing.returned += 1;
@@ -26365,7 +26368,19 @@ ${rows
           inProgress: 0,
           returned: 0,
           lateWaiting: 0,
+          attempts: 0,
         });
+      });
+    }
+    // طلبة حاولوا التسليم بعد الإغلاق ولم يسلّموا ولا تمديد جارٍ لهم (للمشاريع).
+    if (submissionSubTab !== "exams") {
+      map.forEach((card, aid) => {
+        const project = teacherProjects.find((p: any) => String(p.id) === aid);
+        if (!project) return;
+        const submittedIds = teacherSubmissions
+          .filter((sub: any) => String(sub?.activityId || "") === aid)
+          .map((sub: any) => sub?.studentId);
+        card.attempts = pendingLateAttempts(project.lateAttempts, project.studentExtensions, submittedIds).length;
       });
     }
     return Array.from(map.values());
@@ -39670,6 +39685,11 @@ ${rows
                                 {card.lateWaiting} متأخر بتمديد/استثناء · بانتظار تصحيحك
                               </span>
                             )}
+                            {card.attempts > 0 && (
+                              <span className="rounded-full bg-amber-50 px-2.5 py-1 text-[10px] font-bold text-amber-700">
+                                {card.attempts} حاول التسليم بعد الإغلاق
+                              </span>
+                            )}
                             {card.pending - card.lateWaiting > 0 && (
                               <span className="rounded-full bg-slate-100 px-2.5 py-1 text-[10px] font-bold text-slate-600">
                                 {card.pending - card.lateWaiting} بانتظار
@@ -39933,6 +39953,13 @@ ${rows
                                       {!student.registered && (
                                         <span className="mt-0.5 block text-[10px] font-bold text-slate-400">
                                           لم يسجّل حسابه في مِراس بعد
+                                        </span>
+                                      )}
+                                      {!extUntil && (Array.isArray(notSubmittedProject?.lateAttempts) ? notSubmittedProject.lateAttempts : []).some(
+                                        (item: any) => attemptStudentId(item?.studentId) === attemptStudentId(student.id),
+                                      ) && (
+                                        <span className="mt-0.5 block text-[10px] font-bold text-amber-700">
+                                          حاول التسليم بعد الإغلاق
                                         </span>
                                       )}
                                       {!!extUntil && (
