@@ -24153,7 +24153,14 @@ app.post("/api/student/submissions", (req, res) => {
           const stored = dbInstance
             .getTeacherProjects()
             .find((item: any) => String(item.id) === String(matchedProject.id));
-          const lateAttempts = stored
+          // لا يُسجَّل إلا طالب من مقرر المشروع (نفس شرط التمديد)، فلا يتلوّث العدّاد بغريب.
+          const projectCourse = String(stored?.courseCode || "");
+          const inCourse =
+            !!stored &&
+            getStudentDiscoveredCourseCodes(student).some((code: any) =>
+              sectionCodeEquivalent(code, projectCourse),
+            );
+          const lateAttempts = stored && inCourse
             ? recordLateAttempt(stored.lateAttempts, { id: student.id, name: student.name })
             : null;
           if (stored && lateAttempts) {

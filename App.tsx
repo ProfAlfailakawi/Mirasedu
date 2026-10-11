@@ -15809,13 +15809,17 @@ ${rows
     } catch (e) { return false; }
   };
 
-  const applyTeacherProjects = (d: any) => {
+  const applyTeacherProjects = (d: any, onlyIfChanged = false) => {
     if (Array.isArray(d.projects)) {
-      setTeacherProjects(d.projects.filter(isLiveRecord));
+      const next = d.projects.filter(isLiveRecord);
+      // التحديث الدوري لا يعيد رسم الشاشة كل مرة إن لم يتغير شيء.
+      setTeacherProjects((prev: any[]) =>
+        onlyIfChanged && JSON.stringify(prev) === JSON.stringify(next) ? prev : next,
+      );
     }
   };
 
-  const fetchTeacherProjects = async (emailOverride?: string) => {
+  const fetchTeacherProjects = async (emailOverride?: string, options: { onlyIfChanged?: boolean } = {}) => {
     const session = captureTeacherSession(emailOverride);
     if (!session) return false;
     const email = session.email;
@@ -15826,7 +15830,7 @@ ${rows
       });
       const d = await resp.json();
       if (!session.isCurrent() || !resp.ok || !Array.isArray(d.projects)) return false;
-      applyTeacherProjects(d);
+      applyTeacherProjects(d, options.onlyIfChanged === true);
       return true;
     } catch (e) { return false; }
   };
@@ -21571,6 +21575,10 @@ ${rows
           teacherSession?.email,
           { signal: controller.signal },
         );
+        // محاولات التسليم بعد الإغلاق تُسجَّل على المشروع نفسه، فنحدّثه مع التسليمات في شاشة التسليمات.
+        if (active && session.isCurrent() && teacherTab === "submissions") {
+          await fetchTeacherProjects(teacherSession?.email, { onlyIfChanged: true });
+        }
       } finally {
         window.clearTimeout(abortTimer);
         refreshing = false;

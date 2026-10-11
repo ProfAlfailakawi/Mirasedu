@@ -4,7 +4,7 @@
 // grant ONE student a private extension: that student alone can submit until the
 // given time, the submission is flagged late AND "by extension", other students
 // never see who has an extension, and a stale project save cannot wipe the list.
-import { api, makeJar, createReporter, AA, BB, S_A1 } from "./lib.mjs";
+import { api, makeJar, createReporter, AA, BB, CC, S_A1, S_C1 } from "./lib.mjs";
 
 const { check, done } = createReporter("FLOWS / PROJECT-EXTENSION");
 
@@ -125,6 +125,15 @@ await (async () => {
   const resave = await api("POST", "/api/teacher/projects", { ...closedProject(PID2), title: "مشروع مغلق 2 (معدّل)" }, { jar: tjar, deviceToken: tdev });
   const list3 = await api("GET", "/api/teacher/projects", null, { jar: tjar, deviceToken: tdev });
   const kept = (list3.data.projects || []).find((p) => String(p.id) === PID2);
+  // A closed project of a course student 1001 does not belong to (teacher C owns it).
+  const cjar = makeJar(); const cdev = "ext-teacher-c-dev";
+  const cLogin = await api("POST", "/api/auth/login", { idNumber: CC, password: (process.env.TEST_TEACHER_PASSWORD || "change-me-in-ci") }, { jar: cjar, deviceToken: cdev });
+  const OUT = "proj-extension-flowtest-outside";
+  const outCreate = await api("POST", "/api/teacher/projects", { ...closedProject(OUT), courseCode: S_C1 }, { jar: cjar, deviceToken: cdev });
+  const outAttempt = await submit(OUT, { courseCode: S_C1 });
+  const listOut = await api("GET", "/api/teacher/projects", null, { jar: cjar, deviceToken: cdev });
+  const outProj = (listOut.data.projects || []).find((p) => String(p.id) === OUT);
+  check("E7e) a student outside the project's course is never recorded", cLogin.ok && outCreate.ok && outAttempt.status === 403 && !!outProj && !(outProj.lateAttempts || []).some((a) => String(a.studentId) === SID), `${cLogin.status} ${outCreate.status} ${outAttempt.status} ${JSON.stringify(outAttempt.data).slice(0, 80)} ${String(JSON.stringify(outProj?.lateAttempts)).slice(0, 120)}`);
   check("E7d) re-saving the project keeps the recorded attempts", resave.ok && Array.isArray(kept?.lateAttempts) && kept.lateAttempts.length === 1, JSON.stringify(kept?.lateAttempts).slice(0, 200));
 })();
 

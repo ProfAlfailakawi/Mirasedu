@@ -297,7 +297,7 @@ test('scoped submission polling waits for the initial all-course snapshot', asyn
   cloudSessionKey, cloudSessionGenRef: { current: 1 }, scheduleAfterWorkspacePaint: scheduler.schedule,
   document: { visibilityState: 'visible', addEventListener: () => {}, removeEventListener: () => {} },
   window: { setInterval: () => 1, clearInterval: () => {}, setTimeout: () => 1, clearTimeout: () => {}, addEventListener: () => {}, removeEventListener: () => {} },
-  fetchTeacherSubmissions: async (...args) => calls.push(args), useEffect: callback => callback() };
+  fetchTeacherSubmissions: async (...args) => calls.push(args), fetchTeacherProjects: async () => true, useEffect: callback => callback() };
  const mount = await compile(`const mountPoll = () => { ${effect} };`, 'mountPoll', context);
  mount(); scheduler.frame(); scheduler.frame(); scheduler.tasks();
  assert.deepEqual(calls, []);
