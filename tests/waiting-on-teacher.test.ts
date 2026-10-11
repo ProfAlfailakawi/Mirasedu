@@ -30,3 +30,32 @@ test('Arabic-digit ids match, and an activity without a deadline counts from the
 test('bad input is safe', () => {
   assert.equal(studentsWaitingOnTeacher({ roster: undefined as any, submittedStudentIds: [], originalDeadlineMs: 0 }), 0);
 });
+
+import { studentsExpectedByExtension } from '../src/shared/waiting-on-teacher';
+
+test('students with a running extension and nothing submitted are expected', () => {
+  const ext = [
+    { studentId: '1', until: new Date(AFTER + 3600_000).toISOString() },
+    { studentId: '2', until: new Date(AFTER + 3600_000).toISOString() },
+    { studentId: '3', until: new Date(AFTER - 1000).toISOString() },
+  ];
+  assert.equal(studentsExpectedByExtension(ext, [], AFTER), 2);
+});
+test('a student who submitted (any digit form) is no longer expected; duplicates count once', () => {
+  const ext = [
+    { studentId: '١', until: new Date(AFTER + 3600_000).toISOString() },
+    { studentId: '2', until: new Date(AFTER + 3600_000).toISOString() },
+    { studentId: '2', until: new Date(AFTER + 7200_000).toISOString() },
+  ];
+  assert.equal(studentsExpectedByExtension(ext, ['1'], AFTER), 1);
+  assert.equal(studentsExpectedByExtension(undefined, [], AFTER), 0);
+});
+
+test('a student who left the course is not expected, even with a running extension', () => {
+  const ext = [
+    { studentId: '1', until: new Date(AFTER + 3600_000).toISOString() },
+    { studentId: '9', until: new Date(AFTER + 3600_000).toISOString() },
+  ];
+  assert.equal(studentsExpectedByExtension(ext, [], AFTER, [{ id: '1' }, { id: '2' }]), 1);
+  assert.equal(studentsExpectedByExtension(ext, [], AFTER, []), 0);
+});

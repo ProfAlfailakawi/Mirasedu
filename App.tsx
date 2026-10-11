@@ -6,7 +6,7 @@ import { keepSolutionBottomRoom } from "./src/shared/solution-scroll-room";
 import { joinCodeIssueScopeEmail as joinCodeIssueScopeEmailFor } from "./src/shared/join-code-issue-scope";
 import { notSubmittedListOpen } from "./src/shared/not-submitted-gate";
 import { attemptStudentId } from "./src/shared/late-attempts";
-import { studentsWaitingOnTeacher } from "./src/shared/waiting-on-teacher";
+import { studentsWaitingOnTeacher, studentsExpectedByExtension } from "./src/shared/waiting-on-teacher";
 import { daysUntilDeadline } from "./src/shared/deadline-days";
 import { createCloudSingleFlight, cloudSessionKey } from "./src/shared/cloud-single-flight";
 import { teacherWorkspaceReady } from "./src/shared/teacher-workspace-ready";
@@ -26317,6 +26317,7 @@ ${rows
         inProgress: number;
         returned: number;
         waiting: number;
+        expected: number;
       }
     >();
     latestDisplayedActiveCourseSubmissions.forEach((sub: any) => {
@@ -26339,6 +26340,7 @@ ${rows
         inProgress: 0,
         returned: 0,
         waiting: 0,
+        expected: 0,
       };
       existing.total += 1;
       if (isTeacherReturnedSubmission(sub)) existing.returned += 1;
@@ -26375,20 +26377,24 @@ ${rows
           inProgress: 0,
           returned: 0,
           waiting: 0,
+          expected: 0,
         });
       });
     }
     // من ينتظرك: مسجَّلون لم يسلّموا ولا تمديد جارٍ لهم، بعد انتهاء الموعد الأصلي.
     map.forEach((card, aid) => {
       const project = teacherProjects.find((p: any) => String(p.id) === aid);
+      const submittedStudentIds = teacherSubmissions
+        .filter((sub: any) => String(sub?.activityId || sub?.projectId || sub?.examId || "") === aid)
+        .flatMap((sub: any) => [sub?.studentId, sub?.studentIdNumber, sub?.idNumber, sub?.userId]);
       card.waiting = studentsWaitingOnTeacher({
         roster: courseStudentDirectory,
-        submittedStudentIds: teacherSubmissions
-          .filter((sub: any) => String(sub?.activityId || sub?.projectId || sub?.examId || "") === aid)
-          .flatMap((sub: any) => [sub?.studentId, sub?.studentIdNumber, sub?.idNumber, sub?.userId]),
+        submittedStudentIds,
         extensions: project?.studentExtensions,
         originalDeadlineMs: originalDeadlineMsForActivity(aid),
       });
+      // من فتحتَ لهم الباب ولم يسلّموا بعد: عمل منتظَر، يدخل مقام الحلقة حتى يسلّموا.
+      card.expected = studentsExpectedByExtension(project?.studentExtensions, submittedStudentIds, Date.now(), courseStudentDirectory);
     });
     return Array.from(map.values());
   })();
@@ -39655,7 +39661,7 @@ ${rows
                             </div>
                             <div className="flex shrink-0 flex-col items-center gap-1.5">
                               <span className="relative inline-flex">
-                                <MirasRatioRing done={card.graded} total={card.total} />
+                                <MirasRatioRing done={card.graded} total={card.total + card.expected} />
                                 {card.waiting > 0 && (
                                   <span
                                     title="مسجَّلون لم يسلّموا بعد انتهاء الوقت"
@@ -39770,7 +39776,7 @@ ${rows
                                 )}
                               </button>
                               )}
-                              <MirasRatioRing done={cur.graded} total={cur.total} />
+                              <MirasRatioRing done={cur.graded} total={cur.total + cur.expected} />
                             </span>
                           ) : null;
                         })()}
