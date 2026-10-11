@@ -5669,6 +5669,9 @@ export default function App() {
   >(null);
   const [submissionDetailStudentSearch, setSubmissionDetailStudentSearch] =
     useState("");
+  // «قائمة الطلبة»: ورقة سفلية كبيرة بحقل بحث واسع وتصفية (الكل/سلّموا/لم يسلّموا)، بدل حقل ضيّق في الشريط.
+  const [studentNavigatorOpen, setStudentNavigatorOpen] = useState(false);
+  const [studentNavigatorFilter, setStudentNavigatorFilter] = useState<"all" | "submitted" | "missing">("all");
   const [sectionFormOpen, setSectionFormOpen] = useState(false);
   const [editingSectionCode, setEditingSectionCode] = useState<string | null>(
     null,
@@ -26389,6 +26392,10 @@ ${rows
     setSubmissionNotSubmittedOpen(false);
     setExtensionTargets(null);
   }, [selectedSubmissionActivityId]);
+  // قائمة الطلبة تُغلق مع شاشة الحل، فلا تظهر مفتوحة عند فتح طالب آخر لاحقاً.
+  useEffect(() => {
+    if (!selectedSubmissionDetail) setStudentNavigatorOpen(false);
+  }, [selectedSubmissionDetail]);
   // التمديد للمشاريع فقط (الاختبارات تتحكم فيها المراقبة وSEB وإرجاع المعلم).
   const notSubmittedProject: any = selectedSubmissionActivityId
     ? teacherProjects.find((p: any) => String(p.id) === String(selectedSubmissionActivityId))
@@ -33414,18 +33421,27 @@ ${rows
                     <X className="h-4.5 w-4.5" />
                   </button>
 
-                  <div className="min-w-0 max-w-[150px] sm:max-w-[210px] rounded-xl border border-indigo-100 bg-gradient-to-br from-white to-indigo-50/70 px-3 py-1.5 text-right text-slate-900 shadow-sm shrink-0">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setStudentNavigatorFilter("all");
+                      setStudentNavigatorOpen(true);
+                    }}
+                    title="قائمة الطلبة"
+                    aria-label="فتح قائمة الطلبة"
+                    className="min-w-0 max-w-[150px] sm:max-w-[210px] rounded-xl border border-indigo-100 bg-gradient-to-br from-white to-indigo-50/70 px-3 py-1.5 text-right text-slate-900 shadow-sm shrink-0 transition active:scale-[.98]"
+                  >
                     <div className="truncate text-[11.5px] font-black leading-tight">
                       {selectedSubmissionDetail.studentName || "طالب"}
                     </div>
                     <div className="mt-0.5 text-[11px] font-bold text-indigo-400">
                       {selectedSubmissionDetailIndex + 1}/{detailActivitySubmissions.length || 1}
                     </div>
-                  </div>
+                  </button>
                 </div>
 
                 {/* بحث سريع عن طالب — يُصفّي شريط الطلبة بالأسفل مباشرةً (على شاشة التصحيح، لا داخل المعاينة). */}
-                <div className="relative min-w-0 flex-1 max-w-[320px]">
+                <div className="relative hidden min-w-0 flex-1 max-w-[320px] sm:block">
                   <Search className="pointer-events-none absolute right-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400" />
                   <input
                     value={submissionDetailStudentSearch}
@@ -33448,7 +33464,7 @@ ${rows
                 </div>
 
                 {/* Left section: Elegant and thin arrows */}
-                <div className="flex items-center gap-1.5 shrink-0">
+                <div className="ms-auto flex items-center gap-1.5 shrink-0 sm:ms-0">
                   <button
                     type="button"
                     onClick={() => openAdjacentSubmissionDetail(1)}
@@ -33471,6 +33487,214 @@ ${rows
                   </button>
                 </div>
               </div>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setStudentNavigatorFilter("all");
+                  setStudentNavigatorOpen(true);
+                }}
+                className="mt-2 flex h-12 w-full items-center gap-3 rounded-2xl border border-slate-200 bg-slate-50 px-4 text-right transition active:scale-[.99] sm:hidden"
+                aria-label="ابحث عن طالب في قائمة الطلبة"
+              >
+                <Search className="h-5 w-5 shrink-0 text-indigo-500" aria-hidden="true" />
+                <span className="min-w-0 flex-1 truncate text-[14px] font-semibold text-slate-400">
+                  {submissionDetailStudentSearch || "ابحث عن طالب بالاسم أو الرقم…"}
+                </span>
+                <span className="shrink-0 rounded-full bg-white px-2.5 py-1 font-mono text-[11px] font-bold text-indigo-700 shadow-sm">
+                  {detailStudentRows.length}
+                </span>
+              </button>
+
+              {studentNavigatorOpen &&
+                typeof document !== "undefined" &&
+                createPortal(
+                  (() => {
+                    const rowsAll: any[] = detailStudentRows;
+                    const submittedRows = rowsAll.filter((row: any) => !!row.submission);
+                    const missingRows = rowsAll.filter((row: any) => !row.submission);
+                    const visibleRows =
+                      studentNavigatorFilter === "submitted"
+                        ? submittedRows
+                        : studentNavigatorFilter === "missing"
+                          ? missingRows
+                          : rowsAll;
+                    const closeSheet = () => setStudentNavigatorOpen(false);
+                    const projectClosedForExtension =
+                      !!notSubmittedProject && isProjectClosed(notSubmittedProject);
+                    return (
+                      <div
+                        className="fixed inset-0 z-[100300] flex items-end justify-center bg-slate-950/50 backdrop-blur-sm sm:items-center sm:p-4"
+                        onClick={closeSheet}
+                        dir="rtl"
+                      >
+                        <div
+                          className="flex max-h-[90dvh] w-full max-w-lg flex-col overflow-hidden rounded-t-[28px] bg-white shadow-2xl sm:rounded-[28px]"
+                          onClick={(e) => e.stopPropagation()}
+                          role="dialog"
+                          aria-label="قائمة الطلبة"
+                        >
+                          <div className="mx-auto mt-2.5 h-1.5 w-11 shrink-0 rounded-full bg-slate-200 sm:hidden" aria-hidden="true" />
+                          <div className="flex shrink-0 items-center justify-between gap-3 px-4 pb-2 pt-3">
+                            <h3 className="text-[1.15rem] font-black text-slate-950">طلبة النشاط</h3>
+                            <button
+                              type="button"
+                              onClick={closeSheet}
+                              className="grid h-10 w-10 place-items-center rounded-2xl border border-slate-100 bg-slate-50 text-slate-500 transition hover:bg-rose-50 hover:text-rose-700"
+                              aria-label="إغلاق"
+                            >
+                              <X className="h-4 w-4" />
+                            </button>
+                          </div>
+                          <div className="relative shrink-0 px-4">
+                            <Search className="pointer-events-none absolute right-8 top-1/2 h-5 w-5 -translate-y-1/2 text-indigo-500" />
+                            <input
+                              autoFocus
+                              value={submissionDetailStudentSearch}
+                              onChange={(e) => setSubmissionDetailStudentSearch(e.target.value)}
+                              placeholder="ابحث بالاسم أو الرقم الجامعي…"
+                              inputMode="search"
+                              className="h-14 w-full rounded-2xl border border-slate-200 bg-slate-50 pr-12 pl-12 text-right text-[16px] font-semibold text-slate-900 outline-none transition placeholder:font-normal placeholder:text-slate-400 focus:border-indigo-300 focus:bg-white focus:ring-4 focus:ring-indigo-100"
+                            />
+                            {!!submissionDetailStudentSearch && (
+                              <button
+                                type="button"
+                                onClick={() => setSubmissionDetailStudentSearch("")}
+                                className="absolute left-7 top-1/2 inline-flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-full bg-slate-200 text-slate-600 transition hover:bg-rose-100 hover:text-rose-600"
+                                title="مسح"
+                                aria-label="مسح البحث"
+                              >
+                                <X className="h-4 w-4" />
+                              </button>
+                            )}
+                          </div>
+                          <div className="flex shrink-0 gap-2 overflow-x-auto px-4 py-3 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden" role="tablist" aria-label="تصفية الطلبة">
+                            {([
+                              ["all", "الكل", rowsAll.length, "indigo"],
+                              ["submitted", "سلّموا", submittedRows.length, "emerald"],
+                              ["missing", "لم يسلّموا", missingRows.length, "rose"],
+                            ] as const).map(([key, label, count, tone]) => (
+                              <button
+                                key={key}
+                                type="button"
+                                role="tab"
+                                aria-selected={studentNavigatorFilter === key}
+                                onClick={() => setStudentNavigatorFilter(key)}
+                                className={`inline-flex h-10 shrink-0 items-center gap-2 rounded-full border px-4 text-[13px] font-bold transition ${
+                                  studentNavigatorFilter === key
+                                    ? tone === "emerald"
+                                      ? "border-emerald-300 bg-emerald-600 text-white"
+                                      : tone === "rose"
+                                        ? "border-rose-300 bg-rose-600 text-white"
+                                        : "border-indigo-300 bg-indigo-700 text-white"
+                                    : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50"
+                                }`}
+                              >
+                                {label}
+                                <span className={`rounded-full px-2 py-0.5 font-mono text-[11px] ${studentNavigatorFilter === key ? "bg-white/25" : "bg-slate-100"}`}>
+                                  {count}
+                                </span>
+                              </button>
+                            ))}
+                          </div>
+                          <div className="min-h-0 flex-1 space-y-2 overflow-y-auto px-4 pb-[max(1rem,env(safe-area-inset-bottom))]">
+                            {visibleRows.map((row: any) => {
+                              const sub = row.submission;
+                              const isCurrent = !!sub && String(sub.id) === String(selectedSubmissionDetail.id);
+                              const grade = sub ? formatSubmissionGrade(sub) : "";
+                              const missingMeta = !sub
+                                ? notSubmittedStudents.find(
+                                    (item: any) => String(item.id).toLowerCase() === String(row.studentId).toLowerCase(),
+                                  )
+                                : null;
+                              const canExtend =
+                                !sub && projectClosedForExtension && !!missingMeta?.registered &&
+                                !projectExtensionFor(notSubmittedProject, row.studentId);
+                              return (
+                                <div
+                                  key={row.key}
+                                  className={`flex items-center gap-3 rounded-2xl border p-2.5 transition ${
+                                    isCurrent
+                                      ? "border-indigo-300 bg-indigo-50"
+                                      : sub
+                                        ? "border-slate-100 bg-white"
+                                        : "border-rose-100 bg-rose-50/40"
+                                  }`}
+                                >
+                                  <button
+                                    type="button"
+                                    disabled={!sub}
+                                    onClick={() => {
+                                      if (!sub) return;
+                                      setSubmissionDetailStudentSearch("");
+                                      setSelectedSubmissionDetail(sub);
+                                      resetSubmissionDetailViewport();
+                                      setStudentNavigatorOpen(false);
+                                    }}
+                                    className="flex min-h-[3.25rem] min-w-0 flex-1 items-center gap-3 text-right disabled:cursor-default"
+                                  >
+                                    <span
+                                      className={`grid h-11 w-11 shrink-0 place-items-center rounded-full text-[15px] font-black ${
+                                        sub ? "bg-indigo-100 text-indigo-700" : "bg-rose-100 text-rose-600"
+                                      }`}
+                                      aria-hidden="true"
+                                    >
+                                      {String(row.studentName || "ط").trim().charAt(0) || "ط"}
+                                    </span>
+                                    <span className="min-w-0 flex-1">
+                                      <span className="block truncate text-[14px] font-bold text-slate-900">
+                                        {row.studentName || "طالب"}
+                                      </span>
+                                      <span className="block font-mono text-[11px] font-bold text-slate-500" dir="ltr">
+                                        {row.studentId}
+                                      </span>
+                                    </span>
+                                    <span className="flex shrink-0 flex-col items-end gap-1">
+                                      {sub ? (
+                                        <>
+                                          <span className="rounded-full bg-emerald-50 px-2.5 py-0.5 text-[11px] font-bold text-emerald-700">
+                                            سلّم{shouldDisplaySubmittedLate(sub) ? " · متأخر" : ""}
+                                          </span>
+                                          {!!grade && (
+                                            <span className="font-mono text-[11px] font-bold text-slate-500">{grade}</span>
+                                          )}
+                                        </>
+                                      ) : (
+                                        <span className="rounded-full bg-rose-100 px-2.5 py-0.5 text-[11px] font-bold text-rose-700">
+                                          لم يسلّم
+                                        </span>
+                                      )}
+                                    </span>
+                                  </button>
+                                  {canExtend && (
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        setStudentNavigatorOpen(false);
+                                        setExtensionTargets([{ ...missingMeta, id: row.studentId, name: row.studentName }]);
+                                      }}
+                                      className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl border border-amber-200 bg-amber-50 text-amber-700 transition hover:bg-amber-100"
+                                      title="فتح باب التسليم له"
+                                      aria-label={`فتح باب التسليم لـ ${row.studentName}`}
+                                    >
+                                      <RotateCw className="h-5 w-5" />
+                                    </button>
+                                  )}
+                                </div>
+                              );
+                            })}
+                            {visibleRows.length === 0 && (
+                              <div className="rounded-2xl border border-dashed border-slate-200 bg-slate-50 p-8 text-center text-sm font-bold text-slate-400">
+                                لا يوجد طالب مطابق.
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })(),
+                  document.body,
+                )}
 
               {/* Horizontal student quick selector bar */}
               <div className="mt-2 flex max-h-12 gap-1.5 overflow-x-auto overflow-y-hidden py-1 pr-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
@@ -39339,6 +39563,38 @@ ${rows
                           ) : null;
                         })()}
                       </div>
+                      {notSubmittedStudents.length > 0 && !submissionNotSubmittedOpen && (
+                        <button
+                          type="button"
+                          onClick={() => setSubmissionNotSubmittedOpen(true)}
+                          className="flex w-full items-center gap-3 rounded-[var(--miras-r-lg)] border border-rose-100 bg-gradient-to-br from-rose-50/80 to-white p-3 text-right shadow-sm transition active:scale-[.99]"
+                          aria-label={`عرض ${notSubmittedStudents.length} طالب لم يسلّموا`}
+                        >
+                          <span className="flex shrink-0 -space-x-2 space-x-reverse" aria-hidden="true">
+                            {notSubmittedStudents.slice(0, 3).map((student: any) => (
+                              <span
+                                key={student.id}
+                                className="grid h-9 w-9 place-items-center rounded-full border-2 border-white bg-rose-100 text-[13px] font-black text-rose-600"
+                              >
+                                {String(student.name || "ط").trim().charAt(0) || "ط"}
+                              </span>
+                            ))}
+                          </span>
+                          <span className="min-w-0 flex-1">
+                            <span className="block text-[13px] font-black text-rose-800">
+                              لم يسلّم {notSubmittedStudents.length} طالب
+                            </span>
+                            <span className="block truncate text-[11px] font-bold text-slate-500">
+                              {notSubmittedStudents
+                                .slice(0, 3)
+                                .map((student: any) => student.name || student.id)
+                                .join("، ")}
+                              {notSubmittedStudents.length > 3 ? "…" : ""}
+                            </span>
+                          </span>
+                          <ChevronLeft className="h-4 w-4 shrink-0 text-rose-400" aria-hidden="true" />
+                        </button>
+                      )}
                       {submissionSubTab === "exams" && (
                         <div className="miras-exam-radar rounded-[var(--miras-r-lg)] border border-white/80 bg-white/88 p-3 miras-shadow-2 backdrop-blur-xl sm:rounded-[var(--miras-r-xl)] sm:p-4">
                           <div className="mb-3 space-y-2.5">
