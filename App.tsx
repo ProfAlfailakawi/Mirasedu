@@ -26284,6 +26284,28 @@ ${rows
       else existing.pending += 1;
       map.set(aid, existing);
     });
+    // نشاط لم يسلّمه أحد بعد لا يملك أي صف تسليم، فيُضاف كبطاقة بصفر تسليم حتى يمكن
+    // فتحه ورؤية «لم يسلّموا» (وهو بالضبط حين يكون كل الطلبة ناقصين).
+    if (activeCourseCode) {
+      const sourceActivities = submissionSubTab === "exams" ? teacherCreatedExams : teacherProjects;
+      sourceActivities.forEach((activity: any) => {
+        const aid = String(activity?.id || "");
+        if (!aid || map.has(aid) || !isLiveRecord(activity)) return;
+        if (String(activity?.status || "").toLowerCase() === "draft") return;
+        if (!sectionCodeEquivalent(String(activity?.courseCode || ""), activeCourseCode)) return;
+        map.set(aid, {
+          id: aid,
+          title: activity.title || aid,
+          total: 0,
+          graded: 0,
+          pending: 0,
+          exited: 0,
+          cheatingAttempts: 0,
+          inProgress: 0,
+          returned: 0,
+        });
+      });
+    }
     return Array.from(map.values());
   })();
 
@@ -26440,27 +26462,35 @@ ${rows
       setErrorMsg("تعذر الاتصال بالخادم لسحب التمديد.");
     }
   };
-  // طلبة المقرر الذين لا يوجد لهم أي تسليم/محاولة في النشاط المفتوح.
+  // طلبة المقرر (المسجَّلون + من في كشف الأسماء ولم يسجّلوا بعد) الذين لا يوجد لهم أي
+  // تسليم/محاولة في النشاط المفتوح. يُطابَق الرقم بكل أسمائه المعروفة في التسليمات القديمة.
   const notSubmittedStudents: any[] = (() => {
     if (!selectedSubmissionActivityId) return [];
-    const activity =
-      teacherProjects.find((p: any) => String(p.id) === String(selectedSubmissionActivityId)) ||
-      teacherCreatedExams.find((e: any) => String(e.id) === String(selectedSubmissionActivityId));
-    const course = String(activity?.courseCode || activeCourseCode || "");
-    if (!course) return [];
+    const normalizeKey = (value: any) =>
+      normalizeArabicDigits(String(value ?? "")).trim().toLowerCase();
     const done = new Set<string>();
     teacherSubmissions.forEach((sub: any) => {
       const aid = String(sub?.activityId || sub?.projectId || sub?.examId || "");
-      if (aid === String(selectedSubmissionActivityId))
-        done.add(String(sub?.studentId || sub?.userId || "").toLowerCase());
+      if (aid !== String(selectedSubmissionActivityId)) return;
+      [sub?.studentId, sub?.studentIdNumber, sub?.idNumber, sub?.userId].forEach((value) => {
+        const key = normalizeKey(value);
+        if (key) done.add(key);
+      });
     });
     const arabicNameOrder = new Intl.Collator("ar", { sensitivity: "base", numeric: true });
-    return teacherStudents
-      .filter(
-        (student: any) =>
-          studentBelongsToCourse(student, course) &&
-          !done.has(String(student.id || "").toLowerCase()),
-      )
+    const seen = new Set<string>();
+    return courseStudentDirectory
+      .map((row: any) => ({
+        ...row,
+        id: String(row.id || row.idNumber || "").trim(),
+        registered: row.registered !== false,
+      }))
+      .filter((row: any) => {
+        const key = normalizeKey(row.id);
+        if (!key || done.has(key) || seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      })
       .sort((a: any, b: any) =>
         arabicNameOrder.compare(String(a.name || ""), String(b.name || "")),
       );
@@ -39409,13 +39439,13 @@ ${rows
                             <span className="flex items-center gap-2">
                               {!!notSubmittedProject &&
                                 isProjectClosed(notSubmittedProject) &&
-                                notSubmittedStudents.some((student: any) => !projectExtensionFor(notSubmittedProject, student.id)) && (
+                                notSubmittedStudents.some((student: any) => student.registered && !projectExtensionFor(notSubmittedProject, student.id)) && (
                                   <button
                                     type="button"
                                     onClick={() =>
                                       setExtensionTargets(
                                         notSubmittedStudents.filter(
-                                          (student: any) => !projectExtensionFor(notSubmittedProject, student.id),
+                                          (student: any) => student.registered && !projectExtensionFor(notSubmittedProject, student.id),
                                         ),
                                       )
                                     }
@@ -39444,7 +39474,7 @@ ${rows
                                     key={student.id}
                                     className={`flex items-center gap-2 rounded-2xl border px-3 py-2.5 ${extUntil ? "border-amber-200 bg-amber-50/60" : "border-slate-100 bg-white"}`}
                                   >
-                                    {notSubmittedProject && !extUntil && (
+                                    {notSubmittedProject && !extUntil && student.registered && (
                                       <button
                                         type="button"
                                         onClick={() => {
@@ -39469,6 +39499,11 @@ ${rows
                                       <span className="block font-mono text-[11px] font-bold text-indigo-700" dir="ltr">
                                         {student.id}
                                       </span>
+                                      {!student.registered && (
+                                        <span className="mt-0.5 block text-[10px] font-bold text-slate-400">
+                                          لم يسجّل حسابه في مِراس بعد
+                                        </span>
+                                      )}
                                       {!!extUntil && (
                                         <span className="mt-0.5 inline-flex items-center gap-1 text-[10px] font-bold text-amber-800">
                                           <Clock className="h-3 w-3" aria-hidden="true" />
