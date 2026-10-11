@@ -39998,7 +39998,7 @@ ${rows
                               key={sub.id}
                               className="rounded-2xl border border-slate-100/80 bg-white/90 px-3 py-3 shadow-sm"
                             >
-                              <div className="grid grid-cols-[auto_1fr_auto] items-center gap-2">
+                              <div className="flex flex-wrap items-center gap-x-2 gap-y-1.5">
                                 <input
                                   type="checkbox"
                                   checked={
@@ -40019,7 +40019,7 @@ ${rows
                                   onClick={() =>
                                     setSelectedSubmissionDetail(sub)
                                   }
-                                  className="min-w-0 text-right block w-full h-auto py-1 cursor-pointer"
+                                  className="min-w-0 flex-1 basis-[6.5rem] text-right block h-auto py-1 cursor-pointer"
                                 >
                                   <div className="text-[11px] font-semibold text-slate-800 leading-tight text-right w-full min-w-0">
                                     <span className="block break-words leading-snug">
@@ -40030,7 +40030,10 @@ ${rows
                                     </span>
                                   </div>
                                 </div>
-                                <div className="flex items-center gap-1.5">
+                                {/* الحالة والأزرار تلتفّ تحت الاسم حين لا يتسع الصف (مثل «متأخر · بتمديد خاص») بدل أن تعصر عمود الاسم. */}
+                                <div className="flex flex-wrap items-center justify-end gap-1.5">
+                                  {/* الدرجة/الحالة وشارات التأخر والإعادة فوق بعضها: عمود ضيق يترك للاسم عرضاً أكبر. */}
+                                  <div className="flex flex-col items-stretch gap-1 text-center">
                                   <span
                                     className={`rounded-full px-2 py-1 text-[11px] font-bold ${isTeacherReturnedSubmission(sub) ? "bg-indigo-50 text-indigo-700" : isExamInProgressSubmission(sub) ? "bg-amber-50 text-amber-700" : sub?.teacherGradeOverride ? "bg-emerald-50 text-emerald-700" : isCheatingAttemptSubmission(sub) ? "bg-red-100 text-red-800" : isWithdrawnSubmission(sub) ? "bg-rose-50 text-rose-700" : teacherVisibleGradeText(sub) || isSubmissionGradeOfficiallyRecorded(sub) || isTimeExpiredRecordedSubmission(sub) ? "bg-emerald-50 text-emerald-700" : "bg-slate-50 text-slate-600"}`}
                                   >
@@ -40046,6 +40049,8 @@ ${rows
                                       أُعيد تسليمه
                                     </span>
                                   )}
+                                  </div>
+                                  <div className="flex shrink-0 items-center gap-1.5">
                                   <button
                                     title="عرض حل الطالب"
                                     aria-label="عرض حل الطالب"
@@ -40069,6 +40074,7 @@ ${rows
                                   >
                                     <RefreshCw className="h-4 w-4" />
                                   </button>
+                                  </div>
                                 </div>
                               </div>
                               {sub?.exitWasOffline && (
