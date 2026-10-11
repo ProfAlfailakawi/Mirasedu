@@ -15831,7 +15831,7 @@ ${rows
     studentIdOverride?: string,
     courseCodeOverride?: string,
     emailOverride?: string,
-    options: { allCourses?: boolean } = {},
+    options: { allCourses?: boolean; signal?: AbortSignal } = {},
   ) => {
     const session = captureTeacherSession(emailOverride);
     if (!session) return false;
@@ -15849,7 +15849,7 @@ ${rows
       if (ccode) params.set("courseCode", ccode);
       const resp = await fetch(
         `/api/teacher/submissions${params.toString() ? `?${params.toString()}` : ""}`,
-        { cache: "no-store", headers: teacherHeaders(email) },
+        { cache: "no-store", headers: teacherHeaders(email), signal: options.signal },
       );
       const d = await resp.json().catch(() => ({}));
       if (!session.isCurrent() || !resp.ok) return false;
@@ -21542,10 +21542,16 @@ ${rows
     )
       return;
     let refreshing = false;
+    let refreshStartedAt = 0;
     let active = true;
     const refresh = async () => {
-      if (!active || refreshing || document.visibilityState === "hidden") return;
+      if (!active || document.visibilityState === "hidden") return;
+      // طلب علق (يحدث في iOS بعد الخروج للخلفية) كان يوقف التحديث نهائياً حتى مغادرة الشاشة.
+      if (refreshing && Date.now() - refreshStartedAt < 12000) return;
       refreshing = true;
+      refreshStartedAt = Date.now();
+      const controller = new AbortController();
+      const abortTimer = window.setTimeout(() => controller.abort(), 10000);
       try {
         const session = captureTeacherSession();
         if (!session) return;
@@ -21556,8 +21562,10 @@ ${rows
           undefined,
           activeCourseCode,
           teacherSession?.email,
+          { signal: controller.signal },
         );
       } finally {
+        window.clearTimeout(abortTimer);
         refreshing = false;
       }
     };
