@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { recordLateAttempt, pendingLateAttempts, attemptStudentId } from '../src/shared/late-attempts';
+import { recordLateAttempt, attemptStudentId } from '../src/shared/late-attempts';
 
 const NOW = Date.UTC(2026, 9, 11, 12);
 const iso = (ms: number) => new Date(ms).toISOString();
@@ -29,16 +29,4 @@ test('the list is capped', () => {
   for (let i = 1; i <= 305; i++) list = recordLateAttempt(list, { id: String(i) }, NOW + i)!;
   assert.equal(list.length, 300);
   assert.equal(list[299].studentId, '305');
-});
-test('pending attempts drop students who submitted or hold a running extension', () => {
-  const attempts = [
-    { studentId: '1', studentName: 'a', firstAt: '', lastAt: '', count: 1 },
-    { studentId: '2', studentName: 'b', firstAt: '', lastAt: '', count: 1 },
-    { studentId: '3', studentName: 'c', firstAt: '', lastAt: '', count: 1 },
-    { studentId: '4', studentName: 'd', firstAt: '', lastAt: '', count: 1 },
-  ];
-  const ext = [{ studentId: '2', until: iso(NOW + 3600_000) }, { studentId: '3', until: iso(NOW - 3600_000) }];
-  const pending = pendingLateAttempts(attempts, ext, ['١'], NOW).map((a) => a.studentId);
-  assert.deepEqual(pending, ['3', '4']);
-  assert.deepEqual(pendingLateAttempts(undefined, undefined, [], NOW), []);
 });

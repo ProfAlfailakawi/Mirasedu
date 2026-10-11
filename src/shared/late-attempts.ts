@@ -42,23 +42,3 @@ export function recordLateAttempt(
   };
   return [...list.filter((item) => attemptStudentId(item?.studentId) !== id), entry].slice(-MAX_LATE_ATTEMPTS);
 }
-
-/** Attempts still waiting on the teacher: not submitted since and without a running extension. */
-export function pendingLateAttempts(
-  attempts: any,
-  extensions: any,
-  submittedStudentIds: Iterable<any>,
-  nowMs: number = Date.now(),
-): LateAttempt[] {
-  const submitted = new Set<string>();
-  for (const id of submittedStudentIds) submitted.add(attemptStudentId(id));
-  const extended = new Set<string>();
-  (Array.isArray(extensions) ? extensions : []).forEach((entry: any) => {
-    const until = Date.parse(String(entry?.until || ""));
-    if (Number.isFinite(until) && until > nowMs) extended.add(attemptStudentId(entry?.studentId));
-  });
-  return (Array.isArray(attempts) ? attempts : []).filter((item: any) => {
-    const id = attemptStudentId(item?.studentId);
-    return !!id && !submitted.has(id) && !extended.has(id);
-  });
-}
