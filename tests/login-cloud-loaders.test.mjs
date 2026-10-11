@@ -296,13 +296,15 @@ test('scoped submission polling waits for the initial all-course snapshot', asyn
   teacherSubmissionInitialReadRef: { current: { key: cloudSessionKey(session.email, session.token, 1), promise: initial.promise } },
   cloudSessionKey, cloudSessionGenRef: { current: 1 }, scheduleAfterWorkspacePaint: scheduler.schedule,
   document: { visibilityState: 'visible', addEventListener: () => {}, removeEventListener: () => {} },
-  window: { setInterval: () => 1, clearInterval: () => {}, addEventListener: () => {}, removeEventListener: () => {} },
+  window: { setInterval: () => 1, clearInterval: () => {}, setTimeout: () => 1, clearTimeout: () => {}, addEventListener: () => {}, removeEventListener: () => {} },
   fetchTeacherSubmissions: async (...args) => calls.push(args), useEffect: callback => callback() };
  const mount = await compile(`const mountPoll = () => { ${effect} };`, 'mountPoll', context);
  mount(); scheduler.frame(); scheduler.frame(); scheduler.tasks();
  assert.deepEqual(calls, []);
  initial.resolve(true); await turn();
- assert.deepEqual(calls, [[undefined, 'course-a', 'teacher@test.kw']]);
+ assert.equal(calls.length, 1);
+ assert.deepEqual(calls[0].slice(0, 3), [undefined, 'course-a', 'teacher@test.kw']);
+ assert.ok(calls[0][3].signal instanceof AbortSignal, 'the poll carries an abort signal so a hung request cannot block it');
 });
 
 test('teacher-only readers skip guests and student sessions, and discard stale teacher responses', async () => {
