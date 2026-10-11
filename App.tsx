@@ -1158,6 +1158,8 @@ const simplifyMirasMessage = (
     return "تعذر التحقق من الجهاز. أعد فتح مِراس.";
 
   if (tone === "success") {
+    // رسالة توضيحية كاملة (ليست إشعار نجاح عملية): تُعرض كما هي بدل اختصارها إلى «تم تسليم المشروع».
+    if (any("لا حاجة للإرجاع")) return t;
     if (any("نسخ", "clipboard")) return "تم النسخ";
     if (any("تصدير", "Excel", "PDF", "المطبعة")) return "تم التصدير";
     if (any("استيراد", "قراءة ملف Excel", "رفع كشف")) return "تم الاستيراد";
@@ -39767,7 +39769,7 @@ ${rows
                                         onClick={() => {
                                           // نفس أيقونة الإرجاع: لمن لم يسلّم تعني «افتح له باب التسليم».
                                           if (!isProjectClosed(notSubmittedProject)) {
-                                            setSuccessMsg("المشروع ما زال مفتوحاً، يستطيع الطالب التسليم الآن.");
+                                            setSuccessMsg("لا حاجة للإرجاع: المشروع ما زال مفتوحاً ويستطيع الطالب التسليم الآن.");
                                             return;
                                           }
                                           setExtensionTargets([student]);
