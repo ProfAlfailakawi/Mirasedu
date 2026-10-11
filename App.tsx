@@ -2,6 +2,7 @@ import { groupSecurityNotifications } from "./src/shared/security-notification-g
 import { studentSubmissionDisplayText } from "./src/shared/submission-display-text";
 import { watchSolutionScrollJumps, markIntentionalSolutionScrollReset, type WatchedScrollJump } from "./src/shared/scroll-jump-watcher";
 import { formatScrollJumpReport } from "./src/shared/scroll-jump-diagnostic";
+import { keepSolutionBottomRoom } from "./src/shared/solution-scroll-room";
 import { createCloudSingleFlight, cloudSessionKey } from "./src/shared/cloud-single-flight";
 import { teacherWorkspaceReady } from "./src/shared/teacher-workspace-ready";
 import { deviceTransferCopy } from "./src/shared/device-transfer-copy";
@@ -5680,6 +5681,11 @@ export default function App() {
   const [scrollJumpRecords, setScrollJumpRecords] = useState<WatchedScrollJump[]>([]);
   const [scrollJumpPanelOpen, setScrollJumpPanelOpen] = useState(false);
   const solutionOpenForScrollWatch = !!selectedSubmissionDetail;
+  // فراغ واضح تحت آخر سطر في الحل الطويل (يبقى الحل القصير كما هو).
+  useEffect(() => {
+    if (!solutionOpenForScrollWatch) return;
+    return keepSolutionBottomRoom();
+  }, [solutionOpenForScrollWatch]);
   useEffect(() => {
     if (!solutionOpenForScrollWatch) return;
     return watchSolutionScrollJumps((record) =>
