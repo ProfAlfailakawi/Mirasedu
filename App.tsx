@@ -26297,7 +26297,7 @@ ${rows
         cheatingAttempts: number;
         inProgress: number;
         returned: number;
-        extLate: number;
+        lateWaiting: number;
       }
     >();
     latestDisplayedActiveCourseSubmissions.forEach((sub: any) => {
@@ -26319,7 +26319,7 @@ ${rows
         cheatingAttempts: 0,
         inProgress: 0,
         returned: 0,
-        extLate: 0,
+        lateWaiting: 0,
       };
       existing.total += 1;
       if (isTeacherReturnedSubmission(sub)) existing.returned += 1;
@@ -26335,8 +26335,8 @@ ${rows
         existing.graded += 1;
       else {
         existing.pending += 1;
-        // سلّم متأخراً بتمديد منحته له وينتظر تصحيحك.
-        if (sub?.lateByExtension) existing.extLate += 1;
+        // سلّم متأخراً (بعد موعد التسليم أو بتمديد منحته له) وينتظر تصحيحك.
+        if (sub?.lateByExtension || shouldDisplaySubmittedLate(sub)) existing.lateWaiting += 1;
       }
       map.set(aid, existing);
     });
@@ -26359,7 +26359,7 @@ ${rows
           cheatingAttempts: 0,
           inProgress: 0,
           returned: 0,
-          extLate: 0,
+          lateWaiting: 0,
         });
       });
     }
@@ -39651,23 +39651,23 @@ ${rows
                             <div
                               className="miras-stack-bar mt-3"
                               role="img"
-                              aria-label={`${card.graded} مصحح، ${card.pending} بانتظار${card.extLate ? ` منها ${card.extLate} متأخر بتمديد` : ""}، ${card.returned} معاد من ${card.total}`}
+                              aria-label={`${card.graded} مصحح، ${card.pending} بانتظار${card.lateWaiting ? ` منها ${card.lateWaiting} متأخر` : ""}، ${card.returned} معاد من ${card.total}`}
                             >
                               <span className="is-graded" style={{ width: `${(card.graded / card.total) * 100}%` }} />
-                              <span className="is-ext" style={{ width: `${(card.extLate / card.total) * 100}%` }} />
-                              <span className="is-pending" style={{ width: `${((card.pending - card.extLate) / card.total) * 100}%` }} />
+                              <span className="is-ext" style={{ width: `${(card.lateWaiting / card.total) * 100}%` }} />
+                              <span className="is-pending" style={{ width: `${((card.pending - card.lateWaiting) / card.total) * 100}%` }} />
                               <span className="is-returned" style={{ width: `${(card.returned / card.total) * 100}%` }} />
                             </div>
                           )}
                           <div className="miras-sub-chips mt-3 flex flex-wrap gap-1.5">
-                            {card.extLate > 0 && (
+                            {card.lateWaiting > 0 && (
                               <span className="rounded-full bg-amber-50 px-2.5 py-1 text-[10px] font-bold text-amber-700">
-                                {card.extLate} متأخر بتمديد · بانتظار تصحيحك
+                                {card.lateWaiting} متأخر · بانتظار تصحيحك
                               </span>
                             )}
-                            {card.pending - card.extLate > 0 && (
+                            {card.pending - card.lateWaiting > 0 && (
                               <span className="rounded-full bg-slate-100 px-2.5 py-1 text-[10px] font-bold text-slate-600">
-                                {card.pending - card.extLate} بانتظار
+                                {card.pending - card.lateWaiting} بانتظار
                               </span>
                             )}
 
