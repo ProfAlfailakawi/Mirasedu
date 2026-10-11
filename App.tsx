@@ -13198,6 +13198,7 @@ export default function App() {
       [
         "exam_new", "new_exam", "exam_available", "exam_open", "exam_published",
         "project_new", "new_project", "project_available", "project_published",
+        "exercise_available",
         "assignment_due", "submission_due", "deadline", "deadline_soon",
         "exam_cancelled", "project_cancelled", "activity_cancelled", "calendar_event_deleted",
         "attempt_reopened", "attempt_opened", "exam_returned", "quiz_returned",

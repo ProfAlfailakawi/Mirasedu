@@ -53,6 +53,11 @@ const rename = await api("PUT", `/api/teacher/sections/${encodeURIComponent(S_A1
   { jar: tjar, deviceToken: tdev });
 check("N0e) course renamed", rename.ok && rename.data.success !== false, `${rename.status} ${JSON.stringify(rename.data).slice(0, 140)}`);
 
+const exercise = await api("POST", "/api/teacher/exercises/activate",
+  { exercise: { id: "ex-notif-flowtest", title: "واجب الإشعارات", courseCode: S_A1, sectionCode: S_A1 } },
+  { jar: tjar, deviceToken: tdev });
+check("N0f) weekly exercise activated", exercise.ok && exercise.data.success === true, `${exercise.status} ${JSON.stringify(exercise.data).slice(0, 140)}`);
+
 // read the student's bell once, after all the teacher activity.
 const inbox = await api("GET", `/api/notifications/inbox?userId=${SID}&role=student`, null, { jar: sjar, deviceToken: TOK });
 const arr = inboxArr(inbox);
@@ -61,6 +66,12 @@ const arr = inboxArr(inbox);
 await (async () => {
   const found = arr.some((n) => noteType(n) === "exam_available" || String(n.examId || n.data?.examId || "") === EXAM_ID || /اختبار\s+(جديد|متاح)/.test(noteText(n)));
   check("N1) new exam reaches the student bell", found, JSON.stringify(arr).slice(0, 260));
+})();
+
+// N2b: a newly activated weekly exercise reaches the bell too.
+await (async () => {
+  const found = arr.some((n) => noteType(n) === "exercise_available" || String(n.exerciseId || n.data?.exerciseId || "") === "ex-notif-flowtest");
+  check("N2b) new weekly exercise reaches the student bell", found, JSON.stringify(arr).slice(0, 260));
 })();
 
 // N2: new project reaches the bell (same fix, project side).
