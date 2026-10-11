@@ -3,6 +3,7 @@ import { studentSubmissionDisplayText } from "./src/shared/submission-display-te
 import { watchSolutionScrollJumps, markIntentionalSolutionScrollReset, type WatchedScrollJump } from "./src/shared/scroll-jump-watcher";
 import { formatScrollJumpReport } from "./src/shared/scroll-jump-diagnostic";
 import { keepSolutionBottomRoom } from "./src/shared/solution-scroll-room";
+import { joinCodeIssueScopeEmail as joinCodeIssueScopeEmailFor } from "./src/shared/join-code-issue-scope";
 import { createCloudSingleFlight, cloudSessionKey } from "./src/shared/cloud-single-flight";
 import { teacherWorkspaceReady } from "./src/shared/teacher-workspace-ready";
 import { deviceTransferCopy } from "./src/shared/device-transfer-copy";
@@ -15115,9 +15116,10 @@ ${rows
   };
 
   const requireJoinCodeIssueCourse = () => {
-    const code = String(
-      joinCodeIssueCourseCode || activeCourseCode || "",
-    ).trim();
+    // بلا مقرر ضمن نطاق الأستاذ لا نرجع لـ activeCourseCode (قد يكون مقرر زميل مخزَّناً سابقاً).
+    const code = joinCodeIssueCourseOptions.length
+      ? String(joinCodeIssueCourseCode || activeCourseCode || "").trim()
+      : "";
     if (!code || code.toLowerCase() === "all") {
       setErrorMsg(
         "اختر مقررًا محددًا قبل توليد الرمز. لا يتم إصدار رموز عامة بلا مقرر.",
@@ -21513,9 +21515,12 @@ ${rows
     visibleTeacherSections[0]?.code ||
     "";
   activeSubmissionCourseRef.current = String(activeCourseCode || "").trim();
+  // مقرر إصدار الرمز: «كل الحسابات» تعرض مقررات الأستاذ نفسه فقط (شُعبه)، ولا تخلطها بمقررات
+  // بقية الأساتذة؛ واختيار حساب محدد يعرض مقررات ذلك الحساب.
+  const joinCodeIssueScopeEmail = joinCodeIssueScopeEmailFor(auditScopeEmail, String(teacherSession?.email || ""));
   const joinCodeIssueCourseOptions = (
-    isAdminTeacher ? teacherSections.filter((sec: any) => auditScopeEmail === "all" ||
-      isSameTeacherIdentity(courseOwnerEmail(sec.code), auditScopeEmail === "self" ? teacherSession?.email : auditScopeEmail)) : visibleTeacherSections
+    isAdminTeacher ? teacherSections.filter((sec: any) =>
+      isSameTeacherIdentity(courseOwnerEmail(sec.code), joinCodeIssueScopeEmail)) : visibleTeacherSections
   ).filter((sec: any) => String(sec?.code || "").trim());
   const selectedJoinCodeIssueCourse =
     joinCodeIssueCourseOptions.find((sec: any) =>
@@ -21525,9 +21530,10 @@ ${rows
       courseCodesMatch(sec.code, selectedTeacherCourseCode),
     ) ||
     joinCodeIssueCourseOptions[0];
-  const joinCodeIssueCourseCode = String(
-    selectedJoinCodeIssueCourse?.code || activeCourseCode || "",
-  ).trim();
+  // لا مقرر متاح ضمن النطاق → الكود الفعلي فارغ، فيمنع الحارس الإصدار بدل الرجوع لمقرر زميل مخزَّن سابقاً.
+  const joinCodeIssueCourseCode = joinCodeIssueCourseOptions.length
+    ? String(selectedJoinCodeIssueCourse?.code || activeCourseCode || "").trim()
+    : "";
   useEffect(() => {
     if (
       currentView !== "teacher_workspace" ||
@@ -47177,10 +47183,7 @@ ${rows
                               >
                                 {joinCodeIssueCourseOptions.map((sec: any) => (
                                   <option key={sec.code} value={sec.code}>
-                                    {(() => {
-                                      const owner = otherTeacherLabel(courseOwnerEmail(sec.code));
-                                      return `${sec.courseName || courseNameForCode(sec.code)}${owner ? ` • ${owner}` : ""}`;
-                                    })()}
+                                    {sec.courseName || courseNameForCode(sec.code)}
                                   </option>
                                 ))}
                               </select>
