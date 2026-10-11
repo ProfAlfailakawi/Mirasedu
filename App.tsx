@@ -30641,7 +30641,7 @@ ${rows
                 className="rounded-2xl border border-slate-200 bg-white px-3 py-2 text-[11px] font-bold"
               >
                 <option value="all">الكل</option>
-                <option value="roster">الكشف</option>
+                <option value="roster">لم يسجّل بعد</option>
                 <option value="registered">مسجل</option>
               </select>
               <div className="relative w-full max-w-xs">
