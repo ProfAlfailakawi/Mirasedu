@@ -7,7 +7,7 @@
 //   2. publishing a new project reaches it too (same fix, project side);
 //   3. renaming a course takes effect (new name shows in the student's state)
 //      yet produces NO bell notification — silent, no admin noise.
-import { api, makeJar, createReporter, AA, S_A1 } from "./lib.mjs";
+import { api, makeJar, createReporter, AA, BB, S_A1 } from "./lib.mjs";
 
 const { check, done } = createReporter("FLOWS / NOTIFICATIONS");
 
@@ -53,6 +53,20 @@ const rename = await api("PUT", `/api/teacher/sections/${encodeURIComponent(S_A1
   { jar: tjar, deviceToken: tdev });
 check("N0e) course renamed", rename.ok && rename.data.success !== false, `${rename.status} ${JSON.stringify(rename.data).slice(0, 140)}`);
 
+const exercise = await api("POST", "/api/teacher/exercises/activate",
+  // Same shape the real UI sends: a generated exercise with NO course on it.
+  { exercise: { id: "ex-notif-flowtest", chapterId: "ch-any", title: "واجب الإشعارات", type: "scenario", promptText: "سؤال", dueDate: "2030-01-01", isPersonalized: true } },
+  { jar: tjar, deviceToken: tdev });
+// Another teacher naming teacher A's course must not alert A's students.
+const otherJar = makeJar();
+const otherLogin = await api("POST", "/api/auth/login", { idNumber: BB, password: (process.env.TEST_TEACHER_PASSWORD || "change-me-in-ci") }, { jar: otherJar, deviceToken: "n-other-dev" });
+check("N0g) teacher B login", otherLogin.ok && otherLogin.data.role === "teacher", `${otherLogin.status}`);
+const foreignExercise = await api("POST", "/api/teacher/exercises/activate",
+  { exercise: { id: "ex-notif-foreign", title: "واجب دخيل", courseCode: S_A1, sectionCode: S_A1 } },
+  { jar: otherJar, deviceToken: "n-other-dev" });
+check("N0h) foreign exercise activation itself succeeds", foreignExercise.ok, `${foreignExercise.status}`);
+check("N0f) weekly exercise activated", exercise.ok && exercise.data.success === true, `${exercise.status} ${JSON.stringify(exercise.data).slice(0, 140)}`);
+
 // read the student's bell once, after all the teacher activity.
 const inbox = await api("GET", `/api/notifications/inbox?userId=${SID}&role=student`, null, { jar: sjar, deviceToken: TOK });
 const arr = inboxArr(inbox);
@@ -61,6 +75,18 @@ const arr = inboxArr(inbox);
 await (async () => {
   const found = arr.some((n) => noteType(n) === "exam_available" || String(n.examId || n.data?.examId || "") === EXAM_ID || /اختبار\s+(جديد|متاح)/.test(noteText(n)));
   check("N1) new exam reaches the student bell", found, JSON.stringify(arr).slice(0, 260));
+})();
+
+// N2b: a newly activated weekly exercise reaches the bell too.
+await (async () => {
+  const found = arr.some((n) => noteType(n) === "exercise_available" || String(n.exerciseId || n.data?.exerciseId || "") === "ex-notif-flowtest");
+  check("N2b) new weekly exercise reaches the student bell", found, JSON.stringify(arr).slice(0, 260));
+})();
+
+// N2c: ...but a foreign teacher naming A's course produces no alert for A's student.
+await (async () => {
+  const leaked = arr.some((n) => String(n.exerciseId || n.data?.exerciseId || "") === "ex-notif-foreign");
+  check("N2c) another teacher's activation does not alert this student", !leaked, JSON.stringify(arr).slice(0, 260));
 })();
 
 // N2: new project reaches the bell (same fix, project side).

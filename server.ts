@@ -6653,6 +6653,7 @@ function shouldSuppressRoutineStudentNotification(
   const importantTypes = new Set([
     "exam_new", "new_exam", "exam_available", "exam_open", "exam_published",
     "project_new", "new_project", "project_available", "project_published",
+    "exercise_available",
     "assignment_due", "submission_due", "deadline", "deadline_soon", "due_soon",
     "exam_cancelled", "exam_canceled", "project_cancelled", "project_canceled",
     "activity_cancelled", "calendar_event_deleted",
@@ -10651,6 +10652,7 @@ function isCourseWideStudentNotification(item: any): boolean {
       "course_closed",
       "activity_published",
       "project_published",
+      "exercise_available",
       // أحداث مقرر مهمّة للطالب كان الخادم يُنشئها (اختبار/مشروع جديد، موعد،
       // إلغاء) لكنها لا تصل الجرس لأن نوعها لم يكن مُدرجاً هنا — تعارض مع قائمة
       // importantTypes في shouldSuppressRoutineStudentNotification التي تعتبرها
@@ -22983,7 +22985,51 @@ app.post("/api/teacher/exercises/activate", (req, res) => {
 
   exercise.id =
     exercise.id || "ex-act-" + Math.random().toString(36).substring(2, 9);
+  const existedBefore = dbInstance
+    .getExercises()
+    .some((item: any) => String(item.id) === String(exercise.id));
   dbInstance.addWeeklyExercise(exercise);
+
+  // التمرين الأسبوعي لا يحمل مقرراً في نموذجه (يرتبط بفصل الكتاب)، فنشتق الجمهور من
+  // مقررات الأستاذ الذي فعّله: يصل طلبة مقرراته فقط، ولا نُنبّه طلبة أستاذ آخر.
+  // إن حدّد الطلب مقرراً فيُقيَّد به (للمدير يُقبل أي مقرر).
+  if (!existedBefore) {
+    const teacherEmail = String(teacherEmailFromRequest(req) || "").toLowerCase();
+    const requestedCourse = String(exercise.courseCode || exercise.sectionCode || "").trim();
+    const ownedCodes = activeSections()
+      .map((section: any) => String(section.code || "").trim())
+      .filter(
+        (code: string) =>
+          !!code &&
+          !!teacherEmail &&
+          String(sectionOwnerEmail(code) || "").toLowerCase() === teacherEmail,
+      );
+    const targetCodes = requestedCourse
+      ? isAdminEmail(teacherEmail)
+        ? [requestedCourse]
+        : ownedCodes.filter((code: string) => sectionCodeEquivalent(code, requestedCourse))
+      : ownedCodes;
+    if (targetCodes.length) {
+      const revision = bumpLiveContentRevision();
+      const noticeTitle = "واجب جديد متاح";
+      const noticeBody = `تم نشر ${exercise.title || "تمرين أسبوعي"}`;
+      targetCodes.forEach((courseCode: string) => {
+        const meta = {
+          exerciseId: String(exercise.id),
+          courseCode,
+          revision: String(revision),
+          link: "/",
+        };
+        rememberCourseNotification(courseCode, noticeTitle, noticeBody, "exercise_available", meta);
+        notifyUsers(
+          (token) => token.role === "student" && studentTokenHasCourse(token, courseCode),
+          noticeTitle,
+          noticeBody,
+          { type: "exercise_available", ...meta },
+        );
+      });
+    }
+  }
 
   return res.json({ success: true, exercise });
 });
