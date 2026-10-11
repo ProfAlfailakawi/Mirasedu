@@ -18667,7 +18667,15 @@ ${rows
 
   const revokeTrustedPasskeyDevice = async (credentialId: string) => {
     if (!credentialId) return;
-    const ok = await confirmAdminPasskeyForSensitiveAction("إلغاء ثقة الجهاز");
+    // حذف بصمة جهاز: تأكيد أو إلغاء فقط، بلا كلمة مرور ولا بصمة. الجلسة موثّقة أصلاً
+    // والخادم يتحقق من صلاحية المعلم على هذا الجهاز قبل الحذف.
+    const device = passkeyTrustedDevices.find(
+      (item: any) => String(item.credentialId || item.id || "") === String(credentialId),
+    );
+    const ok = await confirmAction(
+      `حذف بصمة ${device?.userName || device?.name || "هذا الجهاز"}؟ سيحتاج صاحبها إلى تفعيلها من جديد.`,
+      { title: "حذف البصمة", confirmLabel: "حذف", preserveMessage: true },
+    );
     if (!ok) return;
     try {
       const resp = await fetch(
