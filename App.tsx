@@ -15116,9 +15116,10 @@ ${rows
   };
 
   const requireJoinCodeIssueCourse = () => {
-    const code = String(
-      joinCodeIssueCourseCode || activeCourseCode || "",
-    ).trim();
+    // بلا مقرر ضمن نطاق الأستاذ لا نرجع لـ activeCourseCode (قد يكون مقرر زميل مخزَّناً سابقاً).
+    const code = joinCodeIssueCourseOptions.length
+      ? String(joinCodeIssueCourseCode || activeCourseCode || "").trim()
+      : "";
     if (!code || code.toLowerCase() === "all") {
       setErrorMsg(
         "اختر مقررًا محددًا قبل توليد الرمز. لا يتم إصدار رموز عامة بلا مقرر.",
@@ -21529,9 +21530,10 @@ ${rows
       courseCodesMatch(sec.code, selectedTeacherCourseCode),
     ) ||
     joinCodeIssueCourseOptions[0];
-  const joinCodeIssueCourseCode = String(
-    selectedJoinCodeIssueCourse?.code || activeCourseCode || "",
-  ).trim();
+  // لا مقرر متاح ضمن النطاق → الكود الفعلي فارغ، فيمنع الحارس الإصدار بدل الرجوع لمقرر زميل مخزَّن سابقاً.
+  const joinCodeIssueCourseCode = joinCodeIssueCourseOptions.length
+    ? String(selectedJoinCodeIssueCourse?.code || activeCourseCode || "").trim()
+    : "";
   useEffect(() => {
     if (
       currentView !== "teacher_workspace" ||
