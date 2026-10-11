@@ -84,6 +84,9 @@ await (async () => {
   check("Q4b) teacher returned the exam", ret.ok, `${ret.status} ${JSON.stringify(ret.data).slice(0, 140)}`);
   const lock = await acquireLock("1001", "tok-1001", s1.jar, "grade-q-retake");
   check("Q4c) student re-acquires the exam lock", lock.ok, `${lock.status} ${JSON.stringify(lock.data).slice(0, 140)}`);
+  // The real UI generates the questions before submitting; that flips the row to «قيد الحل».
+  const gen = await api("GET", `/api/quizzes/generate?studentId=1001&chapterId=${EXAM}&examSessionId=grade-q-retake&displayMode=pwa`, null, { deviceToken: "tok-1001", jar: s1.jar });
+  check("Q4c2) questions generated for the retake", gen.ok, `${gen.status} ${JSON.stringify(gen.data).slice(0, 140)}`);
   const r = await submitExam("1001", "tok-1001", s1.jar, "grade-q-retake", CORRECT);
   check("Q4d) retake after return succeeds", r.ok && r.data.success === true, `${r.status} ${JSON.stringify(r.data).slice(0, 160)}`);
   const list = await api("GET", "/api/teacher/submissions?studentId=1001", null, { jar: tjar, deviceToken: tdev });
