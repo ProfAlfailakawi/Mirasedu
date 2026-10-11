@@ -37,3 +37,29 @@ export function studentsWaitingOnTeacher(input: {
   });
   return counted.size;
 }
+
+/**
+ * Students the teacher opened the door for (a running extension) who have not submitted yet.
+ * They are expected work, so the activity ring counts them in its denominator until they submit.
+ * Ids are compared in the server's canonical digits-only form, one count per student.
+ */
+export function studentsExpectedByExtension(
+  extensions: any,
+  submittedStudentIds: Iterable<any>,
+  now: number = Date.now(),
+): number {
+  const canonical = (value: any) =>
+    normalizeArabicIndicDigits(String(value ?? "")).replace(/[^0-9]/g, "");
+  const submitted = new Set<string>();
+  for (const id of submittedStudentIds) {
+    const k = canonical(id);
+    if (k) submitted.add(k);
+  }
+  const expected = new Set<string>();
+  (Array.isArray(extensions) ? extensions : []).forEach((entry: any) => {
+    const until = Date.parse(String(entry?.until || ""));
+    const k = canonical(entry?.studentId);
+    if (k && Number.isFinite(until) && until > now && !submitted.has(k)) expected.add(k);
+  });
+  return expected.size;
+}
