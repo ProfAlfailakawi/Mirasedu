@@ -3,6 +3,13 @@ import { createScrollJumpDetector, type ScrollJumpRecord } from "./scroll-jump-d
 const SCROLLER_SELECTOR = ".miras-submission-detail-scroll";
 
 type Recent = { what: string; at: number; where: string };
+
+// Resets the app asks for itself (opening another student, next/previous) are not "jumps".
+let lastIntentionalResetAt = -Infinity;
+const INTENTIONAL_WINDOW_MS = 900;
+export function markIntentionalSolutionScrollReset() {
+  if (typeof performance !== "undefined") lastIntentionalResetAt = performance.now();
+}
 export type WatchedScrollJump = ScrollJumpRecord & { context: Record<string, any> };
 
 const shortStack = () =>
@@ -77,10 +84,14 @@ export function watchSolutionScrollJumps(onJump: (record: WatchedScrollJump) => 
       visualViewport: vv ? `${Math.round(vv.height)}h@${Math.round(vv.offsetTop)}` : "-",
     };
   };
-  let lastViewport = JSON.stringify(viewport());
+  let viewportBeforeResize = JSON.stringify(viewport());
+  let currentViewport = viewportBeforeResize;
+  let lastResizeAt = -Infinity;
   const onResize = () => {
-    note(`resize ${JSON.stringify(viewport())}`, "window");
-    lastViewport = JSON.stringify(viewport());
+    viewportBeforeResize = currentViewport;
+    currentViewport = JSON.stringify(viewport());
+    lastResizeAt = performance.now();
+    note(`resize ${currentViewport}`, "window");
   };
   window.addEventListener("resize", onResize);
   (window as any).visualViewport?.addEventListener("resize", onResize);
@@ -102,6 +113,7 @@ export function watchSolutionScrollJumps(onJump: (record: WatchedScrollJump) => 
     const now = performance.now();
     const record = detector.scroll(now, scroller.scrollTop, scroller.scrollHeight, scroller.clientHeight);
     if (!record) return;
+    if (now - lastIntentionalResetAt < INTENTIONAL_WINDOW_MS) return;
     const context: Record<string, any> = {
       "آخر أحداث قبل القفزة": recent
         .filter((item) => now - item.at < 1500)
@@ -110,7 +122,9 @@ export function watchSolutionScrollJumps(onJump: (record: WatchedScrollJump) => 
       "العنصر المركّز": describe(document.activeElement),
       "نسخة الحاوية": scrollerSerial,
       "الشاشة": JSON.stringify(viewport()),
-      "تغيّرت الشاشة": JSON.stringify(viewport()) !== lastViewport,
+      "تغيّرت الشاشة قبل القفزة بأقل من ثانيتين": now - lastResizeAt < 2000
+        ? `نعم (قبلها ${viewportBeforeResize})`
+        : "لا",
       "حالة الصفحة": document.visibilityState,
     };
     onJump({ ...record, at: new Date().toISOString(), context });

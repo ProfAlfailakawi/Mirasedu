@@ -1,6 +1,6 @@
 import { groupSecurityNotifications } from "./src/shared/security-notification-groups";
 import { studentSubmissionDisplayText } from "./src/shared/submission-display-text";
-import { watchSolutionScrollJumps, type WatchedScrollJump } from "./src/shared/scroll-jump-watcher";
+import { watchSolutionScrollJumps, markIntentionalSolutionScrollReset, type WatchedScrollJump } from "./src/shared/scroll-jump-watcher";
 import { formatScrollJumpReport } from "./src/shared/scroll-jump-diagnostic";
 import { createCloudSingleFlight, cloudSessionKey } from "./src/shared/cloud-single-flight";
 import { teacherWorkspaceReady } from "./src/shared/teacher-workspace-ready";
@@ -26667,6 +26667,7 @@ ${rows
     if (typeof window === "undefined" || typeof document === "undefined")
       return;
     const run = () => {
+      markIntentionalSolutionScrollReset();
       try {
         (document.activeElement as HTMLElement | null)?.blur?.();
       } catch {}
@@ -33449,6 +33450,7 @@ ${rows
                 </div>
                 <textarea
                   readOnly
+                  data-scroll-jump-report="true"
                   dir="auto"
                   value={scrollJumpReportText()}
                   onFocus={(event) => event.currentTarget.select()}
@@ -33457,12 +33459,25 @@ ${rows
                 <div className="mt-2 flex gap-2">
                   <button
                     type="button"
-                    onClick={() => {
+                    onClick={async () => {
                       const text = scrollJumpReportText();
                       try {
-                        void navigator.clipboard?.writeText(text);
+                        if (!navigator.clipboard?.writeText) throw new Error("clipboard-unavailable");
+                        await navigator.clipboard.writeText(text);
                         setSuccessMsg("تم نسخ التقرير.");
-                      } catch {}
+                      } catch {
+                        // بديل: يحدّد النص كله ليُنسخ يدوياً (اضغط مطولاً ثم «نسخ»).
+                        try {
+                          const area = document.querySelector<HTMLTextAreaElement>("textarea[data-scroll-jump-report]");
+                          area?.focus();
+                          area?.select();
+                          const copied = !!area && document.execCommand?.("copy");
+                          if (copied) setSuccessMsg("تم نسخ التقرير.");
+                          else setErrorMsg("تعذر النسخ تلقائياً. النص محدد: اضغط عليه مطولاً ثم اختر «نسخ».");
+                        } catch {
+                          setErrorMsg("تعذر النسخ تلقائياً. النص محدد: اضغط عليه مطولاً ثم اختر «نسخ».");
+                        }
+                      }
                     }}
                     className="flex-1 rounded-xl bg-indigo-600 px-3 py-2 text-[12px] font-bold text-white"
                   >
