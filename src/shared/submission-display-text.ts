@@ -13,10 +13,13 @@ export function studentSubmissionDisplayText(
   if (hasStructuredAnswers) return formatStructuredAnswers(sub);
   // An exam without answers carries a system message in answerText (entered/left...), not an answer.
   if (isExam) return "";
+  // After a teacher return, answerText holds a system message and the student's original
+  // answer is kept in previousAnswerText; skip the message and read the preserved answer.
+  const isReturnNotice = (value: string) => /^تم إرجاع النشاط للطالب/.test(value);
   const raw =
-    [sub.answerText, sub.submissionText, sub.studentSolutionText, sub.text]
+    [sub.answerText, sub.submissionText, sub.previousAnswerText, sub.studentSolutionText, sub.text]
       .map((value: any) => String(value || "").trim())
-      .find(Boolean) || "";
+      .find((value: string) => !!value && !isReturnNotice(value)) || "";
   // Phrases the app writes itself when a student submits files with no text.
   if (ATTACHMENT_ONLY_PLACEHOLDER.test(raw) || raw === "تم تسليم المشروع بنجاح") return "";
   return raw;

@@ -23,3 +23,13 @@ test('empty or missing submissions give an empty string', () => {
   assert.equal(studentSubmissionDisplayText(null, fmt), '');
   assert.equal(studentSubmissionDisplayText({ kind: 'project' }, fmt), '');
 });
+test('a returned project shows the preserved original answer, not the return notice', () => {
+  const returned = {
+    kind: 'project',
+    status: 'معاد للطالب',
+    answerText: 'تم إرجاع النشاط للطالب؛ المحاولة مفتوحة من جديد.',
+    previousAnswerText: 'حل الطالب الأصلي',
+  };
+  assert.equal(studentSubmissionDisplayText(returned, fmt), 'حل الطالب الأصلي');
+  assert.equal(studentSubmissionDisplayText({ ...returned, previousAnswerText: '' }, fmt), '');
+});
