@@ -252,6 +252,11 @@ const mirasDateStartMs = (value: any) => {
   const parsed = new Date(raw).getTime();
   return Number.isFinite(parsed) ? parsed : 0;
 };
+// تمديد خاص من المعلم لهذا الطالب بعد إغلاق المشروع (يصل من الخادم كـ myExtensionUntil).
+const myProjectExtensionMs = (project: any, now = Date.now()) => {
+  const until = Date.parse(String(project?.myExtensionUntil || ""));
+  return Number.isFinite(until) && until > now ? until : 0;
+};
 const mirasIsPastDeadline = (value: any, now = Date.now()) => {
   const deadline = mirasDeadlineEndMs(value);
   return !!deadline && Number.isFinite(deadline) && now > deadline;
@@ -5238,6 +5243,14 @@ export default function App() {
       } catch {}
     }, 40);
   };
+  // فلتر «من لم يسلّم» داخل نشاط مفتوح في شاشة التسليمات.
+  const [submissionNotSubmittedOpen, setSubmissionNotSubmittedOpen] = useState(false);
+  // تمديد مهلة مشروع لطلبة لم يسلّموا (يُدار من قائمة «لم يسلّموا»).
+  const [extensionTargets, setExtensionTargets] = useState<any[] | null>(null);
+  const [extensionPreset, setExtensionPreset] = useState<"6h" | "24h" | "3d" | "custom">("24h");
+  const [extensionCustomLocal, setExtensionCustomLocal] = useState("");
+  const [extensionNote, setExtensionNote] = useState("");
+  const [extensionBusy, setExtensionBusy] = useState(false);
   const [selectedSubmissionActivityId, setSelectedSubmissionActivityId] =
     useState<string | null>(null);
   const activeSubmissionCourseRef = useRef("");
@@ -24649,7 +24662,7 @@ ${rows
       isStudentCourseVisible(project.courseCode) &&
       // A teacher return is an explicit reopening decision. It must remain
       // visible even when the original deadline has already passed.
-      (!isProjectClosed(project) || returned || isReturnExceptionActive(prior))
+      (!isProjectClosed(project) || returned || isReturnExceptionActive(prior) || !!myProjectExtensionMs(project))
     );
   });
   // المشاريع التي ما زال للطالب عمل عليها (غير مسلَّمة نهائياً أو أُعيدت إليه)، الأقرب موعداً أولاً.
@@ -24799,7 +24812,10 @@ ${rows
         !!studentSession?.id &&
         isSubmissionClosedForStudent("project", project.id, studentSession.id);
       const closedByTime =
-        isProjectClosed(project) && !returnedExceptionOpen && !isReturned;
+        isProjectClosed(project) &&
+        !returnedExceptionOpen &&
+        !isReturned &&
+        !myProjectExtensionMs(project);
       return {
         id: project.id,
         kind: "مشروع",
@@ -26268,6 +26284,28 @@ ${rows
       else existing.pending += 1;
       map.set(aid, existing);
     });
+    // نشاط لم يسلّمه أحد بعد لا يملك أي صف تسليم، فيُضاف كبطاقة بصفر تسليم حتى يمكن
+    // فتحه ورؤية «لم يسلّموا» (وهو بالضبط حين يكون كل الطلبة ناقصين).
+    if (activeCourseCode) {
+      const sourceActivities = submissionSubTab === "exams" ? teacherCreatedExams : teacherProjects;
+      sourceActivities.forEach((activity: any) => {
+        const aid = String(activity?.id || "");
+        if (!aid || map.has(aid) || !isLiveRecord(activity)) return;
+        if (String(activity?.status || "").toLowerCase() === "draft") return;
+        if (!sectionCodeEquivalent(String(activity?.courseCode || ""), activeCourseCode)) return;
+        map.set(aid, {
+          id: aid,
+          title: activity.title || aid,
+          total: 0,
+          graded: 0,
+          pending: 0,
+          exited: 0,
+          cheatingAttempts: 0,
+          inProgress: 0,
+          returned: 0,
+        });
+      });
+    }
     return Array.from(map.values());
   })();
 
@@ -26347,6 +26385,116 @@ ${rows
         (sub: any) => String(sub.activityId) === selectedSubmissionActivityId,
       )
     : latestDisplayedActiveCourseSubmissions;
+  useEffect(() => {
+    setSubmissionNotSubmittedOpen(false);
+    setExtensionTargets(null);
+  }, [selectedSubmissionActivityId]);
+  // التمديد للمشاريع فقط (الاختبارات تتحكم فيها المراقبة وSEB وإرجاع المعلم).
+  const notSubmittedProject: any = selectedSubmissionActivityId
+    ? teacherProjects.find((p: any) => String(p.id) === String(selectedSubmissionActivityId))
+    : null;
+  const projectExtensionFor = (project: any, studentId: any) => {
+    const entry = (Array.isArray(project?.studentExtensions) ? project.studentExtensions : []).find(
+      (item: any) => String(item?.studentId || "").toLowerCase() === String(studentId || "").toLowerCase(),
+    );
+    const until = Date.parse(String(entry?.until || ""));
+    return Number.isFinite(until) && until > Date.now() ? until : 0;
+  };
+  const grantProjectExtension = async () => {
+    const project = notSubmittedProject;
+    const studentIds = (extensionTargets || []).map((student: any) => String(student.id));
+    if (!project || !studentIds.length) {
+      setErrorMsg("اختر طالباً واحداً على الأقل.");
+      return;
+    }
+    const hour = 3600000;
+    const untilMs =
+      extensionPreset === "6h" ? Date.now() + 6 * hour
+      : extensionPreset === "24h" ? Date.now() + 24 * hour
+      : extensionPreset === "3d" ? Date.now() + 72 * hour
+      : new Date(extensionCustomLocal).getTime();
+    if (!Number.isFinite(untilMs) || untilMs <= Date.now()) {
+      setErrorMsg("اختر وقتاً قادماً لانتهاء التمديد.");
+      return;
+    }
+    try {
+      setExtensionBusy(true);
+      const resp = await fetch(`/api/teacher/projects/${encodeURIComponent(project.id)}/extensions`, {
+        method: "POST",
+        headers: teacherHeaders(),
+        body: JSON.stringify({ studentIds, until: new Date(untilMs).toISOString(), note: extensionNote.trim() }),
+      });
+      const data = await resp.json().catch(() => ({}));
+      if (!resp.ok) {
+        setErrorMsg(data.error || "تعذر منح التمديد.");
+        return;
+      }
+      setTeacherProjects((prev) =>
+        prev.map((item: any) => (String(item.id) === String(project.id) ? { ...item, ...data.project } : item)),
+      );
+      setSuccessMsg(`تم منح التمديد لـ ${data.granted ?? studentIds.length} طالب حتى ${formatKwDateTime(new Date(untilMs).toISOString())}.`);
+      setExtensionTargets(null);
+      setExtensionNote("");
+    } catch {
+      setErrorMsg("تعذر الاتصال بالخادم لمنح التمديد.");
+    } finally {
+      setExtensionBusy(false);
+    }
+  };
+  const revokeProjectExtension = async (studentId: string) => {
+    const project = notSubmittedProject;
+    if (!project) return;
+    try {
+      const resp = await fetch(
+        `/api/teacher/projects/${encodeURIComponent(project.id)}/extensions/${encodeURIComponent(studentId)}`,
+        { method: "DELETE", headers: teacherHeaders() },
+      );
+      const data = await resp.json().catch(() => ({}));
+      if (!resp.ok) {
+        setErrorMsg(data.error || "تعذر سحب التمديد.");
+        return;
+      }
+      setTeacherProjects((prev) =>
+        prev.map((item: any) => (String(item.id) === String(project.id) ? { ...item, ...data.project } : item)),
+      );
+      setSuccessMsg("تم سحب التمديد.");
+    } catch {
+      setErrorMsg("تعذر الاتصال بالخادم لسحب التمديد.");
+    }
+  };
+  // طلبة المقرر (المسجَّلون + من في كشف الأسماء ولم يسجّلوا بعد) الذين لا يوجد لهم أي
+  // تسليم/محاولة في النشاط المفتوح. يُطابَق الرقم بكل أسمائه المعروفة في التسليمات القديمة.
+  const notSubmittedStudents: any[] = (() => {
+    if (!selectedSubmissionActivityId) return [];
+    const normalizeKey = (value: any) =>
+      normalizeArabicDigits(String(value ?? "")).trim().toLowerCase();
+    const done = new Set<string>();
+    teacherSubmissions.forEach((sub: any) => {
+      const aid = String(sub?.activityId || sub?.projectId || sub?.examId || "");
+      if (aid !== String(selectedSubmissionActivityId)) return;
+      [sub?.studentId, sub?.studentIdNumber, sub?.idNumber, sub?.userId].forEach((value) => {
+        const key = normalizeKey(value);
+        if (key) done.add(key);
+      });
+    });
+    const arabicNameOrder = new Intl.Collator("ar", { sensitivity: "base", numeric: true });
+    const seen = new Set<string>();
+    return courseStudentDirectory
+      .map((row: any) => ({
+        ...row,
+        id: String(row.id || row.idNumber || "").trim(),
+        registered: row.registered !== false,
+      }))
+      .filter((row: any) => {
+        const key = normalizeKey(row.id);
+        if (!key || done.has(key) || seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      })
+      .sort((a: any, b: any) =>
+        arabicNameOrder.compare(String(a.name || ""), String(b.name || "")),
+      );
+  })();
   const filteredDrilledSubmissions =
     submissionSubTab === "exams" &&
     selectedSubmissionActivityId &&
@@ -36772,7 +36920,7 @@ ${rows
                                               ) && (
                                                 <span className="inline-flex items-center gap-1 text-[12px] font-bold text-amber-700">
                                                   <Clock className="h-3.5 w-3.5" aria-hidden="true" />
-                                                  متأخر
+                                                  متأخر{sub?.lateByExtension ? " · بتمديد خاص" : ""}
                                                 </span>
                                               )}
                                             </div>
@@ -37445,7 +37593,8 @@ ${rows
                           {studentOpenProjects.length > 1 && (
                             <div className="-mx-2 flex gap-2 overflow-x-auto px-2 pb-1" role="tablist" aria-label="مشاريعك" style={{ scrollbarWidth: "none" }}>
                               {studentOpenProjects.map((project: any) => {
-                                const dueMs = Date.parse(String(project.dueDate || ""));
+                                const extensionMs = myProjectExtensionMs(project);
+                                const dueMs = extensionMs || Date.parse(String(project.dueDate || ""));
                                 const days = Number.isFinite(dueMs) ? Math.ceil((dueMs - Date.now()) / 86400000) : null;
                                 const tone =
                                   days === null ? "bg-slate-100 text-slate-600"
@@ -37468,7 +37617,7 @@ ${rows
                                   >
                                     <span className="w-full truncate text-xs font-black text-slate-900">{project.title}</span>
                                     <span className={`rounded-full px-2 py-0.5 text-[10px] font-extrabold ${tone}`}>
-                                      {days === null ? "بلا موعد" : days < 0 ? "متأخر" : days === 0 ? "اليوم" : `بعد ${days} يوم`}
+                                      {extensionMs ? `تمديد · ${days === 0 ? "اليوم" : `${days} يوم`}` : days === null ? "بلا موعد" : days < 0 ? "متأخر" : days === 0 ? "اليوم" : `بعد ${days} يوم`}
                                     </span>
                                   </button>
                                 );
@@ -37555,6 +37704,12 @@ ${rows
                                       </span>
                                     </div>
                                   </div>
+                                  {!!myProjectExtensionMs(project) && (
+                                    <div className="mt-3 flex items-center gap-2 rounded-2xl border border-amber-300 bg-amber-50 px-4 py-3 text-xs font-bold leading-5 text-amber-900">
+                                      <Clock className="h-4 w-4 shrink-0" aria-hidden="true" />
+                                      منحك الأستاذ تمديداً خاصاً حتى {formatKwDateTime(project.myExtensionUntil)}. سيُسجَّل تسليمك «متأخر · بتمديد خاص».
+                                    </div>
+                                  )}
                                   {mirasIsPastDeadline(project.dueDate) && !isProjectClosed(project) && (
                                     <div className="mt-3 flex items-center gap-2 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-xs font-bold leading-5 text-amber-900">
                                       <Clock className="h-4 w-4 shrink-0" aria-hidden="true" />
@@ -39163,7 +39318,22 @@ ${rows
                             (c) => c.id === selectedSubmissionActivityId,
                           );
                           return cur ? (
-                            <span className="ms-auto">
+                            <span className="ms-auto flex items-center gap-2">
+                              <button
+                                type="button"
+                                onClick={() => setSubmissionNotSubmittedOpen((open) => !open)}
+                                aria-pressed={submissionNotSubmittedOpen}
+                                title={`من لم يسلّم (${notSubmittedStudents.length})`}
+                                aria-label={`فلتر من لم يسلّم: ${notSubmittedStudents.length}`}
+                                className={`relative inline-flex h-10 w-10 items-center justify-center rounded-2xl border shadow-sm transition ${submissionNotSubmittedOpen ? "border-rose-300 bg-rose-50 text-rose-700 ring-2 ring-rose-100" : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50"}`}
+                              >
+                                <UserX className="h-4 w-4" aria-hidden="true" />
+                                {notSubmittedStudents.length > 0 && (
+                                  <span className="absolute -top-1.5 -start-1.5 min-w-[1.1rem] rounded-full bg-rose-600 px-1 text-center font-mono text-[9px] font-bold leading-[1.1rem] text-white">
+                                    {notSubmittedStudents.length}
+                                  </span>
+                                )}
+                              </button>
                               <MirasRatioRing done={cur.graded} total={cur.total} />
                             </span>
                           ) : null;
@@ -39262,6 +39432,104 @@ ${rows
                           </div>
                         </div>
                       )}
+                      {submissionNotSubmittedOpen ? (
+                        <div className="rounded-[var(--miras-r-xl)] border border-rose-100 bg-white/90 p-3 miras-shadow-2">
+                          <div className="mb-2 flex items-center justify-between gap-2 px-1">
+                            <h3 className="text-sm font-bold text-slate-900">لم يسلّموا</h3>
+                            <span className="flex items-center gap-2">
+                              {!!notSubmittedProject &&
+                                isProjectClosed(notSubmittedProject) &&
+                                notSubmittedStudents.some((student: any) => student.registered && !projectExtensionFor(notSubmittedProject, student.id)) && (
+                                  <button
+                                    type="button"
+                                    onClick={() =>
+                                      setExtensionTargets(
+                                        notSubmittedStudents.filter(
+                                          (student: any) => student.registered && !projectExtensionFor(notSubmittedProject, student.id),
+                                        ),
+                                      )
+                                    }
+                                    className="rounded-full border border-amber-200 bg-amber-50 px-3 py-1 text-[11px] font-bold text-amber-800 transition hover:bg-amber-100"
+                                  >
+                                    فتح الباب للجميع
+                                  </button>
+                                )}
+                              <span className="rounded-full bg-rose-50 px-2.5 py-1 text-[11px] font-bold text-rose-700">
+                                {notSubmittedStudents.length} طالب
+                              </span>
+                            </span>
+                          </div>
+                          {notSubmittedStudents.length === 0 ? (
+                            <div className="rounded-2xl border border-dashed border-emerald-200 bg-emerald-50/60 p-6 text-center text-xs font-bold text-emerald-700">
+                              سلّم جميع الطلبة هذا النشاط.
+                            </div>
+                          ) : (
+                            <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                              {notSubmittedStudents.map((student: any) => {
+                                const extUntil = notSubmittedProject
+                                  ? projectExtensionFor(notSubmittedProject, student.id)
+                                  : 0;
+                                return (
+                                  <div
+                                    key={student.id}
+                                    className={`flex items-center gap-2 rounded-2xl border px-3 py-2.5 ${extUntil ? "border-amber-200 bg-amber-50/60" : "border-slate-100 bg-white"}`}
+                                  >
+                                    {notSubmittedProject && !extUntil && student.registered && (
+                                      <button
+                                        type="button"
+                                        onClick={() => {
+                                          // نفس أيقونة الإرجاع: لمن لم يسلّم تعني «افتح له باب التسليم».
+                                          if (!isProjectClosed(notSubmittedProject)) {
+                                            setSuccessMsg("المشروع ما زال مفتوحاً، يستطيع الطالب التسليم الآن.");
+                                            return;
+                                          }
+                                          setExtensionTargets([student]);
+                                        }}
+                                        className="grid h-10 w-10 shrink-0 place-items-center rounded-2xl border border-amber-200 bg-amber-50 text-amber-700 transition hover:bg-amber-100"
+                                        title="فتح باب التسليم له"
+                                        aria-label={`فتح باب التسليم لـ ${student.name || "الطالب"}`}
+                                      >
+                                        <RotateCw className="h-4.5 w-4.5" />
+                                      </button>
+                                    )}
+                                    <span className="min-w-0 flex-1 text-right">
+                                      <span className="block truncate text-[12px] font-bold text-slate-900">
+                                        {student.name || "طالب"}
+                                      </span>
+                                      <span className="block font-mono text-[11px] font-bold text-indigo-700" dir="ltr">
+                                        {student.id}
+                                      </span>
+                                      {!student.registered && (
+                                        <span className="mt-0.5 block text-[10px] font-bold text-slate-400">
+                                          لم يسجّل حسابه في مِراس بعد
+                                        </span>
+                                      )}
+                                      {!!extUntil && (
+                                        <span className="mt-0.5 inline-flex items-center gap-1 text-[10px] font-bold text-amber-800">
+                                          <Clock className="h-3 w-3" aria-hidden="true" />
+                                          تمديد حتى {formatKwDateTime(new Date(extUntil).toISOString())}
+                                        </span>
+                                      )}
+                                    </span>
+                                    {!!extUntil && (
+                                      <button
+                                        type="button"
+                                        onClick={() => void revokeProjectExtension(String(student.id))}
+                                        className="shrink-0 rounded-full border border-amber-200 bg-white px-2.5 py-1 text-[10px] font-bold text-amber-800 hover:bg-amber-100"
+                                        title="سحب التمديد"
+                                        aria-label={`سحب تمديد ${student.name || "الطالب"}`}
+                                      >
+                                        سحب
+                                      </button>
+                                    )}
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          )}
+                        </div>
+                      ) : (
+                      <>
                       <div className="rounded-[var(--miras-r-xl)] border border-indigo-100 bg-gradient-to-br from-indigo-50/70 via-white to-emerald-50/40 p-4 miras-shadow-2">
                         <div className="mx-auto max-w-3xl space-y-3 text-center">
                           <div className="flex flex-wrap items-center justify-center gap-2">
@@ -39378,7 +39646,7 @@ ${rows
                                   </span>
                                   {shouldDisplaySubmittedLate(sub) && (
                                     <span className="rounded-full bg-amber-50 px-2 py-1 text-[11px] font-bold text-amber-700 border border-amber-100">
-                                      متأخر
+                                      متأخر{sub?.lateByExtension ? " · بتمديد خاص" : ""}
                                     </span>
                                   )}
                                   <button
@@ -39525,7 +39793,7 @@ ${rows
                                     </span>
                                     {shouldDisplaySubmittedLate(sub) && (
                                       <span className="ms-1 inline-flex rounded-full border border-amber-100 bg-amber-50 px-2 py-1 text-[10px] font-bold text-amber-700">
-                                        متأخر
+                                        متأخر{sub?.lateByExtension ? " · بتمديد خاص" : ""}
                                       </span>
                                     )}
                                     {sub?.exitWasOffline && (
@@ -39584,6 +39852,8 @@ ${rows
                           </table>
                         </div>
                       </div>
+                      </>
+                      )}
 
                       {false && selectedSubmissionDetail && (
                         <div
@@ -40018,6 +40288,119 @@ ${rows
                           </div>
                         </div>
                       )}
+                      {extensionTargets &&
+                        typeof document !== "undefined" &&
+                        createPortal(
+                          <div
+                            className="miras-return-overlay fixed inset-0 z-[100250] flex items-start justify-center bg-slate-950/45 p-3 pt-[max(4.5rem,calc(env(safe-area-inset-top)+4rem))] backdrop-blur-sm sm:items-center sm:p-4"
+                            onClick={() => setExtensionTargets(null)}
+                          >
+                            <div
+                              className="miras-return-modal relative w-full max-w-[32rem] overflow-hidden rounded-[var(--miras-r-xl)] border border-white/80 bg-white p-4 text-right miras-shadow-3 sm:p-6"
+                              dir="rtl"
+                              onClick={(e) => e.stopPropagation()}
+                            >
+                              <div className="pointer-events-none absolute -left-12 -top-12 h-36 w-36 rounded-full bg-amber-100/60 blur-3xl" />
+                              <div className="relative mb-4 flex items-start justify-between gap-3">
+                                <div className="flex min-w-0 items-start gap-3">
+                                  <span className="grid h-12 w-12 shrink-0 place-items-center rounded-2xl bg-amber-50 text-amber-700 shadow-inner ring-1 ring-amber-100">
+                                    <Clock className="h-5 w-5" />
+                                  </span>
+                                  <div className="min-w-0">
+                                    <h3 className="text-[1.32rem] font-black leading-tight text-slate-950 sm:text-[1.55rem]">
+                                      فتح باب التسليم
+                                    </h3>
+                                    <p className="mt-1 truncate text-[11px] font-bold text-slate-500">
+                                      {extensionTargets.length === 1
+                                        ? `${extensionTargets[0].name || "الطالب"} لم يسلّم بعد`
+                                        : `${extensionTargets.length} طلبة لم يسلّموا بعد`}
+                                    </p>
+                                  </div>
+                                </div>
+                                <button
+                                  type="button"
+                                  onClick={() => setExtensionTargets(null)}
+                                  className="grid h-10 w-10 shrink-0 place-items-center rounded-2xl border border-slate-100 bg-slate-50 text-slate-500 transition hover:bg-rose-50 hover:text-rose-700"
+                                  aria-label="إغلاق"
+                                >
+                                  <X className="h-4 w-4" />
+                                </button>
+                              </div>
+                              <div className="relative flex flex-wrap justify-center gap-2" role="radiogroup" aria-label="مدة الفرصة">
+                                {([
+                                  ["6h", "6 ساعات"],
+                                  ["24h", "24 ساعة"],
+                                  ["3d", "3 أيام"],
+                                  ["custom", "تاريخ محدد"],
+                                ] as const).map(([key, label]) => (
+                                  <button
+                                    key={key}
+                                    type="button"
+                                    role="radio"
+                                    aria-checked={extensionPreset === key}
+                                    onClick={() => setExtensionPreset(key)}
+                                    className={`rounded-2xl border px-4 py-2.5 text-[12px] font-bold transition ${extensionPreset === key ? "border-amber-500 bg-gradient-to-br from-amber-500 to-orange-500 text-white miras-shadow-2" : "border-amber-100 bg-amber-50/60 text-amber-900 hover:bg-amber-100"}`}
+                                  >
+                                    {label}
+                                  </button>
+                                ))}
+                              </div>
+                              {extensionPreset === "custom" && (
+                                <input
+                                  type="datetime-local"
+                                  value={extensionCustomLocal}
+                                  onChange={(e) => setExtensionCustomLocal(e.target.value)}
+                                  aria-label="وقت انتهاء الفرصة"
+                                  className="relative mt-3 w-full rounded-2xl border border-amber-100 bg-white px-3 py-2.5 text-center text-xs font-bold text-slate-800 outline-none focus:ring-4 focus:ring-amber-100"
+                                />
+                              )}
+                              <input
+                                value={extensionNote}
+                                onChange={(e) => setExtensionNote(e.target.value)}
+                                maxLength={200}
+                                placeholder="ملاحظة اختيارية للتوثيق"
+                                className="relative mt-3 w-full rounded-2xl border border-slate-100 bg-slate-50/80 px-3 py-2.5 text-xs font-bold text-slate-800 outline-none focus:border-amber-200 focus:bg-white focus:ring-4 focus:ring-amber-50"
+                              />
+                              <div className="relative mt-3 rounded-[var(--miras-r-md)] border border-emerald-100 bg-emerald-50/70 px-3 py-2 text-center text-[10.5px] font-black leading-5 text-emerald-800 shadow-sm">
+                                للطالب فرصة حتى:{" "}
+                                {(() => {
+                                  const hour = 3600000;
+                                  const ms =
+                                    extensionPreset === "6h" ? Date.now() + 6 * hour
+                                    : extensionPreset === "24h" ? Date.now() + 24 * hour
+                                    : extensionPreset === "3d" ? Date.now() + 72 * hour
+                                    : new Date(extensionCustomLocal).getTime();
+                                  return Number.isFinite(ms) ? formatKwDateTime(new Date(ms).toISOString()) : "—";
+                                })()}
+                                <span className="mt-0.5 block text-[10px] font-bold text-emerald-700">
+                                  سيُسجَّل تسليمه «متأخر · بتمديد خاص»
+                                </span>
+                              </div>
+                              <div className="relative mt-4 flex justify-center gap-3">
+                                <button
+                                  type="button"
+                                  onClick={() => setExtensionTargets(null)}
+                                  className="inline-flex h-14 w-14 items-center justify-center rounded-2xl border border-slate-100 bg-slate-50/90 text-slate-600 transition hover:bg-slate-100"
+                                  title="إلغاء"
+                                  aria-label="إلغاء"
+                                >
+                                  <X className="h-5 w-5" />
+                                </button>
+                                <button
+                                  type="button"
+                                  disabled={extensionBusy}
+                                  onClick={() => void grantProjectExtension()}
+                                  className="inline-flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-amber-500 to-orange-500 text-white miras-shadow-2 transition hover:brightness-110 disabled:opacity-60"
+                                  title="تأكيد فتح الباب"
+                                  aria-label="تأكيد فتح الباب"
+                                >
+                                  {extensionBusy ? <MirasLoader size={20} role="current" label="جارٍ المنح…" /> : <RotateCw className="h-5 w-5" />}
+                                </button>
+                              </div>
+                            </div>
+                          </div>,
+                          document.body,
+                        )}
                       {pendingReturnSubmission &&
                         typeof document !== "undefined" &&
                         createPortal(
@@ -40051,6 +40434,32 @@ ${rows
                                 <X className="h-4 w-4" />
                               </button>
                             </div>
+                            {(() => {
+                              const graded =
+                                teacherGradeInputValue(pendingReturnSubmission) ||
+                                teacherVisibleGradeText(pendingReturnSubmission) ||
+                                "";
+                              const submittedAt = pendingReturnSubmission.submittedAt || pendingReturnSubmission.updatedAt;
+                              return (
+                                <div className="relative mb-3 flex items-start gap-3 rounded-[var(--miras-r-md)] border border-emerald-100 bg-emerald-50/70 px-3.5 py-3 shadow-sm">
+                                  <CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0 text-emerald-600" aria-hidden="true" />
+                                  <div className="min-w-0 text-[11.5px] font-bold leading-6 text-emerald-900">
+                                    <span className="block">
+                                      هذا الطالب سلّم{submittedAt ? ` في ${formatKwDateTime(submittedAt)}` : ""}
+                                      {shouldDisplaySubmittedLate(pendingReturnSubmission) ? " (متأخر)" : ""}.
+                                    </span>
+                                    <span className="block">
+                                      {graded ? `درجته: ${graded}` : "لم تُرصد درجته بعد."}
+                                    </span>
+                                    {!!graded && (
+                                      <span className="mt-1 block text-[10.5px] font-black text-amber-800">
+                                        فتح المحاولة من جديد يمسح الدرجة الحالية (تبقى محفوظة كدرجة سابقة) ويعيده إلى «معاد». هل تريد ذلك فعلاً؟
+                                      </span>
+                                    )}
+                                  </div>
+                                </div>
+                              );
+                            })()}
                             <div className="miras-return-summary relative grid grid-cols-2 gap-2 sm:gap-2.5">
                               {[
                                 [
