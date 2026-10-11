@@ -128,6 +128,7 @@ node node_modules/.bin/tsx --test tests/notification-identity.test.ts || overall
 node node_modules/.bin/tsx --test tests/teacher-notification-delivery.test.mjs || overall=1
 node node_modules/.bin/tsx --test tests/teacher-notification-feed.test.mjs || overall=1
 node node_modules/.bin/tsx --test tests/course-activation-count.test.ts || overall=1
+node node_modules/.bin/tsx --test tests/submission-display-text.test.ts || overall=1
 node node_modules/.bin/tsx --test tests/flows.demo-orphan.mjs || overall=1
 node node_modules/.bin/tsx --test tests/flows.demo-coursework.mjs || overall=1
 node node_modules/.bin/tsx --test tests/flows.demo-screens.mjs || overall=1
