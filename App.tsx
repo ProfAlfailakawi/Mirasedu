@@ -39998,7 +39998,7 @@ ${rows
                               key={sub.id}
                               className="rounded-2xl border border-slate-100/80 bg-white/90 px-3 py-3 shadow-sm"
                             >
-                              <div className="flex items-center gap-2">
+                              <div className="flex items-center gap-2 max-[379px]:flex-wrap max-[379px]:gap-y-1.5">
                                 <input
                                   type="checkbox"
                                   checked={
@@ -40019,7 +40019,7 @@ ${rows
                                   onClick={() =>
                                     setSelectedSubmissionDetail(sub)
                                   }
-                                  className="min-w-0 flex-1 text-right block h-auto py-1 cursor-pointer"
+                                  className="min-w-0 flex-1 text-right block h-auto py-1 cursor-pointer max-[379px]:min-w-[7rem]"
                                 >
                                   <div className="text-[11px] font-semibold text-slate-800 leading-tight text-right w-full min-w-0">
                                     <span className="block break-words leading-snug">
