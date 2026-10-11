@@ -26532,9 +26532,10 @@ ${rows
     const exam = teacherCreatedExams.find((e: any) => String(e.id) === id);
     return exam?.close ? mirasDeadlineEndMs(exam.close) : 0;
   })();
+  const notSubmittedAvailable = notSubmittedListOpen(notSubmittedOriginalDeadlineMs);
   const notSubmittedStudents: any[] = (() => {
     if (!selectedSubmissionActivityId) return [];
-    if (!notSubmittedListOpen(notSubmittedOriginalDeadlineMs)) return [];
+    if (!notSubmittedAvailable) return [];
     const normalizeKey = (value: any) =>
       normalizeArabicDigits(String(value ?? "")).trim().toLowerCase();
     const done = new Set<string>();
@@ -39708,6 +39709,7 @@ ${rows
                           );
                           return cur ? (
                             <span className="ms-auto flex items-center gap-2">
+                              {notSubmittedAvailable && (
                               <button
                                 type="button"
                                 onClick={() => setSubmissionNotSubmittedOpen((open) => !open)}
@@ -39723,6 +39725,7 @@ ${rows
                                   </span>
                                 )}
                               </button>
+                              )}
                               <MirasRatioRing done={cur.graded} total={cur.total} />
                             </span>
                           ) : null;
@@ -39853,7 +39856,7 @@ ${rows
                           </div>
                         </div>
                       )}
-                      {submissionNotSubmittedOpen ? (
+                      {submissionNotSubmittedOpen && notSubmittedAvailable ? (
                         <div className="rounded-[var(--miras-r-xl)] border border-rose-100 bg-white/90 p-3 miras-shadow-2">
                           <div className="mb-2 flex items-center justify-between gap-2 px-1">
                             <h3 className="text-sm font-bold text-slate-900">لم يسلّموا</h3>
