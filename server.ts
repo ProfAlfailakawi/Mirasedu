@@ -17461,9 +17461,17 @@ app.post("/api/quizzes/submit", (req, res) => {
   });
   if (officialExam) {
     const gradeVisible = canShowExamGradeToStudent(officialExam);
+    const priorExamRow: any = activeRuntimeTeacherSubmissions().find(
+      (item: any) => String(item.id) === `exam-${officialExam.id}-${student.id}`,
+    );
     upsertRuntimeTeacherSubmission({
       id: `exam-${officialExam.id}-${student.id}`,
       kind: "exam",
+      // محاولة جديدة بعد إرجاع المعلم للاختبار: توسم «أُعيد تسليمه» (العلامة تبقى بعد الرصد).
+      resubmittedAfterReturn:
+        priorExamRow?.resubmittedAfterReturn === true ||
+        isReturnedSubmissionStatusServer(priorExamRow?.status) ||
+        !!priorExamRow?.returnedAt,
       activityId: officialExam.id,
       activityTitle: officialExam.title,
       courseCode: officialExam.courseCode || student.sectionCode,

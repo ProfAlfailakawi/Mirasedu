@@ -33801,7 +33801,7 @@ ${rows
 
               {/* Solution Page Document Card with sticky bottom controls */}
               <div className="min-h-0 flex-1 flex flex-col justify-between overflow-hidden bg-white rounded-3xl border border-slate-100 shadow-sm">
-                <div className="miras-submission-detail-scroll flex-1 overflow-y-auto p-5 space-y-4">
+                <div className="miras-submission-detail-scroll flex-1 overflow-y-auto overscroll-contain p-5 space-y-4">
                   {/* Rich view for submission metadata */}
                   <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 border-b border-slate-100 pb-3">
                     <div className="w-full rounded-2xl border border-slate-100 bg-white/80 px-3 py-2 text-right text-[11px] font-bold leading-5 text-slate-700 sm:w-auto">
