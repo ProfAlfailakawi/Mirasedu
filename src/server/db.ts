@@ -514,6 +514,7 @@ export interface ExerciseSubmission {
   returnedByEmail?: string;
   returnNote?: string;
   resubmittedAt?: string;
+  resubmittedAfterReturn?: boolean;
   submittedLate?: boolean;
 }
 
@@ -552,6 +553,7 @@ export interface PersonalizedProject {
   returnExceptionGrantedAt?: string;
   returnExceptionByEmail?: string;
   resubmittedAt?: string;
+  resubmittedAfterReturn?: boolean;
   submittedLate?: boolean;
   watermark: string;
 }
@@ -584,6 +586,7 @@ export interface QuizSubmission {
   returnedByEmail?: string;
   returnNote?: string;
   resubmittedAt?: string;
+  resubmittedAfterReturn?: boolean;
 }
 
 export interface ActivityLog {

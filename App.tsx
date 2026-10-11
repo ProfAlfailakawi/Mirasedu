@@ -37173,6 +37173,11 @@ ${rows
                                                   متأخر{sub?.lateByExtension ? " · بتمديد خاص" : ""}
                                                 </span>
                                               )}
+                                              {sub?.resubmittedAfterReturn && (
+                                                <span className="inline-flex items-center gap-1 text-[12px] font-bold text-indigo-700">
+                                                  أُعيد تسليمه
+                                                </span>
+                                              )}
                                             </div>
                                           </div>
                                         </div>
@@ -39931,6 +39936,11 @@ ${rows
                                       متأخر{sub?.lateByExtension ? " · بتمديد خاص" : ""}
                                     </span>
                                   )}
+                                  {sub?.resubmittedAfterReturn && (
+                                    <span className="rounded-full bg-indigo-50 px-2 py-1 text-[11px] font-bold text-indigo-700 border border-indigo-100">
+                                      أُعيد تسليمه
+                                    </span>
+                                  )}
                                   <button
                                     title="عرض حل الطالب"
                                     aria-label="عرض حل الطالب"
@@ -40076,6 +40086,11 @@ ${rows
                                     {shouldDisplaySubmittedLate(sub) && (
                                       <span className="ms-1 inline-flex rounded-full border border-amber-100 bg-amber-50 px-2 py-1 text-[10px] font-bold text-amber-700">
                                         متأخر{sub?.lateByExtension ? " · بتمديد خاص" : ""}
+                                      </span>
+                                    )}
+                                    {sub?.resubmittedAfterReturn && (
+                                      <span className="ms-1 inline-flex rounded-full border border-indigo-100 bg-indigo-50 px-2 py-1 text-[10px] font-bold text-indigo-700">
+                                        أُعيد تسليمه
                                       </span>
                                     )}
                                     {sub?.exitWasOffline && (
