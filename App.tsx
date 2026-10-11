@@ -5238,6 +5238,8 @@ export default function App() {
       } catch {}
     }, 40);
   };
+  // فلتر «من لم يسلّم» داخل نشاط مفتوح في شاشة التسليمات.
+  const [submissionNotSubmittedOpen, setSubmissionNotSubmittedOpen] = useState(false);
   const [selectedSubmissionActivityId, setSelectedSubmissionActivityId] =
     useState<string | null>(null);
   const activeSubmissionCourseRef = useRef("");
@@ -26347,6 +26349,34 @@ ${rows
         (sub: any) => String(sub.activityId) === selectedSubmissionActivityId,
       )
     : latestDisplayedActiveCourseSubmissions;
+  useEffect(() => {
+    setSubmissionNotSubmittedOpen(false);
+  }, [selectedSubmissionActivityId]);
+  // طلبة المقرر الذين لا يوجد لهم أي تسليم/محاولة في النشاط المفتوح.
+  const notSubmittedStudents: any[] = (() => {
+    if (!selectedSubmissionActivityId) return [];
+    const activity =
+      teacherProjects.find((p: any) => String(p.id) === String(selectedSubmissionActivityId)) ||
+      teacherCreatedExams.find((e: any) => String(e.id) === String(selectedSubmissionActivityId));
+    const course = String(activity?.courseCode || activeCourseCode || "");
+    if (!course) return [];
+    const done = new Set<string>();
+    teacherSubmissions.forEach((sub: any) => {
+      const aid = String(sub?.activityId || sub?.projectId || sub?.examId || "");
+      if (aid === String(selectedSubmissionActivityId))
+        done.add(String(sub?.studentId || sub?.userId || "").toLowerCase());
+    });
+    const arabicNameOrder = new Intl.Collator("ar", { sensitivity: "base", numeric: true });
+    return teacherStudents
+      .filter(
+        (student: any) =>
+          studentBelongsToCourse(student, course) &&
+          !done.has(String(student.id || "").toLowerCase()),
+      )
+      .sort((a: any, b: any) =>
+        arabicNameOrder.compare(String(a.name || ""), String(b.name || "")),
+      );
+  })();
   const filteredDrilledSubmissions =
     submissionSubTab === "exams" &&
     selectedSubmissionActivityId &&
@@ -39163,7 +39193,22 @@ ${rows
                             (c) => c.id === selectedSubmissionActivityId,
                           );
                           return cur ? (
-                            <span className="ms-auto">
+                            <span className="ms-auto flex items-center gap-2">
+                              <button
+                                type="button"
+                                onClick={() => setSubmissionNotSubmittedOpen((open) => !open)}
+                                aria-pressed={submissionNotSubmittedOpen}
+                                title={`من لم يسلّم (${notSubmittedStudents.length})`}
+                                aria-label={`فلتر من لم يسلّم: ${notSubmittedStudents.length}`}
+                                className={`relative inline-flex h-10 w-10 items-center justify-center rounded-2xl border shadow-sm transition ${submissionNotSubmittedOpen ? "border-rose-300 bg-rose-50 text-rose-700 ring-2 ring-rose-100" : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50"}`}
+                              >
+                                <UserX className="h-4 w-4" aria-hidden="true" />
+                                {notSubmittedStudents.length > 0 && (
+                                  <span className="absolute -top-1.5 -start-1.5 min-w-[1.1rem] rounded-full bg-rose-600 px-1 text-center font-mono text-[9px] font-bold leading-[1.1rem] text-white">
+                                    {notSubmittedStudents.length}
+                                  </span>
+                                )}
+                              </button>
                               <MirasRatioRing done={cur.graded} total={cur.total} />
                             </span>
                           ) : null;
@@ -39262,6 +39307,40 @@ ${rows
                           </div>
                         </div>
                       )}
+                      {submissionNotSubmittedOpen ? (
+                        <div className="rounded-[var(--miras-r-xl)] border border-rose-100 bg-white/90 p-3 miras-shadow-2">
+                          <div className="mb-2 flex items-center justify-between gap-2 px-1">
+                            <h3 className="text-sm font-bold text-slate-900">لم يسلّموا</h3>
+                            <span className="rounded-full bg-rose-50 px-2.5 py-1 text-[11px] font-bold text-rose-700">
+                              {notSubmittedStudents.length} طالب
+                            </span>
+                          </div>
+                          {notSubmittedStudents.length === 0 ? (
+                            <div className="rounded-2xl border border-dashed border-emerald-200 bg-emerald-50/60 p-6 text-center text-xs font-bold text-emerald-700">
+                              سلّم جميع الطلبة هذا النشاط.
+                            </div>
+                          ) : (
+                            <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                              {notSubmittedStudents.map((student: any) => (
+                                <div
+                                  key={student.id}
+                                  className="flex items-center justify-between gap-2 rounded-2xl border border-slate-100 bg-white px-3 py-2.5"
+                                >
+                                  <span className="min-w-0 text-right">
+                                    <span className="block truncate text-[12px] font-bold text-slate-900">
+                                      {student.name || "طالب"}
+                                    </span>
+                                    <span className="block font-mono text-[11px] font-bold text-indigo-700" dir="ltr">
+                                      {student.id}
+                                    </span>
+                                  </span>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      ) : (
+                      <>
                       <div className="rounded-[var(--miras-r-xl)] border border-indigo-100 bg-gradient-to-br from-indigo-50/70 via-white to-emerald-50/40 p-4 miras-shadow-2">
                         <div className="mx-auto max-w-3xl space-y-3 text-center">
                           <div className="flex flex-wrap items-center justify-center gap-2">
@@ -39584,6 +39663,8 @@ ${rows
                           </table>
                         </div>
                       </div>
+                      </>
+                      )}
 
                       {false && selectedSubmissionDetail && (
                         <div
