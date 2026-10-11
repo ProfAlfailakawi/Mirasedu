@@ -5,7 +5,8 @@ import { formatScrollJumpReport } from "./src/shared/scroll-jump-diagnostic";
 import { keepSolutionBottomRoom } from "./src/shared/solution-scroll-room";
 import { joinCodeIssueScopeEmail as joinCodeIssueScopeEmailFor } from "./src/shared/join-code-issue-scope";
 import { notSubmittedListOpen } from "./src/shared/not-submitted-gate";
-import { lateUnderGrace } from "./src/shared/late-under-grace";
+import { attemptStudentId } from "./src/shared/late-attempts";
+import { studentsWaitingOnTeacher } from "./src/shared/waiting-on-teacher";
 import { daysUntilDeadline } from "./src/shared/deadline-days";
 import { createCloudSingleFlight, cloudSessionKey } from "./src/shared/cloud-single-flight";
 import { teacherWorkspaceReady } from "./src/shared/teacher-workspace-ready";
@@ -15808,13 +15809,17 @@ ${rows
     } catch (e) { return false; }
   };
 
-  const applyTeacherProjects = (d: any) => {
+  const applyTeacherProjects = (d: any, onlyIfChanged = false) => {
     if (Array.isArray(d.projects)) {
-      setTeacherProjects(d.projects.filter(isLiveRecord));
+      const next = d.projects.filter(isLiveRecord);
+      // التحديث الدوري لا يعيد رسم الشاشة كل مرة إن لم يتغير شيء.
+      setTeacherProjects((prev: any[]) =>
+        onlyIfChanged && JSON.stringify(prev) === JSON.stringify(next) ? prev : next,
+      );
     }
   };
 
-  const fetchTeacherProjects = async (emailOverride?: string) => {
+  const fetchTeacherProjects = async (emailOverride?: string, options: { onlyIfChanged?: boolean } = {}) => {
     const session = captureTeacherSession(emailOverride);
     if (!session) return false;
     const email = session.email;
@@ -15825,7 +15830,7 @@ ${rows
       });
       const d = await resp.json();
       if (!session.isCurrent() || !resp.ok || !Array.isArray(d.projects)) return false;
-      applyTeacherProjects(d);
+      applyTeacherProjects(d, options.onlyIfChanged === true);
       return true;
     } catch (e) { return false; }
   };
@@ -21570,6 +21575,10 @@ ${rows
           teacherSession?.email,
           { signal: controller.signal },
         );
+        // محاولات التسليم بعد الإغلاق تُسجَّل على المشروع نفسه، فنحدّثه مع التسليمات في شاشة التسليمات.
+        if (active && session.isCurrent() && teacherTab === "submissions") {
+          await fetchTeacherProjects(teacherSession?.email, { onlyIfChanged: true });
+        }
       } finally {
         window.clearTimeout(abortTimer);
         refreshing = false;
@@ -26285,6 +26294,15 @@ ${rows
   );
 
   // بطاقات الأنشطة: تجميع التسليمات حسب النشاط لعرض بطاقة واحدة لكل نشاط
+  // الموعد الأصلي: المشروع بموعد التسليم (لا آخر موعد للقبول)، والاختبار بوقت إغلاقه.
+  const originalDeadlineMsForActivity = (activityId: any) => {
+    const id = String(activityId || "");
+    if (!id) return 0;
+    const project = teacherProjects.find((p: any) => String(p.id) === id);
+    if (project) return mirasDeadlineEndMs(project.dueDate || project.closeDate);
+    const exam = teacherCreatedExams.find((e: any) => String(e.id) === id);
+    return exam?.close ? mirasDeadlineEndMs(exam.close) : 0;
+  };
   const submissionActivityCards = (() => {
     const map = new Map<
       string,
@@ -26298,7 +26316,7 @@ ${rows
         cheatingAttempts: number;
         inProgress: number;
         returned: number;
-        lateWaiting: number;
+        waiting: number;
       }
     >();
     latestDisplayedActiveCourseSubmissions.forEach((sub: any) => {
@@ -26320,7 +26338,7 @@ ${rows
         cheatingAttempts: 0,
         inProgress: 0,
         returned: 0,
-        lateWaiting: 0,
+        waiting: 0,
       };
       existing.total += 1;
       if (isTeacherReturnedSubmission(sub)) existing.returned += 1;
@@ -26334,15 +26352,7 @@ ${rows
         isTimeExpiredRecordedSubmission(sub)
       )
         existing.graded += 1;
-      else {
-        existing.pending += 1;
-        // سلّم بعد إغلاق النشاط بتمديد أو استثناء منحته له وينتظر تصحيحك (لا التأخر العادي).
-        const closeValue =
-          teacherProjects.find((p: any) => String(p.id) === aid)?.closeDate ||
-          teacherProjects.find((p: any) => String(p.id) === aid)?.dueDate ||
-          teacherCreatedExams.find((e: any) => String(e.id) === aid)?.close;
-        if (lateUnderGrace(sub, closeValue ? mirasDeadlineEndMs(closeValue) : 0)) existing.lateWaiting += 1;
-      }
+      else existing.pending += 1;
       map.set(aid, existing);
     });
     // نشاط لم يسلّمه أحد بعد لا يملك أي صف تسليم، فيُضاف كبطاقة بصفر تسليم حتى يمكن
@@ -26364,10 +26374,22 @@ ${rows
           cheatingAttempts: 0,
           inProgress: 0,
           returned: 0,
-          lateWaiting: 0,
+          waiting: 0,
         });
       });
     }
+    // من ينتظرك: مسجَّلون لم يسلّموا ولا تمديد جارٍ لهم، بعد انتهاء الموعد الأصلي.
+    map.forEach((card, aid) => {
+      const project = teacherProjects.find((p: any) => String(p.id) === aid);
+      card.waiting = studentsWaitingOnTeacher({
+        roster: courseStudentDirectory,
+        submittedStudentIds: teacherSubmissions
+          .filter((sub: any) => String(sub?.activityId || sub?.projectId || sub?.examId || "") === aid)
+          .flatMap((sub: any) => [sub?.studentId, sub?.studentIdNumber, sub?.idNumber, sub?.userId]),
+        extensions: project?.studentExtensions,
+        originalDeadlineMs: originalDeadlineMsForActivity(aid),
+      });
+    });
     return Array.from(map.values());
   })();
 
@@ -26537,14 +26559,7 @@ ${rows
   // تسليم/محاولة في النشاط المفتوح. يُطابَق الرقم بكل أسمائه المعروفة في التسليمات القديمة.
   // «لم يسلّم» لا يظهر قبل انتهاء الموعد الأصلي: المشروع بموعد التسليم (لا آخر موعد للقبول)،
   // والاختبار بوقت إغلاقه. قبل ذلك الطالب ما زال يعمل ولم يتأخر.
-  const notSubmittedOriginalDeadlineMs = (() => {
-    if (!selectedSubmissionActivityId) return 0;
-    const id = String(selectedSubmissionActivityId);
-    const project = teacherProjects.find((p: any) => String(p.id) === id);
-    if (project) return mirasDeadlineEndMs(project.dueDate || project.closeDate);
-    const exam = teacherCreatedExams.find((e: any) => String(e.id) === id);
-    return exam?.close ? mirasDeadlineEndMs(exam.close) : 0;
-  })();
+  const notSubmittedOriginalDeadlineMs = originalDeadlineMsForActivity(selectedSubmissionActivityId);
   const notSubmittedAvailable = notSubmittedListOpen(notSubmittedOriginalDeadlineMs);
   const notSubmittedStudents: any[] = (() => {
     if (!selectedSubmissionActivityId) return [];
@@ -39639,7 +39654,18 @@ ${rows
                               </h4>
                             </div>
                             <div className="flex shrink-0 flex-col items-center gap-1.5">
-                              <MirasRatioRing done={card.graded} total={card.total} />
+                              <span className="relative inline-flex">
+                                <MirasRatioRing done={card.graded} total={card.total} />
+                                {card.waiting > 0 && (
+                                  <span
+                                    title="مسجَّلون لم يسلّموا بعد انتهاء الوقت"
+                                    aria-label={`${card.waiting} طالب لم يسلّم بعد انتهاء الوقت`}
+                                    className="absolute -top-2 -start-2.5 min-w-[1.05rem] rounded-full bg-amber-500 px-1 text-center font-mono text-[9px] font-bold leading-[1.05rem] text-white shadow-sm"
+                                  >
+                                    {card.waiting}
+                                  </span>
+                                )}
+                              </span>
                               {courseStudentDirectory.length > 0 && (
                                 <span
                                   title="عدد طلبة الشعبة"
@@ -39656,23 +39682,17 @@ ${rows
                             <div
                               className="miras-stack-bar mt-3"
                               role="img"
-                              aria-label={`${card.graded} مصحح، ${card.pending} بانتظار${card.lateWaiting ? ` منها ${card.lateWaiting} متأخر بتمديد أو استثناء` : ""}، ${card.returned} معاد من ${card.total}`}
+                              aria-label={`${card.graded} مصحح، ${card.pending} بانتظار، ${card.returned} معاد من ${card.total}`}
                             >
                               <span className="is-graded" style={{ width: `${(card.graded / card.total) * 100}%` }} />
-                              <span className="is-ext" style={{ width: `${(card.lateWaiting / card.total) * 100}%` }} />
-                              <span className="is-pending" style={{ width: `${((card.pending - card.lateWaiting) / card.total) * 100}%` }} />
+                              <span className="is-pending" style={{ width: `${((card.pending) / card.total) * 100}%` }} />
                               <span className="is-returned" style={{ width: `${(card.returned / card.total) * 100}%` }} />
                             </div>
                           )}
                           <div className="miras-sub-chips mt-3 flex flex-wrap gap-1.5">
-                            {card.lateWaiting > 0 && (
-                              <span className="rounded-full bg-amber-50 px-2.5 py-1 text-[10px] font-bold text-amber-700">
-                                {card.lateWaiting} متأخر بتمديد/استثناء · بانتظار تصحيحك
-                              </span>
-                            )}
-                            {card.pending - card.lateWaiting > 0 && (
+                            {card.pending > 0 && (
                               <span className="rounded-full bg-slate-100 px-2.5 py-1 text-[10px] font-bold text-slate-600">
-                                {card.pending - card.lateWaiting} بانتظار
+                                {card.pending} بانتظار
                               </span>
                             )}
 
@@ -39933,6 +39953,13 @@ ${rows
                                       {!student.registered && (
                                         <span className="mt-0.5 block text-[10px] font-bold text-slate-400">
                                           لم يسجّل حسابه في مِراس بعد
+                                        </span>
+                                      )}
+                                      {!extUntil && (Array.isArray(notSubmittedProject?.lateAttempts) ? notSubmittedProject.lateAttempts : []).some(
+                                        (item: any) => attemptStudentId(item?.studentId) === attemptStudentId(student.id),
+                                      ) && (
+                                        <span className="mt-0.5 block text-[10px] font-bold text-amber-700">
+                                          حاول التسليم بعد الإغلاق
                                         </span>
                                       )}
                                       {!!extUntil && (

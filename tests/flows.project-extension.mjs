@@ -4,7 +4,7 @@
 // grant ONE student a private extension: that student alone can submit until the
 // given time, the submission is flagged late AND "by extension", other students
 // never see who has an extension, and a stale project save cannot wipe the list.
-import { api, makeJar, createReporter, AA, BB, S_A1 } from "./lib.mjs";
+import { api, makeJar, createReporter, AA, BB, CC, S_A1, S_C1 } from "./lib.mjs";
 
 const { check, done } = createReporter("FLOWS / PROJECT-EXTENSION");
 
@@ -107,6 +107,34 @@ await (async () => {
   const retry = await submit(PID, { answerText: "حل بعد الإرجاع" });
   const rsub = retry.data.submission || {};
   check("E6f) an idempotent retry keeps the resubmitted-after-return state (still not late)", retry.ok && rsub.submittedLate === false && !rsub.lateByExtension && rsub.resubmittedAfterReturn === true, `${retry.status} ${JSON.stringify(rsub).slice(0, 220)}`);
+})();
+
+// E7: a student who tries to submit after closing is recorded for the teacher only.
+await (async () => {
+  const list = await api("GET", "/api/teacher/projects", null, { jar: tjar, deviceToken: tdev });
+  const proj = (list.data.projects || []).find((p) => String(p.id) === PID2);
+  const entry = (proj?.lateAttempts || []).find((a) => String(a.studentId) === SID);
+  check("E7a) the rejected late attempt is recorded on the project for the teacher", !!entry && entry.count >= 1 && !!entry.studentName, JSON.stringify(proj?.lateAttempts).slice(0, 200));
+  const state = await api("GET", `/api/live/student-state?studentId=${SID}`, null, { jar: sjar, deviceToken: TOK });
+  const sproj = (state.data.projects || []).find((p) => String(p.id) === PID2);
+  check("E7b) students never receive the late-attempts list", !!sproj && sproj.lateAttempts === undefined, JSON.stringify(sproj).slice(0, 200));
+  const again = await submit(PID2);
+  const list2 = await api("GET", "/api/teacher/projects", null, { jar: tjar, deviceToken: tdev });
+  const entry2 = ((list2.data.projects || []).find((p) => String(p.id) === PID2)?.lateAttempts || []).find((a) => String(a.studentId) === SID);
+  check("E7c) an immediate retry does not rewrite the record", again.status === 403 && entry2?.count === entry?.count, `${again.status} ${entry?.count} -> ${entry2?.count}`);
+  const resave = await api("POST", "/api/teacher/projects", { ...closedProject(PID2), title: "مشروع مغلق 2 (معدّل)" }, { jar: tjar, deviceToken: tdev });
+  const list3 = await api("GET", "/api/teacher/projects", null, { jar: tjar, deviceToken: tdev });
+  const kept = (list3.data.projects || []).find((p) => String(p.id) === PID2);
+  // A closed project of a course student 1001 does not belong to (teacher C owns it).
+  const cjar = makeJar(); const cdev = "ext-teacher-c-dev";
+  const cLogin = await api("POST", "/api/auth/login", { idNumber: CC, password: (process.env.TEST_TEACHER_PASSWORD || "change-me-in-ci") }, { jar: cjar, deviceToken: cdev });
+  const OUT = "proj-extension-flowtest-outside";
+  const outCreate = await api("POST", "/api/teacher/projects", { ...closedProject(OUT), courseCode: S_C1 }, { jar: cjar, deviceToken: cdev });
+  const outAttempt = await submit(OUT, { courseCode: S_C1 });
+  const listOut = await api("GET", "/api/teacher/projects", null, { jar: cjar, deviceToken: cdev });
+  const outProj = (listOut.data.projects || []).find((p) => String(p.id) === OUT);
+  check("E7e) a student outside the project's course is never recorded", cLogin.ok && outCreate.ok && outAttempt.status === 403 && !!outProj && !(outProj.lateAttempts || []).some((a) => String(a.studentId) === SID), `${cLogin.status} ${outCreate.status} ${outAttempt.status} ${JSON.stringify(outAttempt.data).slice(0, 80)} ${String(JSON.stringify(outProj?.lateAttempts)).slice(0, 120)}`);
+  check("E7d) re-saving the project keeps the recorded attempts", resave.ok && Array.isArray(kept?.lateAttempts) && kept.lateAttempts.length === 1, JSON.stringify(kept?.lateAttempts).slice(0, 200));
 })();
 
 done();
