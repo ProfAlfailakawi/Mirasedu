@@ -40032,6 +40032,8 @@ ${rows
                                 </div>
                                 {/* الحالة والأزرار تلتفّ تحت الاسم حين لا يتسع الصف (مثل «متأخر · بتمديد خاص») بدل أن تعصر عمود الاسم. */}
                                 <div className="flex flex-wrap items-center justify-end gap-1.5">
+                                  {/* الدرجة/الحالة وشارات التأخر والإعادة فوق بعضها: عمود ضيق يترك للاسم عرضاً أكبر. */}
+                                  <div className="flex flex-col items-stretch gap-1 text-center">
                                   <span
                                     className={`rounded-full px-2 py-1 text-[11px] font-bold ${isTeacherReturnedSubmission(sub) ? "bg-indigo-50 text-indigo-700" : isExamInProgressSubmission(sub) ? "bg-amber-50 text-amber-700" : sub?.teacherGradeOverride ? "bg-emerald-50 text-emerald-700" : isCheatingAttemptSubmission(sub) ? "bg-red-100 text-red-800" : isWithdrawnSubmission(sub) ? "bg-rose-50 text-rose-700" : teacherVisibleGradeText(sub) || isSubmissionGradeOfficiallyRecorded(sub) || isTimeExpiredRecordedSubmission(sub) ? "bg-emerald-50 text-emerald-700" : "bg-slate-50 text-slate-600"}`}
                                   >
@@ -40047,6 +40049,7 @@ ${rows
                                       أُعيد تسليمه
                                     </span>
                                   )}
+                                  </div>
                                   <div className="flex shrink-0 items-center gap-1.5">
                                   <button
                                     title="عرض حل الطالب"
