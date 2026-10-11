@@ -24014,7 +24014,8 @@ function wasReturnedToStudentBefore(kind: string, activityId: any, studentId: an
       String(item.kind || "").toLowerCase() === k &&
       String(item.activityId ?? "") === a &&
       normalizeStudentId(item.studentId) === st &&
-      (isReturnedSubmissionStatusServer(item.status) || !!item.returnedAt),
+      // resubmittedAfterReturn المحفوظ يحمي إعادة المحاولة (retry) بعد نجاح الطلب الأول وضياع ردّه.
+      (isReturnedSubmissionStatusServer(item.status) || !!item.returnedAt || item.resubmittedAfterReturn === true),
   );
 }
 
