@@ -5,6 +5,7 @@ import { formatScrollJumpReport } from "./src/shared/scroll-jump-diagnostic";
 import { keepSolutionBottomRoom } from "./src/shared/solution-scroll-room";
 import { joinCodeIssueScopeEmail as joinCodeIssueScopeEmailFor } from "./src/shared/join-code-issue-scope";
 import { notSubmittedListOpen } from "./src/shared/not-submitted-gate";
+import { lateUnderGrace } from "./src/shared/late-under-grace";
 import { daysUntilDeadline } from "./src/shared/deadline-days";
 import { createCloudSingleFlight, cloudSessionKey } from "./src/shared/cloud-single-flight";
 import { teacherWorkspaceReady } from "./src/shared/teacher-workspace-ready";
@@ -26297,7 +26298,7 @@ ${rows
         cheatingAttempts: number;
         inProgress: number;
         returned: number;
-        extLate: number;
+        lateWaiting: number;
       }
     >();
     latestDisplayedActiveCourseSubmissions.forEach((sub: any) => {
@@ -26319,7 +26320,7 @@ ${rows
         cheatingAttempts: 0,
         inProgress: 0,
         returned: 0,
-        extLate: 0,
+        lateWaiting: 0,
       };
       existing.total += 1;
       if (isTeacherReturnedSubmission(sub)) existing.returned += 1;
@@ -26335,8 +26336,12 @@ ${rows
         existing.graded += 1;
       else {
         existing.pending += 1;
-        // سلّم متأخراً بتمديد منحته له وينتظر تصحيحك.
-        if (sub?.lateByExtension) existing.extLate += 1;
+        // سلّم بعد إغلاق النشاط بتمديد أو استثناء منحته له وينتظر تصحيحك (لا التأخر العادي).
+        const closeValue =
+          teacherProjects.find((p: any) => String(p.id) === aid)?.closeDate ||
+          teacherProjects.find((p: any) => String(p.id) === aid)?.dueDate ||
+          teacherCreatedExams.find((e: any) => String(e.id) === aid)?.close;
+        if (lateUnderGrace(sub, closeValue ? mirasDeadlineEndMs(closeValue) : 0)) existing.lateWaiting += 1;
       }
       map.set(aid, existing);
     });
@@ -26359,7 +26364,7 @@ ${rows
           cheatingAttempts: 0,
           inProgress: 0,
           returned: 0,
-          extLate: 0,
+          lateWaiting: 0,
         });
       });
     }
@@ -39651,23 +39656,23 @@ ${rows
                             <div
                               className="miras-stack-bar mt-3"
                               role="img"
-                              aria-label={`${card.graded} مصحح، ${card.pending} بانتظار${card.extLate ? ` منها ${card.extLate} متأخر بتمديد` : ""}، ${card.returned} معاد من ${card.total}`}
+                              aria-label={`${card.graded} مصحح، ${card.pending} بانتظار${card.lateWaiting ? ` منها ${card.lateWaiting} متأخر بتمديد أو استثناء` : ""}، ${card.returned} معاد من ${card.total}`}
                             >
                               <span className="is-graded" style={{ width: `${(card.graded / card.total) * 100}%` }} />
-                              <span className="is-ext" style={{ width: `${(card.extLate / card.total) * 100}%` }} />
-                              <span className="is-pending" style={{ width: `${((card.pending - card.extLate) / card.total) * 100}%` }} />
+                              <span className="is-ext" style={{ width: `${(card.lateWaiting / card.total) * 100}%` }} />
+                              <span className="is-pending" style={{ width: `${((card.pending - card.lateWaiting) / card.total) * 100}%` }} />
                               <span className="is-returned" style={{ width: `${(card.returned / card.total) * 100}%` }} />
                             </div>
                           )}
                           <div className="miras-sub-chips mt-3 flex flex-wrap gap-1.5">
-                            {card.extLate > 0 && (
+                            {card.lateWaiting > 0 && (
                               <span className="rounded-full bg-amber-50 px-2.5 py-1 text-[10px] font-bold text-amber-700">
-                                {card.extLate} متأخر بتمديد · بانتظار تصحيحك
+                                {card.lateWaiting} متأخر بتمديد/استثناء · بانتظار تصحيحك
                               </span>
                             )}
-                            {card.pending - card.extLate > 0 && (
+                            {card.pending - card.lateWaiting > 0 && (
                               <span className="rounded-full bg-slate-100 px-2.5 py-1 text-[10px] font-bold text-slate-600">
-                                {card.pending - card.extLate} بانتظار
+                                {card.pending - card.lateWaiting} بانتظار
                               </span>
                             )}
 
