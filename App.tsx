@@ -5656,6 +5656,8 @@ export default function App() {
   >(null);
   const [submissionDetailStudentSearch, setSubmissionDetailStudentSearch] =
     useState("");
+  // على الجوال يصير البحث أيقونة تفتح سطراً كاملاً بدل حقل ضيّق يقصّ نصه.
+  const [submissionDetailSearchOpen, setSubmissionDetailSearchOpen] = useState(false);
   const [sectionFormOpen, setSectionFormOpen] = useState(false);
   const [editingSectionCode, setEditingSectionCode] = useState<string | null>(
     null,
@@ -33277,7 +33279,20 @@ ${rows
                 </div>
 
                 {/* بحث سريع عن طالب — يُصفّي شريط الطلبة بالأسفل مباشرةً (على شاشة التصحيح، لا داخل المعاينة). */}
-                <div className="relative min-w-0 flex-1 max-w-[320px]">
+                <button
+                  type="button"
+                  onClick={() => setSubmissionDetailSearchOpen((open) => !open)}
+                  aria-pressed={submissionDetailSearchOpen || !!submissionDetailStudentSearch}
+                  title="بحث عن طالب"
+                  aria-label="بحث عن طالب"
+                  className={`relative ms-auto inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border transition sm:hidden ${submissionDetailSearchOpen || submissionDetailStudentSearch ? "border-indigo-300 bg-indigo-50 text-indigo-700" : "border-slate-200 bg-white text-slate-600"}`}
+                >
+                  <Search className="h-4 w-4" aria-hidden="true" />
+                  {!!submissionDetailStudentSearch && (
+                    <span className="absolute -top-1 -start-1 h-2.5 w-2.5 rounded-full bg-indigo-600 ring-2 ring-white" aria-hidden="true" />
+                  )}
+                </button>
+                <div className="relative hidden min-w-0 flex-1 max-w-[320px] sm:block">
                   <Search className="pointer-events-none absolute right-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400" />
                   <input
                     value={submissionDetailStudentSearch}
@@ -33323,6 +33338,31 @@ ${rows
                   </button>
                 </div>
               </div>
+
+              {(submissionDetailSearchOpen || !!submissionDetailStudentSearch) && (
+                <div className="relative mt-2 sm:hidden">
+                  <Search className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                  <input
+                    autoFocus={submissionDetailSearchOpen && !submissionDetailStudentSearch}
+                    value={submissionDetailStudentSearch}
+                    onChange={(e) => setSubmissionDetailStudentSearch(e.target.value)}
+                    placeholder="ابحث عن طالب بالاسم أو الرقم…"
+                    inputMode="search"
+                    className="h-11 w-full rounded-2xl border border-slate-200 bg-slate-50 pr-10 pl-10 text-right text-[13px] font-semibold text-slate-800 outline-none transition placeholder:font-normal placeholder:text-slate-400 focus:border-indigo-300 focus:bg-white focus:ring-4 focus:ring-indigo-100"
+                  />
+                  {!!submissionDetailStudentSearch && (
+                    <button
+                      type="button"
+                      onClick={() => setSubmissionDetailStudentSearch("")}
+                      className="absolute left-2.5 top-1/2 inline-flex h-6 w-6 -translate-y-1/2 items-center justify-center rounded-full bg-slate-200 text-slate-500 transition hover:bg-rose-100 hover:text-rose-600"
+                      title="مسح"
+                      aria-label="مسح البحث"
+                    >
+                      <X className="h-3.5 w-3.5" />
+                    </button>
+                  )}
+                </div>
+              )}
 
               {/* Horizontal student quick selector bar */}
               <div className="mt-2 flex max-h-12 gap-1.5 overflow-x-auto overflow-y-hidden py-1 pr-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
