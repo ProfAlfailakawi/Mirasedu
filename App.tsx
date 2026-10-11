@@ -26397,8 +26397,13 @@ ${rows
     if (!selectedSubmissionDetail) setStudentNavigatorOpen(false);
   }, [selectedSubmissionDetail]);
   // التمديد للمشاريع فقط (الاختبارات تتحكم فيها المراقبة وSEB وإرجاع المعلم).
-  const notSubmittedProject: any = selectedSubmissionActivityId
-    ? teacherProjects.find((p: any) => String(p.id) === String(selectedSubmissionActivityId))
+  // عند فتح شاشة حل نربط التمديد بنشاطها هي (قد يُفتح حل مشروع آخر من البحث العام).
+  const notSubmittedProjectId =
+    selectedSubmissionDetail && String(selectedSubmissionDetail.kind || "").toLowerCase() === "project"
+      ? selectedSubmissionDetail.activityId
+      : selectedSubmissionActivityId;
+  const notSubmittedProject: any = notSubmittedProjectId
+    ? teacherProjects.find((p: any) => String(p.id) === String(notSubmittedProjectId))
     : null;
   const projectExtensionFor = (project: any, studentId: any) => {
     const entry = (Array.isArray(project?.studentExtensions) ? project.studentExtensions : []).find(
@@ -33511,8 +33516,15 @@ ${rows
                 createPortal(
                   (() => {
                     const rowsAll: any[] = detailStudentRows;
-                    const submittedRows = rowsAll.filter((row: any) => !!row.submission);
-                    const missingRows = rowsAll.filter((row: any) => !row.submission);
+                    // «سلّم» = تسليم مكتمل فعلاً؛ قيد الحل/المنقطع/المُعاد للطالب لا يُحسب تسليماً.
+                    const navigatorState = (sub: any) =>
+                      !sub ? "missing"
+                      : isTeacherReturnedSubmission(sub) ? "returned"
+                      : isDisconnectedInProgressSubmission(sub) ? "disconnected"
+                      : isExamInProgressSubmission(sub) ? "active"
+                      : "done";
+                    const submittedRows = rowsAll.filter((row: any) => navigatorState(row.submission) === "done");
+                    const missingRows = rowsAll.filter((row: any) => navigatorState(row.submission) !== "done");
                     const visibleRows =
                       studentNavigatorFilter === "submitted"
                         ? submittedRows
@@ -33650,7 +33662,13 @@ ${rows
                                       </span>
                                     </span>
                                     <span className="flex shrink-0 flex-col items-end gap-1">
-                                      {sub ? (
+                                      {sub && navigatorState(sub) !== "done" ? (
+                                        <span className="rounded-full bg-amber-50 px-2.5 py-0.5 text-[11px] font-bold text-amber-700">
+                                          {navigatorState(sub) === "returned" ? "أُعيد للطالب"
+                                            : navigatorState(sub) === "disconnected" ? "انقطع"
+                                            : "يحل الآن"}
+                                        </span>
+                                      ) : sub ? (
                                         <>
                                           <span className="rounded-full bg-emerald-50 px-2.5 py-0.5 text-[11px] font-bold text-emerald-700">
                                             سلّم{shouldDisplaySubmittedLate(sub) ? " · متأخر" : ""}
