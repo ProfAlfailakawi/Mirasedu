@@ -50,3 +50,12 @@ test('a student who submitted (any digit form) is no longer expected; duplicates
   assert.equal(studentsExpectedByExtension(ext, ['1'], AFTER), 1);
   assert.equal(studentsExpectedByExtension(undefined, [], AFTER), 0);
 });
+
+test('a student who left the course is not expected, even with a running extension', () => {
+  const ext = [
+    { studentId: '1', until: new Date(AFTER + 3600_000).toISOString() },
+    { studentId: '9', until: new Date(AFTER + 3600_000).toISOString() },
+  ];
+  assert.equal(studentsExpectedByExtension(ext, [], AFTER, [{ id: '1' }, { id: '2' }]), 1);
+  assert.equal(studentsExpectedByExtension(ext, [], AFTER, []), 0);
+});

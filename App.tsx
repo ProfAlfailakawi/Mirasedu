@@ -26394,7 +26394,7 @@ ${rows
         originalDeadlineMs: originalDeadlineMsForActivity(aid),
       });
       // من فتحتَ لهم الباب ولم يسلّموا بعد: عمل منتظَر، يدخل مقام الحلقة حتى يسلّموا.
-      card.expected = studentsExpectedByExtension(project?.studentExtensions, submittedStudentIds);
+      card.expected = studentsExpectedByExtension(project?.studentExtensions, submittedStudentIds, Date.now(), courseStudentDirectory);
     });
     return Array.from(map.values());
   })();
@@ -39776,7 +39776,7 @@ ${rows
                                 )}
                               </button>
                               )}
-                              <MirasRatioRing done={cur.graded} total={cur.total} />
+                              <MirasRatioRing done={cur.graded} total={cur.total + cur.expected} />
                             </span>
                           ) : null;
                         })()}
