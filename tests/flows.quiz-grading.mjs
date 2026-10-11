@@ -11,7 +11,7 @@
 // Seed fixture: exam "exam-lock-1" on course S_A1 (points=1), question
 // "q-lock-1" (multiple-choice, correctAnswer "أ", 1pt). Students 1001 and 2002
 // are both enrolled in S_A1.
-import { api, makeJar, createReporter } from "./lib.mjs";
+import { api, makeJar, createReporter, AA } from "./lib.mjs";
 
 const { check, done } = createReporter("FLOWS / QUIZ-GRADING");
 
@@ -72,6 +72,27 @@ await (async () => {
 await (async () => {
   const r = await submitExam("1001", "tok-1001", s1.jar, "grade-q-correct", CORRECT);
   check("Q3) resubmitting a locked exam is rejected (409)", r.status === 409 && !!r.data.error, `${r.status} ${JSON.stringify(r.data).slice(0, 160)}`);
+})();
+
+// Q4: after the teacher returns a submitted exam, the retake is flagged «أُعيد تسليمه».
+await (async () => {
+  const tjar = makeJar(); const tdev = "q4-teacher-dev";
+  const login = await api("POST", "/api/auth/login", { idNumber: AA, password: (process.env.TEST_TEACHER_PASSWORD || "change-me-in-ci") }, { jar: tjar, deviceToken: tdev });
+  check("Q4a) teacher login", login.ok && login.data.role === "teacher", `${login.status}`);
+  const rowId = `exam-${EXAM}-1001`;
+  const ret = await api("POST", "/api/teacher/submissions/return", { kind: "exam", submissionId: rowId, activityId: EXAM, studentId: "1001", returnNote: "إعادة المحاولة" }, { jar: tjar, deviceToken: tdev });
+  check("Q4b) teacher returned the exam", ret.ok, `${ret.status} ${JSON.stringify(ret.data).slice(0, 140)}`);
+  const lock = await acquireLock("1001", "tok-1001", s1.jar, "grade-q-retake");
+  check("Q4c) student re-acquires the exam lock", lock.ok, `${lock.status} ${JSON.stringify(lock.data).slice(0, 140)}`);
+  // The real UI generates the questions before submitting; that flips the row to «قيد الحل».
+  const gen = await api("GET", `/api/quizzes/generate?studentId=1001&chapterId=${EXAM}&examSessionId=grade-q-retake&displayMode=pwa`, null, { deviceToken: "tok-1001", jar: s1.jar });
+  check("Q4c2) questions generated for the retake", gen.ok, `${gen.status} ${JSON.stringify(gen.data).slice(0, 140)}`);
+  const r = await submitExam("1001", "tok-1001", s1.jar, "grade-q-retake", CORRECT);
+  check("Q4d) retake after return succeeds", r.ok && r.data.success === true, `${r.status} ${JSON.stringify(r.data).slice(0, 160)}`);
+  const list = await api("GET", "/api/teacher/submissions?studentId=1001", null, { jar: tjar, deviceToken: tdev });
+  const row = (list.data.submissions || []).find((x) => x.id === rowId);
+  check("Q4e) the teacher row is flagged resubmittedAfterReturn", row?.resubmittedAfterReturn === true, JSON.stringify(row || {}).slice(0, 240));
+  check("Q4f) the exam retake is never flagged late", !row?.submittedLate, JSON.stringify(row || {}).slice(0, 240));
 })();
 
 done();
