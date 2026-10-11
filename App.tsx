@@ -26297,6 +26297,7 @@ ${rows
         cheatingAttempts: number;
         inProgress: number;
         returned: number;
+        extLate: number;
       }
     >();
     latestDisplayedActiveCourseSubmissions.forEach((sub: any) => {
@@ -26318,6 +26319,7 @@ ${rows
         cheatingAttempts: 0,
         inProgress: 0,
         returned: 0,
+        extLate: 0,
       };
       existing.total += 1;
       if (isTeacherReturnedSubmission(sub)) existing.returned += 1;
@@ -26331,7 +26333,11 @@ ${rows
         isTimeExpiredRecordedSubmission(sub)
       )
         existing.graded += 1;
-      else existing.pending += 1;
+      else {
+        existing.pending += 1;
+        // سلّم متأخراً بتمديد منحته له وينتظر تصحيحك.
+        if (sub?.lateByExtension) existing.extLate += 1;
+      }
       map.set(aid, existing);
     });
     // نشاط لم يسلّمه أحد بعد لا يملك أي صف تسليم، فيُضاف كبطاقة بصفر تسليم حتى يمكن
@@ -26353,6 +26359,7 @@ ${rows
           cheatingAttempts: 0,
           inProgress: 0,
           returned: 0,
+          extLate: 0,
         });
       });
     }
@@ -39644,19 +39651,26 @@ ${rows
                             <div
                               className="miras-stack-bar mt-3"
                               role="img"
-                              aria-label={`${card.graded} مصحح، ${card.pending} بانتظار، ${card.returned} معاد من ${card.total}`}
+                              aria-label={`${card.graded} مصحح، ${card.pending} بانتظار${card.extLate ? ` منها ${card.extLate} متأخر بتمديد` : ""}، ${card.returned} معاد من ${card.total}`}
                             >
                               <span className="is-graded" style={{ width: `${(card.graded / card.total) * 100}%` }} />
-                              <span className="is-pending" style={{ width: `${(card.pending / card.total) * 100}%` }} />
+                              <span className="is-ext" style={{ width: `${(card.extLate / card.total) * 100}%` }} />
+                              <span className="is-pending" style={{ width: `${((card.pending - card.extLate) / card.total) * 100}%` }} />
                               <span className="is-returned" style={{ width: `${(card.returned / card.total) * 100}%` }} />
                             </div>
                           )}
                           <div className="miras-sub-chips mt-3 flex flex-wrap gap-1.5">
-                            {card.pending > 0 && (
-                              <span className="rounded-full bg-slate-100 px-2.5 py-1 text-[10px] font-bold text-slate-600">
-                                {card.pending} بانتظار
+                            {card.extLate > 0 && (
+                              <span className="rounded-full bg-amber-50 px-2.5 py-1 text-[10px] font-bold text-amber-700">
+                                {card.extLate} متأخر بتمديد · بانتظار تصحيحك
                               </span>
                             )}
+                            {card.pending - card.extLate > 0 && (
+                              <span className="rounded-full bg-slate-100 px-2.5 py-1 text-[10px] font-bold text-slate-600">
+                                {card.pending - card.extLate} بانتظار
+                              </span>
+                            )}
+
                             {card.returned > 0 && (
                               <span className="rounded-full bg-indigo-50 px-2.5 py-1 text-[10px] font-bold text-indigo-700">
                                 {card.returned} معاد
@@ -39743,26 +39757,9 @@ ${rows
                           className="flex w-full items-center gap-3 rounded-[var(--miras-r-lg)] border border-rose-100 bg-gradient-to-br from-rose-50/80 to-white p-3 text-right shadow-sm transition active:scale-[.99]"
                           aria-label={`عرض ${notSubmittedStudents.length} طالب لم يسلّموا`}
                         >
-                          <span className="flex shrink-0 -space-x-2 space-x-reverse" aria-hidden="true">
-                            {notSubmittedStudents.slice(0, 3).map((student: any) => (
-                              <span
-                                key={student.id}
-                                className="grid h-9 w-9 place-items-center rounded-full border-2 border-white bg-rose-100 text-[13px] font-black text-rose-600"
-                              >
-                                {String(student.name || "ط").trim().charAt(0) || "ط"}
-                              </span>
-                            ))}
-                          </span>
                           <span className="min-w-0 flex-1">
                             <span className="block text-[13px] font-black text-rose-800">
                               لم يسلّم {notSubmittedStudents.length} طالب
-                            </span>
-                            <span className="block truncate text-[11px] font-bold text-slate-500">
-                              {notSubmittedStudents
-                                .slice(0, 3)
-                                .map((student: any) => student.name || student.id)
-                                .join("، ")}
-                              {notSubmittedStudents.length > 3 ? "…" : ""}
                             </span>
                           </span>
                           <ChevronLeft className="h-4 w-4 shrink-0 text-rose-400" aria-hidden="true" />

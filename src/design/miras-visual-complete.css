@@ -83,6 +83,9 @@ html body .meras-teacher-shell .miras-submissions-panel .miras-stack-bar > .is-g
 html body .meras-teacher-shell .miras-submissions-panel .miras-stack-bar > .is-pending:not(#_):not(#__):not(.meras-exam-shell *) {
   background: linear-gradient(90deg, #cbd5e1, #94a3b8);
 }
+html body .meras-teacher-shell .miras-submissions-panel .miras-stack-bar > .is-ext:not(#_):not(#__):not(.meras-exam-shell *) {
+  background: linear-gradient(90deg, #fbbf24, #d97706);
+}
 html body .meras-teacher-shell .miras-submissions-panel .miras-stack-bar > .is-returned:not(#_):not(#__):not(.meras-exam-shell *) {
   background: linear-gradient(90deg, #818cf8, #4f46e5);
 }
