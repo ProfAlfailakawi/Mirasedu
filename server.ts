@@ -17604,17 +17604,21 @@ app.post("/api/exercises/submit", (req, res) => {
   const exLateDeadlineMs = mirasDeadlineEndMs(
     (ex as any).closeDate || (ex as any).close || (ex as any).dueDate || "",
   );
-  const exSubmittedLate = !!(
-    exLateDeadlineMs &&
-    Number.isFinite(exLateDeadlineMs) &&
-    Date.now() > exLateDeadlineMs
-  );
-
   const previousExerciseSubmission = dbInstance
     .getExerciseSubmissions()
     .find(
       (s: any) => s.studentId === student.id && s.exerciseId === exerciseId,
     );
+  const exResubmittedAfterReturn =
+    !!previousExerciseSubmission &&
+    (isReturnedSubmissionStatusServer((previousExerciseSubmission as any).status) ||
+      !!(previousExerciseSubmission as any).returnedAt);
+  const exSubmittedLate = !exResubmittedAfterReturn && !!(
+    exLateDeadlineMs &&
+    Number.isFinite(exLateDeadlineMs) &&
+    Date.now() > exLateDeadlineMs
+  );
+
   if (submissionIsLocked(previousExerciseSubmission)) {
     return res
       .status(409)
@@ -17645,6 +17649,7 @@ app.post("/api/exercises/submit", (req, res) => {
     watermark: watermarkText,
     status: "submitted",
     submittedLate: exSubmittedLate,
+    resubmittedAfterReturn: exResubmittedAfterReturn,
     resubmittedAt: previousExerciseSubmission
       ? new Date().toISOString()
       : undefined,
@@ -19122,7 +19127,8 @@ app.post("/api/projects/submit", (req, res) => {
   const projectLateDeadlineMs = mirasDeadlineEndMs(
     project.dueDate || project.closeDate || "",
   );
-  const projectSubmittedLate = !!(
+  const projectResubmittedAfterReturn = project.status === "returned";
+  const projectSubmittedLate = !projectResubmittedAfterReturn && !!(
     projectLateDeadlineMs &&
     Number.isFinite(projectLateDeadlineMs) &&
     Date.now() > projectLateDeadlineMs
@@ -19136,6 +19142,7 @@ app.post("/api/projects/submit", (req, res) => {
     status: "submitted",
     submittedAt,
     submittedLate: projectSubmittedLate,
+    resubmittedAfterReturn: projectResubmittedAfterReturn,
     resubmittedAt:
       project.status === "returned"
         ? submittedAt
@@ -19167,6 +19174,7 @@ app.post("/api/projects/submit", (req, res) => {
     submittedAt,
     updatedAt: submittedAt,
     submittedLate: projectSubmittedLate,
+    resubmittedAfterReturn: projectResubmittedAfterReturn,
     source: "personalized_project",
     personalizedProject: true,
   });
@@ -23996,6 +24004,20 @@ app.post("/api/teacher/submissions", (req, res) => {
 // مقفل على جلسة المعلم، كان تسليم الطالب يفشل بصمت (401) فلا يراه المعلم وتعود
 // المشاريع تظهر للطالب كأنه لم يسلّم. هنا نتحقق أن الطالب يسلّم باسمه فقط ونمنع
 // أي تلاعب بالدرجات أو حالة "معاد/مرصود".
+// تسليم بعد إرجاع المعلم لا يُوسم «متأخر»: الطالب أعاد العمل بطلب من المعلم.
+function wasReturnedToStudentBefore(kind: string, activityId: any, studentId: any): boolean {
+  const k = String(kind || "").toLowerCase();
+  const a = String(activityId ?? "");
+  const st = normalizeStudentId(studentId);
+  return activeRuntimeTeacherSubmissions().some(
+    (item: any) =>
+      String(item.kind || "").toLowerCase() === k &&
+      String(item.activityId ?? "") === a &&
+      normalizeStudentId(item.studentId) === st &&
+      (isReturnedSubmissionStatusServer(item.status) || !!item.returnedAt),
+  );
+}
+
 app.post("/api/student/submissions", (req, res) => {
   const incoming = req.body || {};
   const verifiedSession = verifyMirasSessionToken(req);
@@ -24067,6 +24089,11 @@ app.post("/api/student/submissions", (req, res) => {
     });
   }
   const nowIso = new Date().toISOString();
+  const resubmittedAfterReturn = wasReturnedToStudentBefore(
+    kind,
+    kind === "project" && matchedProject ? matchedProject.id : incoming.activityId,
+    student.id,
+  );
   const requestedStatus = String(incoming.status || "").trim();
   const safeStatus =
     requestedStatus && !isReturnedSubmissionStatusServer(requestedStatus)
@@ -24093,11 +24120,15 @@ app.post("/api/student/submissions", (req, res) => {
     returnExceptionGrantedAt: undefined,
     returnExceptionByEmail: undefined,
     status: safeStatus,
-    submittedLate: kind === "project" && matchedProject
-      ? Date.now() > mirasDeadlineEndMs(matchedProject.dueDate || "")
-      : Boolean(incoming.submittedLate),
+    resubmittedAfterReturn: resubmittedAfterReturn,
+    submittedLate: resubmittedAfterReturn
+      ? false
+      : kind === "project" && matchedProject
+        ? Date.now() > mirasDeadlineEndMs(matchedProject.dueDate || "")
+        : Boolean(incoming.submittedLate),
     // سُلِّم بعد إغلاق المشروع بتمديد خاص من المعلم: وسم مستقل عن «متأخر» العادي.
     lateByExtension:
+      !resubmittedAfterReturn &&
       kind === "project" &&
       !!matchedProject &&
       (() => {
