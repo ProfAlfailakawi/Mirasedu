@@ -48438,8 +48438,8 @@ ${rows
                             <h3 className="miras-manual-activation-title font-black text-base text-slate-900">
                               تفعيل فوري لملفات الطلبة يدوياً
                             </h3>
-                            <div className="flex flex-wrap items-center gap-2" role="group" aria-label="تصفية الطلبة حسب الحالة">
-                              <span className="inline-flex items-center rounded-2xl bg-indigo-50 px-3 py-1.5 text-[11px] font-bold text-indigo-700">
+                            <div className="flex flex-nowrap items-center gap-1.5 overflow-x-auto sm:gap-2" role="group" aria-label="تصفية الطلبة حسب الحالة">
+                              <span className="inline-flex shrink-0 items-center whitespace-nowrap rounded-2xl bg-indigo-50 px-2.5 py-1.5 text-[11px] font-bold text-indigo-700 sm:px-3">
                                 {scopedTeacherStudents.length} طالب
                               </span>
                               {([
@@ -48454,7 +48454,7 @@ ${rows
                                   onClick={() =>
                                     setManualActivationFilter((cur) => (cur === key ? "all" : key))
                                   }
-                                  className={`inline-flex items-center gap-1.5 rounded-2xl px-3 py-1.5 text-[11px] font-bold transition ${tone} ${manualActivationFilter === key ? "ring-2" : "ring-0 opacity-80 hover:opacity-100"}`}
+                                  className={`inline-flex shrink-0 items-center gap-1 whitespace-nowrap rounded-2xl px-2.5 py-1.5 text-[11px] font-bold transition sm:gap-1.5 sm:px-3 ${tone} ${manualActivationFilter === key ? "ring-2" : "ring-0 opacity-80 hover:opacity-100"}`}
                                 >
                                   <span className={`h-2 w-2 rounded-full ${dot}`} aria-hidden="true" />
                                   {count} {label}
