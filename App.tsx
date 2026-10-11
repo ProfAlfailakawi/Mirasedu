@@ -5246,8 +5246,7 @@ export default function App() {
   // فلتر «من لم يسلّم» داخل نشاط مفتوح في شاشة التسليمات.
   const [submissionNotSubmittedOpen, setSubmissionNotSubmittedOpen] = useState(false);
   // تمديد مهلة مشروع لطلبة لم يسلّموا (يُدار من قائمة «لم يسلّموا»).
-  const [extensionSelectedIds, setExtensionSelectedIds] = useState<Record<string, boolean>>({});
-  const [extensionPickerOpen, setExtensionPickerOpen] = useState(false);
+  const [extensionTargets, setExtensionTargets] = useState<any[] | null>(null);
   const [extensionPreset, setExtensionPreset] = useState<"6h" | "24h" | "3d" | "custom">("24h");
   const [extensionCustomLocal, setExtensionCustomLocal] = useState("");
   const [extensionNote, setExtensionNote] = useState("");
@@ -26366,8 +26365,7 @@ ${rows
     : latestDisplayedActiveCourseSubmissions;
   useEffect(() => {
     setSubmissionNotSubmittedOpen(false);
-    setExtensionSelectedIds({});
-    setExtensionPickerOpen(false);
+    setExtensionTargets(null);
   }, [selectedSubmissionActivityId]);
   // التمديد للمشاريع فقط (الاختبارات تتحكم فيها المراقبة وSEB وإرجاع المعلم).
   const notSubmittedProject: any = selectedSubmissionActivityId
@@ -26382,7 +26380,7 @@ ${rows
   };
   const grantProjectExtension = async () => {
     const project = notSubmittedProject;
-    const studentIds = Object.keys(extensionSelectedIds).filter((id) => extensionSelectedIds[id]);
+    const studentIds = (extensionTargets || []).map((student: any) => String(student.id));
     if (!project || !studentIds.length) {
       setErrorMsg("اختر طالباً واحداً على الأقل.");
       return;
@@ -26413,8 +26411,7 @@ ${rows
         prev.map((item: any) => (String(item.id) === String(project.id) ? { ...item, ...data.project } : item)),
       );
       setSuccessMsg(`تم منح التمديد لـ ${data.granted ?? studentIds.length} طالب حتى ${formatKwDateTime(new Date(untilMs).toISOString())}.`);
-      setExtensionSelectedIds({});
-      setExtensionPickerOpen(false);
+      setExtensionTargets(null);
       setExtensionNote("");
     } catch {
       setErrorMsg("تعذر الاتصال بالخادم لمنح التمديد.");
@@ -39409,8 +39406,27 @@ ${rows
                         <div className="rounded-[var(--miras-r-xl)] border border-rose-100 bg-white/90 p-3 miras-shadow-2">
                           <div className="mb-2 flex items-center justify-between gap-2 px-1">
                             <h3 className="text-sm font-bold text-slate-900">لم يسلّموا</h3>
-                            <span className="rounded-full bg-rose-50 px-2.5 py-1 text-[11px] font-bold text-rose-700">
-                              {notSubmittedStudents.length} طالب
+                            <span className="flex items-center gap-2">
+                              {!!notSubmittedProject &&
+                                isProjectClosed(notSubmittedProject) &&
+                                notSubmittedStudents.some((student: any) => !projectExtensionFor(notSubmittedProject, student.id)) && (
+                                  <button
+                                    type="button"
+                                    onClick={() =>
+                                      setExtensionTargets(
+                                        notSubmittedStudents.filter(
+                                          (student: any) => !projectExtensionFor(notSubmittedProject, student.id),
+                                        ),
+                                      )
+                                    }
+                                    className="rounded-full border border-amber-200 bg-amber-50 px-3 py-1 text-[11px] font-bold text-amber-800 transition hover:bg-amber-100"
+                                  >
+                                    فتح الباب للجميع
+                                  </button>
+                                )}
+                              <span className="rounded-full bg-rose-50 px-2.5 py-1 text-[11px] font-bold text-rose-700">
+                                {notSubmittedStudents.length} طالب
+                              </span>
                             </span>
                           </div>
                           {notSubmittedStudents.length === 0 ? (
@@ -39429,18 +39445,22 @@ ${rows
                                     className={`flex items-center gap-2 rounded-2xl border px-3 py-2.5 ${extUntil ? "border-amber-200 bg-amber-50/60" : "border-slate-100 bg-white"}`}
                                   >
                                     {notSubmittedProject && !extUntil && (
-                                      <input
-                                        type="checkbox"
-                                        aria-label={`تحديد ${student.name || "الطالب"} للتمديد`}
-                                        checked={!!extensionSelectedIds[String(student.id)]}
-                                        onChange={(e) =>
-                                          setExtensionSelectedIds((prev) => ({
-                                            ...prev,
-                                            [String(student.id)]: e.target.checked,
-                                          }))
-                                        }
-                                        className="h-4 w-4 shrink-0 rounded border-slate-300 text-amber-600"
-                                      />
+                                      <button
+                                        type="button"
+                                        onClick={() => {
+                                          // نفس أيقونة الإرجاع: لمن لم يسلّم تعني «افتح له باب التسليم».
+                                          if (!isProjectClosed(notSubmittedProject)) {
+                                            setSuccessMsg("المشروع ما زال مفتوحاً، يستطيع الطالب التسليم الآن.");
+                                            return;
+                                          }
+                                          setExtensionTargets([student]);
+                                        }}
+                                        className="grid h-10 w-10 shrink-0 place-items-center rounded-2xl border border-amber-200 bg-amber-50 text-amber-700 transition hover:bg-amber-100"
+                                        title="فتح باب التسليم له"
+                                        aria-label={`فتح باب التسليم لـ ${student.name || "الطالب"}`}
+                                      >
+                                        <RotateCw className="h-4.5 w-4.5" />
+                                      </button>
                                     )}
                                     <span className="min-w-0 flex-1 text-right">
                                       <span className="block truncate text-[12px] font-bold text-slate-900">
@@ -39470,71 +39490,6 @@ ${rows
                                   </div>
                                 );
                               })}
-                            </div>
-                          )}
-                          {!!notSubmittedProject && notSubmittedStudents.length > 0 && (
-                            <div className="mt-3 rounded-2xl border border-amber-200 bg-amber-50/50 p-3">
-                              <div className="flex flex-wrap items-center justify-between gap-2">
-                                <span className="text-[11px] font-bold text-amber-900">
-                                  حدّد الطلبة ثم امنحهم مهلة خاصة بعد الإغلاق؛ يُسجَّل تسليمهم «متأخر · بتمديد خاص».
-                                </span>
-                                <button
-                                  type="button"
-                                  disabled={!Object.values(extensionSelectedIds).some(Boolean)}
-                                  onClick={() => setExtensionPickerOpen((open) => !open)}
-                                  className="inline-flex items-center gap-1.5 rounded-full bg-amber-600 px-3.5 py-1.5 text-[11px] font-bold text-white transition hover:bg-amber-700 disabled:cursor-not-allowed disabled:bg-slate-200 disabled:text-slate-400"
-                                >
-                                  <Clock className="h-3.5 w-3.5" aria-hidden="true" />
-                                  تمديد للمحدَّدين ({Object.values(extensionSelectedIds).filter(Boolean).length})
-                                </button>
-                              </div>
-                              {extensionPickerOpen && (
-                                <div className="mt-3 space-y-2.5">
-                                  <div className="flex flex-wrap gap-1.5" role="radiogroup" aria-label="مدة التمديد">
-                                    {([
-                                      ["6h", "6 ساعات"],
-                                      ["24h", "24 ساعة"],
-                                      ["3d", "3 أيام"],
-                                      ["custom", "تاريخ محدد"],
-                                    ] as const).map(([key, label]) => (
-                                      <button
-                                        key={key}
-                                        type="button"
-                                        role="radio"
-                                        aria-checked={extensionPreset === key}
-                                        onClick={() => setExtensionPreset(key)}
-                                        className={`rounded-full border px-3 py-1.5 text-[11px] font-bold transition ${extensionPreset === key ? "border-amber-500 bg-amber-600 text-white" : "border-amber-200 bg-white text-amber-900 hover:bg-amber-100"}`}
-                                      >
-                                        {label}
-                                      </button>
-                                    ))}
-                                  </div>
-                                  {extensionPreset === "custom" && (
-                                    <input
-                                      type="datetime-local"
-                                      value={extensionCustomLocal}
-                                      onChange={(e) => setExtensionCustomLocal(e.target.value)}
-                                      aria-label="وقت انتهاء التمديد"
-                                      className="w-full rounded-2xl border border-amber-200 bg-white px-3 py-2 text-xs font-bold text-slate-800"
-                                    />
-                                  )}
-                                  <input
-                                    value={extensionNote}
-                                    onChange={(e) => setExtensionNote(e.target.value)}
-                                    maxLength={200}
-                                    placeholder="ملاحظة اختيارية للتوثيق"
-                                    className="w-full rounded-2xl border border-amber-200 bg-white px-3 py-2 text-xs font-bold text-slate-800"
-                                  />
-                                  <button
-                                    type="button"
-                                    disabled={extensionBusy}
-                                    onClick={() => void grantProjectExtension()}
-                                    className="w-full rounded-2xl bg-gradient-to-br from-amber-600 to-orange-600 px-4 py-2.5 text-xs font-bold text-white shadow-sm transition hover:brightness-110 disabled:opacity-60"
-                                  >
-                                    {extensionBusy ? "جارٍ المنح…" : "منح التمديد"}
-                                  </button>
-                                </div>
-                              )}
                             </div>
                           )}
                         </div>
@@ -40298,6 +40253,119 @@ ${rows
                           </div>
                         </div>
                       )}
+                      {extensionTargets &&
+                        typeof document !== "undefined" &&
+                        createPortal(
+                          <div
+                            className="miras-return-overlay fixed inset-0 z-[100250] flex items-start justify-center bg-slate-950/45 p-3 pt-[max(4.5rem,calc(env(safe-area-inset-top)+4rem))] backdrop-blur-sm sm:items-center sm:p-4"
+                            onClick={() => setExtensionTargets(null)}
+                          >
+                            <div
+                              className="miras-return-modal relative w-full max-w-[32rem] overflow-hidden rounded-[var(--miras-r-xl)] border border-white/80 bg-white p-4 text-right miras-shadow-3 sm:p-6"
+                              dir="rtl"
+                              onClick={(e) => e.stopPropagation()}
+                            >
+                              <div className="pointer-events-none absolute -left-12 -top-12 h-36 w-36 rounded-full bg-amber-100/60 blur-3xl" />
+                              <div className="relative mb-4 flex items-start justify-between gap-3">
+                                <div className="flex min-w-0 items-start gap-3">
+                                  <span className="grid h-12 w-12 shrink-0 place-items-center rounded-2xl bg-amber-50 text-amber-700 shadow-inner ring-1 ring-amber-100">
+                                    <Clock className="h-5 w-5" />
+                                  </span>
+                                  <div className="min-w-0">
+                                    <h3 className="text-[1.32rem] font-black leading-tight text-slate-950 sm:text-[1.55rem]">
+                                      فتح باب التسليم
+                                    </h3>
+                                    <p className="mt-1 truncate text-[11px] font-bold text-slate-500">
+                                      {extensionTargets.length === 1
+                                        ? `${extensionTargets[0].name || "الطالب"} لم يسلّم بعد`
+                                        : `${extensionTargets.length} طلبة لم يسلّموا بعد`}
+                                    </p>
+                                  </div>
+                                </div>
+                                <button
+                                  type="button"
+                                  onClick={() => setExtensionTargets(null)}
+                                  className="grid h-10 w-10 shrink-0 place-items-center rounded-2xl border border-slate-100 bg-slate-50 text-slate-500 transition hover:bg-rose-50 hover:text-rose-700"
+                                  aria-label="إغلاق"
+                                >
+                                  <X className="h-4 w-4" />
+                                </button>
+                              </div>
+                              <div className="relative flex flex-wrap justify-center gap-2" role="radiogroup" aria-label="مدة الفرصة">
+                                {([
+                                  ["6h", "6 ساعات"],
+                                  ["24h", "24 ساعة"],
+                                  ["3d", "3 أيام"],
+                                  ["custom", "تاريخ محدد"],
+                                ] as const).map(([key, label]) => (
+                                  <button
+                                    key={key}
+                                    type="button"
+                                    role="radio"
+                                    aria-checked={extensionPreset === key}
+                                    onClick={() => setExtensionPreset(key)}
+                                    className={`rounded-2xl border px-4 py-2.5 text-[12px] font-bold transition ${extensionPreset === key ? "border-amber-500 bg-gradient-to-br from-amber-500 to-orange-500 text-white miras-shadow-2" : "border-amber-100 bg-amber-50/60 text-amber-900 hover:bg-amber-100"}`}
+                                  >
+                                    {label}
+                                  </button>
+                                ))}
+                              </div>
+                              {extensionPreset === "custom" && (
+                                <input
+                                  type="datetime-local"
+                                  value={extensionCustomLocal}
+                                  onChange={(e) => setExtensionCustomLocal(e.target.value)}
+                                  aria-label="وقت انتهاء الفرصة"
+                                  className="relative mt-3 w-full rounded-2xl border border-amber-100 bg-white px-3 py-2.5 text-center text-xs font-bold text-slate-800 outline-none focus:ring-4 focus:ring-amber-100"
+                                />
+                              )}
+                              <input
+                                value={extensionNote}
+                                onChange={(e) => setExtensionNote(e.target.value)}
+                                maxLength={200}
+                                placeholder="ملاحظة اختيارية للتوثيق"
+                                className="relative mt-3 w-full rounded-2xl border border-slate-100 bg-slate-50/80 px-3 py-2.5 text-xs font-bold text-slate-800 outline-none focus:border-amber-200 focus:bg-white focus:ring-4 focus:ring-amber-50"
+                              />
+                              <div className="relative mt-3 rounded-[var(--miras-r-md)] border border-emerald-100 bg-emerald-50/70 px-3 py-2 text-center text-[10.5px] font-black leading-5 text-emerald-800 shadow-sm">
+                                للطالب فرصة حتى:{" "}
+                                {(() => {
+                                  const hour = 3600000;
+                                  const ms =
+                                    extensionPreset === "6h" ? Date.now() + 6 * hour
+                                    : extensionPreset === "24h" ? Date.now() + 24 * hour
+                                    : extensionPreset === "3d" ? Date.now() + 72 * hour
+                                    : new Date(extensionCustomLocal).getTime();
+                                  return Number.isFinite(ms) ? formatKwDateTime(new Date(ms).toISOString()) : "—";
+                                })()}
+                                <span className="mt-0.5 block text-[10px] font-bold text-emerald-700">
+                                  سيُسجَّل تسليمه «متأخر · بتمديد خاص»
+                                </span>
+                              </div>
+                              <div className="relative mt-4 flex justify-center gap-3">
+                                <button
+                                  type="button"
+                                  onClick={() => setExtensionTargets(null)}
+                                  className="inline-flex h-14 w-14 items-center justify-center rounded-2xl border border-slate-100 bg-slate-50/90 text-slate-600 transition hover:bg-slate-100"
+                                  title="إلغاء"
+                                  aria-label="إلغاء"
+                                >
+                                  <X className="h-5 w-5" />
+                                </button>
+                                <button
+                                  type="button"
+                                  disabled={extensionBusy}
+                                  onClick={() => void grantProjectExtension()}
+                                  className="inline-flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-amber-500 to-orange-500 text-white miras-shadow-2 transition hover:brightness-110 disabled:opacity-60"
+                                  title="تأكيد فتح الباب"
+                                  aria-label="تأكيد فتح الباب"
+                                >
+                                  {extensionBusy ? <MirasLoader size={20} role="current" label="جارٍ المنح…" /> : <RotateCw className="h-5 w-5" />}
+                                </button>
+                              </div>
+                            </div>
+                          </div>,
+                          document.body,
+                        )}
                       {pendingReturnSubmission &&
                         typeof document !== "undefined" &&
                         createPortal(
@@ -40331,6 +40399,32 @@ ${rows
                                 <X className="h-4 w-4" />
                               </button>
                             </div>
+                            {(() => {
+                              const graded =
+                                teacherGradeInputValue(pendingReturnSubmission) ||
+                                teacherVisibleGradeText(pendingReturnSubmission) ||
+                                "";
+                              const submittedAt = pendingReturnSubmission.submittedAt || pendingReturnSubmission.updatedAt;
+                              return (
+                                <div className="relative mb-3 flex items-start gap-3 rounded-[var(--miras-r-md)] border border-emerald-100 bg-emerald-50/70 px-3.5 py-3 shadow-sm">
+                                  <CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0 text-emerald-600" aria-hidden="true" />
+                                  <div className="min-w-0 text-[11.5px] font-bold leading-6 text-emerald-900">
+                                    <span className="block">
+                                      هذا الطالب سلّم{submittedAt ? ` في ${formatKwDateTime(submittedAt)}` : ""}
+                                      {shouldDisplaySubmittedLate(pendingReturnSubmission) ? " (متأخر)" : ""}.
+                                    </span>
+                                    <span className="block">
+                                      {graded ? `درجته: ${graded}` : "لم تُرصد درجته بعد."}
+                                    </span>
+                                    {!!graded && (
+                                      <span className="mt-1 block text-[10.5px] font-black text-amber-800">
+                                        فتح المحاولة من جديد يمسح الدرجة الحالية (تبقى محفوظة كدرجة سابقة) ويعيده إلى «معاد». هل تريد ذلك فعلاً؟
+                                      </span>
+                                    )}
+                                  </div>
+                                </div>
+                              );
+                            })()}
                             <div className="miras-return-summary relative grid grid-cols-2 gap-2 sm:gap-2.5">
                               {[
                                 [
