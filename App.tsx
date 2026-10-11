@@ -1,4 +1,5 @@
 import { groupSecurityNotifications } from "./src/shared/security-notification-groups";
+import { studentSubmissionDisplayText } from "./src/shared/submission-display-text";
 import { createCloudSingleFlight, cloudSessionKey } from "./src/shared/cloud-single-flight";
 import { teacherWorkspaceReady } from "./src/shared/teacher-workspace-ready";
 import { deviceTransferCopy } from "./src/shared/device-transfer-copy";
@@ -26846,6 +26847,10 @@ ${rows
     }
     return submissionSummaryText(sub);
   };
+  // النص الذي يعرضه المعلم كـ«إجابة الطالب النصية». كانت الشاشة تقرأ حقلاً غير موجود
+  // (studentSolutionText) فتعرض «لم يقدم الطالب حلاً نصياً» لكل الطلبة حتى من كتبوا نصاً.
+  const submissionStudentTextForDisplay = (sub: any) =>
+    studentSubmissionDisplayText(sub, submissionFullAnswerText);
   const activeCourseExamSubmissions = useMemo(
     () =>
       teacherSubmissions.filter(
@@ -33629,7 +33634,10 @@ ${rows
                   <div className="rounded-2xl border border-slate-100 bg-slate-50/30 p-4">
                     <span className="text-[11px] font-bold text-slate-400">إجابة الطالب النصية</span>
                     <p className="mt-1.5 text-[12px] font-bold leading-relaxed text-slate-800 whitespace-pre-line">
-                      {selectedSubmissionDetail.studentSolutionText || "لم يقدم الطالب حلاً نصياً."}
+                      {submissionStudentTextForDisplay(selectedSubmissionDetail) ||
+                        (Array.isArray(selectedSubmissionDetail.attachments) && selectedSubmissionDetail.attachments.length > 0
+                          ? "سلّم الطالب مرفقات فقط دون نص."
+                          : "لم يقدم الطالب حلاً نصياً.")}
                     </p>
                   </div>
  
