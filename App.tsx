@@ -4,6 +4,7 @@ import { watchSolutionScrollJumps, markIntentionalSolutionScrollReset, type Watc
 import { formatScrollJumpReport } from "./src/shared/scroll-jump-diagnostic";
 import { keepSolutionBottomRoom } from "./src/shared/solution-scroll-room";
 import { joinCodeIssueScopeEmail as joinCodeIssueScopeEmailFor } from "./src/shared/join-code-issue-scope";
+import { notSubmittedListOpen } from "./src/shared/not-submitted-gate";
 import { daysUntilDeadline } from "./src/shared/deadline-days";
 import { createCloudSingleFlight, cloudSessionKey } from "./src/shared/cloud-single-flight";
 import { teacherWorkspaceReady } from "./src/shared/teacher-workspace-ready";
@@ -26522,8 +26523,20 @@ ${rows
   };
   // طلبة المقرر (المسجَّلون + من في كشف الأسماء ولم يسجّلوا بعد) الذين لا يوجد لهم أي
   // تسليم/محاولة في النشاط المفتوح. يُطابَق الرقم بكل أسمائه المعروفة في التسليمات القديمة.
+  // «لم يسلّم» لا يظهر قبل انتهاء الموعد الأصلي: المشروع بموعد التسليم (لا آخر موعد للقبول)،
+  // والاختبار بوقت إغلاقه. قبل ذلك الطالب ما زال يعمل ولم يتأخر.
+  const notSubmittedOriginalDeadlineMs = (() => {
+    if (!selectedSubmissionActivityId) return 0;
+    const id = String(selectedSubmissionActivityId);
+    const project = teacherProjects.find((p: any) => String(p.id) === id);
+    if (project) return mirasDeadlineEndMs(project.dueDate || project.closeDate);
+    const exam = teacherCreatedExams.find((e: any) => String(e.id) === id);
+    return exam?.close ? mirasDeadlineEndMs(exam.close) : 0;
+  })();
+  const notSubmittedAvailable = notSubmittedListOpen(notSubmittedOriginalDeadlineMs);
   const notSubmittedStudents: any[] = (() => {
     if (!selectedSubmissionActivityId) return [];
+    if (!notSubmittedAvailable) return [];
     const normalizeKey = (value: any) =>
       normalizeArabicDigits(String(value ?? "")).trim().toLowerCase();
     const done = new Set<string>();
@@ -39701,6 +39714,7 @@ ${rows
                           );
                           return cur ? (
                             <span className="ms-auto flex items-center gap-2">
+                              {notSubmittedAvailable && (
                               <button
                                 type="button"
                                 onClick={() => setSubmissionNotSubmittedOpen((open) => !open)}
@@ -39716,6 +39730,7 @@ ${rows
                                   </span>
                                 )}
                               </button>
+                              )}
                               <MirasRatioRing done={cur.graded} total={cur.total} />
                             </span>
                           ) : null;
@@ -39846,7 +39861,7 @@ ${rows
                           </div>
                         </div>
                       )}
-                      {submissionNotSubmittedOpen ? (
+                      {submissionNotSubmittedOpen && notSubmittedAvailable ? (
                         <div className="rounded-[var(--miras-r-xl)] border border-rose-100 bg-white/90 p-3 miras-shadow-2">
                           <div className="mb-2 flex items-center justify-between gap-2 px-1">
                             <h3 className="text-sm font-bold text-slate-900">لم يسلّموا</h3>
