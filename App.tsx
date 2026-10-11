@@ -37275,7 +37275,7 @@ ${rows
                                               ) && (
                                                 <span className="inline-flex items-center gap-1 text-[12px] font-bold text-amber-700">
                                                   <Clock className="h-3.5 w-3.5" aria-hidden="true" />
-                                                  متأخر{sub?.lateByExtension ? " · بتمديد خاص" : ""}
+                                                  {sub?.lateByExtension ? "تمديد" : "متأخر"}
                                                 </span>
                                               )}
                                               {sub?.resubmittedAfterReturn && (
@@ -38067,7 +38067,7 @@ ${rows
                                   {!!myProjectExtensionMs(project) && (
                                     <div className="mt-3 flex items-center gap-2 rounded-2xl border border-amber-300 bg-amber-50 px-4 py-3 text-xs font-bold leading-5 text-amber-900">
                                       <Clock className="h-4 w-4 shrink-0" aria-hidden="true" />
-                                      منحك الأستاذ تمديداً خاصاً حتى {formatKwDateTime(project.myExtensionUntil)}. سيُسجَّل تسليمك «متأخر · بتمديد خاص».
+                                      منحك الأستاذ تمديداً خاصاً حتى {formatKwDateTime(project.myExtensionUntil)}. سيُسجَّل تسليمك «تمديد».
                                     </div>
                                   )}
                                   {mirasIsPastDeadline(project.dueDate) && !isProjectClosed(project) && (
@@ -39998,7 +39998,7 @@ ${rows
                               key={sub.id}
                               className="rounded-2xl border border-slate-100/80 bg-white/90 px-3 py-3 shadow-sm"
                             >
-                              <div className="flex flex-wrap items-center gap-x-2 gap-y-1.5">
+                              <div className="flex items-center gap-2 max-[379px]:flex-wrap max-[379px]:gap-y-1.5">
                                 <input
                                   type="checkbox"
                                   checked={
@@ -40019,7 +40019,7 @@ ${rows
                                   onClick={() =>
                                     setSelectedSubmissionDetail(sub)
                                   }
-                                  className="min-w-0 flex-1 basis-[6.5rem] text-right block h-auto py-1 cursor-pointer"
+                                  className="min-w-0 flex-1 text-right block h-auto py-1 cursor-pointer max-[379px]:min-w-[7rem]"
                                 >
                                   <div className="text-[11px] font-semibold text-slate-800 leading-tight text-right w-full min-w-0">
                                     <span className="block break-words leading-snug">
@@ -40030,22 +40030,21 @@ ${rows
                                     </span>
                                   </div>
                                 </div>
-                                {/* الحالة والأزرار تلتفّ تحت الاسم حين لا يتسع الصف (مثل «متأخر · بتمديد خاص») بدل أن تعصر عمود الاسم. */}
-                                <div className="flex flex-wrap items-center justify-end gap-1.5">
-                                  {/* الدرجة/الحالة وشارات التأخر والإعادة فوق بعضها: عمود ضيق يترك للاسم عرضاً أكبر. */}
-                                  <div className="flex flex-col items-stretch gap-1 text-center">
+                                {/* أعمدة ثابتة في كل الصفوف: الاسم يتمدد، ثم عمود الدرجة/الشارات بعرض ثابت (فوق بعضها)، ثم الأزرار في أقصى اليسار فتصطف رأسياً. */}
+                                <div className="flex shrink-0 items-center gap-1.5">
+                                  <div className="flex w-[5.25rem] shrink-0 flex-col items-stretch gap-1 text-center leading-tight">
                                   <span
-                                    className={`rounded-full px-2 py-1 text-[11px] font-bold ${isTeacherReturnedSubmission(sub) ? "bg-indigo-50 text-indigo-700" : isExamInProgressSubmission(sub) ? "bg-amber-50 text-amber-700" : sub?.teacherGradeOverride ? "bg-emerald-50 text-emerald-700" : isCheatingAttemptSubmission(sub) ? "bg-red-100 text-red-800" : isWithdrawnSubmission(sub) ? "bg-rose-50 text-rose-700" : teacherVisibleGradeText(sub) || isSubmissionGradeOfficiallyRecorded(sub) || isTimeExpiredRecordedSubmission(sub) ? "bg-emerald-50 text-emerald-700" : "bg-slate-50 text-slate-600"}`}
+                                    className={`rounded-2xl px-2 py-1 text-[11px] font-bold ${isTeacherReturnedSubmission(sub) ? "bg-indigo-50 text-indigo-700" : isExamInProgressSubmission(sub) ? "bg-amber-50 text-amber-700" : sub?.teacherGradeOverride ? "bg-emerald-50 text-emerald-700" : isCheatingAttemptSubmission(sub) ? "bg-red-100 text-red-800" : isWithdrawnSubmission(sub) ? "bg-rose-50 text-rose-700" : teacherVisibleGradeText(sub) || isSubmissionGradeOfficiallyRecorded(sub) || isTimeExpiredRecordedSubmission(sub) ? "bg-emerald-50 text-emerald-700" : "bg-slate-50 text-slate-600"}`}
                                   >
                                     {teacherSubmissionBadgeText(sub)}
                                   </span>
                                   {shouldDisplaySubmittedLate(sub) && (
-                                    <span className="rounded-full bg-amber-50 px-2 py-1 text-[11px] font-bold text-amber-700 border border-amber-100">
-                                      متأخر{sub?.lateByExtension ? " · بتمديد خاص" : ""}
+                                    <span className="rounded-2xl bg-amber-50 px-2 py-1 text-[11px] font-bold text-amber-700 border border-amber-100">
+                                      {sub?.lateByExtension ? "تمديد" : "متأخر"}
                                     </span>
                                   )}
                                   {sub?.resubmittedAfterReturn && (
-                                    <span className="rounded-full bg-indigo-50 px-2 py-1 text-[11px] font-bold text-indigo-700 border border-indigo-100">
+                                    <span className="rounded-2xl bg-indigo-50 px-2 py-1 text-[11px] font-bold text-indigo-700 border border-indigo-100">
                                       أُعيد تسليمه
                                     </span>
                                   )}
@@ -40196,7 +40195,7 @@ ${rows
                                     </span>
                                     {shouldDisplaySubmittedLate(sub) && (
                                       <span className="ms-1 inline-flex rounded-full border border-amber-100 bg-amber-50 px-2 py-1 text-[10px] font-bold text-amber-700">
-                                        متأخر{sub?.lateByExtension ? " · بتمديد خاص" : ""}
+                                        {sub?.lateByExtension ? "تمديد" : "متأخر"}
                                       </span>
                                     )}
                                     {sub?.resubmittedAfterReturn && (
@@ -40781,7 +40780,7 @@ ${rows
                                   return Number.isFinite(ms) ? formatKwDateTime(new Date(ms).toISOString()) : "—";
                                 })()}
                                 <span className="mt-0.5 block text-[10px] font-bold text-emerald-700">
-                                  سيُسجَّل تسليمه «متأخر · بتمديد خاص»
+                                  سيُسجَّل تسليمه «تمديد»
                                 </span>
                               </div>
                               <div className="relative mt-4 flex justify-center gap-3">
