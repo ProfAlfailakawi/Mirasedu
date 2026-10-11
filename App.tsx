@@ -5,7 +5,6 @@ import { formatScrollJumpReport } from "./src/shared/scroll-jump-diagnostic";
 import { keepSolutionBottomRoom } from "./src/shared/solution-scroll-room";
 import { joinCodeIssueScopeEmail as joinCodeIssueScopeEmailFor } from "./src/shared/join-code-issue-scope";
 import { notSubmittedListOpen } from "./src/shared/not-submitted-gate";
-import { extensionsStillWaiting } from "./src/shared/extension-work";
 import { daysUntilDeadline } from "./src/shared/deadline-days";
 import { createCloudSingleFlight, cloudSessionKey } from "./src/shared/cloud-single-flight";
 import { teacherWorkspaceReady } from "./src/shared/teacher-workspace-ready";
@@ -26299,7 +26298,6 @@ ${rows
         inProgress: number;
         returned: number;
         extLate: number;
-        extWaiting: number;
       }
     >();
     latestDisplayedActiveCourseSubmissions.forEach((sub: any) => {
@@ -26322,7 +26320,6 @@ ${rows
         inProgress: 0,
         returned: 0,
         extLate: 0,
-        extWaiting: 0,
       };
       existing.total += 1;
       if (isTeacherReturnedSubmission(sub)) existing.returned += 1;
@@ -26363,19 +26360,7 @@ ${rows
           inProgress: 0,
           returned: 0,
           extLate: 0,
-          extWaiting: 0,
         });
-      });
-    }
-    // من منحتهم تمديداً ساري المفعول ولم يسلّموا بعد (للمشاريع فقط).
-    if (submissionSubTab !== "exams") {
-      map.forEach((card, aid) => {
-        const project = teacherProjects.find((p: any) => String(p.id) === aid);
-        if (!project) return;
-        const submittedIds = latestDisplayedActiveCourseSubmissions
-          .filter((sub: any) => String(sub.activityId || "") === aid)
-          .map((sub: any) => sub.studentId);
-        card.extWaiting = extensionsStillWaiting(project.studentExtensions, submittedIds);
       });
     }
     return Array.from(map.values());
@@ -39676,8 +39661,7 @@ ${rows
                           )}
                           <div className="miras-sub-chips mt-3 flex flex-wrap gap-1.5">
                             {card.extLate > 0 && (
-                              <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-100 px-2.5 py-1 text-[10px] font-black text-amber-800 ring-1 ring-amber-300">
-                                <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-amber-500 animate-pulse motion-reduce:animate-none" aria-hidden="true" />
+                              <span className="rounded-full bg-amber-50 px-2.5 py-1 text-[10px] font-bold text-amber-700">
                                 {card.extLate} متأخر بتمديد · بانتظار تصحيحك
                               </span>
                             )}
@@ -39686,11 +39670,7 @@ ${rows
                                 {card.pending - card.extLate} بانتظار
                               </span>
                             )}
-                            {card.extWaiting > 0 && (
-                              <span className="rounded-full bg-amber-50 px-2.5 py-1 text-[10px] font-bold text-amber-700">
-                                {card.extWaiting} لديه تمديد ولم يسلّم
-                              </span>
-                            )}
+
                             {card.returned > 0 && (
                               <span className="rounded-full bg-indigo-50 px-2.5 py-1 text-[10px] font-bold text-indigo-700">
                                 {card.returned} معاد
