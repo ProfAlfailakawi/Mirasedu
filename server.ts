@@ -22990,26 +22990,45 @@ app.post("/api/teacher/exercises/activate", (req, res) => {
     .some((item: any) => String(item.id) === String(exercise.id));
   dbInstance.addWeeklyExercise(exercise);
 
-  // التمرين الجديد يصل لجرس طلبة المقرر كما يصلهم المشروع والاختبار الجديدان.
-  const exerciseCourse = String(exercise.courseCode || exercise.sectionCode || "").trim();
-  if (!existedBefore && exerciseCourse) {
-    const revision = bumpLiveContentRevision();
-    const noticeTitle = "واجب جديد متاح";
-    const noticeBody = `تم نشر ${exercise.title || "تمرين"} لمقرر ${exerciseCourse}`;
-    const meta = {
-      exerciseId: String(exercise.id),
-      courseCode: exerciseCourse,
-      revision: String(revision),
-      link: "/",
-    };
-    rememberCourseNotification(exerciseCourse, noticeTitle, noticeBody, "exercise_available", meta);
-    notifyUsers(
-      (token) =>
-        token.role === "student" && studentTokenHasCourse(token, exerciseCourse),
-      noticeTitle,
-      noticeBody,
-      { type: "exercise_available", ...meta },
-    );
+  // التمرين الأسبوعي لا يحمل مقرراً في نموذجه (يرتبط بفصل الكتاب)، فنشتق الجمهور من
+  // مقررات الأستاذ الذي فعّله: يصل طلبة مقرراته فقط، ولا نُنبّه طلبة أستاذ آخر.
+  // إن حدّد الطلب مقرراً فيُقيَّد به (للمدير يُقبل أي مقرر).
+  if (!existedBefore) {
+    const teacherEmail = String(teacherEmailFromRequest(req) || "").toLowerCase();
+    const requestedCourse = String(exercise.courseCode || exercise.sectionCode || "").trim();
+    const ownedCodes = activeSections()
+      .map((section: any) => String(section.code || "").trim())
+      .filter(
+        (code: string) =>
+          !!code &&
+          !!teacherEmail &&
+          String(sectionOwnerEmail(code) || "").toLowerCase() === teacherEmail,
+      );
+    const targetCodes = requestedCourse
+      ? isAdminEmail(teacherEmail)
+        ? [requestedCourse]
+        : ownedCodes.filter((code: string) => sectionCodeEquivalent(code, requestedCourse))
+      : ownedCodes;
+    if (targetCodes.length) {
+      const revision = bumpLiveContentRevision();
+      const noticeTitle = "واجب جديد متاح";
+      const noticeBody = `تم نشر ${exercise.title || "تمرين أسبوعي"}`;
+      targetCodes.forEach((courseCode: string) => {
+        const meta = {
+          exerciseId: String(exercise.id),
+          courseCode,
+          revision: String(revision),
+          link: "/",
+        };
+        rememberCourseNotification(courseCode, noticeTitle, noticeBody, "exercise_available", meta);
+        notifyUsers(
+          (token) => token.role === "student" && studentTokenHasCourse(token, courseCode),
+          noticeTitle,
+          noticeBody,
+          { type: "exercise_available", ...meta },
+        );
+      });
+    }
   }
 
   return res.json({ success: true, exercise });
