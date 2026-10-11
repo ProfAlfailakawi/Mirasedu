@@ -1,5 +1,7 @@
 import { groupSecurityNotifications } from "./src/shared/security-notification-groups";
 import { studentSubmissionDisplayText } from "./src/shared/submission-display-text";
+import { watchSolutionScrollJumps, markIntentionalSolutionScrollReset, type WatchedScrollJump } from "./src/shared/scroll-jump-watcher";
+import { formatScrollJumpReport } from "./src/shared/scroll-jump-diagnostic";
 import { createCloudSingleFlight, cloudSessionKey } from "./src/shared/cloud-single-flight";
 import { teacherWorkspaceReady } from "./src/shared/teacher-workspace-ready";
 import { deviceTransferCopy } from "./src/shared/device-transfer-copy";
@@ -5674,6 +5676,22 @@ export default function App() {
     useState("");
   // «قائمة الطلبة»: ورقة سفلية كبيرة بحقل بحث واسع وتصفية (الكل/سلّموا/لم يسلّموا)، بدل حقل ضيّق في الشريط.
   const [studentNavigatorOpen, setStudentNavigatorOpen] = useState(false);
+  // تشخيص «قفزة التمرير» في شاشة الحل: لا يظهر شيء إلا إذا قفز التمرير لأعلى وحده.
+  const [scrollJumpRecords, setScrollJumpRecords] = useState<WatchedScrollJump[]>([]);
+  const [scrollJumpPanelOpen, setScrollJumpPanelOpen] = useState(false);
+  const solutionOpenForScrollWatch = !!selectedSubmissionDetail;
+  useEffect(() => {
+    if (!solutionOpenForScrollWatch) return;
+    return watchSolutionScrollJumps((record) =>
+      setScrollJumpRecords((prev) => [...prev.slice(-7), record]),
+    );
+  }, [solutionOpenForScrollWatch]);
+  const scrollJumpReportText = () =>
+    formatScrollJumpReport(scrollJumpRecords, {
+      "الجهاز": typeof navigator !== "undefined" ? navigator.userAgent : "-",
+      "وضع العرض": readMirasDisplayMode(),
+      "الشاشة": typeof window !== "undefined" ? `${window.innerWidth}x${window.innerHeight} @${window.devicePixelRatio}` : "-",
+    });
   const [studentNavigatorFilter, setStudentNavigatorFilter] = useState<"all" | "submitted" | "missing">("all");
   const [sectionFormOpen, setSectionFormOpen] = useState(false);
   const [editingSectionCode, setEditingSectionCode] = useState<string | null>(
@@ -26649,6 +26667,7 @@ ${rows
     if (typeof window === "undefined" || typeof document === "undefined")
       return;
     const run = () => {
+      markIntentionalSolutionScrollReset();
       try {
         (document.activeElement as HTMLElement | null)?.blur?.();
       } catch {}
@@ -33411,6 +33430,83 @@ ${rows
           </div>
         </div>
       )}
+
+      {selectedSubmissionDetail &&
+        scrollJumpRecords.length > 0 &&
+        typeof document !== "undefined" &&
+        createPortal(
+          <div className="fixed bottom-24 left-3 z-[100400]" dir="rtl">
+            {scrollJumpPanelOpen ? (
+              <div className="w-[min(92vw,22rem)] rounded-2xl border border-amber-200 bg-white p-3 shadow-2xl">
+                <div className="mb-2 flex items-center justify-between gap-2">
+                  <span className="text-[12px] font-black text-slate-900">تشخيص قفزة التمرير</span>
+                  <button
+                    type="button"
+                    onClick={() => setScrollJumpPanelOpen(false)}
+                    className="rounded-lg px-2 py-1 text-[12px] font-bold text-slate-500"
+                  >
+                    إغلاق
+                  </button>
+                </div>
+                <textarea
+                  readOnly
+                  data-scroll-jump-report="true"
+                  dir="auto"
+                  value={scrollJumpReportText()}
+                  onFocus={(event) => event.currentTarget.select()}
+                  className="h-40 w-full resize-none rounded-xl border border-slate-200 bg-slate-50 p-2 font-mono text-[10px] leading-4 text-slate-700"
+                />
+                <div className="mt-2 flex gap-2">
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      const text = scrollJumpReportText();
+                      try {
+                        if (!navigator.clipboard?.writeText) throw new Error("clipboard-unavailable");
+                        await navigator.clipboard.writeText(text);
+                        setSuccessMsg("تم نسخ التقرير.");
+                      } catch {
+                        // بديل: يحدّد النص كله ليُنسخ يدوياً (اضغط مطولاً ثم «نسخ»).
+                        try {
+                          const area = document.querySelector<HTMLTextAreaElement>("textarea[data-scroll-jump-report]");
+                          area?.focus();
+                          area?.select();
+                          const copied = !!area && document.execCommand?.("copy");
+                          if (copied) setSuccessMsg("تم نسخ التقرير.");
+                          else setErrorMsg("تعذر النسخ تلقائياً. النص محدد: اضغط عليه مطولاً ثم اختر «نسخ».");
+                        } catch {
+                          setErrorMsg("تعذر النسخ تلقائياً. النص محدد: اضغط عليه مطولاً ثم اختر «نسخ».");
+                        }
+                      }
+                    }}
+                    className="flex-1 rounded-xl bg-indigo-600 px-3 py-2 text-[12px] font-bold text-white"
+                  >
+                    نسخ التقرير
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setScrollJumpRecords([]);
+                      setScrollJumpPanelOpen(false);
+                    }}
+                    className="rounded-xl border border-slate-200 px-3 py-2 text-[12px] font-bold text-slate-600"
+                  >
+                    مسح
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <button
+                type="button"
+                onClick={() => setScrollJumpPanelOpen(true)}
+                className="rounded-full border border-amber-300 bg-amber-50 px-3 py-2 text-[11px] font-black text-amber-800 shadow-lg"
+              >
+                قفزة تمرير ({scrollJumpRecords.length})
+              </button>
+            )}
+          </div>,
+          document.body,
+        )}
 
       {selectedSubmissionDetail && (
         <div
