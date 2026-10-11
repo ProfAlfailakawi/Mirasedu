@@ -24,9 +24,15 @@ export function keepSolutionBottomRoom(): () => void {
 
   const setRoom = (want: boolean) => {
     if (!scroller || want === applied) return;
+    if (want) {
+      // Add exactly ROOM px to the padding the scroller already has, so the real growth equals
+      // the amount solutionNeedsBottomRoom subtracts (no add/remove flapping at the threshold).
+      const original = parseFloat(getComputedStyle(scroller).paddingBottom) || 0;
+      scroller.style.setProperty("padding-bottom", `${original + SOLUTION_BOTTOM_ROOM_PX}px`, "important");
+    } else {
+      scroller.style.removeProperty("padding-bottom");
+    }
     applied = want;
-    if (want) scroller.style.setProperty("padding-bottom", `calc(.75rem + ${SOLUTION_BOTTOM_ROOM_PX}px)`, "important");
-    else scroller.style.removeProperty("padding-bottom");
   };
   const evaluate = () => {
     frame = 0;
