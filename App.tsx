@@ -21556,7 +21556,10 @@ ${rows
         const session = captureTeacherSession();
         if (!session) return;
         const initial = teacherSubmissionInitialReadRef.current;
-        if (initial?.key === cloudSessionKey(session.email, session.token, cloudSessionGenRef.current)) await initial.promise;
+        if (initial?.key === cloudSessionKey(session.email, session.token, cloudSessionGenRef.current)) {
+          // القراءة الأولى قد تعلق أيضاً؛ لا ننتظرها أكثر من المهلة.
+          await Promise.race([initial.promise, new Promise((resolve) => window.setTimeout(resolve, 10000))]);
+        }
         if (!active || !session.isCurrent()) return;
         await fetchTeacherSubmissions(
           undefined,
