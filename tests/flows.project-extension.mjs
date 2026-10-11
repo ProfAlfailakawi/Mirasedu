@@ -91,4 +91,22 @@ await (async () => {
   check("E5c) revoked student is rejected again (403)", r.status === 403, `${r.status} ${JSON.stringify(r.data)}`);
 })();
 
+// E6: a resubmission after the teacher returned the work is never "late".
+await (async () => {
+  const ret = await api("POST", "/api/teacher/submissions/return", {
+    kind: "project", submissionId: `project-${PID}-${SID}`, activityId: PID, projectId: PID,
+    studentId: SID, returnNote: "تصحيح خطأ",
+  }, { jar: tjar, deviceToken: tdev });
+  check("E6a) teacher returned the submission", ret.ok, `${ret.status} ${JSON.stringify(ret.data).slice(0, 160)}`);
+  const r = await submit(PID, { answerText: "حل بعد الإرجاع" });
+  const sub = r.data.submission || {};
+  check("E6b) student can resubmit after return", r.ok && r.data.success === true, `${r.status} ${JSON.stringify(r.data).slice(0, 160)}`);
+  check("E6c) resubmission is NOT flagged late", sub.submittedLate === false, JSON.stringify(sub).slice(0, 220));
+  check("E6d) resubmission is NOT flagged lateByExtension", !sub.lateByExtension, JSON.stringify(sub).slice(0, 220));
+  check("E6e) resubmission is flagged resubmittedAfterReturn", sub.resubmittedAfterReturn === true, JSON.stringify(sub).slice(0, 220));
+  const retry = await submit(PID, { answerText: "حل بعد الإرجاع" });
+  const rsub = retry.data.submission || {};
+  check("E6f) an idempotent retry keeps the resubmitted-after-return state (still not late)", retry.ok && rsub.submittedLate === false && !rsub.lateByExtension && rsub.resubmittedAfterReturn === true, `${retry.status} ${JSON.stringify(rsub).slice(0, 220)}`);
+})();
+
 done();
