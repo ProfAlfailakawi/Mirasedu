@@ -1229,6 +1229,17 @@ const simplifyMirasMessage = (
   return simplified;
 };
 
+type DialogOptions = {
+  title?: string;
+  confirmLabel?: string;
+  icon?: "device";
+  preserveMessage?: boolean;
+  // مدخل كلمة مرور مخفي، وزر ثانوي يُغلق الحوار بقيمة خاصة (مثل «التأكيد بالبصمة»).
+  inputType?: "text" | "password";
+  secondaryLabel?: string;
+  secondaryValue?: string;
+};
+const MIRAS_DIALOG_PASSKEY_RETRY = "__miras_dialog_passkey_retry__";
 const compactMirasDialogMessage = (
   value: any,
   type: "confirm" | "prompt" = "confirm",
@@ -14060,7 +14071,7 @@ export default function App() {
     type: "confirm" | "prompt",
     message: string,
     defaultValue = "",
-    options: { title?: string; confirmLabel?: string; icon?: "device"; preserveMessage?: boolean } = {},
+    options: DialogOptions = {},
   ) =>
     new Promise<any>((resolve) => {
       dialogResolveRef.current = resolve;
@@ -14076,10 +14087,15 @@ export default function App() {
     if (resolver) resolver(value);
   };
 
-  const confirmAction = async (message: string, options: { title?: string; confirmLabel?: string; icon?: "device"; preserveMessage?: boolean } = {}) =>
+  const confirmAction = async (message: string, options: DialogOptions = {}) =>
     !!(await openProgramDialog("confirm", message || "هل أنت متأكد؟", "", options));
   const promptAction = async (message: string, defaultValue = "") => {
     const value = await openProgramDialog("prompt", message, defaultValue);
+    return typeof value === "string" ? value : null;
+  };
+  // يعيد القيمة الخام (نصاً أو null)، فيستطيع المستدعي تمييز زر الحوار الثانوي.
+  const promptActionWithOptions = async (message: string, options: DialogOptions) => {
+    const value = await openProgramDialog("prompt", message, "", { ...options, preserveMessage: true });
     return typeof value === "string" ? value : null;
   };
 
@@ -18485,21 +18501,27 @@ ${rows
     }
   };
 
+  // بعد تأكيد ناجح (بصمة أو كلمة مرور) لا نعيد طلب التأكيد لعشر دقائق، فحذف عدة أجهزة
+  // أو أكثر من إجراء حساس متتالٍ لا يتكرر فيه السؤال في كل مرة.
+  const ADMIN_REAUTH_WINDOW_MS = 10 * 60 * 1000;
+  const adminReauthUntilRef = useRef(0);
+  useEffect(() => {
+    adminReauthUntilRef.current = 0;
+  }, [teacherSession?.email, teacherSession?.id]);
+
   const confirmAdminPasskeyForSensitiveAction = async (
     label = "هذا الإجراء",
   ) => {
     if (!isAdminTeacher || isSafeExamBrowserSession()) return true;
+    if (Date.now() < adminReauthUntilRef.current) return true;
     setErrorMsg("");
-    setSuccessMsg(
-      `تأكيد أمني: يرجى استخدام البصمة أو تأكيد كلمة المرور قبل ${label}.`,
-    );
+    const markVerified = () => {
+      adminReauthUntilRef.current = Date.now() + ADMIN_REAUTH_WINDOW_MS;
+      return true;
+    };
 
-    let passkeySupported = false;
-    try {
-      passkeySupported = await ensurePasskeyAvailable();
-    } catch {}
-
-    if (passkeySupported) {
+    // محاولة البصمة: تعيد سبب الفشل بدل ابتلاعه، فيظهر في الحوار ويُعاد التجريب بزر.
+    const tryPasskey = async (): Promise<{ ok: boolean; reason?: string }> => {
       try {
         setPasskeyBusy(true);
         setPasskeyStatus(`تحقق أمني قبل ${label}...`);
@@ -18546,50 +18568,73 @@ ${rows
           throw new Error("البصمة لا تخص هذا الحساب.");
         }
         setPasskeyStatus("تم تأكيد البصمة.");
-        return true;
+        return { ok: true };
       } catch (e: any) {
-        console.warn(
-          "Passkey verification failed, falling back to password:",
-          e,
-        );
+        console.warn("Passkey verification failed:", e);
+        return { ok: false, reason: passkeyFriendlyError(e, "تعذّر تأكيد البصمة.") };
       } finally {
         setPasskeyBusy(false);
       }
+    };
+
+    let passkeySupported = false;
+    try {
+      passkeySupported = await ensurePasskeyAvailable(true);
+    } catch {}
+
+    let passkeyReason = "";
+    if (passkeySupported) {
+      const first = await tryPasskey();
+      if (first.ok) return markVerified();
+      passkeyReason = first.reason || "";
     }
 
-    // Password Fallback
-    const password = await promptAction(
-      `تأكيد الهوية: يرجى إدخال كلمة مرور حسابك للمتابعة مع إجراء ${label}:`,
-    );
-    if (!password) {
-      setErrorMsg("تم إلغاء الإجراء.");
-      return false;
-    }
-    try {
-      setPasskeyBusy(true);
-      setPasskeyStatus("جاري التحقق من كلمة المرور...");
-      const loginResp = await fetch("/api/auth/login", {
-        method: "POST",
-        headers: jsonHeaders({ auth: "none" }),
-        body: JSON.stringify({
-          idNumber: teacherSession?.email || teacherSession?.id,
-          password,
-        }),
-      });
-      const loginData = await loginResp.json().catch(() => ({}));
-      if (loginResp.ok) {
-        setSuccessMsg("تم تأكيد الهوية بنجاح.");
-        setErrorMsg("");
-        return true;
-      } else {
-        setErrorMsg(loginData.error || "كلمة المرور غير صحيحة.");
+    // الحوار: كلمة مرور مخفية، أو إعادة المحاولة بالبصمة بضغطة واحدة.
+    for (;;) {
+      const value = await promptActionWithOptions(
+        `${passkeyReason ? `${passkeyReason} ` : ""}اكتب كلمة مرور حسابك لإتمام ${label}${passkeySupported ? "، أو أكّد بالبصمة" : ""}.`,
+        {
+          title: "تأكيد الهوية",
+          inputType: "password",
+          secondaryLabel: passkeySupported ? "التأكيد بالبصمة" : undefined,
+          secondaryValue: MIRAS_DIALOG_PASSKEY_RETRY,
+        },
+      );
+      if (value === MIRAS_DIALOG_PASSKEY_RETRY) {
+        const retry = await tryPasskey();
+        if (retry.ok) return markVerified();
+        passkeyReason = retry.reason || "تعذّر تأكيد البصمة.";
+        continue;
+      }
+      if (!value) {
+        setErrorMsg("تم إلغاء الإجراء.");
         return false;
       }
-    } catch {
-      setErrorMsg("تعذر الاتصال بالخادم للتحقق من الهوية.");
-      return false;
-    } finally {
-      setPasskeyBusy(false);
+      try {
+        setPasskeyBusy(true);
+        setPasskeyStatus("جاري التحقق من كلمة المرور...");
+        const loginResp = await fetch("/api/auth/login", {
+          method: "POST",
+          headers: jsonHeaders({ auth: "none" }),
+          body: JSON.stringify({
+            idNumber: teacherSession?.email || teacherSession?.id,
+            password: value,
+          }),
+        });
+        const loginData = await loginResp.json().catch(() => ({}));
+        if (loginResp.ok) {
+          setSuccessMsg("تم تأكيد الهوية بنجاح.");
+          setErrorMsg("");
+          return markVerified();
+        }
+        setErrorMsg(loginData.error || "كلمة المرور غير صحيحة.");
+        return false;
+      } catch {
+        setErrorMsg("تعذر الاتصال بالخادم للتحقق من الهوية.");
+        return false;
+      } finally {
+        setPasskeyBusy(false);
+      }
     }
   };
 
@@ -18622,7 +18667,15 @@ ${rows
 
   const revokeTrustedPasskeyDevice = async (credentialId: string) => {
     if (!credentialId) return;
-    const ok = await confirmAdminPasskeyForSensitiveAction("إلغاء ثقة الجهاز");
+    // حذف بصمة جهاز: تأكيد أو إلغاء فقط، بلا كلمة مرور ولا بصمة. الجلسة موثّقة أصلاً
+    // والخادم يتحقق من صلاحية المعلم على هذا الجهاز قبل الحذف.
+    const device = passkeyTrustedDevices.find(
+      (item: any) => String(item.credentialId || item.id || "") === String(credentialId),
+    );
+    const ok = await confirmAction(
+      `حذف بصمة ${device?.userName || device?.name || "هذا الجهاز"}؟ سيحتاج صاحبها إلى تفعيلها من جديد.`,
+      { title: "حذف البصمة", confirmLabel: "حذف", preserveMessage: true },
+    );
     if (!ok) return;
     try {
       const resp = await fetch(
@@ -33992,6 +34045,8 @@ ${rows
             {dialogState.type === "prompt" && (
               <input
                 autoFocus
+                type={dialogState.inputType === "password" ? "password" : "text"}
+                autoComplete={dialogState.inputType === "password" ? "current-password" : "off"}
                 value={dialogInput}
                 onChange={(e) => setDialogInput(e.target.value)}
                 onKeyDown={(e) => {
@@ -33999,6 +34054,16 @@ ${rows
                 }}
                 className="relative mt-4 w-full rounded-2xl border border-slate-100 bg-slate-50/80 px-4 py-3 text-sm font-bold text-slate-800 outline-none transition focus:border-indigo-200 focus:bg-white focus:ring-4 focus:ring-indigo-50"
               />
+            )}
+            {dialogState.secondaryLabel && (
+              <button
+                type="button"
+                onClick={() => closeProgramDialog(dialogState.secondaryValue)}
+                className="relative mt-4 flex w-full items-center justify-center gap-2 rounded-2xl border border-emerald-100 bg-emerald-50 px-5 py-3 text-sm font-bold text-emerald-800 transition hover:bg-emerald-100"
+              >
+                <Fingerprint className="h-5 w-5" aria-hidden="true" />
+                {dialogState.secondaryLabel}
+              </button>
             )}
             <div className="relative mt-5 grid grid-cols-2 gap-2.5">
               <button
