@@ -5,6 +5,7 @@ import { formatScrollJumpReport } from "./src/shared/scroll-jump-diagnostic";
 import { keepSolutionBottomRoom } from "./src/shared/solution-scroll-room";
 import { joinCodeIssueScopeEmail as joinCodeIssueScopeEmailFor } from "./src/shared/join-code-issue-scope";
 import { notSubmittedListOpen } from "./src/shared/not-submitted-gate";
+import { daysUntilDeadline } from "./src/shared/deadline-days";
 import { createCloudSingleFlight, cloudSessionKey } from "./src/shared/cloud-single-flight";
 import { teacherWorkspaceReady } from "./src/shared/teacher-workspace-ready";
 import { deviceTransferCopy } from "./src/shared/device-transfer-copy";
@@ -24721,8 +24722,8 @@ ${rows
       return !isSubmissionFinalForStudent(prior) || isReturnedSubmissionStatus(prior?.status);
     })
     .sort((a: any, b: any) => {
-      const at = Date.parse(String(a.dueDate || "")) || Infinity;
-      const bt = Date.parse(String(b.dueDate || "")) || Infinity;
+      const at = mirasDeadlineEndMs(a.dueDate) || Infinity;
+      const bt = mirasDeadlineEndMs(b.dueDate) || Infinity;
       return at - bt;
     });
   const studentSelectedProjectId =
@@ -25282,7 +25283,7 @@ ${rows
       );
 
       // Check if it closes today or soon
-      const dueTime = act.due ? new Date(act.due).getTime() : 0;
+      const dueTime = act.due ? mirasDeadlineEndMs(act.due) : 0;
       const now = Date.now();
       const isClosesToday = act.due && act.due.startsWith(todayStr);
       const isClosesSoon =
@@ -37984,8 +37985,12 @@ ${rows
                             <div className="-mx-2 flex gap-2 overflow-x-auto px-2 pb-1" role="tablist" aria-label="مشاريعك" style={{ scrollbarWidth: "none" }}>
                               {studentOpenProjects.map((project: any) => {
                                 const extensionMs = myProjectExtensionMs(project);
-                                const dueMs = extensionMs || Date.parse(String(project.dueDate || ""));
-                                const days = Number.isFinite(dueMs) ? Math.ceil((dueMs - Date.now()) / 86400000) : null;
+                                // موعد التسليم يوم كويتي كامل: ينتهي 11:59م لا منتصف الليل UTC (3 فجراً بالكويت).
+                                const dueMs = extensionMs || mirasDeadlineEndMs(project.dueDate);
+                                // التمديد لحظة دقيقة لا نهاية يوم: يبقى التقريب للأعلى (24 ساعة = يوم).
+                                const days = extensionMs
+                                  ? Math.ceil((extensionMs - Date.now()) / 86400000)
+                                  : daysUntilDeadline(dueMs);
                                 const tone =
                                   days === null ? "bg-slate-100 text-slate-600"
                                   : days < 0 ? "bg-red-50 text-red-700"
