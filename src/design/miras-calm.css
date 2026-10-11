@@ -898,6 +898,7 @@ html[data-theme="dark"] .miras-course-ring b { color: #e2e8f0; }
 .miras-stack-bar > span { display: block; height: 100%; min-width: 0; }
 .miras-stack-bar > .is-graded { background: #10b981; }
 .miras-stack-bar > .is-pending { background: #94a3b8; }
+.miras-stack-bar > .is-ext { background: #f59e0b; }
 .miras-stack-bar > .is-returned { background: #6366f1; }
 .miras-sub-chips.miras-sub-chips > span { font-size: 0.8rem; font-weight: 700; padding: 0.2rem 0.65rem; }
 
