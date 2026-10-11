@@ -5402,6 +5402,25 @@ function activeRuntimeTeacherProjects() {
     .getTeacherProjects()
     .filter((project: any) => isActiveRecord(project));
 }
+// تمديد خاص لطالب بعينه بعد إغلاق المشروع: يُخزَّن على سجل المشروع نفسه
+// (studentExtensions) ويفتح التسليم لذلك الطالب وحده حتى وقت محدد، ويُسجَّل متأخراً.
+const PROJECT_EXTENSION_MAX_MS = 60 * 24 * 60 * 60 * 1000;
+function projectExtensionUntilMs(project: any, studentId: any): number {
+  const id = normalizeStudentId(studentId);
+  if (!id || !Array.isArray(project?.studentExtensions)) return 0;
+  const entry = project.studentExtensions.find(
+    (item: any) => normalizeStudentId(item?.studentId) === id,
+  );
+  const until = Date.parse(String(entry?.until || ""));
+  return Number.isFinite(until) && until > Date.now() ? until : 0;
+}
+// ما يراه الطالب: لا قائمة بباقي الطلبة، ووقت تمديده وحده.
+function projectForStudentView(project: any, studentId: any) {
+  if (!project || typeof project !== "object") return project;
+  const { studentExtensions, ...rest } = project;
+  const until = projectExtensionUntilMs(project, studentId);
+  return until ? { ...rest, myExtensionUntil: new Date(until).toISOString() } : rest;
+}
 function activeTeacherExams() {
   return dbInstance
     .getTeacherExams()
@@ -23492,6 +23511,9 @@ app.post("/api/teacher/projects", async (req, res) => {
   const existedBefore = dbInstance
     .getTeacherProjects()
     .some((item: any) => String(item.id) === String(project.id || ""));
+  const existingProject = dbInstance
+    .getTeacherProjects()
+    .find((item: any) => String(item.id) === String(project.id || ""));
   const saved = {
     ...project,
     id: project.id || `proj-${Date.now()}`,
@@ -23500,6 +23522,10 @@ app.post("/api/teacher/projects", async (req, res) => {
     createdBy: project.createdBy || teacherEmail || "local-teacher",
     createdAt: project.createdAt || now,
     updatedAt: now,
+    // التمديدات تُدار بمساريها الخاصين فقط؛ نسخة قديمة من المعلم لا تمسحها.
+    studentExtensions: Array.isArray(existingProject?.studentExtensions)
+      ? existingProject.studentExtensions
+      : undefined,
   };
   dbInstance.upsertTeacherProject(saved);
   if (!(await ensureDurableSync(res))) return;
@@ -23535,6 +23561,137 @@ app.post("/api/teacher/projects", async (req, res) => {
     );
   }
   return res.json({ success: true, project: saved });
+});
+
+function teacherMayManageProjectExtensions(req: express.Request, project: any): string | null {
+  const teacherEmail = teacherEmailFromRequest(req);
+  if (!teacherEmail) return null;
+  if (isAdminEmail(teacherEmail)) return teacherEmail;
+  const owns =
+    sectionOwnerEmail(project?.courseCode) === teacherEmail ||
+    String(project?.createdBy || "").toLowerCase() === teacherEmail;
+  return owns ? teacherEmail : null;
+}
+
+app.post("/api/teacher/projects/:id/extensions", async (req, res) => {
+  const project = dbInstance
+    .getTeacherProjects()
+    .find((item: any) => String(item.id) === String(req.params.id));
+  if (!project) return res.status(404).json({ error: "المشروع غير موجود." });
+  const teacherEmail = teacherMayManageProjectExtensions(req, project);
+  if (!teacherEmail)
+    return res.status(403).json({ error: "لا يمكنك تمديد مشروع لا تملكه." });
+  const studentIds: string[] = Array.isArray(req.body?.studentIds)
+    ? Array.from(
+        new Set(
+          req.body.studentIds
+            .map((value: any) => normalizeStudentId(value))
+            .filter(Boolean),
+        ),
+      ).slice(0, 300) as string[]
+    : [];
+  const untilMs = Date.parse(String(req.body?.until || ""));
+  if (!studentIds.length)
+    return res.status(400).json({ error: "اختر طالباً واحداً على الأقل." });
+  if (!Number.isFinite(untilMs) || untilMs <= Date.now())
+    return res.status(400).json({ error: "اختر وقتاً قادماً لانتهاء التمديد." });
+  if (untilMs - Date.now() > PROJECT_EXTENSION_MAX_MS)
+    return res.status(400).json({ error: "أقصى مدة للتمديد 60 يوماً." });
+  const projectCourse = String(project.courseCode || "");
+  const eligible = studentIds.filter((id) => {
+    const student = dbInstance
+      .getStudents()
+      .find((st: any) => normalizeStudentId(st.id) === id);
+    return (
+      !!student &&
+      getStudentDiscoveredCourseCodes(student).some((code: any) =>
+        sectionCodeEquivalent(code, projectCourse),
+      )
+    );
+  });
+  if (!eligible.length)
+    return res.status(400).json({ error: "الطلبة المختارون ليسوا من مقرر المشروع." });
+  const note = String(req.body?.note || "").trim().slice(0, 200);
+  const now = new Date().toISOString();
+  const until = new Date(untilMs).toISOString();
+  const kept = (Array.isArray(project.studentExtensions) ? project.studentExtensions : []).filter(
+    (item: any) => !eligible.includes(normalizeStudentId(item?.studentId)),
+  );
+  const studentExtensions = [
+    ...kept,
+    ...eligible.map((studentId) => ({
+      studentId,
+      until,
+      note,
+      grantedAt: now,
+      grantedBy: teacherEmail,
+    })),
+  ];
+  dbInstance.upsertTeacherProject({ ...project, studentExtensions, updatedAt: now });
+  if (!(await ensureDurableSync(res))) return;
+  bumpLiveContentRevision();
+  dbInstance.addActivityLog({
+    studentName: `${eligible.length} طالب`,
+    actorEmail: teacherEmail,
+    teacherEmail,
+    action: "تمديد خاص لتسليم مشروع",
+    details: `تمديد حتى ${until} لـ ${eligible.length} طالب في «${project.title || project.id}»`,
+    sectionCode: projectCourse,
+    ip: req.ip || "127.0.0.1",
+    userAgent: req.headers["user-agent"] || "Unknown",
+    os: "لوحة المعلم",
+    browser: "تمديد المشاريع",
+    isViolationWarning: false,
+  });
+  eligible.forEach((studentId) =>
+    notifyStudent(
+      studentId,
+      "تمديد خاص لمشروعك",
+      `مُنحت مهلة خاصة لتسليم «${project.title || "المشروع"}» حتى ${new Date(untilMs).toLocaleString("ar-KW", { timeZone: "Asia/Kuwait" })}. سيُسجَّل التسليم متأخراً.`,
+      {
+        type: "deadline_extension",
+        projectId: String(project.id),
+        activityId: String(project.id),
+        courseCode: projectCourse,
+        link: "/",
+      },
+    ),
+  );
+  return res.json({
+    success: true,
+    granted: eligible.length,
+    skipped: studentIds.length - eligible.length,
+    project: { ...project, studentExtensions },
+  });
+});
+
+app.delete("/api/teacher/projects/:id/extensions/:studentId", async (req, res) => {
+  const project = dbInstance
+    .getTeacherProjects()
+    .find((item: any) => String(item.id) === String(req.params.id));
+  if (!project) return res.status(404).json({ error: "المشروع غير موجود." });
+  const teacherEmail = teacherMayManageProjectExtensions(req, project);
+  if (!teacherEmail)
+    return res.status(403).json({ error: "لا يمكنك تعديل مشروع لا تملكه." });
+  const target = normalizeStudentId(req.params.studentId);
+  const before = Array.isArray(project.studentExtensions) ? project.studentExtensions : [];
+  const studentExtensions = before.filter(
+    (item: any) => normalizeStudentId(item?.studentId) !== target,
+  );
+  if (studentExtensions.length === before.length)
+    return res.json({ success: true, removed: 0, project });
+  dbInstance.upsertTeacherProject({
+    ...project,
+    studentExtensions,
+    updatedAt: new Date().toISOString(),
+  });
+  if (!(await ensureDurableSync(res))) return;
+  bumpLiveContentRevision();
+  return res.json({
+    success: true,
+    removed: 1,
+    project: { ...project, studentExtensions },
+  });
 });
 
 app.delete("/api/teacher/projects/:id", async (req, res) => {
@@ -23893,7 +24050,11 @@ app.post("/api/student/submissions", (req, res) => {
       const closeMs = mirasDeadlineEndMs(
         matchedProject.closeDate || matchedProject.dueDate || "",
       );
-      if (closeMs && Date.now() > closeMs) {
+      if (
+        closeMs &&
+        Date.now() > closeMs &&
+        !projectExtensionUntilMs(matchedProject, student.id)
+      ) {
         return res.status(403).json({
           error: "انتهى وقت التسليم. أرسل المشروع قبل نهاية تاريخ الإغلاق.",
         });
@@ -23935,6 +24096,16 @@ app.post("/api/student/submissions", (req, res) => {
     submittedLate: kind === "project" && matchedProject
       ? Date.now() > mirasDeadlineEndMs(matchedProject.dueDate || "")
       : Boolean(incoming.submittedLate),
+    // سُلِّم بعد إغلاق المشروع بتمديد خاص من المعلم: وسم مستقل عن «متأخر» العادي.
+    lateByExtension:
+      kind === "project" &&
+      !!matchedProject &&
+      (() => {
+        const closeMs = mirasDeadlineEndMs(
+          matchedProject.closeDate || matchedProject.dueDate || "",
+        );
+        return !!closeMs && Date.now() > closeMs && !!projectExtensionUntilMs(matchedProject, student.id);
+      })(),
     submittedAt: incoming.submittedAt || nowIso,
     updatedAt: nowIso,
   };
@@ -23994,9 +24165,10 @@ app.get("/api/live/student-state", (req, res) => {
   const exams = activeTeacherExams().filter((exam: any) =>
     allowed(exam.courseCode),
   );
-  const projects = activeRuntimeTeacherProjects().filter((project: any) =>
-    allowed(project.courseCode),
-  );
+  const projects = activeRuntimeTeacherProjects()
+    .filter((project: any) => allowed(project.courseCode))
+    // لا يرى الطالب قائمة التمديدات لغيره؛ يصله تمديده وحده (myExtensionUntil).
+    .map((project: any) => projectForStudentView(project, studentId));
   const submissions = activeRuntimeTeacherSubmissions().filter(
     (item: any) =>
       (!studentId || String(item.studentId || "") === studentId) &&

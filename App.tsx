@@ -252,6 +252,11 @@ const mirasDateStartMs = (value: any) => {
   const parsed = new Date(raw).getTime();
   return Number.isFinite(parsed) ? parsed : 0;
 };
+// تمديد خاص من المعلم لهذا الطالب بعد إغلاق المشروع (يصل من الخادم كـ myExtensionUntil).
+const myProjectExtensionMs = (project: any, now = Date.now()) => {
+  const until = Date.parse(String(project?.myExtensionUntil || ""));
+  return Number.isFinite(until) && until > now ? until : 0;
+};
 const mirasIsPastDeadline = (value: any, now = Date.now()) => {
   const deadline = mirasDeadlineEndMs(value);
   return !!deadline && Number.isFinite(deadline) && now > deadline;
@@ -5240,6 +5245,13 @@ export default function App() {
   };
   // فلتر «من لم يسلّم» داخل نشاط مفتوح في شاشة التسليمات.
   const [submissionNotSubmittedOpen, setSubmissionNotSubmittedOpen] = useState(false);
+  // تمديد مهلة مشروع لطلبة لم يسلّموا (يُدار من قائمة «لم يسلّموا»).
+  const [extensionSelectedIds, setExtensionSelectedIds] = useState<Record<string, boolean>>({});
+  const [extensionPickerOpen, setExtensionPickerOpen] = useState(false);
+  const [extensionPreset, setExtensionPreset] = useState<"6h" | "24h" | "3d" | "custom">("24h");
+  const [extensionCustomLocal, setExtensionCustomLocal] = useState("");
+  const [extensionNote, setExtensionNote] = useState("");
+  const [extensionBusy, setExtensionBusy] = useState(false);
   const [selectedSubmissionActivityId, setSelectedSubmissionActivityId] =
     useState<string | null>(null);
   const activeSubmissionCourseRef = useRef("");
@@ -24651,7 +24663,7 @@ ${rows
       isStudentCourseVisible(project.courseCode) &&
       // A teacher return is an explicit reopening decision. It must remain
       // visible even when the original deadline has already passed.
-      (!isProjectClosed(project) || returned || isReturnExceptionActive(prior))
+      (!isProjectClosed(project) || returned || isReturnExceptionActive(prior) || !!myProjectExtensionMs(project))
     );
   });
   // المشاريع التي ما زال للطالب عمل عليها (غير مسلَّمة نهائياً أو أُعيدت إليه)، الأقرب موعداً أولاً.
@@ -24801,7 +24813,10 @@ ${rows
         !!studentSession?.id &&
         isSubmissionClosedForStudent("project", project.id, studentSession.id);
       const closedByTime =
-        isProjectClosed(project) && !returnedExceptionOpen && !isReturned;
+        isProjectClosed(project) &&
+        !returnedExceptionOpen &&
+        !isReturned &&
+        !myProjectExtensionMs(project);
       return {
         id: project.id,
         kind: "مشروع",
@@ -26351,7 +26366,83 @@ ${rows
     : latestDisplayedActiveCourseSubmissions;
   useEffect(() => {
     setSubmissionNotSubmittedOpen(false);
+    setExtensionSelectedIds({});
+    setExtensionPickerOpen(false);
   }, [selectedSubmissionActivityId]);
+  // التمديد للمشاريع فقط (الاختبارات تتحكم فيها المراقبة وSEB وإرجاع المعلم).
+  const notSubmittedProject: any = selectedSubmissionActivityId
+    ? teacherProjects.find((p: any) => String(p.id) === String(selectedSubmissionActivityId))
+    : null;
+  const projectExtensionFor = (project: any, studentId: any) => {
+    const entry = (Array.isArray(project?.studentExtensions) ? project.studentExtensions : []).find(
+      (item: any) => String(item?.studentId || "").toLowerCase() === String(studentId || "").toLowerCase(),
+    );
+    const until = Date.parse(String(entry?.until || ""));
+    return Number.isFinite(until) && until > Date.now() ? until : 0;
+  };
+  const grantProjectExtension = async () => {
+    const project = notSubmittedProject;
+    const studentIds = Object.keys(extensionSelectedIds).filter((id) => extensionSelectedIds[id]);
+    if (!project || !studentIds.length) {
+      setErrorMsg("اختر طالباً واحداً على الأقل.");
+      return;
+    }
+    const hour = 3600000;
+    const untilMs =
+      extensionPreset === "6h" ? Date.now() + 6 * hour
+      : extensionPreset === "24h" ? Date.now() + 24 * hour
+      : extensionPreset === "3d" ? Date.now() + 72 * hour
+      : new Date(extensionCustomLocal).getTime();
+    if (!Number.isFinite(untilMs) || untilMs <= Date.now()) {
+      setErrorMsg("اختر وقتاً قادماً لانتهاء التمديد.");
+      return;
+    }
+    try {
+      setExtensionBusy(true);
+      const resp = await fetch(`/api/teacher/projects/${encodeURIComponent(project.id)}/extensions`, {
+        method: "POST",
+        headers: teacherHeaders(),
+        body: JSON.stringify({ studentIds, until: new Date(untilMs).toISOString(), note: extensionNote.trim() }),
+      });
+      const data = await resp.json().catch(() => ({}));
+      if (!resp.ok) {
+        setErrorMsg(data.error || "تعذر منح التمديد.");
+        return;
+      }
+      setTeacherProjects((prev) =>
+        prev.map((item: any) => (String(item.id) === String(project.id) ? { ...item, ...data.project } : item)),
+      );
+      setSuccessMsg(`تم منح التمديد لـ ${data.granted ?? studentIds.length} طالب حتى ${formatKwDateTime(new Date(untilMs).toISOString())}.`);
+      setExtensionSelectedIds({});
+      setExtensionPickerOpen(false);
+      setExtensionNote("");
+    } catch {
+      setErrorMsg("تعذر الاتصال بالخادم لمنح التمديد.");
+    } finally {
+      setExtensionBusy(false);
+    }
+  };
+  const revokeProjectExtension = async (studentId: string) => {
+    const project = notSubmittedProject;
+    if (!project) return;
+    try {
+      const resp = await fetch(
+        `/api/teacher/projects/${encodeURIComponent(project.id)}/extensions/${encodeURIComponent(studentId)}`,
+        { method: "DELETE", headers: teacherHeaders() },
+      );
+      const data = await resp.json().catch(() => ({}));
+      if (!resp.ok) {
+        setErrorMsg(data.error || "تعذر سحب التمديد.");
+        return;
+      }
+      setTeacherProjects((prev) =>
+        prev.map((item: any) => (String(item.id) === String(project.id) ? { ...item, ...data.project } : item)),
+      );
+      setSuccessMsg("تم سحب التمديد.");
+    } catch {
+      setErrorMsg("تعذر الاتصال بالخادم لسحب التمديد.");
+    }
+  };
   // طلبة المقرر الذين لا يوجد لهم أي تسليم/محاولة في النشاط المفتوح.
   const notSubmittedStudents: any[] = (() => {
     if (!selectedSubmissionActivityId) return [];
@@ -36802,7 +36893,7 @@ ${rows
                                               ) && (
                                                 <span className="inline-flex items-center gap-1 text-[12px] font-bold text-amber-700">
                                                   <Clock className="h-3.5 w-3.5" aria-hidden="true" />
-                                                  متأخر
+                                                  متأخر{sub?.lateByExtension ? " · بتمديد خاص" : ""}
                                                 </span>
                                               )}
                                             </div>
@@ -37475,7 +37566,8 @@ ${rows
                           {studentOpenProjects.length > 1 && (
                             <div className="-mx-2 flex gap-2 overflow-x-auto px-2 pb-1" role="tablist" aria-label="مشاريعك" style={{ scrollbarWidth: "none" }}>
                               {studentOpenProjects.map((project: any) => {
-                                const dueMs = Date.parse(String(project.dueDate || ""));
+                                const extensionMs = myProjectExtensionMs(project);
+                                const dueMs = extensionMs || Date.parse(String(project.dueDate || ""));
                                 const days = Number.isFinite(dueMs) ? Math.ceil((dueMs - Date.now()) / 86400000) : null;
                                 const tone =
                                   days === null ? "bg-slate-100 text-slate-600"
@@ -37498,7 +37590,7 @@ ${rows
                                   >
                                     <span className="w-full truncate text-xs font-black text-slate-900">{project.title}</span>
                                     <span className={`rounded-full px-2 py-0.5 text-[10px] font-extrabold ${tone}`}>
-                                      {days === null ? "بلا موعد" : days < 0 ? "متأخر" : days === 0 ? "اليوم" : `بعد ${days} يوم`}
+                                      {extensionMs ? `تمديد · ${days === 0 ? "اليوم" : `${days} يوم`}` : days === null ? "بلا موعد" : days < 0 ? "متأخر" : days === 0 ? "اليوم" : `بعد ${days} يوم`}
                                     </span>
                                   </button>
                                 );
@@ -37585,6 +37677,12 @@ ${rows
                                       </span>
                                     </div>
                                   </div>
+                                  {!!myProjectExtensionMs(project) && (
+                                    <div className="mt-3 flex items-center gap-2 rounded-2xl border border-amber-300 bg-amber-50 px-4 py-3 text-xs font-bold leading-5 text-amber-900">
+                                      <Clock className="h-4 w-4 shrink-0" aria-hidden="true" />
+                                      منحك الأستاذ تمديداً خاصاً حتى {formatKwDateTime(project.myExtensionUntil)}. سيُسجَّل تسليمك «متأخر · بتمديد خاص».
+                                    </div>
+                                  )}
                                   {mirasIsPastDeadline(project.dueDate) && !isProjectClosed(project) && (
                                     <div className="mt-3 flex items-center gap-2 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-xs font-bold leading-5 text-amber-900">
                                       <Clock className="h-4 w-4 shrink-0" aria-hidden="true" />
@@ -39321,21 +39419,122 @@ ${rows
                             </div>
                           ) : (
                             <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-                              {notSubmittedStudents.map((student: any) => (
-                                <div
-                                  key={student.id}
-                                  className="flex items-center justify-between gap-2 rounded-2xl border border-slate-100 bg-white px-3 py-2.5"
+                              {notSubmittedStudents.map((student: any) => {
+                                const extUntil = notSubmittedProject
+                                  ? projectExtensionFor(notSubmittedProject, student.id)
+                                  : 0;
+                                return (
+                                  <div
+                                    key={student.id}
+                                    className={`flex items-center gap-2 rounded-2xl border px-3 py-2.5 ${extUntil ? "border-amber-200 bg-amber-50/60" : "border-slate-100 bg-white"}`}
+                                  >
+                                    {notSubmittedProject && !extUntil && (
+                                      <input
+                                        type="checkbox"
+                                        aria-label={`تحديد ${student.name || "الطالب"} للتمديد`}
+                                        checked={!!extensionSelectedIds[String(student.id)]}
+                                        onChange={(e) =>
+                                          setExtensionSelectedIds((prev) => ({
+                                            ...prev,
+                                            [String(student.id)]: e.target.checked,
+                                          }))
+                                        }
+                                        className="h-4 w-4 shrink-0 rounded border-slate-300 text-amber-600"
+                                      />
+                                    )}
+                                    <span className="min-w-0 flex-1 text-right">
+                                      <span className="block truncate text-[12px] font-bold text-slate-900">
+                                        {student.name || "طالب"}
+                                      </span>
+                                      <span className="block font-mono text-[11px] font-bold text-indigo-700" dir="ltr">
+                                        {student.id}
+                                      </span>
+                                      {!!extUntil && (
+                                        <span className="mt-0.5 inline-flex items-center gap-1 text-[10px] font-bold text-amber-800">
+                                          <Clock className="h-3 w-3" aria-hidden="true" />
+                                          تمديد حتى {formatKwDateTime(new Date(extUntil).toISOString())}
+                                        </span>
+                                      )}
+                                    </span>
+                                    {!!extUntil && (
+                                      <button
+                                        type="button"
+                                        onClick={() => void revokeProjectExtension(String(student.id))}
+                                        className="shrink-0 rounded-full border border-amber-200 bg-white px-2.5 py-1 text-[10px] font-bold text-amber-800 hover:bg-amber-100"
+                                        title="سحب التمديد"
+                                        aria-label={`سحب تمديد ${student.name || "الطالب"}`}
+                                      >
+                                        سحب
+                                      </button>
+                                    )}
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          )}
+                          {!!notSubmittedProject && notSubmittedStudents.length > 0 && (
+                            <div className="mt-3 rounded-2xl border border-amber-200 bg-amber-50/50 p-3">
+                              <div className="flex flex-wrap items-center justify-between gap-2">
+                                <span className="text-[11px] font-bold text-amber-900">
+                                  حدّد الطلبة ثم امنحهم مهلة خاصة بعد الإغلاق؛ يُسجَّل تسليمهم «متأخر · بتمديد خاص».
+                                </span>
+                                <button
+                                  type="button"
+                                  disabled={!Object.values(extensionSelectedIds).some(Boolean)}
+                                  onClick={() => setExtensionPickerOpen((open) => !open)}
+                                  className="inline-flex items-center gap-1.5 rounded-full bg-amber-600 px-3.5 py-1.5 text-[11px] font-bold text-white transition hover:bg-amber-700 disabled:cursor-not-allowed disabled:bg-slate-200 disabled:text-slate-400"
                                 >
-                                  <span className="min-w-0 text-right">
-                                    <span className="block truncate text-[12px] font-bold text-slate-900">
-                                      {student.name || "طالب"}
-                                    </span>
-                                    <span className="block font-mono text-[11px] font-bold text-indigo-700" dir="ltr">
-                                      {student.id}
-                                    </span>
-                                  </span>
+                                  <Clock className="h-3.5 w-3.5" aria-hidden="true" />
+                                  تمديد للمحدَّدين ({Object.values(extensionSelectedIds).filter(Boolean).length})
+                                </button>
+                              </div>
+                              {extensionPickerOpen && (
+                                <div className="mt-3 space-y-2.5">
+                                  <div className="flex flex-wrap gap-1.5" role="radiogroup" aria-label="مدة التمديد">
+                                    {([
+                                      ["6h", "6 ساعات"],
+                                      ["24h", "24 ساعة"],
+                                      ["3d", "3 أيام"],
+                                      ["custom", "تاريخ محدد"],
+                                    ] as const).map(([key, label]) => (
+                                      <button
+                                        key={key}
+                                        type="button"
+                                        role="radio"
+                                        aria-checked={extensionPreset === key}
+                                        onClick={() => setExtensionPreset(key)}
+                                        className={`rounded-full border px-3 py-1.5 text-[11px] font-bold transition ${extensionPreset === key ? "border-amber-500 bg-amber-600 text-white" : "border-amber-200 bg-white text-amber-900 hover:bg-amber-100"}`}
+                                      >
+                                        {label}
+                                      </button>
+                                    ))}
+                                  </div>
+                                  {extensionPreset === "custom" && (
+                                    <input
+                                      type="datetime-local"
+                                      value={extensionCustomLocal}
+                                      onChange={(e) => setExtensionCustomLocal(e.target.value)}
+                                      aria-label="وقت انتهاء التمديد"
+                                      className="w-full rounded-2xl border border-amber-200 bg-white px-3 py-2 text-xs font-bold text-slate-800"
+                                    />
+                                  )}
+                                  <input
+                                    value={extensionNote}
+                                    onChange={(e) => setExtensionNote(e.target.value)}
+                                    maxLength={200}
+                                    placeholder="ملاحظة اختيارية للتوثيق"
+                                    className="w-full rounded-2xl border border-amber-200 bg-white px-3 py-2 text-xs font-bold text-slate-800"
+                                  />
+                                  <button
+                                    type="button"
+                                    disabled={extensionBusy}
+                                    onClick={() => void grantProjectExtension()}
+                                    className="w-full rounded-2xl bg-gradient-to-br from-amber-600 to-orange-600 px-4 py-2.5 text-xs font-bold text-white shadow-sm transition hover:brightness-110 disabled:opacity-60"
+                                  >
+                                    {extensionBusy ? "جارٍ المنح…" : "منح التمديد"}
+                                  </button>
                                 </div>
-                              ))}
+                              )}
                             </div>
                           )}
                         </div>
@@ -39457,7 +39656,7 @@ ${rows
                                   </span>
                                   {shouldDisplaySubmittedLate(sub) && (
                                     <span className="rounded-full bg-amber-50 px-2 py-1 text-[11px] font-bold text-amber-700 border border-amber-100">
-                                      متأخر
+                                      متأخر{sub?.lateByExtension ? " · بتمديد خاص" : ""}
                                     </span>
                                   )}
                                   <button
@@ -39604,7 +39803,7 @@ ${rows
                                     </span>
                                     {shouldDisplaySubmittedLate(sub) && (
                                       <span className="ms-1 inline-flex rounded-full border border-amber-100 bg-amber-50 px-2 py-1 text-[10px] font-bold text-amber-700">
-                                        متأخر
+                                        متأخر{sub?.lateByExtension ? " · بتمديد خاص" : ""}
                                       </span>
                                     )}
                                     {sub?.exitWasOffline && (

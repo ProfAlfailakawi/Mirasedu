@@ -79,6 +79,7 @@ run_group tests/flows.code-scan-retired-states.mjs tests/seed-retired-code-state
 run_group tests/flows.learning-intelligence.mjs
 run_group tests/flows.grading.mjs
 run_group tests/flows.student-submit.mjs
+run_group tests/flows.project-extension.mjs
 run_group tests/flows.quiz-grading.mjs
 run_group tests/flows.exam-create.mjs
 run_group tests/flows.notifications.mjs
