@@ -37974,7 +37974,10 @@ ${rows
                                 const extensionMs = myProjectExtensionMs(project);
                                 // موعد التسليم يوم كويتي كامل: ينتهي 11:59م لا منتصف الليل UTC (3 فجراً بالكويت).
                                 const dueMs = extensionMs || mirasDeadlineEndMs(project.dueDate);
-                                const days = daysUntilDeadline(dueMs);
+                                // التمديد لحظة دقيقة لا نهاية يوم: يبقى التقريب للأعلى (24 ساعة = يوم).
+                                const days = extensionMs
+                                  ? Math.ceil((extensionMs - Date.now()) / 86400000)
+                                  : daysUntilDeadline(dueMs);
                                 const tone =
                                   days === null ? "bg-slate-100 text-slate-600"
                                   : days < 0 ? "bg-red-50 text-red-700"
