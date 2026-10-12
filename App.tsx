@@ -27,6 +27,7 @@ import { shouldApplySubmissionCourseResponse } from "./src/shared/submission-fet
 import { dateInputValueInTimeZone } from "./src/shared/date-input";
 import { deviceAuditForDisplay } from "./src/shared/device-audit";
 import { sameTeacherIdentity } from "./src/shared/teacher-account-scope";
+import { teacherOwnsProjectSubmission } from "./src/shared/project-submission-scope";
 import {
   useState,
   useEffect,
@@ -25928,6 +25929,10 @@ ${rows
     (() => {
       if (String(sub?.kind || "").toLowerCase() !== "project") return false;
       if (!isSubmissionForActiveActivity(sub)) return false;
+      const project = teacherProjects.find(
+        (item: any) => String(item?.id || "") === String(sub?.activityId || ""),
+      );
+      if (!teacherOwnsProjectSubmission(sub, project, activeTeacherEmail(), courseOwnerEmail)) return false;
       const status = String(sub?.status || "").trim().toLowerCase();
       const isSubmitted =
         status === "submitted" ||
