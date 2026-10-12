@@ -25888,15 +25888,39 @@ ${rows
   // المحاولات الجارية والمنسحبة ومحاولات الغش لها حالات متابعة منفصلة، وليست
   // أعمالاً تنتظر رصد الدرجة؛ إدخالها هنا كان يترك رقماً عالقاً بعد التصحيح.
   const isTeacherSubmissionAwaitingGrade = (sub: any) =>
-    !isTeacherReturnedSubmission(sub) &&
-    !isExamInProgressSubmission(sub) &&
-    !isCheatingAttemptSubmission(sub) &&
-    !isWithdrawnSubmission(sub) &&
-    !sub?.teacherGradeOverride &&
-    !teacherVisibleGradeText(sub) &&
-    !isSubmissionGradeOfficiallyRecorded(sub) &&
-    !isTimeExpiredRecordedSubmission(sub) &&
-    String(sub?.status || "").trim().toLowerCase() !== "graded";
+    (() => {
+      const status = String(sub?.status || "").trim().toLowerCase();
+      const returned = isTeacherReturnedSubmission(sub);
+      const inProgress =
+        isExamInProgressSubmission(sub) ||
+        isDisconnectedInProgressSubmission(sub) ||
+        /مسودة|لم يبدأ|قيد الحل|جاري الرفع|uploading|in.progress|not.started/.test(status);
+      const hasGrade = !returned && !!(
+        sub?.teacherGradeOverride ||
+        teacherVisibleGradeText(sub) ||
+        isSubmissionGradeOfficiallyRecorded(sub) ||
+        isTimeExpiredRecordedSubmission(sub) ||
+        status === "graded"
+      );
+      const hasWork = !!(
+        returned ||
+        sub?.submittedAt ||
+        sub?.resubmittedAt ||
+        sub?.gradedAt ||
+        sub?.serverSubmissionId ||
+        (Array.isArray(sub?.attachments) && sub.attachments.length) ||
+        (sub?.answers && Object.keys(sub.answers).length) ||
+        String(sub?.answerText || "").trim()
+      );
+      return (
+        hasWork &&
+        !returned &&
+        !inProgress &&
+        !isCheatingAttemptSubmission(sub) &&
+        !isWithdrawnSubmission(sub) &&
+        !hasGrade
+      );
+    })();
   const submissionSummaryText = (sub: any) => {
     if (isTeacherReturnedSubmission(sub))
       return "تم الإرجاع؛ المحاولة مفتوحة للطالب";
