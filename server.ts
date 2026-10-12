@@ -23085,8 +23085,26 @@ function teacherPasswordResetRequestsData(req: express.Request, teacherEmail: st
           : item,
       )
       .map((item: any) => {
+        // الطلبات القديمة قد تكون سُجلت قبل تفعيل حساب الطالب، فحُفظ فيها
+        // «غير مسجل». عند عرضها نكمل الاسم من كشف المقرر أيضاً، مع أولوية
+        // الاسم الحي للحساب المسجل حتى ينعكس أي تعديل للاسم فوراً.
+        const studentId = normalizeStudentId(item.studentId);
+        const liveStudent = findStudentByUniversityId(studentId);
+        const rosterStudent = dbInstance.getAllowedStudents().find((student: any) =>
+          studentUniversityIdAliases(student).includes(studentId),
+        );
+        const resolvedName = String(
+          liveStudent?.name ||
+          rosterStudent?.name ||
+          (item.studentName === "غير مسجل" ? "" : item.studentName) ||
+          "",
+        ).trim();
         const route = studentPasswordResetRoute(item.studentId);
-        return publicPasswordResetRequest({ ...item, ...route });
+        return publicPasswordResetRequest({
+          ...item,
+          ...(resolvedName ? { studentName: resolvedName } : {}),
+          ...route,
+        });
       }),
   );
   return requests;
