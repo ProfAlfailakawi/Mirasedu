@@ -5203,6 +5203,7 @@ export default function App() {
   // تفتح التبويب ⇒ تُسجَّل "شوهد حتى العدد N" على الخادم ⇒ تختفي من كل أجهزتك
   // (هاتف وكمبيوتر معاً). يصل عنصر جديد ⇒ تعود بعدّاد صغير. لا عشوائية بعد اليوم.
   const [dockSeenCounts, setDockSeenCounts] = useState<Record<string, number>>({});
+  const [dockSeenAtMs, setDockSeenAtMs] = useState<Record<string, number>>({});
   const dockLongPressTimerRef = useRef<number | null>(null);
   const dockBadgeCountForTab = (tab: typeof teacherTab) => {
     try {
@@ -5233,22 +5234,56 @@ export default function App() {
     } catch {}
     return 0;
   };
+  const dockUnreadBadgeCountForTab = (tab: typeof teacherTab) => {
+    const seenAt = Number(dockSeenAtMs[tab] || 0);
+    if (tab === "submissions") return dockBadgeCountForTab(tab);
+    if (tab === "codes" && seenAt > 0) {
+      return (Array.isArray(joinCodesList) ? joinCodesList : []).filter(
+        (code: any) => {
+          const createdAt = new Date(code?.createdAt || code?.issuedAt || 0).getTime() || 0;
+          return createdAt > seenAt;
+        },
+      ).length;
+    }
+    if (tab === "analytics" && seenAt > 0) {
+      const attemptCount = (Array.isArray(deviceProblemAttempts) ? deviceProblemAttempts : []).filter(
+        (attempt: any) =>
+          (new Date(attempt?.timestamp || attempt?.createdAt || attempt?.updatedAt || 0).getTime() || 0) > seenAt,
+      ).length;
+      const submissionFlagCount = latestSubmissionRows(teacherSubmissions).filter(
+        (sub: any) =>
+          (sub?.isCheating || sub?.isForcedExit || sub?.hasViolation) &&
+          Math.max(
+            ...[sub?.updatedAt, sub?.createdAt, sub?.submittedAt].map(
+              (value) => new Date(value || 0).getTime() || 0,
+            ),
+          ) > seenAt,
+      ).length;
+      return attemptCount + submissionFlagCount;
+    }
+    const total = dockBadgeCountForTab(tab);
+    return Math.max(0, total - Number(dockSeenCounts[tab] ?? 0));
+  };
   const shouldShowDockBadge = (tab: typeof teacherTab) => {
-    const count = dockBadgeCountForTab(tab);
+    const count = dockUnreadBadgeCountForTab(tab);
     if (count <= 0) return false;
     // يبقى تنبيه التسليمات حتى تُرصد الدرجة، حتى بعد فتح التبويب.
     if (tab === "submissions") return true;
+    if (tab === "codes" || tab === "analytics") return true;
     return count > 0 && count > Number(dockSeenCounts[tab] ?? 0);
   };
-  const hasTeacherDockAttention =
+  const hasTeacherDockAttention = () =>
     shouldShowDockBadge("submissions") ||
     shouldShowDockBadge("codes") ||
     shouldShowDockBadge("analytics");
   const dismissDockBadge = (tab: typeof teacherTab) => {
     const count = dockBadgeCountForTab(tab);
+    const seenAt = Date.now();
     setDockSeenCounts((prev) =>
       Number(prev[tab] ?? -1) === count ? prev : { ...prev, [tab]: count },
     );
+    if (tab === "codes" || tab === "analytics")
+      setDockSeenAtMs((prev) => ({ ...prev, [tab]: seenAt }));
     // مزامنة "شوهد" عبر الأجهزة (نفس مخزن مفاتيح القراءة المتزامن).
     const teacherKey = String(
       teacherSession?.email || teacherSession?.id || "",
@@ -5261,7 +5296,10 @@ export default function App() {
         body: JSON.stringify({
           userId: teacherKey,
           role: "teacher",
-          keys: [`dock|${tab}|${count}`],
+          // Epoch timestamps distinguish "opened at this time" from the
+          // legacy count snapshot. Later inventory hydration must not revive
+          // an already-seen badge; only items created after this timestamp do.
+          keys: [`dock|${tab}|${tab === "codes" || tab === "analytics" ? seenAt : count}`],
         }),
         keepalive: true,
       }).catch(() => undefined);
@@ -5269,7 +5307,7 @@ export default function App() {
   };
   // الشارة المرئية: عدّاد صغير أنيق بنبضة ناعمة (لا وميض مزعج)، بلون التبويب.
   const renderDockBadge = (tab: typeof teacherTab, tone: string) => {
-    const count = dockBadgeCountForTab(tab);
+    const count = dockUnreadBadgeCountForTab(tab);
     if (!shouldShowDockBadge(tab)) return null;
     return (
       <span
@@ -28076,6 +28114,7 @@ ${rows
     return at ? formatKwDateTime(at) : "لا يوجد نشاط حديث";
   };
   const openCodesQuickShortcut = (target: "generate" | "manual" | "attempts" | "reset") => {
+    dismissDockBadge("codes");
     openTeacherTab("codes");
     setTeacherCodesOpen(true);
     setDockQuickMenu(null);
@@ -29219,14 +29258,18 @@ ${rows
         // فرز المفاتيح: dock|<tab>|<count> ⇒ عدّادات "شوهد" للنقاط الذكية
         // (نأخذ أعلى عدد لكل تبويب)، والبقية ⇒ مفاتيح قراءة التنبيهات.
         const dockCounts: Record<string, number> = {};
+        const dockSeenAt: Record<string, number> = {};
         const readKeys: string[] = [];
         data.seenKeys.forEach((raw: any) => {
           const k = String(raw);
           if (k.startsWith("dock|")) {
             const [, tab, n] = k.split("|");
             const num = Number(n);
-            if (tab && Number.isFinite(num))
+            if (tab && Number.isFinite(num) && num >= 100_000_000_000) {
+              dockSeenAt[tab] = Math.max(Number(dockSeenAt[tab] ?? 0), num);
+            } else if (tab && Number.isFinite(num)) {
               dockCounts[tab] = Math.max(Number(dockCounts[tab] ?? -1), num);
+            }
             return;
           }
           readKeys.push(k);
@@ -29236,6 +29279,14 @@ ${rows
             const next = { ...prev };
             Object.entries(dockCounts).forEach(([tab, n]) => {
               next[tab] = Math.max(Number(next[tab] ?? -1), n);
+            });
+            return next;
+          });
+        if (Object.keys(dockSeenAt).length)
+          setDockSeenAtMs((prev) => {
+            const next = { ...prev };
+            Object.entries(dockSeenAt).forEach(([tab, at]) => {
+              next[tab] = Math.max(Number(next[tab] ?? 0), at);
             });
             return next;
           });
@@ -38666,7 +38717,7 @@ ${rows
             <nav
               className={`miras-teacher-nav-shell miras-dock-shell-v2 teacher-orbit-dock teacher-nav-mobile ${selectedSubmissionDetail ? "hidden" : ""} ${dockShrunkRef.current ? "teacher-orbit-dock-shrunk" : ""}`}
               data-miras-dock-state={dockShrunkRef.current ? "shrunk" : "open"}
-              data-miras-dock-attention={hasTeacherDockAttention ? "true" : undefined}
+              data-miras-dock-attention={hasTeacherDockAttention() ? "true" : undefined}
               // Deliberately no onPointerDown/onTouchStart expand trigger here:
               // expanding on the same touch that starts a tap resized/shifted
               // the button under the finger mid-gesture, which is why a tap on
