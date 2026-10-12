@@ -25922,65 +25922,29 @@ ${rows
     if (String(sub.status || "").toLowerCase() === "submitted") return "مقفل بعد التسليم";
     return sub.status || "مقفل بعد التسليم";
   };
-  // يجب أن تطابق الشارة عدّاد «بانتظار الدرجة» في ملخص شاشة التسليمات.
-  // المحاولات الجارية والمنسحبة ومحاولات الغش لها حالات متابعة منفصلة، وليست
-  // أعمالاً تنتظر رصد الدرجة؛ إدخالها هنا كان يترك رقماً عالقاً بعد التصحيح.
+  // شارة التسليمات تخص المشاريع التي سلّمها الطالب فعلياً ولم تُرصد درجتها.
+  // تاريخ السجل وحده لا يثبت التسليم، والتمديد لا ينشئ تسليماً ولا يلغي تسليماً قائماً.
   const isTeacherSubmissionAwaitingGrade = (sub: any) =>
     (() => {
+      if (String(sub?.kind || "").toLowerCase() !== "project") return false;
+      if (!isSubmissionForActiveActivity(sub)) return false;
       const status = String(sub?.status || "").trim().toLowerCase();
-      const returned = isTeacherReturnedSubmission(sub);
-      const inProgress =
-        isExamInProgressSubmission(sub) ||
-        isDisconnectedInProgressSubmission(sub) ||
-        /مسودة|لم يبدأ|قيد الحل|جاري الرفع|uploading|in.progress|not.started/.test(status);
-      const hasGrade = !returned && !!(
+      const isSubmitted =
+        status === "submitted" ||
+        status === "مقفل بعد التسليم" ||
+        status === "جاهز للمراجعة";
+      if (!isSubmitted || !sub?.submittedAt) return false;
+      const hasGrade = !!(
         sub?.teacherGradeOverride ||
         teacherVisibleGradeText(sub) ||
         isSubmissionGradeOfficiallyRecorded(sub) ||
-        isTimeExpiredRecordedSubmission(sub) ||
-        status === "graded"
+        isTimeExpiredRecordedSubmission(sub)
       );
       const hasWork = !!(
-        returned ||
-        sub?.submittedAt ||
-        sub?.resubmittedAt ||
-        sub?.gradedAt ||
-        sub?.serverSubmissionId ||
         (Array.isArray(sub?.attachments) && sub.attachments.length) ||
-        (sub?.answers && Object.keys(sub.answers).length) ||
-        String(sub?.answerText || "").trim()
-      );
-      const activityId = String(sub?.activityId || sub?.projectId || "");
-      const studentId = normalizeArabicDigits(
-        String(sub?.studentId || sub?.studentIdNumber || sub?.idNumber || ""),
-      ).replace(/[^0-9]/g, "");
-      const project = String(sub?.kind || "").toLowerCase() === "project"
-        ? teacherProjects.find((item: any) => String(item?.id || "") === activityId)
-        : null;
-      const hasCurrentExtension = !!project && (Array.isArray(project.studentExtensions)
-        ? project.studentExtensions
-        : []).some((extension: any) => {
-            const extensionStudentId = normalizeArabicDigits(
-              String(extension?.studentId || ""),
-            ).replace(/[^0-9]/g, "");
-            const until = Date.parse(String(extension?.until || ""));
-            return studentId && extensionStudentId === studentId && Number.isFinite(until) && until > Date.now();
-          });
-      const hasSubmittedWork = !!(
-        sub?.serverSubmissionId ||
-        (Array.isArray(sub?.attachments) && sub.attachments.length) ||
-        (sub?.answers && Object.keys(sub.answers).length) ||
         String(sub?.answerText || sub?.fileName || sub?.fileUrl || "").trim()
       );
-      return (
-        hasWork &&
-        !returned &&
-        !inProgress &&
-        !isCheatingAttemptSubmission(sub) &&
-        !isWithdrawnSubmission(sub) &&
-        !(hasCurrentExtension && !hasSubmittedWork) &&
-        !hasGrade
-      );
+      return hasWork && !hasGrade;
     })();
   const submissionSummaryText = (sub: any) => {
     if (isTeacherReturnedSubmission(sub))
