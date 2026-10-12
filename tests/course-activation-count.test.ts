@@ -45,3 +45,25 @@ test('across courses a student activated in several is counted once; none or unk
   assert.equal(across(students, [], match), 0);
   assert.equal(across(undefined as any, [a], match), 0);
 });
+import { summarizeSectionActivation } from '../src/shared/course-activation-count';
+test('per-section activated out of roster, with a de-duplicated overall total', () => {
+  const a = 't@x:1', b = 't@x:2';
+  const students = [
+    { id: '1', activatedCourseCodes: [a, b], enrollments: [{ courseCode: a }, { courseCode: b }] },
+    { id: '2', activatedCourseCodes: [a], enrollments: [{ courseCode: a }] },
+    { id: '3', enrollments: [{ courseCode: b }] },
+  ];
+  const belongs = (s: any, code: string) => (s.enrollments || []).some((e: any) => e.courseCode === code);
+  const roster = [{ id: '1', sectionCode: a }, { id: '2', sectionCode: a }, { id: '8', sectionCode: a }, { id: '3', sectionCode: b }];
+  const r = summarizeSectionActivation({ sections: [{ code: a, name: 'أ' }, { code: b, name: 'ب' }], students, rosterEntries: roster, matches: match, belongs });
+  assert.deepEqual(r.rows.map((x) => [x.name, x.activated, x.total]), [['أ', 2, 3], ['ب', 1, 2]]);
+  assert.equal(r.activatedAll, 2);
+  assert.equal(r.totalAll, 4);
+});
+test('a section total is never below its activated count, and bad input is safe', () => {
+  const a = 't@x:1';
+  const r = summarizeSectionActivation({ sections: [{ code: a }], students: [{ id: '1', activatedCourseCodes: [a] }], rosterEntries: [], matches: match, belongs: () => false });
+  assert.deepEqual(r.rows.map((x) => [x.activated, x.total]), [[1, 1]]);
+  const empty = summarizeSectionActivation({ sections: undefined as any, students: undefined as any, rosterEntries: undefined as any, matches: match, belongs: () => false });
+  assert.deepEqual([empty.rows.length, empty.activatedAll, empty.totalAll], [0, 0, 0]);
+});

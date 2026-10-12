@@ -19,7 +19,7 @@ import { homePasswordResets } from "./src/shared/home-password-reset-requests";
 import { shouldRemoveFinishedPasswordReset } from "./src/shared/password-reset-retention";
 import { cloudDataReady } from "./src/shared/cloud-data-ready";
 import { studentSessionIssuedAt, shouldApplyStudentLockSignal } from "./src/shared/student-lock-signal";
-import { countActivatedCourseStudents, countActivatedAcrossCourses } from "./src/shared/course-activation-count";
+import { countActivatedCourseStudents, countActivatedAcrossCourses, summarizeSectionActivation } from "./src/shared/course-activation-count";
 import { gradeActivityColumnTitle, ungradedAttemptIds } from "./src/shared/submission-grading-selection";
 import { retryableCreateAttempt } from "./src/shared/retryable-create";
 import { shouldApplySubmissionCourseResponse } from "./src/shared/submission-fetch-scope";
@@ -48494,30 +48494,67 @@ ${rows
                               تفعيل فوري لملفات الطلبة يدوياً
                             </h3>
                             {(() => {
-                              // كم فعّل من طلبة المقرر: مرة واحدة لكل طالب، مقابل كشف الطلبة.
-                              const scopeCourses = isAccountAuditView ? auditCourseCodes : [activeCourseCode];
-                              const activated = countActivatedAcrossCourses(teacherStudents, scopeCourses, courseCodesMatch);
-                              const roster = isAccountAuditView ? 0 : courseStudentDirectory.length;
-                              const of = Math.max(roster, activated);
+                              // كم فعّل: إجمالي كل شعبه، ثم كل شعبة بسطر هادئ. كل طالب يُحسب مرة واحدة في الإجمالي.
+                              const summary = summarizeSectionActivation({
+                                sections: visibleTeacherSections.map((sec: any) => ({ code: sec.code, name: sec.courseName || sec.code })),
+                                students: teacherStudents,
+                                rosterEntries: allowedStudentsText
+                                  .split("\n")
+                                  .map((line) => line.split(",").map((part) => part.trim()))
+                                  .filter((parts) => parts.length >= 3)
+                                  .map((parts) => ({ id: parts[0], sectionCode: parts[2] })),
+                                matches: courseCodesMatch,
+                                belongs: studentBelongsToCourse,
+                              });
+                              const audit = isAccountAuditView;
+                              const activated = audit
+                                ? countActivatedAcrossCourses(teacherStudents, auditCourseCodes, courseCodesMatch)
+                                : summary.activatedAll;
+                              const of = audit ? 0 : summary.totalAll;
                               if (!activated && !of) return null;
-                              const showTotal = of > 0 && !isAccountAuditView;
                               const pct = of ? Math.round((activated / of) * 100) : 0;
+                              const manySections = !audit && summary.rows.length > 1;
                               return (
-                                <div
-                                  className="flex items-center gap-3"
-                                  role="img"
-                                  aria-label={showTotal ? `${activated} طالب فعّلوا من ${of}` : `${activated} طالب فعّلوا`}
-                                >
-                                  <span className="shrink-0 text-[13px] font-black text-emerald-700" data-miras-literal="true">
-                                    {activated}
-                                    <span className="ms-1 text-[10px] font-bold text-slate-400">
-                                      {showTotal ? `فعّلوا من ${of}` : "فعّلوا"}
+                                <div className="space-y-2.5">
+                                  <div
+                                    className="flex items-center gap-3"
+                                    role="img"
+                                    aria-label={of ? `${activated} طالب فعّلوا من ${of}` : `${activated} طالب فعّلوا`}
+                                  >
+                                    <span className="shrink-0 text-[13px] font-black text-emerald-700" data-miras-literal="true">
+                                      {activated}
+                                      <span className="ms-1 text-[10px] font-bold text-slate-400">
+                                        {of ? `فعّلوا من ${of}` : "فعّلوا"}
+                                      </span>
                                     </span>
-                                  </span>
-                                  {showTotal && (
-                                    <span className="h-1.5 flex-1 overflow-hidden rounded-full bg-slate-100" aria-hidden="true">
-                                      <span className="block h-full rounded-full bg-emerald-500" style={{ width: `${pct}%` }} />
-                                    </span>
+                                    {of > 0 && (
+                                      <span className="h-1.5 flex-1 overflow-hidden rounded-full bg-slate-100" aria-hidden="true">
+                                        <span className="block h-full rounded-full bg-emerald-500" style={{ width: `${pct}%` }} />
+                                      </span>
+                                    )}
+                                  </div>
+                                  {manySections && (
+                                    <ul className="max-h-48 space-y-2 overflow-y-auto rounded-2xl bg-slate-50/70 px-3 py-2.5" aria-label="التفعيل حسب الشعبة">
+                                      {summary.rows.map((row) => {
+                                        const rowPct = row.total ? Math.round((row.activated / row.total) * 100) : 0;
+                                        const isCurrent = courseCodesMatch(row.code, activeCourseCode);
+                                        return (
+                                          <li key={row.code} aria-label={`${row.name}: ${row.activated} من ${row.total}`}>
+                                            <div className="flex items-baseline justify-between gap-3">
+                                              <span className={`min-w-0 truncate text-[11px] ${isCurrent ? "font-black text-slate-900" : "font-bold text-slate-600"}`}>
+                                                {row.name}
+                                              </span>
+                                              <span className="shrink-0 text-[11px] font-black tabular-nums text-slate-500" dir="ltr" data-miras-literal="true">
+                                                {row.activated}/{row.total}
+                                              </span>
+                                            </div>
+                                            <span className="mt-1 block h-1 overflow-hidden rounded-full bg-slate-200/70" aria-hidden="true">
+                                              <span className="block h-full rounded-full bg-emerald-400" style={{ width: `${rowPct}%` }} />
+                                            </span>
+                                          </li>
+                                        );
+                                      })}
+                                    </ul>
                                   )}
                                 </div>
                               );

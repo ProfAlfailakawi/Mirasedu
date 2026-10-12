@@ -31,3 +31,39 @@ export function countActivatedAcrossCourses(
   }
   return ids.size;
 }
+
+export type SectionActivationRow = { code: string; name: string; activated: number; total: number };
+
+/**
+ * Activated students per section out of that section's roster, plus the same totals across all
+ * the sections (each student once). A section's total is its roster (names list plus known
+ * members) and never below its activated count.
+ */
+export function summarizeSectionActivation(input: {
+  sections: Array<{ code: string; name?: string }>;
+  students: any[];
+  rosterEntries: Array<{ id: any; sectionCode: any }>;
+  matches: (a: any, b: any) => boolean;
+  belongs: (student: any, courseCode: string) => boolean;
+}): { rows: SectionActivationRow[]; activatedAll: number; totalAll: number } {
+  const idOf = (value: any) => String(value ?? '').trim();
+  const students = Array.isArray(input.students) ? input.students : [];
+  const rosterEntries = Array.isArray(input.rosterEntries) ? input.rosterEntries : [];
+  const everyone = new Set<string>();
+  const rows = (Array.isArray(input.sections) ? input.sections : []).map((sec) => {
+    const ids = new Set<string>();
+    rosterEntries.forEach((entry) => {
+      const id = idOf(entry?.id);
+      if (id && input.matches(entry?.sectionCode, sec.code)) ids.add(id);
+    });
+    students.forEach((student) => {
+      const id = idOf(student?.id || student?.idNumber || student?.studentId);
+      if (id && input.belongs(student, sec.code)) ids.add(id);
+    });
+    const activated = countActivatedCourseStudents(students, sec.code, input.matches);
+    ids.forEach((id) => everyone.add(id));
+    return { code: sec.code, name: String(sec.name || sec.code), activated, total: Math.max(ids.size, activated) };
+  });
+  const activatedAll = countActivatedAcrossCourses(students, rows.map((row) => row.code), input.matches);
+  return { rows, activatedAll, totalAll: Math.max(everyone.size, activatedAll) };
+}
