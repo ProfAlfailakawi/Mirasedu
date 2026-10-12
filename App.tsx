@@ -20,6 +20,7 @@ import { shouldRemoveFinishedPasswordReset } from "./src/shared/password-reset-r
 import { cloudDataReady } from "./src/shared/cloud-data-ready";
 import { studentSessionIssuedAt, shouldApplyStudentLockSignal } from "./src/shared/student-lock-signal";
 import { countActivatedCourseStudents, summarizeSectionActivation } from "./src/shared/course-activation-count";
+import { sortStudentsByName } from "./src/shared/student-name-order";
 import { gradeActivityColumnTitle, ungradedAttemptIds } from "./src/shared/submission-grading-selection";
 import { retryableCreateAttempt } from "./src/shared/retryable-create";
 import { shouldApplySubmissionCourseResponse } from "./src/shared/submission-fetch-scope";
@@ -22110,7 +22111,7 @@ ${rows
   )
     .trim()
     .toLowerCase();
-  const filteredCourseStudentDirectory = courseStudentDirectory.filter((row: any) => {
+  const filteredCourseStudentDirectory = sortStudentsByName(courseStudentDirectory).filter((row: any) => {
     if (studentDirectoryStatus === "registered" && !row.registered) return false;
     if (studentDirectoryStatus === "roster" && row.registered) return false;
     const haystack = [row.name, row.id, row.idNumber, row.sectionCode]
@@ -48543,7 +48544,7 @@ ${rows
                               const pct = of ? Math.round((activated / of) * 100) : 0;
                               const manySections = summary.rows.length > 1;
                               return (
-                                <div className="space-y-2.5">
+                                <div className="miras-activation-summary space-y-2.5">
                                   <div
                                     className="flex items-center gap-3"
                                     role="img"
@@ -48562,7 +48563,7 @@ ${rows
                                     )}
                                   </div>
                                   {manySections && (
-                                    <ul className="max-h-48 space-y-2 overflow-y-auto rounded-2xl bg-slate-50/70 px-3 py-2.5" aria-label="التفعيل حسب الشعبة">
+                                    <ul className="max-h-48 space-y-2 overflow-y-auto rounded-2xl bg-slate-50/70 px-3 py-2.5 lg:grid lg:grid-cols-2 lg:gap-x-8 lg:gap-y-2.5 lg:space-y-0 xl:grid-cols-3" aria-label="التفعيل حسب الشعبة">
                                       {summary.rows.map((row) => {
                                         const rowPct = row.total ? Math.round((row.activated / row.total) * 100) : 0;
                                         const isCurrent = courseCodesMatch(row.code, activeCourseCode);
@@ -48587,7 +48588,7 @@ ${rows
                                 </div>
                               );
                             })()}
-                            <div className="flex flex-nowrap items-center gap-1.5 overflow-x-auto sm:gap-2" role="group" aria-label="تصفية الطلبة حسب الحالة">
+                            <div className="miras-activation-chips flex flex-nowrap items-center gap-1.5 overflow-x-auto sm:gap-2" role="group" aria-label="تصفية الطلبة حسب الحالة">
                               <span className="inline-flex shrink-0 items-center whitespace-nowrap rounded-2xl bg-indigo-50 px-2.5 py-1.5 text-[11px] font-bold text-indigo-700 sm:px-3">
                                 {scopedTeacherStudents.length} طالب
                               </span>
