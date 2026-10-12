@@ -661,7 +661,10 @@ html body .miras-segbar-legend span span.font-sans {
   width: 2.6rem;
   height: 2.6rem;
   border-radius: 999px;
-  background: conic-gradient(var(--calm-ok) calc(var(--p, 0) * 1%), var(--miras-line) 0);
+  /* أخضر = مصحَّح، رمادي = ينتظر رصدك، كهرماني منقّط = فُتح له الباب ولم يسلّم */
+  background:
+    conic-gradient(var(--calm-ok) calc(var(--p, 0) * 1%), var(--miras-line) 0 calc(var(--q, 100) * 1%), transparent 0),
+    repeating-conic-gradient(#f59e0b 0 6deg, var(--miras-line) 0 12deg);
 }
 .miras-ratio-ring::before {
   content: "";
