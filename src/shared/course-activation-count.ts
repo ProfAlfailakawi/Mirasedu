@@ -1,3 +1,16 @@
+/** Whether one student is activated in one course (no allocations, so callers can scan freely). */
+function isActivatedInCourse(student: any, courseCode: string, matches: (a: any, b: any) => boolean): boolean {
+  if ((Array.isArray(student?.removedCourseLinks) ? student.removedCourseLinks : []).some((link: any) => link && !link.restoredAt && link.status !== 'restored' && matches(link.courseCode || link.sectionCode, courseCode))) return false;
+  const explicit = (Array.isArray(student?.activatedCourseCodes) ? student.activatedCourseCodes : []).some((code: any) => matches(code, courseCode));
+  if (explicit) return true;
+  return (Array.isArray(student?.enrollments) ? student.enrollments : []).some((entry: any) =>
+    entry && matches(entry.courseCode || entry.sectionCode, courseCode) &&
+    !entry.pendingActivation && !entry.requiresJoinCode && !entry.rosterOnly &&
+    !['pending_activation','roster_only','removed','not_enrolled'].includes(String(entry.enrollmentState || entry.status || '').toLowerCase()) &&
+    (entry.isActive === true || entry.enrollmentState === 'active' || !!entry.activatedAt || !!entry.reactivatedAt),
+  );
+}
+
 /** Read-only indicator; activation and access rules remain on the server. */
 export function countActivatedCourseStudents(
   students: any[], courseCode: string, matches: (a: any, b: any) => boolean,
@@ -6,15 +19,7 @@ export function countActivatedCourseStudents(
   for (const student of Array.isArray(students) ? students : []) {
     const id = String(student?.id || student?.idNumber || student?.studentId || '').trim();
     if (!id) continue;
-    if ((Array.isArray(student.removedCourseLinks) ? student.removedCourseLinks : []).some((link: any) => link && !link.restoredAt && link.status !== 'restored' && matches(link.courseCode || link.sectionCode, courseCode))) continue;
-    const explicit = (Array.isArray(student.activatedCourseCodes) ? student.activatedCourseCodes : []).some((code: any) => matches(code, courseCode));
-    const enrolled = (Array.isArray(student.enrollments) ? student.enrollments : []).some((entry: any) =>
-      entry && matches(entry.courseCode || entry.sectionCode, courseCode) &&
-      !entry.pendingActivation && !entry.requiresJoinCode && !entry.rosterOnly &&
-      !['pending_activation','roster_only','removed','not_enrolled'].includes(String(entry.enrollmentState || entry.status || '').toLowerCase()) &&
-      (entry.isActive === true || entry.enrollmentState === 'active' || !!entry.activatedAt || !!entry.reactivatedAt),
-    );
-    if (explicit || enrolled) ids.add(id);
+    if (isActivatedInCourse(student, courseCode, matches)) ids.add(id);
   }
   return ids.size;
 }
@@ -27,7 +32,7 @@ export function countActivatedAcrossCourses(
   for (const student of Array.isArray(students) ? students : []) {
     const id = String(student?.id || student?.idNumber || student?.studentId || '').trim();
     if (!id) continue;
-    if ((Array.isArray(courseCodes) ? courseCodes : []).some((code) => countActivatedCourseStudents([student], code, matches) > 0)) ids.add(id);
+    if ((Array.isArray(courseCodes) ? courseCodes : []).some((code) => isActivatedInCourse(student, code, matches))) ids.add(id);
   }
   return ids.size;
 }

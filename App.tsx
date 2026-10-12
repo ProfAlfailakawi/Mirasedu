@@ -21910,6 +21910,27 @@ ${rows
   useEffect(() => {
     setDeviceBatchSelection({});
   }, [activeCourseCode, scopedOwnerEmail, isAccountAuditView, teacherSession?.email]);
+  // تفعيل الطلبة لكل شعبة وللإجمالي: يُحسب عند فتح تبويب «تفعيل» فقط، ويُعاد حسابه إذا تغيّرت البيانات لا مع كل ضغطة بحث.
+  const manualActivationSummary = useMemo(() => {
+    if (teacherTab !== "codes" || codesSubTab !== "manual") return null;
+    const summary = summarizeSectionActivation({
+      sections: isAccountAuditView
+        ? []
+        : visibleTeacherSections.map((sec: any) => ({ code: sec.code, name: sec.courseName || sec.code })),
+      students: teacherStudents,
+      rosterEntries: allowedStudentsText
+        .split("\n")
+        .map((line) => line.split(",").map((part) => part.trim()))
+        .filter((parts) => parts.length >= 3)
+        .map((parts) => ({ id: parts[0], sectionCode: parts[2] })),
+      matches: courseCodesMatch,
+      belongs: studentBelongsToCourse,
+    });
+    const auditActivated = isAccountAuditView
+      ? countActivatedAcrossCourses(teacherStudents, auditCourseCodes, courseCodesMatch)
+      : 0;
+    return { summary, auditActivated };
+  }, [teacherTab, codesSubTab, isAccountAuditView, visibleTeacherSections, teacherStudents, allowedStudentsText, auditCourseCodes]);
   const manualActivationStatusOf = (student: any): "active" | "pending" | "blocked" =>
     student.isAccessBlocked || accessStoppedIds[String(student.id)]
       ? "blocked"
@@ -48495,21 +48516,10 @@ ${rows
                             </h3>
                             {(() => {
                               // كم فعّل: إجمالي كل شعبه، ثم كل شعبة بسطر هادئ. كل طالب يُحسب مرة واحدة في الإجمالي.
-                              const summary = summarizeSectionActivation({
-                                sections: visibleTeacherSections.map((sec: any) => ({ code: sec.code, name: sec.courseName || sec.code })),
-                                students: teacherStudents,
-                                rosterEntries: allowedStudentsText
-                                  .split("\n")
-                                  .map((line) => line.split(",").map((part) => part.trim()))
-                                  .filter((parts) => parts.length >= 3)
-                                  .map((parts) => ({ id: parts[0], sectionCode: parts[2] })),
-                                matches: courseCodesMatch,
-                                belongs: studentBelongsToCourse,
-                              });
+                              if (!manualActivationSummary) return null;
+                              const { summary, auditActivated } = manualActivationSummary;
                               const audit = isAccountAuditView;
-                              const activated = audit
-                                ? countActivatedAcrossCourses(teacherStudents, auditCourseCodes, courseCodesMatch)
-                                : summary.activatedAll;
+                              const activated = audit ? auditActivated : summary.activatedAll;
                               const of = audit ? 0 : summary.totalAll;
                               if (!activated && !of) return null;
                               const pct = of ? Math.round((activated / of) * 100) : 0;
