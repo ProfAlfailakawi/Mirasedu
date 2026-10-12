@@ -5206,11 +5206,30 @@ export default function App() {
   const dockLongPressTimerRef = useRef<number | null>(null);
   const dockBadgeCountForTab = (tab: typeof teacherTab) => {
     try {
-      if (tab === "students") return Number(pendingActivationRows?.length || 0);
+      if (tab === "sections") return Number(visibleTeacherSections?.length || 0);
+      if (tab === "students") {
+        const studentIds = new Set(
+          (Array.isArray(teacherStudents) ? teacherStudents : [])
+            .map((student: any) => normalizeArabicDigits(
+              String(student?.id || student?.idNumber || student?.studentId || student?.universityId || "").trim(),
+            ).replace(/\D/g, ""))
+            .filter(Boolean),
+        );
+        return studentIds.size;
+      }
+      if (tab === "questions") return Number(
+        (teacherQuestions?.length || 0) +
+        (teacherCreatedExams?.length || 0) +
+        (teacherProjects?.length || 0),
+      );
       if (tab === "submissions") return Number(latestSubmissionRows(teacherSubmissions).filter((sub: any) => !teacherVisibleGradeText(sub) && !isTeacherReturnedSubmission(sub)).length || 0);
-      if (tab === "codes") return Number((actionablePasswordResetRequests?.length || 0) + (deviceProblemAttempts?.length || 0));
-      if (tab === "analytics") return Number((deviceProblemAttempts?.length || 0) + (livePulseStudentRows || []).filter((row: any) => row?.isCheating || row?.isForcedExit || row?.hasViolation).length || 0);
-      // "questions" لا نقطة له: وجود اختبارات اليوم ليس عنصراً جديداً يحتاج تصرفاً.
+      if (tab === "codes") return Number(joinCodesList?.length || 0);
+      if (tab === "analytics") {
+        const submissionFlags = latestSubmissionRows(teacherSubmissions).filter(
+          (sub: any) => sub?.isCheating || sub?.isForcedExit || sub?.hasViolation,
+        ).length;
+        return Number((deviceProblemAttempts?.length || 0) + submissionFlags);
+      }
     } catch {}
     return 0;
   };
@@ -5243,15 +5262,14 @@ export default function App() {
   };
   // الشارة المرئية: عدّاد صغير أنيق بنبضة ناعمة (لا وميض مزعج)، بلون التبويب.
   const renderDockBadge = (tab: typeof teacherTab, tone: string) => {
-    if (!shouldShowDockBadge(tab)) return null;
     const count = dockBadgeCountForTab(tab);
-    const fresh = count - Number(dockSeenCounts[tab] ?? 0);
     return (
       <span
-        className={`absolute -left-1.5 -top-1.5 z-10 flex h-[1.15rem] min-w-[1.15rem] items-center justify-center rounded-full px-1 text-[8.5px] font-black text-white shadow-md ring-2 ring-white ${tone}`}
+        title={`${count.toLocaleString("en-US")} إجمالي`}
+        aria-hidden="true"
+        className={`pointer-events-none absolute -right-1 -top-1 z-10 flex h-[1.1rem] min-w-[1.1rem] items-center justify-center rounded-full px-1 text-[8px] font-black text-white shadow-md ring-2 ring-white ${tone}`}
       >
-        <span className={`absolute inline-flex h-full w-full animate-pulse rounded-full ${tone} opacity-40`}></span>
-        <span className="relative tabular-nums" dir="ltr">{fresh > 9 ? "9+" : fresh}</span>
+        <span className="relative tabular-nums" dir="ltr">{count > 99 ? "99+" : count.toLocaleString("en-US")}</span>
       </span>
     );
   };
@@ -9073,13 +9091,16 @@ export default function App() {
       const auditTab = ["codes", "analytics"].includes(teacherTabRef.current);
       const admin = String(teacherSession.role) === "admin";
       if (!admin) setMirasRadarAllowed(false);
-      // Dock badges and command search need every course, before scoped polling.
+      // Dock totals and command search need every course, before scoped polling.
       const submissions = fetchTeacherSubmissions(undefined, undefined, email, { allCourses: true });
       teacherSubmissionInitialReadRef.current = {
         key: cloudSessionKey(email, session.token, cloudSessionGenRef.current), promise: submissions,
       };
       void Promise.allSettled([
         submissions,
+        fetchQuestionBank(email),
+        fetchTeacherExams(email),
+        fetchTeacherProjects(email),
         ...(!auditTab ? [fetchJoinCodes(email, { includeRetired: false }), fetchCodeIntegrity(email)] : []),
         ...(admin ? [fetchMirasRadar(), loadTeacherAccounts()] : []),
       ]);
@@ -21587,9 +21608,9 @@ ${rows
         if (!active || !session.isCurrent()) return;
         await fetchTeacherSubmissions(
           undefined,
-          activeCourseCode,
+          teacherTab === "submissions" ? undefined : activeCourseCode,
           teacherSession?.email,
-          { signal: controller.signal },
+          { signal: controller.signal, allCourses: teacherTab === "submissions" },
         );
         // محاولات التسليم بعد الإغلاق تُسجَّل على المشروع نفسه، فنحدّثه مع التسليمات في شاشة التسليمات.
         if (active && session.isCurrent() && teacherTab === "submissions") {
@@ -21651,7 +21672,7 @@ ${rows
           calls.push(fetchReports());
         } else if (teacherTab === "submissions") {
           calls.push(fetchReports(), fetchTeacherProjects(teacherSession?.email), fetchTeacherExams(teacherSession?.email));
-          calls.push(fetchTeacherSubmissions(undefined, activeCourseCode, teacherSession?.email));
+          calls.push(fetchTeacherSubmissions(undefined, undefined, teacherSession?.email, { allCourses: true }));
         } else if (teacherTab === "textbook") {
           calls.push(fetchChapters());
         } else if (teacherTab === "questions") {
@@ -28083,6 +28104,7 @@ ${rows
           Icon: Compass,
           reveal: "teacher-teaching",
           onClick: () => openTeacherDockTab("sections"),
+          badgeTone: "bg-indigo-500",
         })}
         {navItem({
           tab: "students",
