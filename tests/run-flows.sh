@@ -139,6 +139,8 @@ node node_modules/.bin/tsx --test tests/scroll-jump-diagnostic.test.ts || overal
 node node_modules/.bin/tsx --test tests/solution-scroll-room.test.ts || overall=1
 node node_modules/.bin/tsx --test tests/waiting-on-teacher.test.ts || overall=1
 node node_modules/.bin/tsx --test tests/student-name-order.test.ts || overall=1
+node node_modules/.bin/tsx --test tests/retryable-workflows.test.ts || overall=1
+node node_modules/.bin/tsx --test tests/submission-grading-selection.test.ts || overall=1
 node node_modules/.bin/tsx --test tests/flows.demo-orphan.mjs || overall=1
 node node_modules/.bin/tsx --test tests/flows.demo-coursework.mjs || overall=1
 node node_modules/.bin/tsx --test tests/flows.demo-screens.mjs || overall=1
