@@ -242,7 +242,7 @@ test('optional login readers wait for an interactive teacher workspace and rejec
    teacherTabRef: { current: scenario === 'audit' ? 'codes' : 'home' }, localStorage: { getItem: () => null },
    setAvailableChapters: () => {}, setTeacherQuestions: () => {}, setMirasRadarAllowed: () => {},
    useEffect: fn => fn() };
-  for (const name of ['fetchTeacherSubmissions', 'fetchJoinCodes', 'fetchCodeIntegrity', 'fetchMirasRadar', 'loadTeacherAccounts', 'fetchTrustedPasskeyDevices']) {
+  for (const name of ['fetchTeacherSubmissions', 'fetchQuestionBank', 'fetchTeacherExams', 'fetchTeacherProjects', 'fetchJoinCodes', 'fetchCodeIntegrity', 'fetchMirasRadar', 'loadTeacherAccounts', 'fetchTrustedPasskeyDevices']) {
    context[name] = async () => calls.push(name);
   }
   const mount = await compile(`const mountOptional = () => { ${effect} };`, 'mountOptional', context);
@@ -250,8 +250,8 @@ test('optional login readers wait for an interactive teacher workspace and rejec
   scheduler.frame(); scheduler.frame(); assert.deepEqual(calls, []);
   if (scenario === 'old-session') current = false;
   scheduler.tasks();
-  const expected = scenario === 'ready' ? ['fetchTeacherSubmissions', 'fetchJoinCodes', 'fetchCodeIntegrity', 'fetchMirasRadar', 'loadTeacherAccounts'] :
-   scenario === 'audit' ? ['fetchTeacherSubmissions', 'fetchMirasRadar', 'loadTeacherAccounts'] : [];
+  const expected = scenario === 'ready' ? ['fetchTeacherSubmissions', 'fetchQuestionBank', 'fetchTeacherExams', 'fetchTeacherProjects', 'fetchJoinCodes', 'fetchCodeIntegrity', 'fetchMirasRadar', 'loadTeacherAccounts'] :
+   scenario === 'audit' ? ['fetchTeacherSubmissions', 'fetchQuestionBank', 'fetchTeacherExams', 'fetchTeacherProjects', 'fetchMirasRadar', 'loadTeacherAccounts'] : [];
   assert.deepEqual(calls, expected, scenario);
  }
 });
