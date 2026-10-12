@@ -1673,16 +1673,23 @@ const STUDENT_NOTICE_TONE_CLASSES: Record<
 };
 
 // حلقة نسبة منجَز/إجمالي (مصحح/تسليمات) من أرقام موجودة أصلاً على الشاشة.
-const MirasRatioRing = ({ done, total }: { done: number; total: number }) => {
+// حلقة «مصحَّح من المُسلَّم». من فُتح لهم الباب ولم يسلّموا يظهرون قوساً كهرمانياً منقّطاً رفيعاً
+// بعد القوس الأخضر، لا في الرقم: الرقم يبقى صادقاً (مصحَّح/تسليمات) والقوس يقول «في الطريق».
+const MirasRatioRing = ({ done, total, expected = 0 }: { done: number; total: number; expected?: number }) => {
   const t = Math.max(0, Number(total) || 0);
   const d = Math.max(0, Math.min(t, Number(done) || 0));
-  const pct = t ? Math.round((d / t) * 100) : 0;
+  const e = Math.max(0, Number(expected) || 0);
+  // شريحة «في الطريق» لها حدّ أدنى مرئي (14%) حتى لا تضيع عند عدد صغير؛ الأرقام تبقى كما هي.
+  const amberShare = e > 0 ? (t === 0 ? 100 : Math.min(100, Math.max(14, Math.round((e / (t + e)) * 100)))) : 0;
+  const submittedEnd = 100 - amberShare;
+  const pct = t ? Math.round((d / t) * submittedEnd) : 0;
   return (
     <span
       className="miras-ratio-ring"
-      style={{ ["--p" as any]: pct }}
+      style={{ ["--p" as any]: pct, ["--q" as any]: submittedEnd }}
       role="img"
-      aria-label={`${d} / ${t}`}
+      aria-label={e ? `${d} / ${t} · ${e} فُتح لهم الباب ولم يسلّموا` : `${d} / ${t}`}
+      title={e ? `${d} مصحَّح من ${t} تسليم · ${e} فُتح لهم الباب ولم يسلّموا` : undefined}
     >
       <span dir="ltr">
         {d}/{t}
@@ -39661,7 +39668,7 @@ ${rows
                             </div>
                             <div className="flex shrink-0 flex-col items-center gap-1.5">
                               <span className="relative inline-flex">
-                                <MirasRatioRing done={card.graded} total={card.total + card.expected} />
+                                <MirasRatioRing done={card.graded} total={card.total} expected={card.expected} />
                                 {card.waiting > 0 && (
                                   <span
                                     title="مسجَّلون لم يسلّموا بعد انتهاء الوقت"
@@ -39776,7 +39783,7 @@ ${rows
                                 )}
                               </button>
                               )}
-                              <MirasRatioRing done={cur.graded} total={cur.total + cur.expected} />
+                              <MirasRatioRing done={cur.graded} total={cur.total} expected={cur.expected} />
                             </span>
                           ) : null;
                         })()}
