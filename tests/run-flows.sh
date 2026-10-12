@@ -130,6 +130,14 @@ node node_modules/.bin/tsx --test tests/teacher-notification-delivery.test.mjs |
 node node_modules/.bin/tsx --test tests/teacher-notification-feed.test.mjs || overall=1
 node node_modules/.bin/tsx --test tests/course-activation-count.test.ts || overall=1
 node node_modules/.bin/tsx --test tests/submission-display-text.test.ts || overall=1
+node node_modules/.bin/tsx --test tests/deadline-days.test.ts || overall=1
+node node_modules/.bin/tsx --test tests/dialog-message.test.mjs || overall=1
+node node_modules/.bin/tsx --test tests/join-code-issue-scope.test.ts || overall=1
+node node_modules/.bin/tsx --test tests/late-attempts.test.ts || overall=1
+node node_modules/.bin/tsx --test tests/not-submitted-gate.test.ts || overall=1
+node node_modules/.bin/tsx --test tests/scroll-jump-diagnostic.test.ts || overall=1
+node node_modules/.bin/tsx --test tests/solution-scroll-room.test.ts || overall=1
+node node_modules/.bin/tsx --test tests/waiting-on-teacher.test.ts || overall=1
 node node_modules/.bin/tsx --test tests/flows.demo-orphan.mjs || overall=1
 node node_modules/.bin/tsx --test tests/flows.demo-coursework.mjs || overall=1
 node node_modules/.bin/tsx --test tests/flows.demo-screens.mjs || overall=1
