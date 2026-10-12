@@ -2523,19 +2523,20 @@ export class LocalDatabase {
             },
           },
         };
+        const objectName = `submission-attachments/${fileId}`;
         await Promise.race([
           srcPath
             ? // بثّ مباشر من القرص (bucket.upload يبثّ بمقاطع صغيرة): ذروة الذاكرة
               // شبه صفرية مهما كبر الملف — لا base64 ولا Buffer كامل إطلاقاً.
               dbBucket.upload(srcPath, {
-                destination: `submission-attachments/${fileId}`,
+                destination: objectName,
                 // رفع مباشر بطلب واحد حتى ٣٢م.ب (حدّنا ٥٠م.ب): البروتوكول
                 // القابل للاستئناف يضيف رحلات HTTP إضافية تبطئ الملفات المتوسطة.
                 resumable: sizeBytes > 32 * 1024 * 1024,
                 ...gcsMeta,
               })
             : dbBucket
-                .file(`submission-attachments/${fileId}`)
+                .file(objectName)
                 .save(Buffer.from(base64, "base64"), {
                   resumable: base64.length > 10 * 1024 * 1024,
                   ...gcsMeta,
@@ -2544,6 +2545,14 @@ export class LocalDatabase {
             setTimeout(() => reject(new Error("gcs-save-timeout")), 45_000),
           ),
         ]);
+        // The teacher opens the same object URL later to preview the student's
+        // submission. Do not report a successful upload until GCS confirms the
+        // object exists with the complete expected size.
+        const [metadata] = await dbBucket.file(objectName).getMetadata();
+        const savedSize = Number((metadata as any)?.size || 0);
+        if (sizeBytes > 0 && savedSize !== sizeBytes) {
+          throw new Error(`gcs-save-size-mismatch:${savedSize}/${sizeBytes}`);
+        }
         console.log(
           `🪣 attachment ${fileId} ${srcPath ? "streamed" : "saved"} to Cloud Storage (${Math.round(sizeBytes / 1024)}KB)`,
         );
