@@ -19,7 +19,7 @@ import { homePasswordResets } from "./src/shared/home-password-reset-requests";
 import { shouldRemoveFinishedPasswordReset } from "./src/shared/password-reset-retention";
 import { cloudDataReady } from "./src/shared/cloud-data-ready";
 import { studentSessionIssuedAt, shouldApplyStudentLockSignal } from "./src/shared/student-lock-signal";
-import { countActivatedCourseStudents, countActivatedAcrossCourses, summarizeSectionActivation } from "./src/shared/course-activation-count";
+import { countActivatedCourseStudents, summarizeSectionActivation } from "./src/shared/course-activation-count";
 import { gradeActivityColumnTitle, ungradedAttemptIds } from "./src/shared/submission-grading-selection";
 import { retryableCreateAttempt } from "./src/shared/retryable-create";
 import { shouldApplySubmissionCourseResponse } from "./src/shared/submission-fetch-scope";
@@ -21920,10 +21920,18 @@ ${rows
   // تفعيل الطلبة لكل شعبة وللإجمالي: يُحسب عند فتح تبويب «تفعيل» فقط، ويُعاد حسابه إذا تغيّرت البيانات لا مع كل ضغطة بحث.
   const manualActivationSummary = useMemo(() => {
     if (teacherTab !== "codes" || codesSubTab !== "manual") return null;
-    const summary = summarizeSectionActivation({
-      sections: isAccountAuditView
-        ? []
-        : visibleTeacherSections.map((sec: any) => ({ code: sec.code, name: sec.courseName || sec.code })),
+    // المدير: «كل الحسابات» لا يعرض هذا الملخص (الخانات تكفي)، واختيار نفسه أو دكتور آخر يعرض شُعبه بنفس أسلوب المعلم.
+    const sections = (isAccountAuditView
+      ? teacherSections.filter(
+          (sec: any) =>
+            scopedOwnerEmail !== "all" &&
+            isSameTeacherIdentity(courseOwnerEmail(sec.code), scopedOwnerEmail),
+        )
+      : visibleTeacherSections
+    ).map((sec: any) => ({ code: sec.code, name: sec.courseName || sec.code }));
+    if (!sections.length) return null;
+    return summarizeSectionActivation({
+      sections,
       students: teacherStudents,
       rosterEntries: allowedStudentsText
         .split("\n")
@@ -21933,11 +21941,7 @@ ${rows
       matches: courseCodesMatch,
       belongs: studentBelongsToCourse,
     });
-    const auditActivated = isAccountAuditView
-      ? countActivatedAcrossCourses(teacherStudents, auditCourseCodes, courseCodesMatch)
-      : 0;
-    return { summary, auditActivated };
-  }, [teacherTab, codesSubTab, isAccountAuditView, visibleTeacherSections, teacherStudents, allowedStudentsText, auditCourseCodes]);
+  }, [teacherTab, codesSubTab, isAccountAuditView, scopedOwnerEmail, teacherSections, visibleTeacherSections, teacherStudents, allowedStudentsText]);
   const manualActivationStatusOf = (student: any): "active" | "pending" | "blocked" =>
     student.isAccessBlocked || accessStoppedIds[String(student.id)]
       ? "blocked"
@@ -48524,24 +48528,23 @@ ${rows
                             {(() => {
                               // كم فعّل: إجمالي كل شعبه، ثم كل شعبة بسطر هادئ. كل طالب يُحسب مرة واحدة في الإجمالي.
                               if (!manualActivationSummary) return null;
-                              const { summary, auditActivated } = manualActivationSummary;
-                              const audit = isAccountAuditView;
-                              const activated = audit ? auditActivated : summary.activatedAll;
-                              const of = audit ? 0 : summary.totalAll;
+                              const summary = manualActivationSummary;
+                              const activated = summary.activatedAll;
+                              const of = summary.totalAll;
                               if (!activated && !of) return null;
                               const pct = of ? Math.round((activated / of) * 100) : 0;
-                              const manySections = !audit && summary.rows.length > 1;
+                              const manySections = summary.rows.length > 1;
                               return (
                                 <div className="space-y-2.5">
                                   <div
                                     className="flex items-center gap-3"
                                     role="img"
-                                    aria-label={of ? `${activated} طالب فعّلوا من ${of}` : `${activated} طالب فعّلوا`}
+                                    aria-label={`${activated} طالب فعّلوا من ${of}`}
                                   >
                                     <span className="shrink-0 text-[13px] font-black text-emerald-700" data-miras-literal="true">
                                       {activated}
                                       <span className="ms-1 text-[10px] font-bold text-slate-400">
-                                        {of ? `فعّلوا من ${of}` : "فعّلوا"}
+                                        {`فعّلوا من ${of}`}
                                       </span>
                                     </span>
                                     {of > 0 && (
