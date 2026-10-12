@@ -1269,7 +1269,15 @@ const compactMirasDialogMessage = (
     if (/اسم/.test(text)) return "الاسم";
     return text.length > 28 ? "اكتب المطلوب" : text;
   }
-  if (/حذف/.test(text)) {
+  // «لن يتم حذف بياناته» تنفي الحذف: لا تجعلها رسالة حذف.
+  const asksDelete = /حذف/.test(
+    text.replace(/(?:ولن|لن|لا|دون|بدون)\s+(?:يتم\s+)?حذف[^.،؟]*/g, ""),
+  );
+  // تعطيل دخول الطالب إلى مقرر واحد: الطالب يبقى مسجلًا، وليس حذفًا ولا إيقاف حسابه كله.
+  if (!asksDelete && /(?:تعطيل|إيقاف)/.test(text) && /الطالب/.test(text) && /المقرر/.test(text)) {
+    return "إيقاف الطالب في هذا المقرر؟";
+  }
+  if (asksDelete) {
     if (/طالب/.test(text)) return "حذف الطالب؟";
     if (/مشروع/.test(text)) return "حذف المشروع؟";
     if (/اختبار/.test(text)) return "حذف الاختبار؟";
