@@ -33413,6 +33413,12 @@ ${rows
             color: #4f46e5 !important;
           }
 
+          .miras-dock-v2 .miras-dock-search-btn .miras-dock-label:not(#_) {
+            overflow: visible !important;
+            line-height: 1.5 !important;
+            letter-spacing: normal !important;
+          }
+
           @media (max-width: 920px), (pointer: coarse) and (hover: none) {
             /* لوح ممتد بهامش 10px بدل شريط مركزي ضيّق تُقصّ تسمياته */
             .teacher-nav-mobile.teacher-orbit-dock.miras-dock-shell-v2:not(#_) {
