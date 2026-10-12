@@ -19,7 +19,7 @@ import { homePasswordResets } from "./src/shared/home-password-reset-requests";
 import { shouldRemoveFinishedPasswordReset } from "./src/shared/password-reset-retention";
 import { cloudDataReady } from "./src/shared/cloud-data-ready";
 import { studentSessionIssuedAt, shouldApplyStudentLockSignal } from "./src/shared/student-lock-signal";
-import { countActivatedCourseStudents } from "./src/shared/course-activation-count";
+import { countActivatedCourseStudents, countActivatedAcrossCourses } from "./src/shared/course-activation-count";
 import { gradeActivityColumnTitle, ungradedAttemptIds } from "./src/shared/submission-grading-selection";
 import { retryableCreateAttempt } from "./src/shared/retryable-create";
 import { shouldApplySubmissionCourseResponse } from "./src/shared/submission-fetch-scope";
@@ -48493,6 +48493,35 @@ ${rows
                             <h3 className="miras-manual-activation-title font-black text-base text-slate-900">
                               تفعيل فوري لملفات الطلبة يدوياً
                             </h3>
+                            {(() => {
+                              // كم فعّل من طلبة المقرر: مرة واحدة لكل طالب، مقابل كشف الطلبة.
+                              const scopeCourses = isAccountAuditView ? auditCourseCodes : [activeCourseCode];
+                              const activated = countActivatedAcrossCourses(teacherStudents, scopeCourses, courseCodesMatch);
+                              const roster = isAccountAuditView ? 0 : courseStudentDirectory.length;
+                              const of = Math.max(roster, activated);
+                              if (!activated && !of) return null;
+                              const showTotal = of > 0 && !isAccountAuditView;
+                              const pct = of ? Math.round((activated / of) * 100) : 0;
+                              return (
+                                <div
+                                  className="flex items-center gap-3"
+                                  role="img"
+                                  aria-label={showTotal ? `${activated} طالب فعّلوا من ${of}` : `${activated} طالب فعّلوا`}
+                                >
+                                  <span className="shrink-0 text-[13px] font-black text-emerald-700" data-miras-literal="true">
+                                    {activated}
+                                    <span className="ms-1 text-[10px] font-bold text-slate-400">
+                                      {showTotal ? `فعّلوا من ${of}` : "فعّلوا"}
+                                    </span>
+                                  </span>
+                                  {showTotal && (
+                                    <span className="h-1.5 flex-1 overflow-hidden rounded-full bg-slate-100" aria-hidden="true">
+                                      <span className="block h-full rounded-full bg-emerald-500" style={{ width: `${pct}%` }} />
+                                    </span>
+                                  )}
+                                </div>
+                              );
+                            })()}
                             <div className="flex flex-nowrap items-center gap-1.5 overflow-x-auto sm:gap-2" role="group" aria-label="تصفية الطلبة حسب الحالة">
                               <span className="inline-flex shrink-0 items-center whitespace-nowrap rounded-2xl bg-indigo-50 px-2.5 py-1.5 text-[11px] font-bold text-indigo-700 sm:px-3">
                                 {scopedTeacherStudents.length} طالب

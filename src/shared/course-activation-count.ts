@@ -18,3 +18,16 @@ export function countActivatedCourseStudents(
   }
   return ids.size;
 }
+
+/** Students activated in at least one of the given courses, each counted once. */
+export function countActivatedAcrossCourses(
+  students: any[], courseCodes: string[], matches: (a: any, b: any) => boolean,
+): number {
+  const ids = new Set<string>();
+  for (const student of Array.isArray(students) ? students : []) {
+    const id = String(student?.id || student?.idNumber || student?.studentId || '').trim();
+    if (!id) continue;
+    if ((Array.isArray(courseCodes) ? courseCodes : []).some((code) => countActivatedCourseStudents([student], code, matches) > 0)) ids.add(id);
+  }
+  return ids.size;
+}
