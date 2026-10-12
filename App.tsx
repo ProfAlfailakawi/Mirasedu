@@ -24055,6 +24055,7 @@ ${rows
         grade: safeGrade,
         visibleGrade,
         status: safeGrade ? "تم رصد الدرجة" : "جاهز للمراجعة",
+        updatedAt: changedAt,
         gradedAt: changedAt,
         teacherGradeOverride: !!safeGrade,
         originalGrade:
@@ -26230,15 +26231,16 @@ ${rows
     Array.isArray(sub?.gradeAuditTrail) ? sub.gradeAuditTrail : [];
 
   const submissionEventTime = (sub: any) =>
-    new Date(
-      sub?.updatedAt ||
-        sub?.returnedAt ||
-        sub?.gradedAt ||
-        sub?.resubmittedAt ||
-        sub?.submittedAt ||
-        sub?.createdAt ||
-        0,
-    ).getTime() || 0;
+    Math.max(
+      ...[
+        sub?.updatedAt,
+        sub?.returnedAt,
+        sub?.gradedAt,
+        sub?.resubmittedAt,
+        sub?.submittedAt,
+        sub?.createdAt,
+      ].map((value) => new Date(value || 0).getTime() || 0),
+    );
   const latestSubmissionRows = (rows: any[]) => {
     if (!Array.isArray(rows)) return [];
     const map = new Map<string, any>();
