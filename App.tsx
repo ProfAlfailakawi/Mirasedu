@@ -5235,6 +5235,9 @@ export default function App() {
   };
   const shouldShowDockBadge = (tab: typeof teacherTab) => {
     const count = dockBadgeCountForTab(tab);
+    if (count <= 0) return false;
+    // يبقى تنبيه التسليمات حتى تُرصد الدرجة، حتى بعد فتح التبويب.
+    if (tab === "submissions") return true;
     return count > 0 && count > Number(dockSeenCounts[tab] ?? 0);
   };
   const dismissDockBadge = (tab: typeof teacherTab) => {
@@ -5263,6 +5266,7 @@ export default function App() {
   // الشارة المرئية: عدّاد صغير أنيق بنبضة ناعمة (لا وميض مزعج)، بلون التبويب.
   const renderDockBadge = (tab: typeof teacherTab, tone: string) => {
     const count = dockBadgeCountForTab(tab);
+    if (!shouldShowDockBadge(tab)) return null;
     return (
       <span
         title={`${count.toLocaleString("en-US")} إجمالي`}
@@ -28103,8 +28107,7 @@ ${rows
           title: "المقررات",
           Icon: Compass,
           reveal: "teacher-teaching",
-          onClick: () => openTeacherDockTab("sections"),
-          badgeTone: "bg-indigo-500",
+          onClick: () => openTeacherTab("sections"),
         })}
         {navItem({
           tab: "students",
@@ -28112,16 +28115,14 @@ ${rows
           title: "الطلبة",
           Icon: User,
           reveal: "teacher-students",
-          onClick: () => openTeacherDockTab("students"),
-          badgeTone: "bg-indigo-500",
+          onClick: () => openTeacherTab("students"),
         })}
         {navItem({
           tab: "questions",
           label: "الأسئلة",
           title: "بنك الأسئلة والاختبارات والمشاريع",
           Icon: Layers,
-          onClick: () => openTeacherDockTab("questions"),
-          badgeTone: "bg-indigo-500",
+          onClick: () => openTeacherTab("questions"),
         })}
         {isAdminTeacher && (
           <button
@@ -28143,7 +28144,10 @@ ${rows
           title: "تسليمات الاختبارات والمشاريع",
           Icon: Award,
           reveal: "teacher-assessment",
-          onClick: () => openTeacherDockTab("submissions"),
+          onClick: () => {
+            setDockQuickMenu(null);
+            openTeacherTab("submissions");
+          },
           badgeTone: "bg-indigo-500",
         })}
         {navItem({
