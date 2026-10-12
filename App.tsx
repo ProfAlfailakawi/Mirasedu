@@ -22238,6 +22238,11 @@ ${rows
 
   const renderPasswordResetRequest = (req: any) => {
     const key = req.id || `${req.studentId}-${req.timestamp}`;
+    const savedStudentName = String(req.studentName || "").trim();
+    const studentName =
+      !savedStudentName || /^(?:غير مسجل|طالب غير محدد|طالب)$/u.test(savedStudentName)
+        ? findStudentNameByUniversityId(req.studentId) || savedStudentName || "طالب غير محدد"
+        : savedStudentName;
     const status = String(req.status || "new");
     const isFinished = isFinishedPasswordResetRequest(req);
     const groupKey = `password-reset-${key}`;
@@ -22264,7 +22269,7 @@ ${rows
             <div className="min-w-0 flex-1">
               <div className="flex min-w-0 items-center gap-2">
                 <span className="truncate text-[13px] font-bold text-slate-900">
-                  {req.studentName || "طالب غير محدد"}
+                  {studentName}
                 </span>
                 <span className={`shrink-0 rounded-full px-2 py-0.5 text-[11px] font-bold ${passwordResetStatusClass(status)}`}>
                   {passwordResetStatusLabel(status)}
