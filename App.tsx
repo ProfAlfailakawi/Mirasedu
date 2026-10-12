@@ -5222,7 +5222,7 @@ export default function App() {
         (teacherCreatedExams?.length || 0) +
         (teacherProjects?.length || 0),
       );
-      if (tab === "submissions") return Number(latestSubmissionRows(teacherSubmissions).filter((sub: any) => !teacherVisibleGradeText(sub) && !isTeacherReturnedSubmission(sub)).length || 0);
+      if (tab === "submissions") return Number(latestSubmissionRows(teacherSubmissions).filter(isTeacherSubmissionAwaitingGrade).length || 0);
       if (tab === "codes") return Number(joinCodesList?.length || 0);
       if (tab === "analytics") {
         const submissionFlags = latestSubmissionRows(teacherSubmissions).filter(
@@ -25884,6 +25884,19 @@ ${rows
     if (String(sub.status || "").toLowerCase() === "submitted") return "مقفل بعد التسليم";
     return sub.status || "مقفل بعد التسليم";
   };
+  // يجب أن تطابق الشارة عدّاد «بانتظار الدرجة» في ملخص شاشة التسليمات.
+  // المحاولات الجارية والمنسحبة ومحاولات الغش لها حالات متابعة منفصلة، وليست
+  // أعمالاً تنتظر رصد الدرجة؛ إدخالها هنا كان يترك رقماً عالقاً بعد التصحيح.
+  const isTeacherSubmissionAwaitingGrade = (sub: any) =>
+    !isTeacherReturnedSubmission(sub) &&
+    !isExamInProgressSubmission(sub) &&
+    !isCheatingAttemptSubmission(sub) &&
+    !isWithdrawnSubmission(sub) &&
+    !sub?.teacherGradeOverride &&
+    !teacherVisibleGradeText(sub) &&
+    !isSubmissionGradeOfficiallyRecorded(sub) &&
+    !isTimeExpiredRecordedSubmission(sub) &&
+    String(sub?.status || "").trim().toLowerCase() !== "graded";
   const submissionSummaryText = (sub: any) => {
     if (isTeacherReturnedSubmission(sub))
       return "تم الإرجاع؛ المحاولة مفتوحة للطالب";
