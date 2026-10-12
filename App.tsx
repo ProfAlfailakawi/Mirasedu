@@ -33413,7 +33413,7 @@ ${rows
             color: #4f46e5 !important;
           }
 
-          .miras-dock-v2 .miras-dock-search-btn .miras-dock-label:not(#_) {
+          .miras-dock-v2 button.miras-dock-item.miras-dock-search-btn .miras-dock-label:not(#_) {
             overflow: visible !important;
             line-height: 1.5 !important;
             letter-spacing: normal !important;
