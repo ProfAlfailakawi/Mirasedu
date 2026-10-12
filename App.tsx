@@ -5240,6 +5240,10 @@ export default function App() {
     if (tab === "submissions") return true;
     return count > 0 && count > Number(dockSeenCounts[tab] ?? 0);
   };
+  const hasTeacherDockAttention =
+    shouldShowDockBadge("submissions") ||
+    shouldShowDockBadge("codes") ||
+    shouldShowDockBadge("analytics");
   const dismissDockBadge = (tab: typeof teacherTab) => {
     const count = dockBadgeCountForTab(tab);
     setDockSeenCounts((prev) =>
@@ -5271,7 +5275,7 @@ export default function App() {
       <span
         title={`${count.toLocaleString("en-US")} إجمالي`}
         aria-hidden="true"
-        className={`pointer-events-none absolute -right-1 -top-1 z-10 flex h-[1.1rem] min-w-[1.1rem] items-center justify-center rounded-full px-1 text-[8px] font-black text-white shadow-md ring-2 ring-white ${tone}`}
+        className={`miras-dock-badge pointer-events-none absolute -right-1 -top-1 z-10 flex h-[1.1rem] min-w-[1.1rem] items-center justify-center rounded-full px-1 text-[8px] font-black text-white shadow-md ring-2 ring-white ${tone}`}
       >
         <span className="relative tabular-nums" dir="ltr">{count > 99 ? "99+" : count.toLocaleString("en-US")}</span>
       </span>
@@ -33353,6 +33357,57 @@ ${rows
               opacity: 1 !important;
               filter: none !important;
             }
+
+            /* على الهاتف/PWA نوسّع الشريط تلقائياً إذا وُجد تنبيه؛ وإلا
+               كان نمط الانكماش يخفي الأيقونات الحاملة للأرقام. */
+            .teacher-nav-mobile.teacher-orbit-dock.miras-dock-shell-v2[data-miras-dock-attention="true"].teacher-orbit-dock-shrunk:not(#_) {
+              --miras-teacher-dock-motion: translateY(0) scale(1) !important;
+              width: auto !important;
+              min-width: 0 !important;
+              max-width: calc(100vw - 1rem) !important;
+              overflow: visible !important;
+              transform: var(--miras-teacher-dock-motion) !important;
+              opacity: 1 !important;
+              filter: none !important;
+            }
+
+            .teacher-nav-mobile.teacher-orbit-dock.miras-dock-shell-v2[data-miras-dock-attention="true"].teacher-orbit-dock-shrunk:not(#_) .teacher-orbit-dock-track.miras-dock-v2:not(#_) {
+              display: grid !important;
+              width: 100% !important;
+              min-width: 0 !important;
+              max-width: none !important;
+              height: auto !important;
+              overflow: visible !important;
+            }
+
+            .teacher-nav-mobile.teacher-orbit-dock.miras-dock-shell-v2[data-miras-dock-attention="true"].teacher-orbit-dock-shrunk:not(#_) .teacher-orbit-dock-track button.miras-dock-item:not(#_) {
+              display: flex !important;
+              width: 100% !important;
+              min-width: 0 !important;
+              max-width: none !important;
+              height: auto !important;
+              min-height: 46px !important;
+              margin: 0 !important;
+              overflow: visible !important;
+              opacity: 1 !important;
+              pointer-events: auto !important;
+              transform: none !important;
+            }
+
+            .miras-dock-v2 .miras-dock-badge:not(#_) {
+              top: -0.18rem !important;
+              right: -0.12rem !important;
+              z-index: 30 !important;
+              height: 1.2rem !important;
+              min-width: 1.2rem !important;
+              padding-left: .24rem !important;
+              padding-right: .24rem !important;
+              font-size: 10px !important;
+              line-height: 1 !important;
+              white-space: nowrap !important;
+              opacity: 1 !important;
+              filter: none !important;
+            }
           }
 
           /* الشاشات الضيقة (≤400px): سبع خانات معنونة لا تتسع بمقاسات الافتراضي،
@@ -38567,6 +38622,7 @@ ${rows
             <nav
               className={`miras-teacher-nav-shell miras-dock-shell-v2 teacher-orbit-dock teacher-nav-mobile ${selectedSubmissionDetail ? "hidden" : ""} ${dockShrunkRef.current ? "teacher-orbit-dock-shrunk" : ""}`}
               data-miras-dock-state={dockShrunkRef.current ? "shrunk" : "open"}
+              data-miras-dock-attention={hasTeacherDockAttention ? "true" : undefined}
               // Deliberately no onPointerDown/onTouchStart expand trigger here:
               // expanding on the same touch that starts a tap resized/shifted
               // the button under the finger mid-gesture, which is why a tap on
