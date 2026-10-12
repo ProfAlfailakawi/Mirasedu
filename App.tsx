@@ -25950,12 +25950,35 @@ ${rows
         (sub?.answers && Object.keys(sub.answers).length) ||
         String(sub?.answerText || "").trim()
       );
+      const activityId = String(sub?.activityId || sub?.projectId || "");
+      const studentId = normalizeArabicDigits(
+        String(sub?.studentId || sub?.studentIdNumber || sub?.idNumber || ""),
+      ).replace(/[^0-9]/g, "");
+      const project = String(sub?.kind || "").toLowerCase() === "project"
+        ? teacherProjects.find((item: any) => String(item?.id || "") === activityId)
+        : null;
+      const hasCurrentExtension = !!project && (Array.isArray(project.studentExtensions)
+        ? project.studentExtensions
+        : []).some((extension: any) => {
+            const extensionStudentId = normalizeArabicDigits(
+              String(extension?.studentId || ""),
+            ).replace(/[^0-9]/g, "");
+            const until = Date.parse(String(extension?.until || ""));
+            return studentId && extensionStudentId === studentId && Number.isFinite(until) && until > Date.now();
+          });
+      const hasSubmittedWork = !!(
+        sub?.serverSubmissionId ||
+        (Array.isArray(sub?.attachments) && sub.attachments.length) ||
+        (sub?.answers && Object.keys(sub.answers).length) ||
+        String(sub?.answerText || sub?.fileName || sub?.fileUrl || "").trim()
+      );
       return (
         hasWork &&
         !returned &&
         !inProgress &&
         !isCheatingAttemptSubmission(sub) &&
         !isWithdrawnSubmission(sub) &&
+        !(hasCurrentExtension && !hasSubmittedWork) &&
         !hasGrade
       );
     })();
