@@ -9129,20 +9129,6 @@ html.miras-app-shell body {
     max-width: 100% !important;
   }
 
-  #join-codes-cards-anchor .miras-manual-activation-title {
-    display: block !important;
-    width: 100% !important;
-    min-width: 0 !important;
-    max-width: 100% !important;
-    line-height: 1.55 !important;
-    white-space: normal !important;
-    word-break: normal !important;
-    overflow-wrap: break-word !important;
-    writing-mode: horizontal-tb !important;
-    text-orientation: mixed !important;
-    text-align: right !important;
-  }
-
   #join-codes-cards-anchor .miras-manual-activation-toggle > span {
     flex: 0 0 auto !important;
     min-width: max-content !important;
@@ -19155,3 +19141,27 @@ html[data-theme="dark"] body .miras-teacher-alert-popover .miras-teacher-alert-d
 }
 
 #root .miras-teacher-five-nav:not(#_):not(#_) { grid-template-columns: repeat(5, minmax(0, 1fr)) !important; }
+
+/* تفعيل الطلبة: الملخص يأخذ سطره كاملاً تحت العنوان والشرائح بدل أن ينحشر بينهما (سطح المكتب والتابلت) */
+@media (min-width: 761px) {
+  .miras-manual-activation-card .miras-manual-activation-toggle {
+    flex-wrap: wrap !important;
+  }
+
+  .miras-manual-activation-card .miras-manual-activation-toggle > .miras-activation-summary {
+    order: 3 !important;
+    flex: 1 1 100% !important;
+    width: 100% !important;
+    max-width: 100% !important;
+  }
+
+  .miras-manual-activation-card .miras-manual-activation-toggle > .miras-manual-activation-title {
+    flex: 1 1 0 !important;
+    width: auto !important;
+  }
+
+  .miras-manual-activation-card .miras-manual-activation-toggle > .miras-activation-chips {
+    flex: 0 0 auto !important;
+    width: auto !important;
+  }
+}
