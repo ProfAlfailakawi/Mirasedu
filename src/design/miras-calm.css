@@ -689,9 +689,10 @@ html body .miras-segbar-legend span span.font-sans {
   pointer-events: none;
 }
 .miras-ratio-markers circle {
-  fill: #f59e0b;
-  stroke: var(--miras-surface);
-  stroke-width: 0.4px;
+  fill: #4f46e5;
+  stroke: #fff;
+  stroke-width: 0.7px;
+  filter: drop-shadow(0 0 1px rgb(49 46 129 / 45%));
 }
 
 /* بطاقات «المتاح الآن»: بلا فراغ متدرّج، والعدّاد في الطرف الآخر */

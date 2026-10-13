@@ -1711,7 +1711,7 @@ const MirasRatioRing = ({ done, total, expected = 0 }: { done: number; total: nu
       {e > 0 && (
         <svg className="miras-ratio-markers" viewBox="0 0 40 40" aria-hidden="true">
           {markers.map((marker, index) => (
-            <circle key={index} cx={marker.x} cy={marker.y} r="0.9" />
+            <circle key={index} cx={marker.x} cy={marker.y} r="1.35" />
           ))}
         </svg>
       )}
@@ -16584,7 +16584,14 @@ ${rows
 
   const beginAddSection = () => {
     setEditingSectionCode(null);
-    setSectionDraft({ code: "", courseName: "", semester: "الفصل الحالي" });
+    const now = new Date();
+    const month = now.getMonth() + 1;
+    const year = now.getFullYear();
+    // العام الأكاديمي يمتد من سبتمبر إلى أغسطس: الأول من سبتمبر، الثاني من يناير، والصيفي من يونيو.
+    const season = month >= 9 ? "الأول" : month >= 6 ? "الصيفي" : "الثاني";
+    const academicStartYear = month >= 9 ? year : year - 1;
+    const semester = `الفصل ${season} ${academicStartYear}/${academicStartYear + 1}`;
+    setSectionDraft({ code: "", courseName: "", semester });
     setSectionFormOpen(true);
   };
 
