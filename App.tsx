@@ -5800,6 +5800,7 @@ export default function App() {
     });
   const [studentNavigatorFilter, setStudentNavigatorFilter] = useState<"all" | "submitted" | "missing">("all");
   const [sectionFormOpen, setSectionFormOpen] = useState(false);
+  const sectionCourseNameInputRef = useRef<HTMLInputElement | null>(null);
   const [editingSectionCode, setEditingSectionCode] = useState<string | null>(
     null,
   );
@@ -16604,6 +16605,14 @@ ${rows
     });
     setSectionFormOpen(true);
   };
+
+  useLayoutEffect(() => {
+    if (!sectionFormOpen || !editingSectionCode) return;
+    const input = sectionCourseNameInputRef.current;
+    if (!input) return;
+    input.focus({ preventScroll: true });
+    input.scrollIntoView({ behavior: "smooth", block: "center", inline: "nearest" });
+  }, [sectionFormOpen, editingSectionCode]);
 
   const deleteSectionSafely = async (sec: any) => {
     const sectionNameRaw = String(
@@ -43498,6 +43507,7 @@ ${rows
                           </p>
                         )}
                         <input
+                          ref={sectionCourseNameInputRef}
                           value={sectionDraft.courseName}
                           onChange={(e) =>
                             setSectionDraft({
