@@ -12134,6 +12134,12 @@ export default function App() {
       ? resolved
       : displayOnly || raw || "المقرر";
   };
+  const safeExportFilePart = (value: any, fallback = "مقرر") =>
+    String(value || "")
+      .replace(/[\\/:*?"<>|\u0000-\u001f]/g, " ")
+      .replace(/\s+/g, " ")
+      .replace(/^[.\s]+|[.\s]+$/g, "")
+      .slice(0, 100) || fallback;
   const displayCourseLabelForCode = (value: any) => {
     const code =
       typeof value === "object"
@@ -26440,7 +26446,10 @@ ${rows
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
     link.href = url;
-    link.download = `Miras_Grades_${stripOwnerEmailFromCourseCode(activeCourseCode) || "course"}_${new Date().toISOString().slice(0, 10)}.csv`;
+    const courseFileName = safeExportFilePart(
+      courseNameForCode(activeCourseCode),
+    );
+    link.download = `${courseFileName}_الدرجات_${new Date().toISOString().slice(0, 10)}.csv`;
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
