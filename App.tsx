@@ -26669,6 +26669,26 @@ ${rows
     const until = Date.parse(String(entry?.until || ""));
     return Number.isFinite(until) && until > Date.now() ? until : 0;
   };
+  const projectExtensionUntilMs = () => {
+    const hour = 3600000;
+    if (extensionPreset === "custom")
+      return new Date(extensionCustomLocal).getTime();
+    const durationMs =
+      extensionPreset === "6h" ? 6 * hour
+      : extensionPreset === "24h" ? 24 * hour
+      : 72 * hour;
+    const target = new Date(Date.now() + durationMs);
+    const kuwaitDate = new Intl.DateTimeFormat("en-CA", {
+      timeZone: "Asia/Kuwait",
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+    }).format(target);
+    const [year, month, day] = kuwaitDate.split("-").map(Number);
+    // التمديد الافتراضي يمتد إلى نهاية يومه بتوقيت الكويت، بينما
+    // التاريخ والوقت المخصصان يظلان كما اختارهما المعلم تماماً.
+    return Date.UTC(year, month - 1, day, 20, 59, 59, 999);
+  };
   const grantProjectExtension = async () => {
     const project = notSubmittedProject;
     const studentIds = (extensionTargets || []).map((student: any) => String(student.id));
@@ -26676,12 +26696,7 @@ ${rows
       setErrorMsg("اختر طالباً واحداً على الأقل.");
       return;
     }
-    const hour = 3600000;
-    const untilMs =
-      extensionPreset === "6h" ? Date.now() + 6 * hour
-      : extensionPreset === "24h" ? Date.now() + 24 * hour
-      : extensionPreset === "3d" ? Date.now() + 72 * hour
-      : new Date(extensionCustomLocal).getTime();
+    const untilMs = projectExtensionUntilMs();
     if (!Number.isFinite(untilMs) || untilMs <= Date.now()) {
       setErrorMsg("اختر وقتاً قادماً لانتهاء التمديد.");
       return;
@@ -41083,12 +41098,7 @@ ${rows
                               <div className="relative mt-3 rounded-[var(--miras-r-md)] border border-emerald-100 bg-emerald-50/70 px-3 py-2 text-center text-[10.5px] font-black leading-5 text-emerald-800 shadow-sm">
                                 للطالب فرصة حتى:{" "}
                                 {(() => {
-                                  const hour = 3600000;
-                                  const ms =
-                                    extensionPreset === "6h" ? Date.now() + 6 * hour
-                                    : extensionPreset === "24h" ? Date.now() + 24 * hour
-                                    : extensionPreset === "3d" ? Date.now() + 72 * hour
-                                    : new Date(extensionCustomLocal).getTime();
+                                  const ms = projectExtensionUntilMs();
                                   return Number.isFinite(ms) ? formatKwDateTime(new Date(ms).toISOString()) : "—";
                                 })()}
                                 <span className="mt-0.5 block text-[10px] font-bold text-emerald-700">
