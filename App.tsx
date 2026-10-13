@@ -1693,6 +1693,13 @@ const MirasRatioRing = ({ done, total, expected = 0 }: { done: number; total: nu
   const amberShare = e > 0 ? (t === 0 ? 100 : Math.min(100, Math.max(14, Math.round((e / (t + e)) * 100)))) : 0;
   const submittedEnd = 100 - amberShare;
   const pct = t ? Math.round((d / t) * submittedEnd) : 0;
+  const amberDegrees = amberShare * 3.6;
+  const amberStartDegrees = -90 + submittedEnd * 3.6;
+  const markerRadius = 17.2;
+  const markers = e > 0 ? Array.from({ length: Math.min(e, 500) }, (_, index) => {
+    const angle = (amberStartDegrees + ((index + 0.5) / e) * amberDegrees) * Math.PI / 180;
+    return { x: 20 + markerRadius * Math.cos(angle), y: 20 + markerRadius * Math.sin(angle) };
+  }) : [];
   return (
     <span
       className="miras-ratio-ring"
@@ -1701,6 +1708,13 @@ const MirasRatioRing = ({ done, total, expected = 0 }: { done: number; total: nu
       aria-label={e ? `${d} / ${t} · ${e} فُتح لهم الباب ولم يسلّموا` : `${d} / ${t}`}
       title={e ? `${d} مصحَّح من ${t} تسليم · ${e} فُتح لهم الباب ولم يسلّموا` : undefined}
     >
+      {e > 0 && (
+        <svg className="miras-ratio-markers" viewBox="0 0 40 40" aria-hidden="true">
+          {markers.map((marker, index) => (
+            <circle key={index} cx={marker.x} cy={marker.y} r="0.9" />
+          ))}
+        </svg>
+      )}
       <span dir="ltr">
         {d}/{t}
       </span>
@@ -16997,23 +17011,9 @@ ${rows
       }
 
       const openCamera = async () => {
-        // ابدأ بأعلى دقة منطقية مع تركيز مستمر؛ هذا يجعل الـ QR يقرأ من
-        // مسافة أبعد ودون الحاجة لتحريك الجوال يمين/يسار. iOS Safari قد
-        // يتجاهل بعض الـ advanced constraints، لكنه لا يفشل بسببها.
+        // استخدم طلباً واحداً بقيود مرنة حتى لا نعيد استدعاء طلب الإذن بسبب
+        // قيود دقة/تركيز غير مدعومة على بعض الهواتف ونسخ iOS PWA.
         const cameraAttempts: MediaStreamConstraints[] = [
-          {
-            video: {
-              facingMode: { ideal: "environment" },
-              width: { ideal: 1920 },
-              height: { ideal: 1920 },
-              frameRate: { ideal: 30 },
-              ...({
-                focusMode: "continuous",
-                advanced: [{ focusMode: "continuous" } as any],
-              } as any),
-            },
-            audio: false,
-          },
           {
             video: {
               facingMode: { ideal: "environment" },
@@ -17031,6 +17031,9 @@ ${rows
             return await navigator.mediaDevices.getUserMedia(constraints);
           } catch (err) {
             lastError = err;
+            // Permission rejection is independent of resolution constraints;
+            // retrying only repeats the OS permission flow, so stop here.
+            if (/NotAllowed|PermissionDenied|SecurityError/i.test(String((err as any)?.name || ""))) break;
           }
         }
         throw lastError || new Error("camera-unavailable");
@@ -32248,11 +32251,8 @@ ${rows
                           <label className="flex h-11 min-w-[180px] flex-1 items-center rounded-2xl border border-slate-200 bg-slate-50 px-3">
                             <input dir="ltr" autoCapitalize="characters" spellCheck={false} value={teacherCodeLookupInput} onChange={(event) => setTeacherCodeLookupInput(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter") void lookupTeacherCode(); }} className="miras-flat-input min-w-0 flex-1 bg-transparent text-right text-xs font-semibold text-slate-800 outline-none" placeholder="أدخل الكود" aria-label="أدخل الكود للتحقق" />
                           </label>
-                          <button type="button" onClick={() => void startActivationQrScanner("code-lookup")} className="inline-flex h-11 w-11 items-center justify-center rounded-2xl border border-indigo-100 bg-indigo-50 text-indigo-700 transition hover:bg-indigo-100" title="مسح QR بالكاميرا" aria-label="مسح QR بالكاميرا">
-                            <Camera className="h-5 w-5" />
-                          </button>
-                          <button type="button" onClick={() => void lookupTeacherCode()} disabled={teacherCodeLookupBusy || !teacherCodeLookupInput.trim()} className="inline-flex h-11 items-center gap-2 rounded-2xl bg-indigo-600 px-4 text-xs font-bold text-white shadow-sm disabled:opacity-60">
-                            <Search className={`h-4 w-4 ${teacherCodeLookupBusy ? "animate-pulse" : ""}`} />
+                          <button type="button" onClick={() => teacherCodeLookupInput.trim() ? void lookupTeacherCode() : void startActivationQrScanner("code-lookup")} disabled={teacherCodeLookupBusy} className="inline-flex h-11 items-center gap-2 rounded-2xl bg-indigo-600 px-4 text-xs font-bold text-white shadow-sm disabled:opacity-60" title={teacherCodeLookupInput.trim() ? "التحقق من الكود المكتوب" : "مسح QR بالكاميرا والتحقق تلقائياً"}>
+                            {teacherCodeLookupInput.trim() ? <Search className={`h-4 w-4 ${teacherCodeLookupBusy ? "animate-pulse" : ""}`} /> : <Camera className="h-4 w-4" />}
                             {teacherCodeLookupBusy ? "يتحقق" : "تحقق"}
                           </button>
                         </div>
@@ -39843,7 +39843,7 @@ ${rows
                         className="inline-flex items-center gap-2 rounded-xl bg-emerald-50 px-4 py-2 text-xs font-bold text-emerald-700 ring-1 ring-emerald-100 transition-all hover:bg-emerald-600 hover:text-white"
                       >
                         <FileSpreadsheet className="h-4 w-4" />
-                        تصدير الدرجات
+                        تصدير
                       </button>
                     </div>
                   )}
