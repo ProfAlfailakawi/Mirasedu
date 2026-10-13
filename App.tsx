@@ -1711,7 +1711,7 @@ const MirasRatioRing = ({ done, total, expected = 0 }: { done: number; total: nu
       {e > 0 && (
         <svg className="miras-ratio-markers" viewBox="0 0 40 40" aria-hidden="true">
           {markers.map((marker, index) => (
-            <circle key={index} cx={marker.x} cy={marker.y} r="1.35" />
+            <circle key={index} cx={marker.x} cy={marker.y} r="1.65" />
           ))}
         </svg>
       )}
@@ -16592,7 +16592,8 @@ ${rows
     const season = month >= 9 ? "الأول" : month >= 6 ? "الصيفي" : "الثاني";
     const academicStartYear = month >= 9 ? year : year - 1;
     const semester = `الفصل ${season} ${academicStartYear}/${academicStartYear + 1}`;
-    setSectionDraft({ code: "", courseName: "", semester });
+    const internalCode = `MRS-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`.toUpperCase();
+    setSectionDraft({ code: internalCode, courseName: "", semester });
     setSectionFormOpen(true);
   };
 
@@ -22206,8 +22207,6 @@ ${rows
       .join(" ");
     return haystack.includes(normalizedStudentDirectorySearch);
   });
-  const editingCourseCodeLocked = !!editingSectionCode &&
-    teacherSections.find((section: any) => section.code === editingSectionCode)?.canEditCode === false;
   const allowedExcelImportPreview =
     excelMappingOpen && excelPendingRows.length
       ? parseAllowedExcelRows()
@@ -43489,24 +43488,6 @@ ${rows
                     {sectionFormOpen && (
                       <div className="grid grid-cols-1 gap-3 rounded-[var(--miras-r-xl)] border border-slate-100 bg-slate-50/70 p-3 sm:p-4 md:grid-cols-12">
                         <input
-                          value={sectionDraft.code}
-                          disabled={editingCourseCodeLocked}
-                          title={editingCourseCodeLocked ? "رقم المقرر ثابت لوجود طلبة فيه" : "رقم المقرر"}
-                          onChange={(e) =>
-                            setSectionDraft({
-                              ...sectionDraft,
-                              code: e.target.value,
-                            })
-                          }
-                          placeholder="رمز المقرر"
-                          className="bg-white border border-slate-200 rounded-2xl px-4 py-3 text-xs outline-none focus:ring-2 focus:ring-indigo-100 disabled:bg-slate-100 disabled:text-slate-500 md:col-span-3"
-                        />
-                        {editingCourseCodeLocked && (
-                          <p className="text-xs text-slate-500 md:col-span-12">
-                            رقم المقرر ثابت لوجود طلبة فيه. يمكنك تعديل اسم المقرر.
-                          </p>
-                        )}
-                        <input
                           ref={sectionCourseNameInputRef}
                           value={sectionDraft.courseName}
                           onChange={(e) =>
@@ -43516,7 +43497,7 @@ ${rows
                             })
                           }
                           placeholder="اسم المقرر"
-                          className="bg-white border border-slate-200 rounded-2xl px-4 py-3 text-xs outline-none focus:ring-2 focus:ring-indigo-100 md:col-span-4"
+                          className="bg-white border border-slate-200 rounded-2xl px-4 py-3 text-xs outline-none focus:ring-2 focus:ring-indigo-100 md:col-span-7"
                         />
                         <input
                           value={sectionDraft.semester}
