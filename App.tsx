@@ -21182,7 +21182,6 @@ ${rows
     setSelectedStudentDetail(null);
     setSelectedSubmissionDetail(null);
     setSelectedSubmissionIds({});
-    setSubmissionSearch("");
     setSubmissionStatusFilter(null);
     setSubmissionDetailStudentSearch("");
     setManualActivationSearch("");
@@ -39312,6 +39311,7 @@ ${rows
                       value={selectedTeacherCourseCode || activeCourseCode}
                       onChange={(e) => {
                         const val = e.target.value;
+                        if (val !== (selectedTeacherCourseCode || activeCourseCode)) setSubmissionSearch("");
                         setSelectedTeacherCourseCode(val);
                         localStorage.setItem(
                           "miras_selected_teacher_course_code",
@@ -42539,7 +42539,6 @@ ${rows
                                       setTeacherTab("submissions");
                                       setSubmissionSubTab("exams");
                                       setSelectedSubmissionActivityId(item.id);
-                                      setSubmissionSearch("");
                                     };
                                     return (
                                       <div className="mt-3 flex flex-wrap gap-2">
@@ -48323,7 +48322,7 @@ ${rows
                                     onChange={(e) =>
                                       setActivationAttemptSearch(e.target.value)
                                     }
-                                    placeholder="اسم الطالب، الرقم الجامعي، المقرر، أو الكود…"
+                                    placeholder="ابحث بالاسم أو الرقم أو المقرر أو الكود"
                                     className="w-full rounded-2xl border border-slate-200 bg-white py-3 pr-10 pl-3 text-right text-xs font-bold text-slate-800 outline-none placeholder:text-slate-400 focus:ring-2 focus:ring-indigo-100"
                                   />
                                 </div>
