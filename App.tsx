@@ -39833,7 +39833,7 @@ ${rows
                       </div>
                     </div>
                   </div>
-                  {!selectedSubmissionActivityId && (
+                  {isAdminTeacher && !selectedSubmissionActivityId && (
                     <div className="mb-3 flex justify-end" dir="rtl">
                       <button
                         type="button"
