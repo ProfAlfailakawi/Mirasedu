@@ -7970,6 +7970,7 @@ export default function App() {
       if (!incoming) return;
       const code = extractActivationCodeFromQrText(incoming);
       if (!code) return;
+      pendingSignupScannedCodeRef.current = code;
       setJoinCodeInput(code);
       try {
         sessionStorage.setItem("miras_pending_join_code", code);
@@ -8007,6 +8008,8 @@ export default function App() {
     voucher: "",
   });
   const [joinCodeInput, setJoinCodeInput] = useState("");
+  // Keep the scanned card through signup even when sessionStorage is unavailable.
+  const pendingSignupScannedCodeRef = useRef("");
   // نافذة QR للتفعيل المباشر (لكل أستاذ على أكواده): تعرض رمزاً يمسحه الطالب بكاميرا جواله
   // فيفتح التطبيق وكود الانضمام معبّأ جاهزاً بدل كتابته يدوياً.
   const [joinQrModalCode, setJoinQrModalCode] = useState<string>("");
@@ -16806,6 +16809,10 @@ ${rows
     const target = activationQrTargetRef.current;
     const courseTarget = activationQrCourseTargetRef.current;
     if (target === "signup-code") {
+      pendingSignupScannedCodeRef.current = code;
+      try {
+        sessionStorage.setItem("miras_pending_join_code", code);
+      } catch {}
       touchCodeTyping("signup-code", code, true);
       setOtpInput(code);
     } else if (target === "code-lookup") {
@@ -17270,10 +17277,13 @@ ${rows
         setOtpSent(""); // Not used anymore
         // طالب وصل بمسح QR الكرت: الكود محفوظ لهذه الجلسة، ويُمسح من الحقل في
         // أول هذه الدالة؛ نعيده هنا حتى يجد كوده جاهزاً في شاشة التفعيل.
-        try {
-          const scannedCode = sessionStorage.getItem("miras_pending_join_code") || "";
-          if (scannedCode) setOtpInput(formatJoinCode(scannedCode));
-        } catch {}
+        let scannedCode = pendingSignupScannedCodeRef.current;
+        if (!scannedCode) {
+          try {
+            scannedCode = sessionStorage.getItem("miras_pending_join_code") || "";
+          } catch {}
+        }
+        if (scannedCode) setOtpInput(formatJoinCode(scannedCode));
         setCurrentView("otp");
         // هذه خطوة تحقق أولية فقط وليست تفعيلًا للحساب؛ لا نعرض رسالة نجاح
         // حتى لا يظن الطالب أن الحساب فُعّل قبل إدخال رمز المقرر واعتماده.
@@ -17368,6 +17378,10 @@ ${rows
           "تهانينا! تم التحقق الأكاديمي وتفعيل الحساب بنجاح.",
         );
         setOtpInput("");
+        pendingSignupScannedCodeRef.current = "";
+        try {
+          sessionStorage.removeItem("miras_pending_join_code");
+        } catch {}
       } else if (resp.ok && data.pendingDeviceApproval) {
         resetActivationGrace();
         setSuccessMsg("");
@@ -19483,6 +19497,7 @@ ${rows
         try {
           sessionStorage.removeItem("miras_pending_join_code");
         } catch {}
+        pendingSignupScannedCodeRef.current = "";
         const returnedEnrollments = Array.isArray(data.enrollments)
           ? data.enrollments
           : Array.isArray(data.student?.enrollments)
