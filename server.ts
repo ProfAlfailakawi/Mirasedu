@@ -21763,6 +21763,17 @@ app.post("/api/teacher/students/:idNumber/remove-course", (req, res) => {
   if (!teacherEmail)
     return res.status(401).json({ error: "جلسة الأستاذ غير واضحة." });
   const idNumber = normalizeStudentId(req.params.idNumber);
+  const courseCodeToRemove = String(req.body.courseCode || "").trim();
+  if (!courseCodeToRemove)
+    return res.status(400).json({ error: "رمز المقرر غير موجود." });
+  if (
+    !isAdminEmail(teacherEmail) &&
+    sectionOwnerEmail(courseCodeToRemove) !== teacherEmail
+  ) {
+    return res
+      .status(403)
+      .json({ error: "لا يمكن إزالة حساب طالب من مقرر لا تملكه." });
+  }
   const student = dbInstance
     .getStudents()
     .find(
@@ -21771,21 +21782,30 @@ app.post("/api/teacher/students/:idNumber/remove-course", (req, res) => {
           (s as any).idNumber || s.id || (s as any).studentId,
         ) === idNumber,
     );
-  if (!student) return res.status(404).json({ error: "الطالب غير موجود" });
-
-  const courseCodeToRemove = String(req.body.courseCode || "").trim();
-  if (!courseCodeToRemove)
-    return res.status(400).json({ error: "رمز المقرر غير موجود." });
-
-  const normalizedCourseToRemove = courseCodeToRemove.toLowerCase();
-  if (
-    teacherEmail &&
-    !isAdminEmail(teacherEmail) &&
-    sectionOwnerEmail(courseCodeToRemove) !== teacherEmail
-  ) {
-    return res
-      .status(403)
-      .json({ error: "لا يمكن إزالة حساب طالب من مقرر لا تملكه." });
+  if (!student) {
+    // صفوف الكشف قد تحتوي طالبًا غير مسجّل في مِراس؛ احذف علاقته من
+    // كشف المقرر فقط، من دون الحاجة إلى وجود حساب طالب.
+    const roster = dbInstance.getAllowedStudents();
+    const retained = roster.filter((row: any) => {
+      const rowId = normalizeStudentId(
+        row.idNumber || row.id || row.studentId,
+      );
+      const rowCourse = String(
+        row.sectionCode || row.studentSection || row.courseCode || "",
+      );
+      return !(
+        rowId === idNumber &&
+        (!rowCourse ||
+          courseCodeMatchesForTeacher(rowCourse, courseCodeToRemove, teacherEmail) ||
+          sectionCodeEquivalent(rowCourse, courseCodeToRemove))
+      );
+    });
+    if (retained.length === roster.length)
+      return res.status(404).json({ error: "الطالب غير موجود في كشف هذا المقرر." });
+    (dbInstance as any).data.allowedStudents = retained;
+    dbInstance.persist();
+    bumpLiveContentRevision();
+    return res.json({ success: true, updatedStudent: null, removedJoinCodes: 0, rosterOnly: true });
   }
 
   const studentIds = new Set(

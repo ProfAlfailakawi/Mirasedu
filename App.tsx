@@ -32304,9 +32304,20 @@ ${rows
                           <label className="flex h-11 min-w-[180px] flex-1 items-center rounded-2xl border border-slate-200 bg-slate-50 px-3">
                             <input dir="ltr" autoCapitalize="characters" spellCheck={false} value={teacherCodeLookupInput} onChange={(event) => setTeacherCodeLookupInput(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter") void lookupTeacherCode(); }} className="miras-flat-input min-w-0 flex-1 bg-transparent text-right text-xs font-semibold text-slate-800 outline-none" placeholder="أدخل الكود" aria-label="أدخل الكود للتحقق" />
                           </label>
-                          <button type="button" onClick={() => teacherCodeLookupInput.trim() ? void lookupTeacherCode() : void startActivationQrScanner("code-lookup")} disabled={teacherCodeLookupBusy} className="inline-flex h-11 items-center gap-2 rounded-2xl bg-indigo-600 px-4 text-xs font-bold text-white shadow-sm disabled:opacity-60" title={teacherCodeLookupInput.trim() ? "التحقق من الكود المكتوب" : "مسح QR بالكاميرا والتحقق تلقائياً"}>
-                            {teacherCodeLookupInput.trim() ? <Search className={`h-4 w-4 ${teacherCodeLookupBusy ? "animate-pulse" : ""}`} /> : <Camera className="h-4 w-4" />}
-                            {teacherCodeLookupBusy ? "يتحقق" : "تحقق"}
+                          <button type="button" onClick={() => {
+                            if (teacherCodeLookupResult) {
+                              setTeacherCodeLookupInput("");
+                              setTeacherCodeLookupResult(null);
+                              setTeacherCodeLookupMessage("");
+                              void startActivationQrScanner("code-lookup");
+                            } else if (teacherCodeLookupInput.trim()) {
+                              void lookupTeacherCode();
+                            } else {
+                              void startActivationQrScanner("code-lookup");
+                            }
+                          }} disabled={teacherCodeLookupBusy} className="inline-flex h-11 items-center gap-2 rounded-2xl bg-indigo-600 px-4 text-xs font-bold text-white shadow-sm disabled:opacity-60" title={teacherCodeLookupResult ? "مسح كود جديد" : teacherCodeLookupInput.trim() ? "التحقق من الكود المكتوب" : "مسح QR بالكاميرا والتحقق تلقائياً"}>
+                            {teacherCodeLookupResult || !teacherCodeLookupInput.trim() ? <Camera className="h-4 w-4" /> : <Search className={`h-4 w-4 ${teacherCodeLookupBusy ? "animate-pulse" : ""}`} />}
+                            {teacherCodeLookupBusy ? "يتحقق" : teacherCodeLookupResult ? "مسح جديد" : "تحقق"}
                           </button>
                         </div>
                         {teacherCodeLookupMessage && <p className="mt-3 text-right text-xs font-semibold text-rose-600" dir="rtl">{teacherCodeLookupMessage}</p>}
