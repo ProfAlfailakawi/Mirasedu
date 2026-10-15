@@ -1,0 +1,211 @@
+/* ==========================================================================
+   Calm motion for the DNA kit: one-time draw-in, count-up, change highlight.
+   Driven by motion.tsx:  [data-draw="pre"]  = armed, not yet seen
+                          [data-draw="play"] = playing (~1s)
+                          (attribute absent) = rest = the real, final state.
+   Nothing here is applied until JS has decided to play, so SSR, tests, printing,
+   reduced motion and replays all show the final state. Transform / opacity /
+   stroke-dashoffset-style only; one curve (--dna-ease); no loops.
+   ========================================================================== */
+
+/* inline-start edge for scaleX growth (right in RTL, left in LTR) */
+[data-draw] { --draw-origin: left center; }
+[dir='rtl'] [data-draw] { --draw-origin: right center; }
+[dir='ltr'] [data-draw] { --draw-origin: left center; }
+:dir(ltr) [data-draw] { --draw-origin: left center; }
+:dir(rtl) [data-draw] { --draw-origin: right center; }
+
+.dna-cu { font-variant-numeric: tabular-nums; }
+
+/* ---------- rings (stroke dash): empty -> value ---------- */
+[data-draw='pre'] :is(.dna-ringv, .miras-metric-ring-fill, .miras-grade-arc) {
+  stroke-dasharray: 0 1000 !important;
+  opacity: 0;
+  transition: none !important;
+}
+[data-draw='play'] :is(.dna-ringv, .miras-metric-ring-fill, .miras-grade-arc) {
+  transition: stroke-dasharray 0.9s var(--dna-ease, cubic-bezier(0.22, 0.78, 0.24, 1)), opacity 0.15s linear !important;
+}
+/* the exam-result ring is short and must never feel slow */
+[data-draw='play'] .miras-grade-arc {
+  transition: stroke-dasharray 0.7s var(--dna-ease, cubic-bezier(0.22, 0.78, 0.24, 1)), opacity 0.12s linear !important;
+}
+
+/* ---------- conic ring (--p): sweep ---------- */
+@property --p {
+  syntax: '<number>';
+  inherits: true;
+  initial-value: 0;
+}
+.miras-ratio-ring[data-draw='pre'] { --p: 0 !important; transition: none; }
+.miras-ratio-ring[data-draw='play'] { transition: --p 0.9s var(--dna-ease, cubic-bezier(0.22, 0.78, 0.24, 1)); }
+
+/* ---------- bars: grow from the inline-start edge ---------- */
+[data-draw='pre'] :is(
+  .miras-segbar > span,
+  .miras-stack-bar > span,
+  .miras-tile-bar > i,
+  .miras-window-bar > span,
+  .miras-draw-bar
+) {
+  transform: scaleX(0);
+  transform-origin: var(--draw-origin);
+}
+.miras-window-bar[data-draw='pre'] > span { transform: scaleX(0); transform-origin: var(--draw-origin); }
+[data-draw='play'] :is(
+  .miras-segbar > span,
+  .miras-stack-bar > span,
+  .miras-tile-bar > i,
+  .miras-window-bar > span,
+  .miras-draw-bar
+) {
+  transform-origin: var(--draw-origin);
+  transition: transform 0.6s var(--dna-ease, cubic-bezier(0.22, 0.78, 0.24, 1));
+}
+.miras-window-bar[data-draw='play'] > span { transform-origin: var(--draw-origin); transition: transform 0.6s var(--dna-ease, cubic-bezier(0.22, 0.78, 0.24, 1)); }
+
+/* segments grow in order (<= 60ms apart for bars, a bit more for the 3-part stack) */
+[data-draw='play'] :is(.miras-segbar, .miras-stack-bar) > span:nth-child(2),
+:is(.miras-segbar, .miras-stack-bar)[data-draw='play'] > span:nth-child(2) { transition-delay: 0.14s; }
+[data-draw='play'] :is(.miras-segbar, .miras-stack-bar) > span:nth-child(3),
+:is(.miras-segbar, .miras-stack-bar)[data-draw='play'] > span:nth-child(3) { transition-delay: 0.28s; }
+[data-draw='play'] .miras-segbar > span:nth-child(4),
+.miras-segbar[data-draw='play'] > span:nth-child(4) { transition-delay: 0.42s; }
+[data-draw='play'] .miras-tile-bar > i { transition-delay: 0.12s; }
+[data-draw='play'] .miras-draw-bar { transition-delay: 0.1s; }
+
+/* ---------- sparkline: line draws, area fades in ---------- */
+[data-draw='pre'] .dna-sparkl { stroke-dasharray: 1; stroke-dashoffset: 1; }
+[data-draw='pre'] .dna-sparka { opacity: 0; }
+[data-draw='play'] .dna-sparkl { transition: stroke-dashoffset 0.9s var(--dna-ease, cubic-bezier(0.22, 0.78, 0.24, 1)); }
+[data-draw='play'] .dna-sparka { transition: opacity 0.4s ease 0.7s; }
+
+/* ---------- heat strip: cells fade in once (order set by --d) ---------- */
+[data-draw='pre'] .dna-heatc { opacity: 0; }
+[data-draw='play'] .dna-heatc {
+  transition: opacity 0.35s var(--dna-ease, cubic-bezier(0.22, 0.78, 0.24, 1));
+  transition-delay: var(--d, 0ms);
+}
+
+/* ---------- audit timeline bullets: fill top -> bottom, one soft halo each ---------- */
+[data-draw='pre'] .dna-tl-dot { transform: scale(0.2); opacity: 0; }
+[data-draw='play'] .dna-tl-dot {
+  transition: transform 0.35s var(--dna-ease, cubic-bezier(0.22, 0.78, 0.24, 1)), opacity 0.35s var(--dna-ease, cubic-bezier(0.22, 0.78, 0.24, 1));
+  transition-delay: calc(var(--i, 0) * 60ms);
+}
+[data-draw] > :nth-child(1) { --i: 0; }
+[data-draw] > :nth-child(2) { --i: 1; }
+[data-draw] > :nth-child(3) { --i: 2; }
+[data-draw] > :nth-child(4) { --i: 3; }
+[data-draw] > :nth-child(5) { --i: 4; }
+[data-draw] > :nth-child(6) { --i: 5; }
+[data-draw] > :nth-child(7) { --i: 6; }
+[data-draw] > :nth-child(8) { --i: 7; }
+[data-draw] > :nth-child(9) { --i: 8; }
+[data-draw] > :nth-child(10) { --i: 9; }
+/* the former per-bullet ping layer: now a quiet one-shot ring, not a loop */
+.dna-tl-halo { opacity: 0.4; }
+[data-draw='play'] .dna-tl-halo {
+  animation: dna-tl-halo 0.9s var(--dna-ease, cubic-bezier(0.22, 0.78, 0.24, 1)) calc(0.25s + var(--i, 0) * 60ms) 1;
+}
+@keyframes dna-tl-halo {
+  from { transform: scale(1); opacity: 0.4; }
+  to { transform: scale(2.2); opacity: 0; }
+}
+
+/* ---------- change highlight (opacity only, once, ~1.2s) ---------- */
+.dna-flashmark {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  border-radius: inherit;
+  pointer-events: none;
+  background: color-mix(in srgb, var(--dna-accent, #4338ca) 10%, transparent);
+  box-shadow: inset 0 0 0 1.5px color-mix(in srgb, var(--dna-accent, #4338ca) 45%, transparent);
+  opacity: 0;
+  animation: dna-flash 1.2s var(--dna-ease, cubic-bezier(0.22, 0.78, 0.24, 1)) 1;
+}
+@keyframes dna-flash {
+  0% { opacity: 0; }
+  18% { opacity: 1; }
+  100% { opacity: 0; }
+}
+/* hub node: a ring that fades around the tile */
+.dna-hubn[data-flash] .dna-hubt::after {
+  content: '';
+  position: absolute;
+  inset: -5px;
+  border-radius: inherit;
+  border: 2px solid var(--t-fg, var(--dna-accent));
+  opacity: 0;
+  pointer-events: none;
+  animation: dna-flash 1.2s var(--dna-ease, cubic-bezier(0.22, 0.78, 0.24, 1)) 1;
+}
+.dna-hubc[data-flash]::after {
+  content: '';
+  position: absolute;
+  inset: -6px;
+  border-radius: inherit;
+  border: 2px solid color-mix(in srgb, var(--dna-accent) 60%, transparent);
+  opacity: 0;
+  pointer-events: none;
+  animation: dna-flash 1.2s var(--dna-ease, cubic-bezier(0.22, 0.78, 0.24, 1)) 1;
+}
+
+/* ---------- live dot: one soft pulse when something changes ---------- */
+.dna-live[data-pulse] i {
+  animation: dna-live 1.2s var(--dna-ease, cubic-bezier(0.22, 0.78, 0.24, 1)) 1;
+}
+
+/* ---------- one-shot halo on the step that just changed (public-device login) ---------- */
+.dna-steps[data-advance] .dna-stepi[data-just] .dna-node {
+  animation: dna-journey-halo 1.5s var(--dna-ease) 1 backwards;
+}
+.dna-steps[data-advance] .dna-stepi[data-state='current'][data-just] .dna-node {
+  animation-name: dna-journey-halo-current;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  [data-draw] *,
+  .dna-flashmark,
+  .dna-hubn[data-flash] .dna-hubt::after,
+  .dna-hubc[data-flash]::after,
+  .dna-live[data-pulse] i,
+  .dna-steps[data-advance] .dna-stepi .dna-node {
+    animation: none !important;
+    transition: none !important;
+  }
+  [data-draw] :is(.dna-ringv, .miras-metric-ring-fill, .miras-grade-arc, .dna-heatc, .dna-sparka) { opacity: 1 !important; }
+  [data-draw] :is(.miras-segbar > span, .miras-stack-bar > span, .miras-tile-bar > i, .miras-window-bar > span, .miras-draw-bar, .dna-tl-dot) {
+    transform: none !important;
+    opacity: 1 !important;
+  }
+  [data-draw] .dna-sparkl { stroke-dasharray: none !important; stroke-dashoffset: 0 !important; }
+  .dna-flashmark { display: none; }
+}
+
+/* ==========================================================================
+   Calm: finite or static versions of decorative loops (elements and keyframes
+   stay; loading spinners / busy indicators are not touched).
+   ========================================================================== */
+
+/* decorative pings: three soft rings, then the dot rests. Rows that mean
+   "exam in progress" ping once when they appear. */
+html body .animate-ping { animation-iteration-count: 3; }
+html body .miras-submissions-panel button.group .animate-ping { animation-iteration-count: 1; }
+
+/* decorative pulse dots: three slow breaths, then still */
+.dna-pulse-3 { animation: dna-pulse-soft 2s cubic-bezier(0.4, 0, 0.6, 1) 3; }
+@keyframes dna-pulse-soft {
+  50% { opacity: 0.5; }
+}
+@media (prefers-reduced-motion: reduce) {
+  html body .animate-ping,
+  .dna-pulse-3 { animation: none; }
+}
+
+/* teacher home KPI row: the grid wrapper also got the generic tab fade on top of each
+   tile's own rise. One entrance only: the tiles' rise (miras-tile-rise). */
+html body .meras-teacher-shell div.space-y-5.p-3 > :has(> .miras-metric-card):not(#_):not(#__) {
+  animation: none;
+}

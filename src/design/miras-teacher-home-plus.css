@@ -46,6 +46,15 @@ html body .meras-teacher-shell .miras-metric-card .miras-metric-value:not(#_):no
 html:not([data-theme="dark"]) body .meras-teacher-shell .miras-metric-card .miras-metric-value:not(#_):not(#_):not(#__) {
   color: #0b1020 !important;
 }
+/* The count-up wrapper (.dna-cu) was picking up a generic small span size (~14px), so the
+   numerals rendered far below the 2.1rem set on .miras-metric-value. Make it, and the inner
+   spans it renders while counting up, inherit. */
+html body .meras-teacher-shell .miras-metric-card .miras-metric-value .dna-cu:not(#_):not(#_):not(#__):not(#___):not(#____):not(#_____),
+html body .meras-teacher-shell .miras-metric-card .miras-metric-value .dna-cu span:not(#_):not(#_):not(#__):not(#___):not(#____):not(#_____) {
+  font-size: inherit !important;
+  line-height: inherit !important;
+  font-weight: inherit !important;
+}
 html body .meras-teacher-shell .miras-metric-card .miras-metric-value .miras-metric-of:not(#_):not(#_):not(#__) {
   font-size: 0.8125rem !important;
   letter-spacing: 0;
