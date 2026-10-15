@@ -68,6 +68,7 @@ const setFieldValueLikeTyping = (
 import { DnaEmpty, DnaHubMap, DnaIconTile, DnaStepper, DnaTimeline, DnaHeat, DnaRing, DnaStat, DnaStatusHeader, type DnaEvent, type DnaStep, type DnaHubNode } from "./src/design/DnaKit";
 import { submissionJourneyProps } from "./src/design/journeyReveal";
 import { JourneyRail } from "./src/design/JourneyRail";
+import { DnaChangeMark, DnaCountText, DnaMotionGroup, useMotionPhase } from "./src/design/motion";
 import { publicDeviceLoginSteps, publicLoginApprovalSteps } from "./src/design/publicLoginJourney";
 import { mirasPhoneticWordMatch } from "./src/shared/phonetic-search";
 import {
@@ -1685,7 +1686,9 @@ const STUDENT_NOTICE_TONE_CLASSES: Record<
 // حلقة نسبة منجَز/إجمالي (مصحح/تسليمات) من أرقام موجودة أصلاً على الشاشة.
 // حلقة «مصحَّح من المُسلَّم». من فُتح لهم الباب ولم يسلّموا يظهرون قوساً كهرمانياً منقّطاً رفيعاً
 // بعد القوس الأخضر، لا في الرقم: الرقم يبقى صادقاً (مصحَّح/تسليمات) والقوس يقول «في الطريق».
-const MirasRatioRing = ({ done, total, expected = 0 }: { done: number; total: number; expected?: number }) => {
+const MirasRatioRing = ({ done, total, expected = 0, playKey }: { done: number; total: number; expected?: number; playKey?: string }) => {
+  // الحلقة تُرسم مرة واحدة لكل جلسة عند ظهورها (حركة فقط؛ الأرقام كما هي)
+  const motion = useMotionPhase<HTMLSpanElement>(playKey, { enabled: Boolean(playKey), settleMs: 1300 });
   const t = Math.max(0, Number(total) || 0);
   const d = Math.max(0, Math.min(t, Number(done) || 0));
   const e = Math.max(0, Number(expected) || 0);
@@ -1702,6 +1705,8 @@ const MirasRatioRing = ({ done, total, expected = 0 }: { done: number; total: nu
   }) : [];
   return (
     <span
+      ref={motion.ref}
+      data-draw={motion.attr}
       className="miras-ratio-ring"
       style={{ ["--p" as any]: pct, ["--q" as any]: submittedEnd }}
       role="img"
@@ -1723,15 +1728,95 @@ const MirasRatioRing = ({ done, total, expected = 0 }: { done: number; total: nu
 };
 
 // شريط رفيع لمرور الوقت بين فتح النشاط وإغلاقه (من تاريخي الفتح والإغلاق الظاهرين أصلاً).
-const MirasWindowBar = ({ open, close }: { open?: any; close?: any }) => {
+const MirasWindowBar = ({ open, close, playKey }: { open?: any; close?: any; playKey?: string }) => {
+  const motion = useMotionPhase<HTMLDivElement>(playKey, { enabled: Boolean(playKey), settleMs: 900 });
   const o = open ? mirasDateStartMs(open) : NaN;
   const c = close ? mirasDeadlineEndMs(close) : NaN;
   if (!Number.isFinite(o) || !Number.isFinite(c) || c <= o) return null;
   const pct = Math.max(0, Math.min(100, Math.round(((Date.now() - o) / (c - o)) * 100)));
   return (
-    <div className="miras-window-bar" role="img" aria-label={`${pct}%`}>
+    <div ref={motion.ref} data-draw={motion.attr} className="miras-window-bar" role="img" aria-label={`${pct}%`}>
       <span style={{ width: `${pct}%` }} />
     </div>
+  );
+};
+
+// بطاقة مؤشّر: سطح ولهجة واحدة لكل العدّادات. اللون محجوز لحالة التنبيه
+// وحدها، ويظهر فقط عندما تكون القيمة أكبر من صفر.
+// على مستوى الملف (لا داخل App) كي لا تُعاد تهيئتها مع كل رسم: العدّ التصاعدي والحلقة
+// يُشغَّلان مرة واحدة لكل جلسة عند ظهور البطاقة، والنص النهائي هو ما يُعرض دائماً.
+const MirasTeacherMetricCard = ({ label, value, icon: Icon, alert = false, ratio }: any) => {
+  const numeric = Number(
+    normalizeArabicIndicDigits(String(value ?? "")).replace(/[^\d.]/g, ""),
+  );
+  const live = alert && Number.isFinite(numeric) && numeric > 0;
+  // حلقة النسبة من الأرقام نفسها المعروضة (لا بيانات جديدة): تظهر فقط حين تُمرَّر نسبة صالحة.
+  const ringShare =
+    typeof ratio === "number" && Number.isFinite(ratio)
+      ? Math.max(0, Math.min(1, ratio))
+      : null;
+  const valueParts = String(value ?? "").split(" من ");
+
+  return (
+    <DnaMotionGroup
+      playKey={`teacher-kpi:${String(label)}`}
+      className="miras-metric-card relative isolate overflow-hidden rounded-[var(--miras-r-xl)] border border-slate-200/70 bg-white p-4"
+    >
+      <div className="relative z-10 flex flex-row-reverse items-center justify-between gap-3">
+        <div className="min-w-0 text-right">
+          <span className="block text-[11px] font-bold leading-[1.45] text-slate-500">
+            {label}
+          </span>
+          <span data-miras-literal="true" className="miras-metric-value mt-0.5 block text-[1.65rem] font-black leading-tight tracking-tight text-slate-950">
+            {valueParts.length === 2 ? (
+              <>
+                {typeof value === "string" ? <DnaCountText text={valueParts[0]} /> : valueParts[0]}{" "}
+                <span className="miras-metric-of">من {valueParts[1]}</span>
+              </>
+            ) : typeof value === "string" ? (
+              <DnaCountText text={value} />
+            ) : (
+              value
+            )}
+          </span>
+        </div>
+        <div className="miras-metric-icon-wrap relative h-11 w-11 shrink-0">
+          {ringShare !== null && (
+            <svg
+              className="miras-metric-ring"
+              viewBox="0 0 52 52"
+              aria-hidden="true"
+              focusable="false"
+            >
+              <circle className="miras-metric-ring-track" cx="26" cy="26" r="24" />
+              <circle
+                className="miras-metric-ring-fill"
+                cx="26"
+                cy="26"
+                r="24"
+                pathLength={100}
+                strokeDasharray={`${Math.round(ringShare * 100)} 100`}
+              />
+            </svg>
+          )}
+          <div
+            className={`grid h-11 w-11 place-items-center rounded-[var(--miras-r-md)] ring-1 ${
+              live
+                ? "bg-amber-50 text-amber-700 ring-amber-200"
+                : "bg-indigo-50 text-indigo-700 ring-indigo-100"
+            }`}
+          >
+            <Icon className="h-5 w-5" />
+          </div>
+        </div>
+      </div>
+      {live && (
+        <span
+          className="absolute inset-x-0 bottom-0 h-[3px] bg-amber-400"
+          aria-hidden="true"
+        />
+      )}
+    </DnaMotionGroup>
   );
 };
 
@@ -21345,77 +21430,8 @@ ${rows
     selectedSubmissionActivityId,
   ]);
 
-  // بطاقة مؤشّر: سطح ولهجة واحدة لكل العدّادات. اللون محجوز لحالة التنبيه
-  // وحدها، ويظهر فقط عندما تكون القيمة أكبر من صفر.
-  const TeacherMetricCard = ({ label, value, icon: Icon, alert = false, ratio }: any) => {
-    const numeric = Number(
-      normalizeArabicIndicDigits(String(value ?? "")).replace(/[^\d.]/g, ""),
-    );
-    const live = alert && Number.isFinite(numeric) && numeric > 0;
-    // حلقة النسبة من الأرقام نفسها المعروضة (لا بيانات جديدة): تظهر فقط حين تُمرَّر نسبة صالحة.
-    const ringShare =
-      typeof ratio === "number" && Number.isFinite(ratio)
-        ? Math.max(0, Math.min(1, ratio))
-        : null;
-    const valueParts = String(value ?? "").split(" من ");
-
-    return (
-      <div className="miras-metric-card relative isolate overflow-hidden rounded-[var(--miras-r-xl)] border border-slate-200/70 bg-white p-4">
-        <div className="relative z-10 flex flex-row-reverse items-center justify-between gap-3">
-          <div className="min-w-0 text-right">
-            <span className="block text-[11px] font-bold leading-[1.45] text-slate-500">
-              {label}
-            </span>
-            <span data-miras-literal="true" className="miras-metric-value mt-0.5 block text-[1.65rem] font-black leading-tight tracking-tight text-slate-950">
-              {valueParts.length === 2 ? (
-                <>
-                  {valueParts[0]}{" "}
-                  <span className="miras-metric-of">من {valueParts[1]}</span>
-                </>
-              ) : (
-                value
-              )}
-            </span>
-          </div>
-          <div className="miras-metric-icon-wrap relative h-11 w-11 shrink-0">
-            {ringShare !== null && (
-              <svg
-                className="miras-metric-ring"
-                viewBox="0 0 52 52"
-                aria-hidden="true"
-                focusable="false"
-              >
-                <circle className="miras-metric-ring-track" cx="26" cy="26" r="24" />
-                <circle
-                  className="miras-metric-ring-fill"
-                  cx="26"
-                  cy="26"
-                  r="24"
-                  pathLength={100}
-                  strokeDasharray={`${Math.round(ringShare * 100)} 100`}
-                />
-              </svg>
-            )}
-            <div
-              className={`grid h-11 w-11 place-items-center rounded-[var(--miras-r-md)] ring-1 ${
-                live
-                  ? "bg-amber-50 text-amber-700 ring-amber-200"
-                  : "bg-indigo-50 text-indigo-700 ring-indigo-100"
-              }`}
-            >
-              <Icon className="h-5 w-5" />
-            </div>
-          </div>
-        </div>
-        {live && (
-          <span
-            className="absolute inset-x-0 bottom-0 h-[3px] bg-amber-400"
-            aria-hidden="true"
-          />
-        )}
-      </div>
-    );
-  };
+  // بطاقة مؤشّر (التعريف على مستوى الملف: MirasTeacherMetricCard).
+  const TeacherMetricCard = MirasTeacherMetricCard;
 
   // صلاحية المشرف تُقرأ من دور الجلسة، والخادم هو من يفرضها فعلياً (٤٠٣).
   // لا تُقارن بُرد إلكترونية مضمّنة هنا: الحزمة عامة ويقرأها أي زائر.
@@ -32488,6 +32504,7 @@ ${rows
                   <DnaStepper
                     size="sm"
                     still
+                    advance="public-login:phone"
                     steps={publicLoginApprovalSteps(publicLoginApproval.phase) || []}
                     ariaLabel="مراحل الدخول من جهاز عام"
                   />
@@ -32559,6 +32576,7 @@ ${rows
                   <DnaStepper
                     size="sm"
                     still
+                    advance="public-login:phone"
                     steps={publicLoginApprovalSteps("success") || []}
                     ariaLabel="مراحل الدخول من جهاز عام"
                   />
@@ -32634,6 +32652,7 @@ ${rows
                   <DnaStepper
                     size="sm"
                     still
+                    advance="public-login:desktop"
                     steps={publicDeviceLoginSteps("starting", false) || []}
                     ariaLabel="مراحل الدخول من جهاز عام"
                   />
@@ -32705,6 +32724,7 @@ ${rows
                   <DnaStepper
                     size="sm"
                     still
+                    advance="public-login:desktop"
                     steps={publicDeviceLoginSteps(publicDeviceLogin.phase, !!publicDeviceLogin.requestId) || []}
                     ariaLabel="مراحل الدخول من جهاز عام"
                   />
@@ -32719,6 +32739,7 @@ ${rows
                   <DnaStepper
                     size="sm"
                     still
+                    advance="public-login:desktop"
                     steps={publicDeviceLoginSteps(publicDeviceLogin.phase, !!publicDeviceLogin.requestId) || []}
                     ariaLabel="مراحل الدخول من جهاز عام"
                   />
@@ -36400,18 +36421,23 @@ ${rows
                           if (String(rawScore ?? "").trim() === "" || !Number.isFinite(got) || !(total > 0)) return null;
                           const share = Math.max(0, Math.min(1, got / total));
                           return (
-                            <div className="miras-grade-visual mx-auto mt-4 flex w-full max-w-[220px] flex-col items-center gap-3" aria-hidden="true">
+                            <DnaMotionGroup
+                              playKey={`exam-result:${String(activeExam.id)}:${String(rawScore)}`}
+                              settleMs={1000}
+                              className="miras-grade-visual mx-auto mt-4 flex w-full max-w-[220px] flex-col items-center gap-3"
+                              aria-hidden="true"
+                            >
                               <div className="relative grid h-24 w-24 place-items-center">
                                 <svg viewBox="0 0 36 36" className="absolute inset-0 h-full w-full -rotate-90">
                                   <circle cx="18" cy="18" r="15.5" fill="none" strokeWidth="3" className="miras-grade-track" />
                                   <circle cx="18" cy="18" r="15.5" fill="none" strokeWidth="3.4" strokeLinecap="round" pathLength={100} strokeDasharray={`${Math.round(share * 100)} 100`} className="miras-grade-arc" />
                                 </svg>
-                                <span className="miras-grade-figure text-2xl font-black tabular-nums">{String(rawScore)}</span>
+                                <span className="miras-grade-figure text-2xl font-black tabular-nums"><DnaCountText text={String(rawScore)} duration={650} /></span>
                               </div>
                               <div className="miras-grade-bar h-2 w-full overflow-hidden rounded-full">
-                                <div className="miras-grade-bar-fill h-full rounded-full" style={{ width: `${Math.round(share * 100)}%` }} />
+                                <div className="miras-grade-bar-fill miras-draw-bar h-full rounded-full" style={{ width: `${Math.round(share * 100)}%` }} />
                               </div>
-                            </div>
+                            </DnaMotionGroup>
                           );
                         })()}
                       </div>
@@ -37452,8 +37478,9 @@ ${rows
                                   )}
                                 </div>
 
-                                <div
+                                <DnaMotionGroup
                                   data-reveal-target="student-progress"
+                                  playKey={`student-progress:${studentIdOf(studentSession)}`}
                                   className="mt-2.5 rounded-[var(--miras-r-lg)] border border-white/85 bg-white/62 p-2.5 shadow-inner backdrop-blur"
                                 >
                                   <div className="mb-2 flex items-center justify-between gap-4">
@@ -37493,7 +37520,7 @@ ${rows
                                       <i className="miras-segbar-dot" aria-hidden="true" />
                                       <span>مطلوب</span>
                                       <span className="font-sans text-[12px] font-bold tabular-nums text-slate-950">
-                                        {studentSubmissionNeedsActionCount}
+                                        <DnaCountText text={String(studentSubmissionNeedsActionCount ?? "")} />
                                       </span>
                                     </span>
                                     <span className="text-slate-300">·</span>
@@ -37501,7 +37528,7 @@ ${rows
                                       <i className="miras-segbar-dot" aria-hidden="true" />
                                       <span>مرصود</span>
                                       <span className="font-sans text-[12px] font-bold tabular-nums text-emerald-700">
-                                        {studentSubmissionGradedCount}
+                                        <DnaCountText text={String(studentSubmissionGradedCount ?? "")} />
                                       </span>
                                     </span>
                                     <span className="text-slate-300">·</span>
@@ -37509,11 +37536,11 @@ ${rows
                                       <i className="miras-segbar-dot" aria-hidden="true" />
                                       <span>تسليم</span>
                                       <span className="font-sans text-[12px] font-bold tabular-nums text-indigo-700">
-                                        {studentSubmissionTimeline.length}
+                                        <DnaCountText text={String(studentSubmissionTimeline.length ?? "")} />
                                       </span>
                                     </span>
                                   </div>
-                                </div>
+                                </DnaMotionGroup>
                               </div>
                             )}
 
@@ -37820,7 +37847,7 @@ ${rows
                                     </div>
                                   )}
                                   {!priorExamSubmission ? (
-                                    <MirasWindowBar open={exam.open} close={exam.close} />
+                                    <MirasWindowBar open={exam.open} close={exam.close} playKey={`window-bar:${exam.id}`} />
                                   ) : null}
                                   {priorExamSubmission ? (
                                     <DnaStepper
@@ -39932,8 +39959,9 @@ ${rows
                             setSelectedSubmissionIds({});
                             setSubmissionStatusFilter(null);
                           }}
-                          className={`group rounded-[var(--miras-r-lg)] border border-slate-100 bg-white p-5 text-right shadow-sm transition-all hover:border-indigo-200 hover:shadow-md${submissionActivityCards.length === 1 ? " sm:col-span-2" : ""}`}
+                          className={`group relative rounded-[var(--miras-r-lg)] border border-slate-100 bg-white p-5 text-right shadow-sm transition-all hover:border-indigo-200 hover:shadow-md${submissionActivityCards.length === 1 ? " sm:col-span-2" : ""}`}
                         >
+                          <DnaChangeMark signal={card.graded} memoryKey={`submission-card:${card.id}`} />
                           <div className="flex items-start justify-between gap-3">
                             <div className="min-w-0 flex-1">
                               <h4 className="text-sm font-bold text-slate-900 leading-6">
@@ -39942,7 +39970,7 @@ ${rows
                             </div>
                             <div className="flex shrink-0 flex-col items-center gap-1.5">
                               <span className="relative inline-flex">
-                                <MirasRatioRing done={card.graded} total={card.total} expected={card.expected} />
+                                <MirasRatioRing done={card.graded} total={card.total} expected={card.expected} playKey={`submission-card-ring:${card.id}`} />
                                 {card.waiting > 0 && (
                                   <span
                                     title="مسجَّلون لم يسلّموا بعد انتهاء الوقت"
@@ -39966,7 +39994,9 @@ ${rows
                             <ChevronLeft className="mt-1 h-4 w-4 shrink-0 text-slate-300 transition-transform group-hover:-translate-x-1 group-hover:text-indigo-500" />
                           </div>
                           {card.total > 0 && (
-                            <div
+                            <DnaMotionGroup
+                              playKey={`submission-card-bar:${card.id}`}
+                              settleMs={1200}
                               className="miras-stack-bar mt-3"
                               role="img"
                               aria-label={`${card.graded} مصحح، ${card.pending} بانتظار، ${card.returned} معاد من ${card.total}`}
@@ -39974,7 +40004,7 @@ ${rows
                               <span className="is-graded" style={{ width: `${(card.graded / card.total) * 100}%` }} />
                               <span className="is-pending" style={{ width: `${((card.pending) / card.total) * 100}%` }} />
                               <span className="is-returned" style={{ width: `${(card.returned / card.total) * 100}%` }} />
-                            </div>
+                            </DnaMotionGroup>
                           )}
                           <div className="miras-sub-chips mt-3 flex flex-wrap gap-1.5">
                             {card.pending > 0 && (
@@ -43823,13 +43853,14 @@ ${rows
                                 </h2>
                               </div>
                               <div className="grid min-w-full grid-cols-2 gap-2 sm:min-w-[34rem] sm:grid-cols-4">
-                                <DnaStat icon={<ClipboardList size={16} />} tone="slate" label="إجراء مطلوب" value={totalActionCount} />
-                                <DnaStat icon={<KeyRound size={16} />} tone="indigo" label="أكواد تحتاج مراجعة" value={codeActionCount} />
-                                <DnaStat icon={<Users size={16} />} tone="amber" label="طلبة يحتاجون متابعة" value={studentActionCount} />
+                                <DnaStat icon={<ClipboardList size={16} />} tone="slate" label="إجراء مطلوب" value={totalActionCount} countUp="followup-centre:actions" />
+                                <DnaStat icon={<KeyRound size={16} />} tone="indigo" label="أكواد تحتاج مراجعة" value={codeActionCount} countUp="followup-centre:codes" />
+                                <DnaStat icon={<Users size={16} />} tone="amber" label="طلبة يحتاجون متابعة" value={studentActionCount} countUp="followup-centre:students" />
                                 <DnaStat
                                   icon={<Layers size={16} />}
                                   tone="mint"
                                   label="دفعات تحتاج مراجعة"
+                                  countUp="followup-centre:batches"
                                   value={
                                     /* العدّاد للمشرف فقط؛ وفي الصندوق التجريبي تُحسب القيمة من بياناته
                                         المعزولة وحدها (لا حساب حقيقي يصلها) فتُعرض للعارض أيضًا. */
@@ -44242,7 +44273,7 @@ ${rows
                                           {[0, 1, 2].map((i) => (
                                             <span
                                               key={`pulse-dot-${i}`}
-                                              className={`h-2.5 w-2.5 rounded-full ${pulse.status === "calm" ? "bg-emerald-300" : pulse.status === "danger" ? "bg-rose-300" : "bg-amber-300"} ${i === 0 ? "animate-pulse" : "opacity-60"}`}
+                                              className={`h-2.5 w-2.5 rounded-full ${pulse.status === "calm" ? "bg-emerald-300" : pulse.status === "danger" ? "bg-rose-300" : "bg-amber-300"} ${i === 0 ? "dna-pulse-3" : "opacity-60"}`}
                                             />
                                           ))}
                                         </div>
@@ -44515,7 +44546,7 @@ ${rows
                                         aria-label="شفاء ذاتي للبيانات"
                                         onClick={handleDataHeal}
                                         disabled={dataHealBusy || issues === 0}
-                                        className={`grid h-12 w-12 place-items-center rounded-2xl shadow-premium-md transition btn-spring-active disabled:opacity-50 ${issues > 0 ? "bg-indigo-600 text-white hover:bg-indigo-700 animate-pulse" : "bg-slate-100 text-slate-400"}`}
+                                        className={`grid h-12 w-12 place-items-center rounded-2xl shadow-premium-md transition btn-spring-active disabled:opacity-50 ${issues > 0 ? "bg-indigo-600 text-white hover:bg-indigo-700 dna-pulse-3" : "bg-slate-100 text-slate-400"}`}
                                       >
                                         {dataHealBusy ? (
                                           <MirasLoader size={20} role="current" label="جارٍ التنفيذ…" />
@@ -45258,6 +45289,7 @@ ${rows
                                                           max={100}
                                                           columns={Math.min(12, Math.max(4, Math.min((codeIntegrity.batchIntelligence || []).length, 60)))}
                                                           tone="danger"
+                                                          reveal="integrity-heat:batches"
                                                           ariaLabel="خريطة حرارة الدفعات حسب درجة الخطورة"
                                                         />
                                                       </div>
@@ -46751,7 +46783,7 @@ ${rows
                                                               الطالب.
                                                             </div>
                                                           ) : (
-                                                            <div className="relative border-r-2 border-slate-200 mr-2.5 pr-5 py-2 space-y-4 text-right">
+                                                            <DnaMotionGroup playKey={`audit-timeline:${studentName}`} settleMs={2200} className="relative border-r-2 border-slate-200 mr-2.5 pr-5 py-2 space-y-4 text-right">
                                                               {logs
                                                                 .slice(0, 10)
                                                                 .map(
@@ -46913,10 +46945,10 @@ ${rows
                                                                       >
                                                                         {/* Bullet dot */}
                                                                         <span
-                                                                          className={`absolute -right-[26px] top-1.5 flex h-2.5 w-2.5 items-center justify-center rounded-full !p-0 ${style.color} ring-4 ring-white shadow-sm z-10`}
+                                                                          className={`dna-tl-dot absolute -right-[26px] top-1.5 flex h-2.5 w-2.5 items-center justify-center rounded-full !p-0 ${style.color} ring-4 ring-white shadow-sm z-10`}
                                                                         >
                                                                           <span
-                                                                            className={`animate-ping absolute inline-flex h-full w-full rounded-full !p-0 ${style.color} opacity-40`}
+                                                                            className={`dna-tl-halo absolute inline-flex h-full w-full rounded-full !p-0 ${style.color}`}
                                                                           ></span>
                                                                         </span>
 
@@ -46968,7 +47000,7 @@ ${rows
                                                                     );
                                                                   },
                                                                 )}
-                                                            </div>
+                                                            </DnaMotionGroup>
                                                           )}
                                                         </div>
                                                       )}
@@ -47333,7 +47365,7 @@ ${rows
                           },
                         ];
                         return (
-                          <div className="miras-edge-stable-card miras-code-status rounded-3xl border border-slate-200/80 bg-white p-4 shadow-sm">
+                          <DnaMotionGroup playKey="code-status" className="miras-edge-stable-card miras-code-status rounded-3xl border border-slate-200/80 bg-white p-4 shadow-sm">
                             <div
                               className="miras-segbar"
                               role="img"
@@ -47366,7 +47398,7 @@ ${rows
                                 </div>
                               ))}
                             </div>
-                          </div>
+                          </DnaMotionGroup>
                         );
                       })()}
 
@@ -48306,8 +48338,9 @@ ${rows
                                 value: activationAttemptSummary.devices,
                               },
                             ].map((item) => (
-                              <div
+                              <DnaMotionGroup
                                 key={item.label}
+                                playKey={`activation-tile:${item.label}`}
                                 className="rounded-3xl border border-slate-100 bg-slate-50/70 p-4 text-right"
                               >
                                 <span className="block text-[10px] font-bold text-slate-400">
@@ -48323,7 +48356,7 @@ ${rows
                                     }}
                                   />
                                 </span>
-                              </div>
+                              </DnaMotionGroup>
                             ))}
                           </div>
 
@@ -48761,7 +48794,7 @@ ${rows
                               const pct = of ? Math.round((activated / of) * 100) : 0;
                               const manySections = summary.rows.length > 1;
                               return (
-                                <div className="miras-activation-summary space-y-2.5">
+                                <DnaMotionGroup playKey="activation-summary" className="miras-activation-summary space-y-2.5">
                                   <div
                                     className="flex items-center gap-3"
                                     role="img"
@@ -48775,7 +48808,7 @@ ${rows
                                     </span>
                                     {of > 0 && (
                                       <span className="h-1.5 flex-1 overflow-hidden rounded-full bg-slate-100" aria-hidden="true">
-                                        <span className="block h-full rounded-full bg-emerald-500" style={{ width: `${pct}%` }} />
+                                        <span className="miras-draw-bar block h-full rounded-full bg-emerald-500" style={{ width: `${pct}%` }} />
                                       </span>
                                     )}
                                   </div>
@@ -48795,14 +48828,14 @@ ${rows
                                               </span>
                                             </div>
                                             <span className="mt-1 block h-1 overflow-hidden rounded-full bg-slate-200/70" aria-hidden="true">
-                                              <span className="block h-full rounded-full bg-emerald-400" style={{ width: `${rowPct}%` }} />
+                                              <span className="miras-draw-bar block h-full rounded-full bg-emerald-400" style={{ width: `${rowPct}%` }} />
                                             </span>
                                           </li>
                                         );
                                       })}
                                     </ul>
                                   )}
-                                </div>
+                                </DnaMotionGroup>
                               );
                             })()}
                             <div className="miras-activation-chips flex flex-nowrap items-center gap-1.5 overflow-x-auto sm:gap-2" role="group" aria-label="تصفية الطلبة حسب الحالة">

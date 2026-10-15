@@ -7,7 +7,9 @@
 import * as React from 'react';
 import './dna.css';
 import './journey.css';
+import './dna-motion.css';
 import { useJourneyReveal } from './useJourneyReveal';
+import { DnaCountText, prefersReducedMotion, useChangedKeys, useMotionPhase } from './motion';
 import { journeyDisplayState, journeyMarkPlayed, journeyStepMs, journeyTarget } from './journeyReveal';
 
 export type DnaTone =
@@ -66,10 +68,21 @@ export function DnaIconTile({ icon, tone = 'accent', size = 'md', badge, label, 
 
 /* --------------------------------------------------------------- pills */
 
-export function DnaLive({ on = true, label, className }: { on?: boolean; label: React.ReactNode; className?: string }) {
+export function DnaLive({
+  on = true,
+  label,
+  className,
+  pulseKey,
+}: {
+  on?: boolean;
+  label: React.ReactNode;
+  className?: string;
+  /** Rests static; when this key changes the dot gives one soft pulse. */
+  pulseKey?: React.Key;
+}) {
   return (
-    <span className={cx('dna', 'dna-live', className)} data-on={on ? 'true' : 'false'}>
-      <i aria-hidden="true" />
+    <span className={cx('dna', 'dna-live', className)} data-on={on ? 'true' : 'false'} data-pulse={pulseKey != null ? 'true' : undefined}>
+      <i key={pulseKey} aria-hidden="true" />
       {label}
     </span>
   );
@@ -134,6 +147,29 @@ export interface DnaStepperProps {
   stepMs?: number;
   /** No pulsing halo at all (e.g. during a live exam). */
   still?: boolean;
+  /**
+   * Remember the stations by this key across remounts: when a phase advances only the
+   * station(s) that moved forward animate (fill + one soft halo); the row is never replayed.
+   */
+  advance?: string;
+}
+
+/* what the previous stepper with the same `advance` key was showing */
+const advanceMemory = new Map<string, { states: Record<string, DnaStepState>; live: boolean; t: number }>();
+const ADVANCE_FRESH_MS = 5000;
+const STEP_RANK: Record<DnaStepState, number> = { pending: 0, current: 1, done: 2, returned: 2, blocked: 2 };
+
+function forwardChanges(before: Record<string, DnaStepState>, steps: DnaStep[]): Record<string, DnaStepState> | null {
+  const out: Record<string, DnaStepState> = {};
+  let any = false;
+  steps.forEach((s) => {
+    const was = before[s.key];
+    if (was && was !== s.state && STEP_RANK[s.state] > STEP_RANK[was]) {
+      out[s.key] = was;
+      any = true;
+    }
+  });
+  return any ? out : null;
 }
 
 export function DnaStepper({
@@ -148,6 +184,7 @@ export function DnaStepper({
   hold = false,
   stepMs,
   still = false,
+  advance,
 }: DnaStepperProps) {
   const text = { ...DEFAULT_STATE_TEXT, ...stateText };
   const labels = showLabels && size !== 'xs';
@@ -163,6 +200,57 @@ export function DnaStepper({
   React.useEffect(() => {
     if (still) journeyMarkPlayed(playKey);
   }, [still, playKey]);
+
+  // advance: show the previous look for one frame, then let the CSS transitions carry
+  // only the stations that moved forward. Skipped for reduced motion and stale memory.
+  const [from, setFrom] = React.useState<Record<string, DnaStepState> | null>(() => {
+    if (!advance || prefersReducedMotion()) return null;
+    const m = advanceMemory.get(advance);
+    if (!m || !(m.live || Date.now() - m.t < ADVANCE_FRESH_MS)) return null;
+    return forwardChanges(m.states, steps);
+  });
+  const [just, setJust] = React.useState<string[]>([]);
+  const justTimer = React.useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  const flashJust = React.useCallback((keys: string[]) => {
+    setJust(keys);
+    if (justTimer.current) clearTimeout(justTimer.current);
+    justTimer.current = setTimeout(() => setJust([]), 1700);
+  }, []);
+  React.useEffect(() => () => { if (justTimer.current) clearTimeout(justTimer.current); }, []);
+  React.useEffect(() => {
+    if (!from) return;
+    const keys = Object.keys(from);
+    const raf = requestAnimationFrame(() => {
+      void ref.current?.offsetWidth; // flush the "before" look so the change transitions
+      setFrom(null);
+      flashJust(keys);
+    });
+    return () => cancelAnimationFrame(raf);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+  const states: Record<string, DnaStepState> = {};
+  steps.forEach((s) => { states[s.key] = s.state; });
+  const statesSig = steps.map((s) => `${s.key}:${s.state}`).join('|');
+  const lastStates = React.useRef<Record<string, DnaStepState> | null>(null);
+  React.useEffect(() => {
+    // same instance, steps moved on (no remount): the CSS transitions already animate
+    const before = lastStates.current;
+    lastStates.current = states;
+    if (!advance || !before || prefersReducedMotion()) return;
+    const moved = forwardChanges(before, steps);
+    if (moved) flashJust(Object.keys(moved));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [statesSig]);
+  React.useEffect(() => {
+    if (!advance) return;
+    advanceMemory.set(advance, { states, live: true, t: Date.now() });
+    return () => {
+      advanceMemory.set(advance, { states, live: false, t: Date.now() });
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [advance, statesSig]);
+
+  const advancing = Boolean(advance) && (from !== null || just.length > 0);
   return (
     <ol
       ref={ref}
@@ -172,10 +260,12 @@ export function DnaStepper({
       data-journey={reveal ? '' : undefined}
       data-reveal={reveal ? (lit ?? 'done') : undefined}
       data-still={still ? 'true' : undefined}
+      data-advance={advancing ? '' : undefined}
     >
       {steps.map((step, i) => {
-        const shown = journeyDisplayState(step.state, i, lit);
-        const prevShown = i > 0 ? journeyDisplayState(steps[i - 1].state, i - 1, lit) : null;
+        const stateOf = (s: DnaStep) => from?.[s.key] ?? s.state;
+        const shown = journeyDisplayState(stateOf(step), i, lit);
+        const prevShown = i > 0 ? journeyDisplayState(stateOf(steps[i - 1]), i - 1, lit) : null;
         const link = prevShown === null ? 'none' : shown === 'returned' ? 'returned' : prevShown === 'done' ? 'done' : 'pending';
         const stamped = Boolean(step.stamp) && shown === 'done';
         return (
@@ -186,7 +276,9 @@ export function DnaStepper({
             data-link={link}
             data-stamp={stamped ? 'true' : undefined}
             data-lit={lit !== null && i < lit ? 'true' : undefined}
-            data-just={lit !== null && lit > 0 && i === lit - 1 && shown !== 'pending' ? 'true' : undefined}
+            data-just={
+              (lit !== null && lit > 0 && i === lit - 1 && shown !== 'pending') || (!from && just.includes(step.key)) ? 'true' : undefined
+            }
             aria-current={step.state === 'current' ? 'step' : undefined}
             title={step.title ?? (size === 'xs' && typeof step.label === 'string' ? step.label : undefined)}
           >
@@ -448,7 +540,7 @@ export function DnaSpark({
       aria-hidden={ariaLabel ? undefined : true}
     >
       <path className="dna-sparka" d={area} />
-      <path className="dna-sparkl" d={line} />
+      <path className="dna-sparkl" d={line} pathLength={1} />
       <circle cx={last[0]} cy={last[1]} r={2.6} />
     </svg>
   );
@@ -462,6 +554,7 @@ export function DnaStat({
   sub,
   spark,
   className,
+  countUp,
 }: {
   icon: React.ReactNode;
   tone?: DnaTone;
@@ -470,13 +563,21 @@ export function DnaStat({
   sub?: React.ReactNode;
   spark?: React.ReactNode;
   className?: string;
+  /** playKey: a plain numeric `value` counts up once per session when it first scrolls into view. */
+  countUp?: string;
 }) {
   return (
     <div className={cx('dna', 'dna-stat', className)}>
       <DnaIconTile icon={icon} tone={tone} size="md" />
       <div className="dna-statx">
         <span className="dna-statl">{label}</span>
-        <strong className="dna-statv">{value}</strong>
+        <strong className="dna-statv">
+          {countUp && typeof value === 'number' && Number.isInteger(value) && value >= 0 && value <= 999999999 ? (
+            <DnaCountText text={String(value)} playKey={countUp} />
+          ) : (
+            value
+          )}
+        </strong>
         {sub}
       </div>
       {spark}
@@ -493,6 +594,7 @@ export function DnaHeat({
   tone = 'accent',
   ariaLabel,
   className,
+  reveal,
 }: {
   cells: Array<{ key: string; value: number; label?: string }>;
   max?: number;
@@ -500,25 +602,43 @@ export function DnaHeat({
   tone?: DnaTone;
   ariaLabel?: string;
   className?: string;
+  /** playKey: cells fade in once per session, in reading order (right to left in RTL). */
+  reveal?: string;
 }) {
   const top = max ?? Math.max(0, ...cells.map((c) => c.value));
+  const cols = Math.max(1, columns ?? cells.length);
+  const { ref, attr } = useMotionPhase<HTMLDivElement>(reveal, { enabled: Boolean(reveal), settleMs: 1800 });
+  const rtl = typeof document === 'undefined' || document.documentElement.dir !== 'ltr';
+  // <= 28ms per cell, whole strip <= ~0.9s
+  const step = Math.min(28, 900 / Math.max(1, cells.length));
   return (
     <div
+      ref={ref}
       className={cx('dna', 'dna-heat', className)}
       data-dna-tone={tone}
+      data-draw={attr}
       role="img"
       aria-label={ariaLabel}
       style={{ ['--cols' as string]: columns ?? cells.length } as React.CSSProperties}
     >
-      {cells.map((cell) => (
-        <span
-          key={cell.key}
-          className="dna-heatc"
-          data-zero={cell.value <= 0 ? 'true' : undefined}
-          title={cell.label}
-          style={{ ['--v' as string]: top > 0 ? Math.min(1, cell.value / top) : 0 } as React.CSSProperties}
-        />
-      ))}
+      {cells.map((cell, i) => {
+        const col = i % cols;
+        const order = Math.floor(i / cols) * cols + (rtl ? cols - 1 - col : col);
+        return (
+          <span
+            key={cell.key}
+            className="dna-heatc"
+            data-zero={cell.value <= 0 ? 'true' : undefined}
+            title={cell.label}
+            style={
+              {
+                ['--v' as string]: top > 0 ? Math.min(1, cell.value / top) : 0,
+                ...(attr ? { ['--d' as string]: `${Math.round(order * step)}ms` } : null),
+              } as React.CSSProperties
+            }
+          />
+        );
+      })}
     </div>
   );
 }
@@ -623,6 +743,15 @@ export function DnaHubMap({
     return () => observer.disconnect();
   }, []);
 
+  // a node whose count changed gets one soft ring; the live dot gives one pulse (no loops)
+  const flashValues: Record<string, string> = {};
+  nodes.forEach((n) => {
+    if (typeof n.value === 'string' || typeof n.value === 'number') flashValues[n.key] = String(n.value);
+  });
+  if (typeof center.value === 'string' || typeof center.value === 'number') flashValues.__center = String(center.value);
+  const flashed = useChangedKeys(flashValues);
+  const flashToken = Math.max(0, ...Object.values(flashed));
+
   const w = box.w;
   const narrow = w > 0 && w < 520;
   const tile = narrow ? 44 : 54;
@@ -697,6 +826,7 @@ export function DnaHubMap({
 
           <div
             className="dna-hubc"
+            data-flash={flashed.__center ? 'true' : undefined}
             style={{ inlineSize: hub, blockSize: hub, left: mx - hub / 2, top: my - hub / 2 }}
             role={center.ariaLabel ? 'img' : undefined}
             aria-label={center.ariaLabel}
@@ -730,6 +860,7 @@ export function DnaHubMap({
                 className="dna-hubn"
                 data-dna-tone={node.tone ?? 'accent'}
                 data-state={node.state ?? 'ok'}
+                data-flash={flashed[node.key] ? 'true' : undefined}
                 style={style}
                 onClick={node.onClick}
                 aria-label={node.ariaLabel}
@@ -743,6 +874,7 @@ export function DnaHubMap({
                 className="dna-hubn"
                 data-dna-tone={node.tone ?? 'accent'}
                 data-state={node.state ?? 'ok'}
+                data-flash={flashed[node.key] ? 'true' : undefined}
                 style={style}
                 aria-label={node.ariaLabel}
                 title={node.title}
@@ -756,7 +888,7 @@ export function DnaHubMap({
 
       {(live || count) && (
         <div className="dna-hubp">
-          {live && <DnaLive on={live.on} label={live.label} />}
+          {live && <DnaLive on={live.on} label={live.label} pulseKey={flashToken > 0 ? flashToken : undefined} />}
           {count && <DnaCount value={count.value} icon={count.icon} label={count.label} />}
         </div>
       )}

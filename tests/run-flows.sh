@@ -120,6 +120,7 @@ node node_modules/.bin/tsx --test tests/login-reveal-timing.test.mjs || overall=
 node node_modules/.bin/tsx --test tests/cloud-data-ready.test.ts || overall=1
 node node_modules/.bin/tsx --test tests/journey-reveal.test.ts || overall=1
 node node_modules/.bin/tsx --test tests/journey-reveal-render.test.tsx || overall=1
+node node_modules/.bin/tsx --test tests/motion.test.tsx || overall=1
 node node_modules/.bin/tsx --test tests/cloud-readiness-probe.test.ts || overall=1
 node node_modules/.bin/tsx --test tests/password-reset-routing.test.ts || overall=1
 node node_modules/.bin/tsx --test tests/home-password-reset-requests.test.ts || overall=1
