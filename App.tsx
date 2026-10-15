@@ -4107,6 +4107,17 @@ export default function App() {
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [studentDeadlineCardOpen]);
+  // Esc يغلق لوحة تنبيهات الطالب أيضاً (ما لم تكن الجولة أو بطاقة التنبيه مفتوحة).
+  useEffect(() => {
+    if (!studentNotificationsOpen) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== "Escape") return;
+      if (document.querySelector(".miras-onboarding-overlay, [aria-label=\"تنبيه مهم\"][role=\"dialog\"]")) return;
+      setStudentNotificationsOpen(false);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [studentNotificationsOpen]);
   const [studentSeenKeysState, setStudentSeenKeysState] = useState<Set<string>>(
     new Set(),
   );
@@ -33441,7 +33452,7 @@ ${rows
             width: 20px !important;
             height: 20px !important;
             min-width: 20px !important;
-            stroke-width: 2 !important;
+            stroke-width: 1.75 !important;
             flex: 0 0 auto !important;
           }
 
@@ -35182,7 +35193,7 @@ ${rows
                     disabled={signupLookupStatus !== "found"}
                     className="meras-main-action w-full bg-slate-950 hover:bg-indigo-700 disabled:bg-slate-300 disabled:cursor-not-allowed text-white py-4 rounded-2xl font-bold text-xs transition-all duration-300 btn-spring-active shadow-premium-md flex items-center justify-center gap-2 mt-2"
                   >
-                    <span>التحقق وبناء الرمز السري</span>
+                    <span>التحقق وبناء الكود السري</span>
                     <ChevronRight className="w-4 h-4 rotate-180" />
                   </button>
                 </div>
@@ -38209,7 +38220,7 @@ ${rows
                                             <p className="text-xs font-bold text-slate-700 font-sans">
                                               {isUploading
                                                 ? "جاري رفع المرفقات..."
-                                                : "ارفاق ملفات ومستندات (اضغط هنا أو اسحب الملف)"}
+                                                : "إرفاق ملفات ومستندات (اضغط هنا أو اسحب الملف)"}
                                             </p>
                                             <p className="text-[10px] text-slate-400 leading-normal">
                                               مستندات PDF، صور، Word، Excel، عرض
@@ -48064,7 +48075,7 @@ ${rows
                                           )}
                                           {c.status === "used" && (
                                             <span className="rounded-full bg-slate-500 px-2 py-0.5 text-[11px] font-black text-white">
-                                              تم استخدامه ومحفوظ بالأرشيف
+                                              تم استخدامه ومحفوظ في السجل
                                             </span>
                                           )}
                                         </div>

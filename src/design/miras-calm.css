@@ -1255,3 +1255,49 @@ html body .meras-teacher-shell.teacher-calm-shell .teacher-command-header .miras
   border-color: var(--miras-line, #e6eaf2) !important;
   color: var(--miras-ink-2) !important;
 }
+
+/* ═══════════════ ٣١) الجولة الثانية: تباين الليلي، حياد رأس الليلي، أهداف لمس ≥40px ═══════════════ */
+/* زر أساسي في الليلي: أبيض على #8b80ff كان 3.17:1؛ نيلي أغمق يبلغ >4.5:1 (لون فقط). */
+html[data-theme="dark"] body .miras-btn-labeled:not(:disabled):not(#_):not(#_):not(#_) {
+  background: #5a4fe6 !important;
+  color: #fff !important;
+}
+/* أيقونات الرأس محايدة في الليلي أيضاً (الخروج/البصمة) */
+html[data-theme="dark"] body .miras-zero-action-btn:not(.miras-zero-action-notifications):not(#_):not(#_):not(#_):not(#_),
+html[data-theme="dark"] body .miras-student-tool:not(.miras-student-tool--notify):not(#_):not(#_):not(#_):not(#_) {
+  color: var(--miras-ink-2) !important;
+}
+html[data-theme="dark"] body .miras-zero-action-btn:not(.miras-zero-action-notifications) svg:not(#_):not(#_),
+html[data-theme="dark"] body .miras-student-tool:not(.miras-student-tool--notify) svg:not(#_):not(#_) {
+  color: inherit !important;
+  stroke: currentColor !important;
+}
+html[data-theme="dark"] body .teacher-command-header .student-icon-btn:not(.notification-alert-glowing-btn):not(#_):not(#_):not(#_) {
+  color: var(--miras-ink-2) !important;
+}
+/* أهداف اللمس */
+.miras-app-teacher-root .miras-zero-action-btn:not(#_):not(#_):not(#_) {
+  flex-shrink: 0 !important;
+  min-width: 2.5rem !important;
+  min-height: 2.5rem !important;
+}
+.miras-app-teacher-root button:is(.h-10.w-10, .h-9.w-9, .h-8.w-8):not(#_):not(#_):not(#_) {
+  min-width: 2.5rem !important;
+  min-height: 2.5rem !important;
+}
+@media (max-width: 920px), (pointer: coarse) and (hover: none) {
+  html body .miras-app-teacher-root.miras-teacher-viewport-v5 .miras-zero-name-pill:not(#_):not(#_):not(#_) {
+    min-height: 2.5rem !important;
+    display: flex !important;
+    align-items: center !important;
+  }
+}
+@media (max-width: 767px) {
+  html body .miras-student-account-pill:not(#_):not(#_):not(#_) { min-height: 2.5rem !important; display: inline-flex !important; align-items: center !important; }
+}
+/* رأس الطالب اللاصق على الهاتف: ملء العرض بدقة (كان -1rem فوق حشوة 0.7rem فيتجاوز الحافة بـ5px) */
+@media (max-width: 767px) {
+  html body .meras-student-shell main > .meras-topbar:not(#_):not(#_):not(#_) {
+    margin-inline: -0.7rem !important;
+  }
+}
