@@ -115,3 +115,20 @@ html body .meras-teacher-shell .miras-metric-card .miras-metric-value .miras-met
   html body .meras-teacher-shell .miras-metric-card:not(#_):not(#_):not(#__) { transition: transform 0.2s ease, box-shadow 0.2s ease; }
   html body #root .meras-teacher-shell .miras-metric-card:hover:not(#_):not(#_):not(#__):not(#___):not(#____) { transform: translateY(-3px) !important; }
 }
+
+/* Teacher mobile header: keep every action (incl. logout) on ONE row. With the alert shield
+   showing there are six 2.5rem buttons, wider than the row's 62vw cap, so logout wrapped onto a
+   second line. Never wrap; let the buttons shrink a little on narrow phones instead. */
+@media (max-width: 920px) {
+  html body #root .miras-mobile-teacher-zero-header .miras-zero-actions-row:not(#_):not(#_):not(#__):not(#___):not(#____):not(#_____) {
+    flex-wrap: nowrap !important;
+    max-width: none !important;
+    min-width: 0 !important;
+  }
+  html body #root .miras-mobile-teacher-zero-header .miras-zero-action-btn:not(#_):not(#_):not(#__):not(#___):not(#____):not(#_____) {
+    width: clamp(1.9rem, 8.6vw, 2.5rem) !important;
+    height: clamp(1.9rem, 8.6vw, 2.5rem) !important;
+    min-width: 0 !important;
+    flex: 0 0 auto !important;
+  }
+}
