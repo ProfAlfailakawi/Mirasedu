@@ -22658,16 +22658,44 @@ ${rows
       scopedTeacherStudents.length,
     ),
     totalRegistered: scopedTeacherStudents.length,
-    percentCompleted:
-      scopedTeacherStudents.length > 0
-        ? Math.floor(
-            scopedTeacherStudents.reduce(
-              (acc: number, student: any) =>
-                acc + (Number(student.progress) || 0),
-              0,
-            ) / scopedTeacherStudents.length,
-          )
-        : 0,
+    // نسبة التقدم = متوسط (الأنشطة المسلَّمة ÷ الأنشطة المنشورة في المقرر) لكل طالب مفعّل.
+    // كانت تعتمد على حقل student.progress الذي لا يتحدّث من مسار التسليم الفعلي فتبقى 0%.
+    percentCompleted: (() => {
+      if (!scopedTeacherStudents.length) return 0;
+      const inScope = (code: any) =>
+        isAccountAuditView
+          ? auditCourseCodes.some((c: string) => courseCodesMatch(code, c))
+          : courseCodesMatch(code, activeCourseCode);
+      const isPublished = (item: any) =>
+        isLiveRecord(item) &&
+        !/draft|مسودة|cancel|ملغ/i.test(String(item.status || ""));
+      const activities = [
+        ...teacherCreatedExams
+          .filter((e: any) => isPublished(e) && inScope(e.courseCode))
+          .map((e: any) => ({ kind: "exam", id: String(e.id) })),
+        ...teacherProjects
+          .filter((p: any) => isPublished(p) && inScope(p.courseCode))
+          .map((p: any) => ({ kind: "project", id: String(p.id) })),
+      ];
+      if (!activities.length) return 0;
+      const doneKeys = new Map<string, Set<string>>();
+      teacherSubmissions.forEach((sub: any) => {
+        const returned = /معاد|returned|reopened/i.test(String(sub.status || ""));
+        if (returned) return;
+        if (!(sub.submittedAt || sub.resubmittedAt || sub.gradedAt)) return;
+        const sid = String(sub.studentId || "");
+        if (!sid) return;
+        if (!doneKeys.has(sid)) doneKeys.set(sid, new Set());
+        doneKeys.get(sid)!.add(`${sub.kind}:${sub.activityId}`);
+      });
+      const total = scopedTeacherStudents.reduce((acc: number, student: any) => {
+        const done = doneKeys.get(String(student.id || student.idNumber || ""));
+        if (!done) return acc;
+        const count = activities.filter((a) => done.has(`${a.kind}:${a.id}`)).length;
+        return acc + count / activities.length;
+      }, 0);
+      return Math.floor((total / scopedTeacherStudents.length) * 100);
+    })(),
     deviceViolationCount: scopedSystemLogs.filter(
       (log: any) => log.action === "انتهاك الأجهزة" || log.isViolationWarning,
     ).length,
