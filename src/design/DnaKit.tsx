@@ -426,7 +426,7 @@ export function DnaRing({ value, max = 100, size = 52, stroke = 4, tone = 'accen
     <div
       className={cx('dna', 'dna-ring', className)}
       data-dna-tone={tone}
-      style={{ inlineSize: size, blockSize: size }}
+      style={{ inlineSize: size, blockSize: size, ['--dna-ring-size' as string]: `${size}px` }}
       role="img"
       aria-label={ariaLabel}
     >
