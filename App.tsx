@@ -34794,14 +34794,32 @@ ${rows
                     <p className="text-[12px] font-bold text-slate-600">
                       لا يمكن معاينة هذا النوع داخل التطبيق.
                     </p>
-                    <a
-                      href={url}
-                      target="_blank"
-                      rel="noopener noreferrer"
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        // رابط مباشر (<a href>) لا يرسل توكن الجلسة فيرفضه الخادم (401)؛
+                        // نجلب الملف بالتوكن ثم ننزّله من blob: محلي.
+                        try {
+                          const resp = url.startsWith("data:")
+                            ? await fetch(url)
+                            : await fetch(url, { headers: jsonHeaders() });
+                          if (!resp.ok) throw new Error("download failed");
+                          const blobUrl = URL.createObjectURL(await resp.blob());
+                          const link = document.createElement("a");
+                          link.href = blobUrl;
+                          link.download = name || "attachment";
+                          document.body.appendChild(link);
+                          link.click();
+                          link.remove();
+                          window.setTimeout(() => URL.revokeObjectURL(blobUrl), 60_000);
+                        } catch {
+                          setErrorMsg("تعذر تحميل المرفق من الخادم.");
+                        }
+                      }}
                       className="rounded-2xl bg-indigo-600 px-5 py-2.5 text-[12px] font-bold text-white hover:bg-indigo-700"
                     >
-                      فتح الملف
-                    </a>
+                      تنزيل الملف
+                    </button>
                   </div>
                 );
               })()}
