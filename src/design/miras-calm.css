@@ -69,6 +69,17 @@ svg.lucide {
     min-width: 2.6rem !important;
     border-radius: 0.9rem !important;
   }
+  /* header bell badge: the inner edge stops beside the bell glyph and wide counts ("12", "99+")
+     grow outward into the row gap instead of over the glyph; reads "99+" in RTL too */
+  html body .miras-app-teacher-root .teacher-command-header .student-icon-btn .miras-notification-badge:not(#_) {
+    top: -0.5rem !important;
+    left: calc(100% - 1.2rem) !important;
+    right: auto !important;
+    inset-inline-start: auto !important;
+    padding-inline: 3px !important;
+    direction: ltr;
+    unicode-bidi: isolate;
+  }
   html body .miras-app-teacher-root .teacher-command-header .miras-teacher-heading-block > h1:not(#_) {
     width: auto !important;
     margin: 0 !important;
