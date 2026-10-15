@@ -8415,7 +8415,7 @@ export default function App() {
   const [studentDirectoryStatus, setStudentDirectoryStatus] = useState("all");
   const [codesPage, setCodesPage] = useState(1);
   const codesPageSize = 50;
-  // عدد كروت التفعيل المطلوب طباعتها من المتبقّي غير المستخدم.
+  // عدد أكواد التفعيل المطلوب طباعتها من المتبقّي غير المستخدم.
   // فارغ = طباعة الكل (السلوك السابق).
   const [printCardsLimit, setPrintCardsLimit] = useState("");
   const [singleCodeStudentId, setSingleCodeStudentId] = useState("");
@@ -14723,7 +14723,7 @@ export default function App() {
             String(a.code || "").localeCompare(String(b.code || "")),
           );
     if (!codesForExport.length) {
-      setErrorMsg("لا توجد رموز فعالة ضمن النطاق الحالي.");
+      setErrorMsg("لا توجد أكواد فعالة ضمن النطاق الحالي.");
       return;
     }
     const headers = [
@@ -14790,7 +14790,7 @@ export default function App() {
       if (!resp.ok || !Array.isArray(data.joinCodes)) throw new Error("archive");
       archiveCodes = data.joinCodes.filter((code: any) => String(code?.code || "").trim());
     } catch {
-      setErrorMsg("تعذّر تحميل أرشيف الرموز للتصدير. أعد المحاولة.");
+      setErrorMsg("تعذّر تحميل أرشيف الأكواد للتصدير. أعد المحاولة.");
       return;
     }
     const headers = [
@@ -14807,7 +14807,7 @@ export default function App() {
     const escapeCsv = (value: any) =>
       `"${String(value ?? "").replace(/"/g, '""')}"`;
     if (!archiveCodes.length) {
-      setErrorMsg("لا توجد رموز ضمن النطاق الحالي لتصدير الأرشيف.");
+      setErrorMsg("لا توجد أكواد ضمن النطاق الحالي لتصدير الأرشيف.");
       return;
     }
     const rows = archiveCodes.map((j: any) => [
@@ -15002,7 +15002,7 @@ export default function App() {
     });
 
     if (!rows.length) {
-      setErrorMsg("لا توجد رموز تفعيل فعالة جاهزة لتجهيز ملف المطبعة.");
+      setErrorMsg("لا توجد أكواد تفعيل فعالة جاهزة لتجهيز ملف المطبعة.");
       releaseBusy();
       return;
     }
@@ -32403,7 +32403,7 @@ ${rows
               <FlaskConical className="h-4 w-4" />
             </button>
             <FlaskConical
-              className="miras-demo-flask h-3.5 w-3.5"
+              className="miras-demo-flask h-4 w-4"
               role="img"
               aria-label="بيئة تجريبية — بيانات مصطنعة معزولة"
             />
@@ -32424,13 +32424,13 @@ ${rows
                 onClick={() => void switchDemoRole(role)}
                 title={label}
                 aria-label={label}
-                className={`grid h-6 w-6 place-items-center rounded-full transition ${
+                className={`grid h-10 w-10 place-items-center rounded-full transition ${
                   demoRole === role
                     ? "bg-amber-900 text-amber-50"
                     : "hover:bg-amber-200 disabled:opacity-50"
                 }`}
               >
-                <Icon className="h-3.5 w-3.5" />
+                <Icon className="h-4 w-4" />
               </button>
             ))}
             <button
@@ -32439,9 +32439,9 @@ ${rows
               onClick={() => void resetDemo()}
               title="إعادة تعيين البيانات التجريبية"
               aria-label="إعادة تعيين البيانات التجريبية"
-              className="grid h-6 w-6 place-items-center rounded-full transition hover:bg-amber-200 disabled:opacity-50"
+              className="grid h-10 w-10 place-items-center rounded-full transition hover:bg-amber-200 disabled:opacity-50"
             >
-              <MirasRefreshCw className="h-3.5 w-3.5" />
+              <MirasRefreshCw className="h-4 w-4" />
             </button>
             <button
               type="button"
@@ -32449,9 +32449,9 @@ ${rows
               onClick={() => void exitDemo()}
               title="الخروج من البيئة التجريبية"
               aria-label="الخروج من البيئة التجريبية"
-              className="grid h-6 w-6 place-items-center rounded-full transition hover:bg-amber-200 disabled:opacity-50"
+              className="grid h-10 w-10 place-items-center rounded-full transition hover:bg-amber-200 disabled:opacity-50"
             >
-              <X className="h-3.5 w-3.5" />
+              <X className="h-4 w-4" />
             </button>
           </div>
         </div>
@@ -35610,7 +35610,7 @@ ${rows
               <div className="bg-amber-50/50 border border-amber-100 p-4 rounded-2xl my-5 text-right">
                 <span className="text-[11px] font-bold text-amber-800 flex items-center gap-1.5 mb-1">
                   <Lightbulb className="h-3.5 w-3.5" aria-hidden="true" />
-                  رموز الشعب النشطة حالياً بالاختبار:
+                  أكواد الشعب النشطة حالياً بالاختبار:
                 </span>
                 <p className="font-mono text-center text-xs font-bold text-slate-700 bg-white/70 py-1 rounded-lg border border-amber-200">
                   TECH-A1 • TECH-B2 • EDU-2026
@@ -37893,19 +37893,20 @@ ${rows
                                           "",
                                         );
                                     }}
-                                    className={`miras-dna-solid inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl transition duration-300 btn-spring-active disabled:cursor-not-allowed disabled:opacity-55 ${canOpen ? "bg-indigo-600 hover:bg-indigo-700 text-white" : "bg-slate-950 hover:bg-indigo-700 text-white"}`}
+                                    className={`miras-dna-solid miras-btn-labeled shrink-0 transition duration-300 btn-spring-active disabled:cursor-not-allowed disabled:opacity-55 ${canOpen ? "bg-indigo-600 hover:bg-indigo-700 text-white" : "bg-slate-950 hover:bg-indigo-700 text-white"}`}
                                     title={
                                       quizStartGuardActive
                                         ? "جاري فحص ثبات الشاشة"
-                                        : "فتح"
+                                        : "ابدأ الاختبار"
                                     }
                                     aria-label={
                                       quizStartGuardActive
                                         ? "جاري فحص ثبات الشاشة"
-                                        : "فتح"
+                                        : "ابدأ الاختبار"
                                     }
                                   >
-                                    <Play className="h-4 w-4" />
+                                    <Play className="h-4 w-4" aria-hidden="true" />
+                                    <span>ابدأ الاختبار</span>
                                   </button>
                                 ) : (
                                   <span
@@ -38103,9 +38104,10 @@ ${rows
                                         }}
                                         title="فتح"
                                         aria-label="فتح"
-                                        className="miras-dna-solid inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-indigo-600 text-white transition duration-300 hover:bg-indigo-700 btn-spring-active"
+                                        className="miras-dna-solid miras-btn-labeled shrink-0 bg-indigo-600 text-white transition duration-300 hover:bg-indigo-700 btn-spring-active"
                                       >
-                                        <Play className="h-4 w-4" />
+                                        <Play className="h-4 w-4" aria-hidden="true" />
+                                        <span>فتح</span>
                                       </button>
                                     ) : null}
                                   </div>
@@ -38256,11 +38258,12 @@ ${rows
                                           setExAnswerText("");
                                           setCurrentAttachments([]);
                                         }}
-                                        className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-slate-950 text-white miras-shadow-2 transition duration-300 hover:bg-indigo-600 btn-spring-active"
+                                        className="miras-btn-labeled shrink-0 bg-slate-950 text-white miras-shadow-2 transition duration-300 hover:bg-indigo-600 btn-spring-active"
                                         title="فتح"
                                         aria-label="فتح"
                                       >
-                                        <Play className="h-4 w-4" />
+                                        <Play className="h-4 w-4" aria-hidden="true" />
+                                        <span>فتح</span>
                                       </button>
                                     )}
                                 </div>
@@ -38860,7 +38863,7 @@ ${rows
                     <Cloud
                       aria-hidden="true"
                       className={liveConnectionTrouble || teacherCloudSyncing ? "animate-pulse" : ""}
-                      style={{ width: "0.95rem", height: "0.95rem", flex: "0 0 auto", color: liveConnectionTrouble || teacherCloudSyncing ? "#f59e0b" : "#059669" }}
+                      style={{ width: "0.95rem", height: "0.95rem", flex: "0 0 auto", color: liveConnectionTrouble || teacherCloudSyncing ? "#f59e0b" : "#64748b" }}
                     />
                   )}
                   {teacherSession?.name || "حساب المعلم"}
@@ -39113,7 +39116,7 @@ ${rows
                   <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
                     <div className="miras-teacher-heading-block flex min-w-0 flex-1 flex-col items-end text-right">
                       <div
-                        className="miras-teacher-account-pill relative mb-3 inline-flex max-w-full cursor-pointer items-center gap-2 self-end rounded-full bg-emerald-50 px-3.5 py-1.5 text-[11px] font-bold text-emerald-700 shadow-sm select-none"
+                        className="miras-teacher-account-pill relative mb-3 inline-flex max-w-full cursor-pointer items-center gap-2 self-end rounded-full bg-slate-100 px-3.5 py-1.5 text-[11px] font-bold text-slate-600 shadow-sm select-none"
                         role="button"
                         tabIndex={0}
                         aria-label="عرض حالة الاتصال"
@@ -39138,7 +39141,7 @@ ${rows
                             className={`h-4 w-4 shrink-0 ${
                               liveConnectionTrouble || teacherCloudSyncing
                                 ? "animate-pulse text-amber-500"
-                                : "text-emerald-600"
+                                : "text-slate-500"
                             }`}
                             aria-hidden="true"
                           />
@@ -41854,9 +41857,10 @@ ${rows
                             closeWorkspaceDrawers();
                             setProjectBuilderOpen(true);
                           }}
-                          className="inline-flex h-12 w-12 items-center justify-center rounded-2xl bg-emerald-600 text-white shadow-sm"
+                          className="miras-btn-labeled bg-emerald-600 text-white shadow-sm"
                         >
-                          <Plus className="h-5 w-5" />
+                          <Plus className="h-5 w-5" aria-hidden="true" />
+                          <span>مشروع جديد</span>
                         </button>
                       </div>
                     )}
@@ -42016,17 +42020,19 @@ ${rows
                                 onClick={() => startEditProject(project)}
                                 title="تعديل الدرجة والموعد"
                                 aria-label="تعديل الدرجة والموعد"
-                                className="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-indigo-50 text-indigo-700"
+                                className="miras-btn-labeled-sm bg-indigo-50 text-indigo-700"
                               >
-                                <Edit className="h-4 w-4" />
+                                <Edit className="h-4 w-4" aria-hidden="true" />
+                                <span>تعديل</span>
                               </button>
                               <button
                                 onClick={() => deleteProject(project.id)}
                                 title="حذف"
                                 aria-label="حذف"
-                                className="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-red-50 text-red-700"
+                                className="miras-btn-labeled-sm bg-red-50 text-red-700"
                               >
-                                <Trash2 className="h-4 w-4" />
+                                <Trash2 className="h-4 w-4" aria-hidden="true" />
+                                <span>حذف</span>
                               </button>
                             </div>
                           </div>
@@ -42083,13 +42089,14 @@ ${rows
                                   setExamBuilderOpen(true);
                                 }
                               }}
-                              className="inline-flex h-12 w-12 items-center justify-center rounded-2xl bg-slate-950 text-white hover:bg-indigo-700"
+                              className="miras-btn-labeled bg-slate-950 text-white hover:bg-indigo-700"
                             >
                               {examBuilderOpen ? (
-                                <X className="h-5 w-5" />
+                                <X className="h-5 w-5" aria-hidden="true" />
                               ) : (
-                                <Plus className="h-5 w-5" />
+                                <Plus className="h-5 w-5" aria-hidden="true" />
                               )}
+                              <span>{examBuilderOpen ? "إغلاق" : "اختبار جديد"}</span>
                             </button>
                           </div>
                         </div>
@@ -42727,17 +42734,19 @@ ${rows
                                       onClick={() => startEditExam(item)}
                                       title="تعديل"
                                       aria-label="تعديل"
-                                      className="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-indigo-50 text-indigo-700"
+                                      className="miras-btn-labeled-sm bg-indigo-50 text-indigo-700"
                                     >
-                                      <Edit className="h-4 w-4" />
+                                      <Edit className="h-4 w-4" aria-hidden="true" />
+                                      <span>تعديل</span>
                                     </button>
                                     <button
                                       onClick={() => deleteExam(item.id)}
                                       title="حذف"
                                       aria-label="حذف"
-                                      className="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-red-50 text-red-700"
+                                      className="miras-btn-labeled-sm bg-red-50 text-red-700"
                                     >
-                                      <Trash2 className="h-4 w-4" />
+                                      <Trash2 className="h-4 w-4" aria-hidden="true" />
+                                      <span>حذف</span>
                                     </button>
                                   </div>
                                 </div>
@@ -42793,9 +42802,10 @@ ${rows
                                 closeWorkspaceDrawers();
                                 setQuestionFormOpen(true);
                               }}
-                              className="inline-flex h-12 w-12 items-center justify-center rounded-2xl bg-indigo-600 text-white shadow-sm hover:bg-slate-950"
+                              className="miras-btn-labeled bg-indigo-600 text-white shadow-sm hover:bg-slate-950"
                             >
-                              <Plus className="h-5 w-5" />
+                              <Plus className="h-5 w-5" aria-hidden="true" />
+                              <span>سؤال جديد</span>
                             </button>
                           </div>
                           {questionFormOpen && (
@@ -43499,13 +43509,14 @@ ${rows
                                             : "تعديل"
                                         }
                                         onClick={() => toggleQuestionEdit(q)}
-                                        className="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-indigo-50 text-indigo-700 hover:bg-indigo-100"
+                                        className="miras-btn-labeled-sm bg-indigo-50 text-indigo-700 hover:bg-indigo-100"
                                       >
                                         {editingQuestionId === q.id ? (
-                                          <Check className="h-4 w-4" />
+                                          <Check className="h-4 w-4" aria-hidden="true" />
                                         ) : (
-                                          <Edit className="h-4 w-4" />
+                                          <Edit className="h-4 w-4" aria-hidden="true" />
                                         )}
+                                        <span>{editingQuestionId === q.id ? "حفظ" : "تعديل"}</span>
                                       </button>
                                       <button
                                         title="حذف"
@@ -43513,9 +43524,10 @@ ${rows
                                         onClick={() =>
                                           deleteQuestionFromBank(q.id)
                                         }
-                                        className="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-red-50 text-red-700 hover:bg-red-100"
+                                        className="miras-btn-labeled-sm bg-red-50 text-red-700 hover:bg-red-100"
                                       >
-                                        <Trash2 className="h-4 w-4" />
+                                        <Trash2 className="h-4 w-4" aria-hidden="true" />
+                                        <span>حذف</span>
                                       </button>
                                     </div>
                                   </div>
@@ -43538,9 +43550,10 @@ ${rows
                         title="إضافة مقرر"
                         aria-label="إضافة مقرر"
                         onClick={beginAddSection}
-                        className="inline-flex h-12 w-12 items-center justify-center rounded-2xl bg-slate-950 text-white hover:bg-indigo-700 shadow-sm"
+                        className="miras-btn-labeled bg-slate-950 text-white hover:bg-indigo-700 shadow-sm"
                       >
-                        <Plus className="h-5 w-5" />
+                        <Plus className="h-5 w-5" aria-hidden="true" />
+                        <span>مقرر جديد</span>
                       </button>
                     </div>
                     {sectionFormOpen && (
@@ -43609,7 +43622,7 @@ ${rows
                       {visibleTeacherSections.map((sec) => (
                         <div
                           key={sec.code}
-                          className="bg-slate-50/80 rounded-3xl border border-slate-200 p-5 space-y-4 text-right shadow-sm hover:shadow-md transition-all"
+                          className="@container bg-slate-50/80 rounded-3xl border border-slate-200 p-5 space-y-4 text-right shadow-sm hover:shadow-md transition-all"
                         >
                           <div className="flex items-center justify-end gap-3">
                             {(() => {
@@ -43643,34 +43656,38 @@ ${rows
                               {sec.semester}
                             </p>
                           </div>
-                          <div className="grid grid-cols-3 gap-2">
+                          <div className="miras-course-actions grid grid-cols-3 gap-2">
                             <button
-                              title={sec.isOpen ? "إغلاق" : "فتح"}
-                              aria-label={sec.isOpen ? "إغلاق" : "فتح"}
+                              title={sec.isOpen ? "قفل المقرر" : "فتح المقرر"}
+                              aria-label={sec.isOpen ? "قفل المقرر" : "فتح المقرر"}
                               onClick={() => toggleSectionStatus(sec)}
-                              className="inline-flex h-10 items-center justify-center rounded-2xl border border-slate-200 bg-white text-slate-700 hover:border-indigo-300 hover:text-indigo-700 transition-all"
+                              className="miras-btn-labeled-sm border border-slate-200 bg-white text-slate-700 hover:border-indigo-300 hover:text-indigo-700"
                             >
                               {sec.isOpen ? (
-                                <Lock className="h-4 w-4" strokeWidth={1.75} />
+                                <Lock className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
                               ) : (
-                                <Play className="h-4 w-4" strokeWidth={1.75} />
+                                <Play className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
                               )}
+                              <span className="hidden @[24rem]:inline">{sec.isOpen ? "قفل المقرر" : "فتح المقرر"}</span>
+                              <span className="@[24rem]:hidden" aria-hidden="true">{sec.isOpen ? "قفل" : "فتح"}</span>
                             </button>
                             <button
                               title="تعديل"
                               aria-label="تعديل"
                               onClick={() => beginEditSection(sec)}
-                              className="inline-flex h-10 items-center justify-center rounded-2xl border border-indigo-100 bg-indigo-50 text-indigo-700 transition-all"
+                              className="miras-btn-labeled-sm border border-indigo-100 bg-indigo-50 text-indigo-700"
                             >
-                              <Edit className="h-4 w-4" strokeWidth={1.75} />
+                              <Edit className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
+                              <span>تعديل</span>
                             </button>
                             <button
                               title="حذف"
                               aria-label="حذف"
                               onClick={() => deleteSectionSafely(sec)}
-                              className="inline-flex h-10 items-center justify-center rounded-2xl border border-red-100 bg-red-50 text-red-700 transition-all"
+                              className="miras-btn-labeled-sm border border-red-100 bg-red-50 text-red-700"
                             >
-                              <Trash2 className="h-4 w-4" strokeWidth={1.75} />
+                              <Trash2 className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
+                              <span>حذف</span>
                             </button>
                           </div>
                         </div>
@@ -47319,28 +47336,28 @@ ${rows
                         const cells = [
                           {
                             k: "total",
-                            label: "الرموز المصدرة الكليّة",
+                            label: "الأكواد المصدرة الكليّة",
                             n: total,
                             unit: "كود",
                             note: "مجموع الكودات",
                           },
                           {
                             k: "active",
-                            label: "رموز فعالة وغير مستخدمة",
+                            label: "أكواد فعالة وغير مستخدمة",
                             n: nActive,
                             unit: "كود",
                             note: "جاهزة للتوزيع",
                           },
                           {
                             k: "used",
-                            label: "رموز مستخدمة بالفعل",
+                            label: "أكواد مستخدمة بالفعل",
                             n: nUsed,
                             unit: "مستخدم",
                             note: "مقفل على طالب وجهاز",
                           },
                           {
                             k: "revoked",
-                            label: "رموز ملغاة/موقوفة مسبقاً",
+                            label: "أكواد ملغاة/موقوفة مسبقاً",
                             n: nRevoked,
                             unit: "ملغى",
                             note: "لا تقبل التفعيل",
@@ -47527,7 +47544,7 @@ ${rows
                               </select>
                             ) : (
                               <div className="rounded-2xl border border-amber-100 bg-amber-50 px-4 py-3 text-[11px] font-bold text-amber-700">
-                                لا يوجد مقرر متاح لإصدار الرموز.
+                                لا يوجد مقرر متاح لإصدار الأكواد.
                               </div>
                             )}
                           </div>
@@ -47536,19 +47553,19 @@ ${rows
                               <div className="flex items-center justify-between gap-3">
                                 <div>
                                   <p className="text-xs font-bold text-slate-800">
-                                    رموز عامة
+                                    أكواد عامة
                                   </p>
                                 </div>
                                 <button
                                   title={
                                     codesBatchFormOpen
                                       ? "إغلاق"
-                                      : "فتح توليد الرموز"
+                                      : "فتح توليد الأكواد"
                                   }
                                   aria-label={
                                     codesBatchFormOpen
                                       ? "إغلاق"
-                                      : "فتح توليد الرموز"
+                                      : "فتح توليد الأكواد"
                                   }
                                   onClick={() => {
                                     if (codesBatchFormOpen) {
@@ -47558,20 +47575,21 @@ ${rows
                                     closeWorkspaceDrawers();
                                     setCodesBatchFormOpen(true);
                                   }}
-                                  className={`inline-flex h-12 w-12 items-center justify-center rounded-2xl text-white shadow-sm ${codesBatchFormOpen ? "bg-slate-900 hover:bg-red-600" : "bg-indigo-600 hover:bg-slate-950"}`}
+                                  className={`miras-btn-labeled text-white shadow-sm ${codesBatchFormOpen ? "bg-slate-900 hover:bg-red-600" : "bg-indigo-600 hover:bg-slate-950"}`}
                                 >
                                   {codesBatchFormOpen ? (
-                                    <X className="h-5 w-5" />
+                                    <X className="h-5 w-5" aria-hidden="true" />
                                   ) : (
-                                    <Plus className="h-5 w-5" />
+                                    <Plus className="h-5 w-5" aria-hidden="true" />
                                   )}
+                                  <span>{codesBatchFormOpen ? "إغلاق" : "توليد أكواد"}</span>
                                 </button>
                               </div>
                               {codesBatchFormOpen && (
                                 <div className="space-y-4 animate-fade-in">
                                   <div className="flex items-center justify-between gap-3">
                                     <label className="text-xs font-bold text-slate-800">
-                                      عدد الرموز
+                                      عدد الأكواد
                                     </label>
                                     <span className="rounded-full bg-indigo-50 px-3 py-1 text-[10px] font-bold text-indigo-700">
                                       حتى 2000
@@ -47617,8 +47635,8 @@ ${rows
                                   />
                                   <button
                                     onClick={handleCreateJoinCodes}
-                                    title="توليد رموز عامة"
-                                    aria-label="توليد رموز عامة"
+                                    title="توليد أكواد عامة"
+                                    aria-label="توليد أكواد عامة"
                                     className="inline-flex h-12 w-12 items-center justify-center rounded-2xl bg-indigo-600 text-white hover:bg-slate-950 disabled:bg-slate-300 disabled:text-slate-500 shadow-sm"
                                   >
                                     <Key className="h-5 w-5" />
@@ -47627,7 +47645,7 @@ ${rows
                                     <div className="rounded-3xl border border-indigo-100 bg-indigo-50/60 p-3 text-right shadow-sm">
                                       <div className="flex items-center justify-between gap-3">
                                         <span className="text-[11px] font-bold text-indigo-900">
-                                          آخر رموز عامة مولدة
+                                          آخر أكواد عامة مولدة
                                         </span>
                                         <span className="rounded-full bg-white px-2 py-0.5 text-[11px] font-black text-indigo-700 shadow-sm">
                                           {lastGeneratedJoinCodes[0]
@@ -47668,7 +47686,7 @@ ${rows
                                           <div className="rounded-2xl bg-white/70 px-3 py-2 text-center text-[10px] font-bold text-slate-500">
                                             +{" "}
                                             {lastGeneratedJoinCodes.length - 12}{" "}
-                                            رموز أخرى محفوظة في القائمة
+                                            أكواد أخرى محفوظة في القائمة
                                           </div>
                                         )}
                                       </div>
@@ -47804,7 +47822,7 @@ ${rows
                           <div className="flex w-full flex-col xl:flex-row justify-between items-start xl:items-center gap-4 border-b border-slate-100 pb-4 text-right">
                             <div className="miras-code-stats flex flex-wrap items-center gap-2 rounded-2xl px-2 py-1 text-right">
                               <h3 className="font-black text-base text-slate-900">
-                                بيانات كروت حالة الرموز والتفعيل
+                                حالة الأكواد والتفعيل
                               </h3>
                               <span
                                 title="أكواد عامة فعّالة لم تُصدَّر للمطبعة بعد — وهي وحدها ما يدخل ملف التصدير القادم"
@@ -47844,8 +47862,8 @@ ${rows
                                   e.stopPropagation();
                                   exportCodesToCSV();
                                 }}
-                                title="تصدير رموز جاهزة للطباعة"
-                                aria-label="تصدير رموز جاهزة للطباعة"
+                                title="تصدير أكواد جاهزة للطباعة"
+                                aria-label="تصدير أكواد جاهزة للطباعة"
                                 className="inline-flex h-11 w-11 items-center justify-center rounded-2xl bg-emerald-600 text-white hover:bg-slate-900 transition-all shadow-sm"
                               >
                                 <FileText className="w-4 h-4" />
@@ -47881,8 +47899,8 @@ ${rows
                                     );
                                   }}
                                   placeholder="الكل"
-                                  title={`عدد الكروت المطلوب تصديرها (اتركه فارغاً لتصدير الكل — الجاهز ${readyToPrintCodesCount})`}
-                                  aria-label="عدد كروت التفعيل المطلوب طباعتها"
+                                  title={`عدد الأكواد المطلوب تصديرها (اتركه فارغاً لتصدير الكل — الجاهز ${readyToPrintCodesCount})`}
+                                  aria-label="عدد أكواد التفعيل المطلوب طباعتها"
                                   className="h-11 w-20 rounded-2xl border border-indigo-100 bg-white px-3 text-center font-mono tabular-nums text-[12px] font-black text-indigo-700 outline-none placeholder:font-sans placeholder:text-slate-400 focus:ring-2 focus:ring-indigo-100"
                                 />
                               )}
@@ -47909,8 +47927,8 @@ ${rows
                                     e.stopPropagation();
                                     exportCodesArchiveToCSV();
                                   }}
-                                  title="تصدير أرشيف الرموز الكامل"
-                                  aria-label="تصدير أرشيف الرموز الكامل"
+                                  title="تصدير أرشيف الأكواد الكامل"
+                                  aria-label="تصدير أرشيف الأكواد الكامل"
                                   className="inline-flex h-11 w-11 items-center justify-center rounded-2xl border border-slate-200 bg-white text-slate-600 hover:border-indigo-200 hover:text-indigo-700 transition-all shadow-sm"
                                 >
                                   <Download className="w-4 h-4" />
@@ -48254,9 +48272,9 @@ ${rows
                                       </button>
                                     </span>
                                   ) : isAdminTeacher ? (
-                                    "لا توجد رموز مطابقة حالياً. جرّب تغيير البحث أو الفلتر أو ولّد دفعة جديدة."
+                                    "لا توجد أكواد مطابقة حالياً. جرّب تغيير البحث أو الفلتر أو ولّد دفعة جديدة."
                                   ) : (
-                                    "لا توجد رموز مستخدمة من طلبتك حتى الآن."
+                                    "لا توجد أكواد مستخدمة من طلبتك حتى الآن."
                                   )}
                                 </div>
                               )}
