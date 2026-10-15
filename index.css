@@ -10535,8 +10535,11 @@ html.miras-app-shell body {
   font-size: clamp(1.1rem, 5vw, 1.65rem) !important;
   line-height: 1.35 !important;
   white-space: normal !important;
-  overflow: visible !important;
-  text-overflow: clip !important;
+  /* line-clamp only clips with overflow hidden: with "visible" a 3rd line (or a
+     very long word) spilled over the course line and the stepper below */
+  overflow: hidden !important;
+  overflow-wrap: anywhere !important;
+  text-overflow: ellipsis !important;
   display: -webkit-box !important;
   -webkit-line-clamp: 2 !important;
   -webkit-box-orient: vertical !important;
