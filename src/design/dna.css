@@ -555,7 +555,8 @@
   display: grid;
   place-items: center;
   text-align: center;
-  font-size: 13px;
+  /* 13px from 52px up; small rings scale the label down so it stays inside the stroke */
+  font-size: min(13px, max(9px, calc(var(--dna-ring-size, 52px) * 0.25)));
   font-weight: 700;
   line-height: 1.1;
   color: var(--dna-ink);
