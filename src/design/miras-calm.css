@@ -901,7 +901,7 @@ html[data-theme="dark"] .miras-course-ring b { color: #e2e8f0; }
   height: 2rem !important;
   border-radius: 0.7rem !important;
 }
-.miras-roster-card:not(.is-editing) .miras-roster-foot button svg { width: 1rem; height: 1rem; stroke-width: 1.5; }
+.miras-roster-card:not(.is-editing) .miras-roster-foot button svg { width: 1rem; height: 1rem; stroke-width: 1.75; }
 .miras-roster-card { position: relative; }
 
 /* ═══════════════ ١٣) التسليمات: شريط مكدّس رفيع وأرقام أكبر (من العدّادات الظاهرة أصلاً) ═══════════════ */
@@ -958,7 +958,7 @@ html[data-theme="dark"] .miras-course-ring b { color: #e2e8f0; }
   box-shadow: inset 0 0 0 1.5px rgba(220, 38, 38, 0.45) !important;
 }
 .miras-app-teacher-root button[aria-label="تطهير كامل"]:not(#_):hover { background: rgba(220, 38, 38, 0.08) !important; }
-.miras-app-teacher-root button[aria-label="تطهير كامل"] svg { stroke-width: 1.5; }
+.miras-app-teacher-root button[aria-label="تطهير كامل"] svg { stroke-width: 1.75; }
 html[data-theme="dark"] .miras-app-teacher-root button[aria-label="تطهير كامل"]:not(#_) { color: #fca5a5 !important; box-shadow: inset 0 0 0 1.5px rgba(252, 165, 165, 0.5) !important; }
 
 /* ═══════════════ ١٦) أزرار الأيقونات: مقاس ونصف قطر وسماكة خط موحّدة (لون أساسي واحد) ═══════════════

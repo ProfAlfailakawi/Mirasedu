@@ -5092,7 +5092,7 @@ export default function App() {
               <div className="miras-cmdk-empty">
                 {cmdkQuery.trim() ? (
                   <div className="flex flex-col items-center gap-2 py-4 text-center">
-                    <Search className="h-8 w-8 text-slate-500 opacity-80" strokeWidth={1.6} aria-hidden="true" />
+                    <Search className="h-8 w-8 text-slate-500 opacity-80" strokeWidth={1.75} aria-hidden="true" />
                     <span className="text-[13px] font-bold text-slate-500">
                       لا نتائج لـ «{cmdkQuery}»
                     </span>
@@ -33942,7 +33942,7 @@ ${rows
                     title="السابق"
                     aria-label="السابق"
                   >
-                    <ChevronRight className="h-4 w-4 stroke-[1.5]" />
+                    <ChevronRight className="h-4 w-4" />
                   </button>
                   <button
                     type="button"
@@ -33952,7 +33952,7 @@ ${rows
                     title="التالي"
                     aria-label="التالي"
                   >
-                    <ChevronLeft className="h-4 w-4 stroke-[1.5]" />
+                    <ChevronLeft className="h-4 w-4" />
                   </button>
                 </div>
               </div>
@@ -38720,7 +38720,7 @@ ${rows
                                   key={idx}
                                   className="bg-emerald-50 text-emerald-700 border border-emerald-100 text-[10px] font-bold px-2.5 py-1 rounded-full"
                                 >
-                                  <Star className="me-1 inline h-3 w-3 align-[-2px]" strokeWidth={2} aria-hidden="true" />
+                                  <Star className="me-1 inline h-3 w-3 align-[-2px]" strokeWidth={1.75} aria-hidden="true" />
                                   {s}
                                 </span>
                               ),
@@ -38737,7 +38737,7 @@ ${rows
                                   key={idx}
                                   className="bg-amber-50 text-amber-700 border border-amber-100 text-[10px] font-bold px-2.5 py-1 rounded-full"
                                 >
-                                  <AlertTriangle className="me-1 inline h-3 w-3 align-[-2px]" strokeWidth={2} aria-hidden="true" />
+                                  <AlertTriangle className="me-1 inline h-3 w-3 align-[-2px]" strokeWidth={1.75} aria-hidden="true" />
                                   {w}
                                 </span>
                               ),
@@ -41361,8 +41361,8 @@ ${rows
                   <div className="bg-slate-900 text-white rounded-3xl p-6">
                     <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
                       <div>
-                        <span className="text-[10px] bg-indigo-800 text-indigo-200 px-3 py-1 rounded-full font-mono">
-                          🔒 محتوى الأستاذ
+                        <span className="inline-flex items-center gap-1.5 text-[10px] bg-indigo-800 text-indigo-200 px-3 py-1 rounded-full font-mono">
+                          <Lock className="h-3 w-3" aria-hidden="true" /> محتوى الأستاذ
                         </span>
                         <h2 className="text-xl font-black mt-2">
                           مركز محتوى المقرر والتوليد الذكي
@@ -41407,7 +41407,7 @@ ${rows
                     {bookMetadata && (
                       <div className="mt-4 flex items-center justify-between bg-slate-800/80 p-3 rounded-lg border border-slate-200 text-xs">
                         <span className="text-slate-300">
-                          📖 المصدر النشط المحمي:{" "}
+                          <FileText className="ml-1 inline h-3.5 w-3.5 align-[-2px]" aria-hidden="true" />المصدر النشط المحمي:{" "}
                           <span className="font-bold text-white font-mono">
                             {bookMetadata.sourceId || bookMetadata.fileName}
                           </span>{" "}
@@ -43651,9 +43651,9 @@ ${rows
                               className="inline-flex h-10 items-center justify-center rounded-2xl border border-slate-200 bg-white text-slate-700 hover:border-indigo-300 hover:text-indigo-700 transition-all"
                             >
                               {sec.isOpen ? (
-                                <Lock className="h-4 w-4" strokeWidth={1.5} />
+                                <Lock className="h-4 w-4" strokeWidth={1.75} />
                               ) : (
-                                <Play className="h-4 w-4" strokeWidth={1.5} />
+                                <Play className="h-4 w-4" strokeWidth={1.75} />
                               )}
                             </button>
                             <button
@@ -43662,7 +43662,7 @@ ${rows
                               onClick={() => beginEditSection(sec)}
                               className="inline-flex h-10 items-center justify-center rounded-2xl border border-indigo-100 bg-indigo-50 text-indigo-700 transition-all"
                             >
-                              <Edit className="h-4 w-4" strokeWidth={1.5} />
+                              <Edit className="h-4 w-4" strokeWidth={1.75} />
                             </button>
                             <button
                               title="حذف"
@@ -43670,7 +43670,7 @@ ${rows
                               onClick={() => deleteSectionSafely(sec)}
                               className="inline-flex h-10 items-center justify-center rounded-2xl border border-red-100 bg-red-50 text-red-700 transition-all"
                             >
-                              <Trash2 className="h-4 w-4" strokeWidth={1.5} />
+                              <Trash2 className="h-4 w-4" strokeWidth={1.75} />
                             </button>
                           </div>
                         </div>
@@ -45964,7 +45964,7 @@ ${rows
                                 ) : (
                                   <div className="space-y-2 bg-amber-50 rounded-xl p-3 border border-amber-100">
                                     <p className="text-[10px] font-bold text-amber-900 leading-4">
-                                      ⚠️ هل أنت متأكد؟ سيتم حذف بيانات الطلاب
+                                      <AlertTriangle className="ml-1 inline h-3.5 w-3.5 align-[-2px]" aria-hidden="true" />هل أنت متأكد؟ سيتم حذف بيانات الطلاب
                                       والعمليات المرتبطة بمقرراتك فقط، دون لمس
                                       أكواد الدخول نهائياً.
                                     </p>
@@ -46031,7 +46031,7 @@ ${rows
                                   ) : (
                                     <div className="space-y-2 bg-red-50 rounded-xl p-3 border border-red-100">
                                       <p className="text-[10px] font-bold text-red-900 leading-4">
-                                        🚨 تأكيد نهائي: سيتم تصفير المناهج
+                                        <ShieldAlert className="ml-1 inline h-3.5 w-3.5 align-[-2px]" aria-hidden="true" />تأكيد نهائي: سيتم تصفير المناهج
                                         والأسئلة والكشوفات والطلاب بالكامل ولا
                                         يمكن التراجع!
                                       </p>
@@ -49510,7 +49510,7 @@ ${rows
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <div className="bg-white rounded-3xl p-6 max-w-sm w-full space-y-4 text-center">
             <span className="w-12 h-12 bg-indigo-50 text-indigo-600 font-black text-xl rounded-full flex items-center justify-center mx-auto">
-              🛡️
+              <ShieldCheck className="h-6 w-6" aria-hidden="true" />
             </span>
             <div>
               <h3 className="font-black text-slate-800 text-base">
@@ -49979,7 +49979,7 @@ ${rows
                 mirasRadarTab === "active" ? !r.resolvedAt : !!r.resolvedAt,
               ).length === 0 ? (
                 <div className="grid place-items-center py-14 text-center">
-                  <div className="text-5xl">🛰️</div>
+                  <ShieldCheck className="h-12 w-12 text-slate-300" aria-hidden="true" />
                   <p className="mt-3 text-[15px] font-black text-slate-800">
                     {mirasRadarTab === "active"
                       ? "الرادار صافٍ — لا أخطاء نشطة"
@@ -50070,7 +50070,7 @@ ${rows
                                 title="ينسخ تشخيصاً كاملاً جاهزاً للإرسال — ألصقه لي وأتكفّل بالإصلاح"
                                 onClick={() => {
                                   const diag = [
-                                    "🛰️ تشخيص من رادار مِراس:",
+                                    "تشخيص من رادار مِراس:",
                                     `الرسالة: ${r.message}`,
                                     `المصدر: ${r.source} | التكرار: ×${r.count || 1}`,
                                     `أول ظهور: ${formatKwDateTime(r.firstSeenAt)} | آخر: ${formatKwDateTime(r.lastSeenAt)}`,

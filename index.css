@@ -652,7 +652,7 @@ button:disabled,
 .miras-inner-tab-icon {
   width: 0.92rem;
   height: 0.92rem;
-  stroke-width: 1.55;
+  stroke-width: 1.75;
 }
 
 .miras-inner-tab b {
@@ -3819,7 +3819,7 @@ body,
   .teacher-calm-shell .miras-teacher-nav-track button svg {
     width: 1.18rem !important;
     height: 1.18rem !important;
-    stroke-width: 2.35 !important;
+    stroke-width: 1.75 !important;
   }
 
   .teacher-calm-shell .miras-teacher-nav-track span.mx-1 {
@@ -4008,7 +4008,7 @@ body,
   .meras-teacher-shell.teacher-calm-shell .teacher-header-actions-pill svg {
     width: 1.05rem !important;
     height: 1.05rem !important;
-    stroke-width: 2.25 !important;
+    stroke-width: 1.75 !important;
   }
 
   /* Quick reset of the outer button styling if needed */
@@ -4123,7 +4123,7 @@ body,
   .meras-teacher-shell.teacher-calm-shell .teacher-orbit-dock-track button svg {
     width: 1.15rem !important;
     height: 1.15rem !important;
-    stroke-width: 2.2 !important;
+    stroke-width: 1.75 !important;
   }
 
   .meras-teacher-shell.teacher-calm-shell .teacher-important-popover,
@@ -4443,7 +4443,7 @@ body,
   .meras-teacher-shell.teacher-calm-shell .teacher-orbit-dock-track button svg {
     width: 1.38rem !important;
     height: 1.38rem !important;
-    stroke-width: 2.25 !important;
+    stroke-width: 1.75 !important;
   }
 
   .meras-teacher-shell.teacher-calm-shell .teacher-orbit-dock-track > span.mx-1 {
@@ -4754,7 +4754,7 @@ body,
   .meras-teacher-shell.teacher-calm-shell .teacher-header-actions-pill svg {
     width: 1.32rem !important;
     height: 1.32rem !important;
-    stroke-width: 2.35 !important;
+    stroke-width: 1.75 !important;
   }
 
   .meras-teacher-shell.teacher-calm-shell .teacher-command-main {
@@ -5230,7 +5230,7 @@ body,
   .meras-teacher-shell.teacher-calm-shell .teacher-header-actions-pill svg {
     width: 1rem !important;
     height: 1rem !important;
-    stroke-width: 2.25 !important;
+    stroke-width: 1.75 !important;
   }
 
   /* Custom vertical layout for .teacher-important-popover is handled by standard student popover styles and previous media queries */
@@ -5617,7 +5617,7 @@ body,
 .meras-teacher-shell.teacher-calm-shell .teacher-command-header .student-icon-btn svg {
   width: 1.35rem !important;
   height: 1.35rem !important;
-  stroke-width: 1.85 !important;
+  stroke-width: 1.75 !important;
 }
 
 /* Anchor notification badge correctly to the bell button */
