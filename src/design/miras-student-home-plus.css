@@ -1,6 +1,6 @@
 /*
  * Student home, creative pass (CSS only; same elements, numbers and text).
- * - «المتاح الآن»: each shortcut gets its own accent (indigo for exams, teal for projects), a
+ * - «المتاح الآن»: shortcuts share the brand indigo accent (colour is reserved for status), a
  *   duotone icon tile and a solid gradient count disc with a display numeral.
  * - Last-submission card: a gradient accent rail on its inline-start edge, larger title, and the
  *   completed steps glow in the accent gradient.
@@ -20,7 +20,6 @@ html body .workspace-calm-shell .miras-now-available button:not(#_):not(#_):not(
     0 14px 24px -18px rgb(var(--acc) / 0.55) !important;
   border-radius: 18px !important;
 }
-html body .workspace-calm-shell .miras-now-available button:has(svg.lucide-send):not(#_):not(#_):not(#__) { --acc: 13 148 136; }
 html[data-theme="dark"] body .workspace-calm-shell .miras-now-available button:not(#_):not(#_):not(#__) {
   background:
     radial-gradient(120% 140% at 100% 0%, rgb(var(--acc) / 0.28), transparent 62%),

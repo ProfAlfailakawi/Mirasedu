@@ -1,5 +1,6 @@
 import {Component, StrictMode, type ReactNode} from 'react';
 import {createRoot} from 'react-dom/client';
+import {MotionConfig} from 'motion/react';
 import {installAppUpdate, markUpdateReload, pageIsBusy} from './shared/app-update';
 import {discardOrphanedDemoSession, installDemoTransport} from './shared/demo-transport';
 import {installFileDrop} from './shared/file-drop';
@@ -272,7 +273,9 @@ const mountApp = () => {
   createRoot(document.getElementById('root')!).render(
     <StrictMode>
       <MirasRenderGuard>
-        <App />
+        <MotionConfig reducedMotion="user">
+          <App />
+        </MotionConfig>
       </MirasRenderGuard>
     </StrictMode>,
   );

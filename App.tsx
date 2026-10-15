@@ -914,8 +914,8 @@ const simplifyStudentMessage = (
   )
     return "البيانات غير صحيحة";
   if (any("اكتب كود تفعيل", "يرجى إدخال رمز الانضمام", "أدخل رمز الانضمام"))
-    return "اكتب رمز المقرر";
-  if (any("الرجاء إدخال كود المختبر")) return "اكتب رمز المقرر";
+    return "اكتب كود المقرر";
+  if (any("الرجاء إدخال كود المختبر")) return "اكتب كود المقرر";
 
   if (any("تم الدخول بالبصمة", "تم فتح جلسة SEB", "أهلاً بك مجدداً", "مرحباً"))
     return "تم الدخول بنجاح";
@@ -994,7 +994,7 @@ const simplifyStudentMessage = (
     return "تعذر التحقق من الجهاز. أعد فتح مِراس.";
   if (any("الرابط مرتبط بجهاز التفعيل"))
     return "اطلب رابط استرجاع من معلّمك؛ جهازك الموثوق لن يتغير.";
-  if (any("يجب الدخول من الجهاز الأصلي")) return "ادخل من الجهاز الأصلي";
+  if (any("يجب الدخول من الجهاز الأصلي")) return "أدخل من الجهاز الأصلي";
   if (
     any(
       "مرتبط بجهاز آخر",
@@ -1208,7 +1208,7 @@ const simplifyMirasMessage = (
       if (any("كلمة المرور", "كلمة مرور")) return "اكتب كلمة المرور";
       if (any("رقمك الجامعي", "الرقم الجامعي")) return "اكتب رقمك الجامعي";
       if (any("رمز", "كود") && any("مقرر", "انضمام", "تفعيل"))
-        return "اكتب رمز المقرر";
+        return "اكتب كود المقرر";
       if (any("مقرر")) return "اختر المقرر";
       if (any("عنوان")) return "اكتب العنوان";
       return "راجع الحقول المطلوبة";
@@ -1291,7 +1291,7 @@ const compactMirasDialogMessage = (
   if (/إيقاف|تعطيل/.test(text)) return "إيقاف الحساب؟";
   if (/إعادة تفعيل|تفعيل/.test(text)) return "تفعيل الحساب؟";
   if (/تغيير حالة|حالة/.test(text)) return "تغيير الحالة؟";
-  if (/رمز بديل|بديل/.test(text)) return "إصدار رمز بديل؟";
+  if (/كود بديل|بديل/.test(text)) return "إصدار كود بديل؟";
   if (/درجة|درجات|رصد/.test(text)) return "اعتماد الدرجات؟";
   if (/استيراد/.test(text)) return "استيراد البيانات؟";
   if (/تصدير/.test(text)) return "تصدير البيانات؟";
@@ -4179,6 +4179,28 @@ export default function App() {
   // بطاقة «تنبيه مهم قبل انتهاء الوقت» الأنيقة التي تظهر عند دخول الطالب إن اقترب
   // موعد نشاط — بديلة عن فتح لوحة التنبيهات الفارغة/المزعجة عند كل دخول.
   const [studentDeadlineCardOpen, setStudentDeadlineCardOpen] = useState(false);
+  // Esc يغلق بطاقة التنبيه (إلا والجولة مفتوحة فوقها: الجولة تأخذ Esc أولاً).
+  useEffect(() => {
+    if (!studentDeadlineCardOpen) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== "Escape") return;
+      if (document.querySelector(".miras-onboarding-overlay")) return;
+      setStudentDeadlineCardOpen(false);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [studentDeadlineCardOpen]);
+  // Esc يغلق لوحة تنبيهات الطالب أيضاً (ما لم تكن الجولة أو بطاقة التنبيه مفتوحة).
+  useEffect(() => {
+    if (!studentNotificationsOpen) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== "Escape") return;
+      if (document.querySelector(".miras-onboarding-overlay, [aria-label=\"تنبيه مهم\"][role=\"dialog\"]")) return;
+      setStudentNotificationsOpen(false);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [studentNotificationsOpen]);
   const [studentSeenKeysState, setStudentSeenKeysState] = useState<Set<string>>(
     new Set(),
   );
@@ -5164,7 +5186,7 @@ export default function App() {
               <div className="miras-cmdk-empty">
                 {cmdkQuery.trim() ? (
                   <div className="flex flex-col items-center gap-2 py-4 text-center">
-                    <Search className="h-8 w-8 text-slate-500 opacity-80" strokeWidth={1.6} aria-hidden="true" />
+                    <Search className="h-8 w-8 text-slate-500 opacity-80" strokeWidth={1.75} aria-hidden="true" />
                     <span className="text-[13px] font-bold text-slate-500">
                       لا نتائج لـ «{cmdkQuery}»
                     </span>
@@ -8525,7 +8547,7 @@ export default function App() {
   const [studentDirectoryStatus, setStudentDirectoryStatus] = useState("all");
   const [codesPage, setCodesPage] = useState(1);
   const codesPageSize = 50;
-  // عدد كروت التفعيل المطلوب طباعتها من المتبقّي غير المستخدم.
+  // عدد أكواد التفعيل المطلوب طباعتها من المتبقّي غير المستخدم.
   // فارغ = طباعة الكل (السلوك السابق).
   const [printCardsLimit, setPrintCardsLimit] = useState("");
   const [singleCodeStudentId, setSingleCodeStudentId] = useState("");
@@ -12283,7 +12305,7 @@ export default function App() {
       const linked = joinCodeLinkedCourseInfo(value, code);
       if (linked.name) return linked.name;
       if (linked.code) return courseLabelFromAny(value, linked.code);
-      return "رمز عام — يُربط عند التفعيل";
+      return "كود عام — يُربط عند التفعيل";
     }
     return courseLabelFromAny(value, code);
   };
@@ -12579,7 +12601,7 @@ export default function App() {
     TAB_SWITCH: "خروج من نافذة الاختبار",
     PASTE_BLOCKED: "منع لصق نص",
     THIRD_DEVICE_BLOCKED: "جهاز غير معتمد مرفوض",
-    JOIN_CODE_REDEEMED: "استخدام رمز انضمام",
+    JOIN_CODE_REDEEMED: "استخدام كود انضمام",
     ENROLLMENT_SUSPENDED: "تعليق التسجيل",
     GRADE_RELEASED: "اعتماد الدرجة",
   };
@@ -14833,7 +14855,7 @@ export default function App() {
             String(a.code || "").localeCompare(String(b.code || "")),
           );
     if (!codesForExport.length) {
-      setErrorMsg("لا توجد رموز فعالة ضمن النطاق الحالي.");
+      setErrorMsg("لا توجد أكواد فعالة ضمن النطاق الحالي.");
       return;
     }
     const headers = [
@@ -14882,7 +14904,7 @@ export default function App() {
     link.click();
     document.body.removeChild(link);
     URL.revokeObjectURL(url);
-    setSuccessMsg(`تم تصدير ${rows.length} رمز جاهز للطباعة.`);
+    setSuccessMsg(`تم تصدير ${rows.length} كود جاهز للطباعة.`);
   };
 
   const exportCodesArchiveToCSV = async () => {
@@ -14900,7 +14922,7 @@ export default function App() {
       if (!resp.ok || !Array.isArray(data.joinCodes)) throw new Error("archive");
       archiveCodes = data.joinCodes.filter((code: any) => String(code?.code || "").trim());
     } catch {
-      setErrorMsg("تعذّر تحميل أرشيف الرموز للتصدير. أعد المحاولة.");
+      setErrorMsg("تعذّر تحميل أرشيف الأكواد للتصدير. أعد المحاولة.");
       return;
     }
     const headers = [
@@ -14917,7 +14939,7 @@ export default function App() {
     const escapeCsv = (value: any) =>
       `"${String(value ?? "").replace(/"/g, '""')}"`;
     if (!archiveCodes.length) {
-      setErrorMsg("لا توجد رموز ضمن النطاق الحالي لتصدير الأرشيف.");
+      setErrorMsg("لا توجد أكواد ضمن النطاق الحالي لتصدير الأرشيف.");
       return;
     }
     const rows = archiveCodes.map((j: any) => [
@@ -14957,7 +14979,7 @@ export default function App() {
 
     // التصدير عملية تنزيل فقط: لا نحذف الرموز، ولا نصفر الصفحة، ولا نغيّر الفلاتر أو التبويب.
     // أي حذف للأرشيف يجب أن يبقى في مسار مستقل وصريح حتى لا تختفي البطاقات أو الإحصائيات بعد التصدير.
-    setSuccessMsg(`تم تصدير أرشيف الرموز بنجاح (${rows.length} رمز).`);
+    setSuccessMsg(`تم تصدير أرشيف الأكواد بنجاح (${rows.length} كود).`);
   };
 
   const escapeHtml = (value: any) =>
@@ -15112,7 +15134,7 @@ export default function App() {
     });
 
     if (!rows.length) {
-      setErrorMsg("لا توجد رموز تفعيل فعالة جاهزة لتجهيز ملف المطبعة.");
+      setErrorMsg("لا توجد أكواد تفعيل فعالة جاهزة لتجهيز ملف المطبعة.");
       releaseBusy();
       return;
     }
@@ -15355,7 +15377,7 @@ ${rows
       : "";
     if (!code || code.toLowerCase() === "all") {
       setErrorMsg(
-        "اختر مقررًا محددًا قبل توليد الرمز. لا يتم إصدار رموز عامة بلا مقرر.",
+        "اختر مقررًا محددًا قبل توليد الكود. لا يتم إصدار أكواد عامة بلا مقرر.",
       );
       setCodesSubTab("generate");
       return "";
@@ -15399,7 +15421,7 @@ ${rows
         } else {
           setLastGeneratedJoinCodes([
             {
-              code: `${d.count || newCodesCount} رمز`,
+              code: `${d.count || newCodesCount} كود`,
               semester: newCodesSemester,
               createdAt: new Date().toISOString(),
               summaryOnly: true,
@@ -15411,16 +15433,16 @@ ${rows
         setCodesFilterSearch("");
         setCodesPage(1);
         setSuccessMsg(
-          `تم توليد ${d.count || createdCodes.length || newCodesCount} رمز. بقيت النتيجة محفوظة أمامك.`,
+          `تم توليد ${d.count || createdCodes.length || newCodesCount} كود. بقيت النتيجة محفوظة أمامك.`,
         );
         setTimeout(() => fetchJoinCodes(), 250);
         fetchLogs();
         return;
       }
-      setErrorMsg(d.error || "تعذر توليد الرموز حالياً.");
+      setErrorMsg(d.error || "تعذر توليد الأكواد حالياً.");
     } catch (e) {
       setErrorMsg(
-        "تعذر الاتصال بالخادم. لم يتم توليد أي رموز محلية حتى لا تتعارض مع السجل الرسمي.",
+        "تعذر الاتصال بالخادم. لم يتم توليد أي أكواد محلية حتى لا تتعارض مع السجل الرسمي.",
       );
     }
   };
@@ -15431,7 +15453,7 @@ ${rows
     if (!issueCourseCode) return;
     const id = singleCodeStudentId.trim();
     if (!/^\d{4,}$/.test(id)) {
-      setErrorMsg("أدخل الرقم الجامعي للطالب قبل توليد الرمز الخاص.");
+      setErrorMsg("أدخل الرقم الجامعي للطالب قبل توليد الكود الخاص.");
       return;
     }
     const studentRow =
@@ -15460,7 +15482,7 @@ ${rows
       )
     ) {
       setErrorMsg(
-        "يوجد رمز فعال لهذا الطالب في هذا المقرر بالفعل. لا يتم إنشاء رمز مكرر.",
+        "يوجد كود فعال لهذا الطالب في هذا المقرر بالفعل. لا يتم إنشاء كود مكرر.",
       );
       return;
     }
@@ -15486,7 +15508,7 @@ ${rows
           ...prev.filter((j: any) => j.code !== d.created[0].code),
         ]);
         setSuccessMsg(
-          `تم توليد رمز خاص مجاني للطالب ${name}: ${d.created[0].code}`,
+          `تم توليد كود خاص مجاني للطالب ${name}: ${d.created[0].code}`,
         );
         setTeacherTab("codes");
         setCodesSubTab("archive");
@@ -15508,7 +15530,7 @@ ${rows
       }
       if (d.existingCode) {
         setErrorMsg(
-          `يوجد رمز فعال لهذا الطالب في هذا المقرر بالفعل: ${d.existingCode}`,
+          `يوجد كود فعال لهذا الطالب في هذا المقرر بالفعل: ${d.existingCode}`,
         );
         return;
       }
@@ -15516,10 +15538,10 @@ ${rows
         setErrorMsg(d.error);
         return;
       }
-      setErrorMsg("تعذر توليد الرمز الخاص من السجل الرسمي.");
+      setErrorMsg("تعذر توليد الكود الخاص من السجل الرسمي.");
     } catch {
       setErrorMsg(
-        "تعذر الاتصال بالخادم. لم يتم توليد رمز محلي حتى لا يتعارض مع السجل الرسمي.",
+        "تعذر الاتصال بالخادم. لم يتم توليد كود محلي حتى لا يتعارض مع السجل الرسمي.",
       );
     }
   };
@@ -15527,7 +15549,7 @@ ${rows
   const copyCodeToClipboard = async (code: string) => {
     try {
       await navigator.clipboard.writeText(code);
-      setSuccessMsg("تم نسخ الرمز.");
+      setSuccessMsg("تم نسخ الكود.");
     } catch {
       setSuccessMsg(code);
     }
@@ -15671,7 +15693,7 @@ ${rows
   };
 
   const handleUpdateJoinCodeStatus = async (code: string, status: string) => {
-    if (!(await confirmAction("هل أنت متأكد من تغيير حالة هذا الرمز؟"))) return;
+    if (!(await confirmAction("هل أنت متأكد من تغيير حالة هذا الكود؟"))) return;
     const applyLocalStatus = () =>
       setJoinCodesList((prev) =>
         prev.map((item: any) =>
@@ -15693,20 +15715,20 @@ ${rows
       if (resp.ok) {
         applyLocalStatus();
         setCodesPage(1);
-        setSuccessMsg(`تم تغيير حالة الرمز (${code}) بنجاح.`);
+        setSuccessMsg(`تم تغيير حالة الكود (${code}) بنجاح.`);
         await fetchJoinCodes();
         fetchLogs();
         return;
       }
       const d = await resp.json().catch(() => ({}));
-      setErrorMsg(d.error || `تعذر تغيير حالة الرمز (${code}).`);
+      setErrorMsg(d.error || `تعذر تغيير حالة الكود (${code}).`);
       return;
     } catch (e) {}
-    setErrorMsg(`تعذر تغيير حالة الرمز (${code}) حالياً.`);
+    setErrorMsg(`تعذر تغيير حالة الكود (${code}) حالياً.`);
   };
 
   const handleDeleteJoinCode = async (code: string) => {
-    if (!(await confirmAction("هل أنت متأكد من حذف هذا الرمز؟"))) return;
+    if (!(await confirmAction("هل أنت متأكد من حذف هذا الكود؟"))) return;
     const applyLocalDelete = () =>
       setJoinCodesList((prev) =>
         prev.filter((item: any) => item.code !== code),
@@ -15722,8 +15744,8 @@ ${rows
         applyLocalDelete();
         setSuccessMsg(
           d.activationRequiredStudentId || d.resetActivationStudentId
-            ? "تم حذف الرمز وإرجاع المقرر لدى الطالب إلى حالة انتظار التفعيل."
-            : "تم حذف الرمز بنجاح.",
+            ? "تم حذف الكود وإرجاع المقرر لدى الطالب إلى حالة انتظار التفعيل."
+            : "تم حذف الكود بنجاح.",
         );
         // الرمز أُزيل محلياً بالفعل (applyLocalDelete أعلاه)؛ إعادة الجلب في
         // الخلفية فلا ينتظر الزر دورة شبكة ثانية.
@@ -15732,11 +15754,11 @@ ${rows
         return;
       }
       const d = await resp.json().catch(() => ({}));
-      setErrorMsg(d.error || "تعذر حذف الرمز من السجل الرسمي.");
+      setErrorMsg(d.error || "تعذر حذف الكود من السجل الرسمي.");
       return;
     } catch (e) {}
     setErrorMsg(
-      "تعذر الاتصال بالخادم. لم يتم حذف الرمز محلياً حفاظاً على السجل الرسمي.",
+      "تعذر الاتصال بالخادم. لم يتم حذف الكود محلياً حفاظاً على السجل الرسمي.",
     );
   };
 
@@ -15746,8 +15768,8 @@ ${rows
     );
     const reissueMessage =
       existingCode?.status === "used"
-        ? "إصدار رمز بديل لهذا الطالب سيحفظ قفل الجهاز الحالي ولا يسمح بنقل الكود لجهاز آخر. إذا كان الطالب غيّر جهازه، استخدم بعد ذلك زر إيقاف/تبديل جهاز من بطاقة الطالب."
-        : "هل أنت متأكد من إصدار رمز بديل؟";
+        ? "إصدار كود بديل لهذا الطالب سيحفظ قفل الجهاز الحالي ولا يسمح بنقل الكود لجهاز آخر. إذا كان الطالب غيّر جهازه، استخدم بعد ذلك زر إيقاف/تبديل جهاز من بطاقة الطالب."
+        : "هل أنت متأكد من إصدار كود بديل؟";
     if (!(await confirmAction(reissueMessage))) return;
     try {
       const resp = await fetch("/api/teacher/join-codes/reissue", {
@@ -15776,18 +15798,18 @@ ${rows
         setCodesPage(1);
         setSuccessMsg(
           d.deviceLockPreserved
-            ? `تم إصدار الرمز البديل مع حفظ قفل الجهاز: ${newCodeObj.code}`
-            : `تم بنجاح إلغاء الرمز القديم وإصدار الرمز البديل: ${newCodeObj.code}`,
+            ? `تم إصدار الكود البديل مع حفظ قفل الجهاز: ${newCodeObj.code}`
+            : `تم بنجاح إلغاء الكود القديم وإصدار الكود البديل: ${newCodeObj.code}`,
         );
         // الرمز البديل ظاهر محلياً بالفعل (أعلاه)؛ إعادة الجلب في الخلفية.
         void fetchJoinCodes();
         fetchLogs();
         return;
       }
-      setErrorMsg(d.error || "تعذر إصدار الرمز البديل.");
+      setErrorMsg(d.error || "تعذر إصدار الكود البديل.");
     } catch (e) {
       setErrorMsg(
-        "تعذر الاتصال بالخادم. لم يتم إصدار رمز محلي حفاظاً على السجل الرسمي.",
+        "تعذر الاتصال بالخادم. لم يتم إصدار كود محلي حفاظاً على السجل الرسمي.",
       );
     }
   };
@@ -15804,7 +15826,7 @@ ${rows
       );
       if (resp.ok) {
         setSuccessMsg(
-          "تم تفعيل الطالب يدوياً بنجاح وتجاوز مطالبة رمز الانضمام في حسابه.",
+          "تم تفعيل الطالب يدوياً بنجاح وتجاوز مطالبة كود الانضمام في حسابه.",
         );
         fetchReports();
         fetchLogs();
@@ -16660,7 +16682,7 @@ ${rows
 
   const saveSection = async () => {
     if (!sectionDraft.code.trim() || !sectionDraft.courseName.trim()) {
-      setErrorMsg("يرجى إدخال رمز المقرر واسم المقرر.");
+      setErrorMsg("يرجى إدخال كود المقرر واسم المقرر.");
       return;
     }
     try {
@@ -17471,7 +17493,7 @@ ${rows
       return;
     }
     if (!isUnifiedJoinCode(formattedOtp)) {
-      setErrorMsg("اكتب رمز المقرر كاملًا");
+      setErrorMsg("اكتب كود المقرر كاملًا");
       setCurrentView("otp");
       return;
     }
@@ -17536,7 +17558,7 @@ ${rows
     ) {
       setCurrentView(studentSession?.isPaid ? "student_workspace" : "payment");
     } else {
-      setErrorMsg("رمز المقرر الأكاديمي لا يتوافق مع بياناتك في كشف المقرر.");
+      setErrorMsg("كود المقرر الأكاديمي لا يتوافق مع بياناتك في كشف المقرر.");
     }
   };
 
@@ -19567,12 +19589,12 @@ ${rows
     setErrorMsg("");
     setSuccessMsg("");
     if (!joinCodeInput.trim()) {
-      setErrorMsg("يرجى إدخال رمز الانضمام أولاً.");
+      setErrorMsg("يرجى إدخال كود الانضمام أولاً.");
       return;
     }
     if (!isUnifiedJoinCode(joinCodeInput)) {
       setErrorMsg(
-        "صيغة رمز التفعيل غير صحيحة. اكتب الكود كما هو ظاهر أو امسحه من QR.",
+        "صيغة كود التفعيل غير صحيحة. اكتب الكود كما هو ظاهر أو امسحه من QR.",
       );
       return;
     }
@@ -32471,7 +32493,7 @@ ${rows
               <FlaskConical className="h-4 w-4" />
             </button>
             <FlaskConical
-              className="miras-demo-flask h-3.5 w-3.5"
+              className="miras-demo-flask h-4 w-4"
               role="img"
               aria-label="بيئة تجريبية — بيانات مصطنعة معزولة"
             />
@@ -32492,13 +32514,13 @@ ${rows
                 onClick={() => void switchDemoRole(role)}
                 title={label}
                 aria-label={label}
-                className={`grid h-6 w-6 place-items-center rounded-full transition ${
+                className={`grid h-10 w-10 place-items-center rounded-full transition ${
                   demoRole === role
                     ? "bg-amber-900 text-amber-50"
                     : "hover:bg-amber-200 disabled:opacity-50"
                 }`}
               >
-                <Icon className="h-3.5 w-3.5" />
+                <Icon className="h-4 w-4" />
               </button>
             ))}
             <button
@@ -32507,9 +32529,9 @@ ${rows
               onClick={() => void resetDemo()}
               title="إعادة تعيين البيانات التجريبية"
               aria-label="إعادة تعيين البيانات التجريبية"
-              className="grid h-6 w-6 place-items-center rounded-full transition hover:bg-amber-200 disabled:opacity-50"
+              className="grid h-10 w-10 place-items-center rounded-full transition hover:bg-amber-200 disabled:opacity-50"
             >
-              <MirasRefreshCw className="h-3.5 w-3.5" />
+              <MirasRefreshCw className="h-4 w-4" />
             </button>
             <button
               type="button"
@@ -32517,9 +32539,9 @@ ${rows
               onClick={() => void exitDemo()}
               title="الخروج من البيئة التجريبية"
               aria-label="الخروج من البيئة التجريبية"
-              className="grid h-6 w-6 place-items-center rounded-full transition hover:bg-amber-200 disabled:opacity-50"
+              className="grid h-10 w-10 place-items-center rounded-full transition hover:bg-amber-200 disabled:opacity-50"
             >
-              <X className="h-3.5 w-3.5" />
+              <X className="h-4 w-4" />
             </button>
           </div>
         </div>
@@ -33514,7 +33536,7 @@ ${rows
             width: 20px !important;
             height: 20px !important;
             min-width: 20px !important;
-            stroke-width: 2 !important;
+            stroke-width: 1.75 !important;
             flex: 0 0 auto !important;
           }
 
@@ -33746,7 +33768,7 @@ ${rows
             <div className="flex items-start justify-between gap-3 text-right">
               <div className="inline-flex items-center gap-2 rounded-2xl border border-indigo-100 bg-indigo-50/70 px-3 py-1.5 text-[11px] font-bold text-indigo-700">
                 <QrCode className="h-4 w-4" />
-                {passwordResetQrLink ? "تغيير كلمة المرور" : "رمز تفعيل مباشر"}
+                {passwordResetQrLink ? "تغيير كلمة المرور" : "كود تفعيل مباشر"}
               </div>
               <button
                 type="button"
@@ -33763,7 +33785,7 @@ ${rows
             <div className="mx-auto mt-4 flex aspect-square w-full max-w-[15rem] items-center justify-center rounded-[var(--miras-r-lg)] border border-slate-100 bg-white p-3 shadow-inner">
               {joinQrBusy ? (
                 <span className="text-[11px] font-bold text-slate-400">
-                  جارٍ توليد الرمز…
+                  جارٍ توليد الكود…
                 </span>
               ) : joinQrSvg ? (
                 <div
@@ -33772,7 +33794,7 @@ ${rows
                 />
               ) : (
                 <span className="px-3 text-[11px] font-bold leading-5 text-red-500">
-                  تعذّر توليد الرمز. تحقّق من الاتصال ثم أعد المحاولة.
+                  تعذّر توليد الكود. تحقّق من الاتصال ثم أعد المحاولة.
                 </span>
               )}
             </div>
@@ -33938,7 +33960,7 @@ ${rows
                     title="السابق"
                     aria-label="السابق"
                   >
-                    <ChevronRight className="h-4 w-4 stroke-[1.5]" />
+                    <ChevronRight className="h-4 w-4" />
                   </button>
                   <button
                     type="button"
@@ -33948,7 +33970,7 @@ ${rows
                     title="التالي"
                     aria-label="التالي"
                   >
-                    <ChevronLeft className="h-4 w-4 stroke-[1.5]" />
+                    <ChevronLeft className="h-4 w-4" />
                   </button>
                 </div>
               </div>
@@ -35216,7 +35238,7 @@ ${rows
                     disabled={signupLookupStatus !== "found"}
                     className="meras-main-action w-full bg-slate-950 hover:bg-indigo-700 disabled:bg-slate-300 disabled:cursor-not-allowed text-white py-4 rounded-2xl font-bold text-xs transition-all duration-300 btn-spring-active shadow-premium-md flex items-center justify-center gap-2 mt-2"
                   >
-                    <span>التحقق وبناء الرمز السري</span>
+                    <span>التحقق وبناء الكود السري</span>
                     <ChevronRight className="w-4 h-4 rotate-180" />
                   </button>
                 </div>
@@ -35322,7 +35344,7 @@ ${rows
                             type="text"
                             inputMode="text"
                             autoComplete="username"
-                            placeholder="ادخل رقمك الجامعي"
+                            placeholder="أدخل رقمك الجامعي"
                             value={loginForm.idNumber}
                             onChange={(e) =>
                               setLoginForm({
@@ -35559,7 +35581,7 @@ ${rows
 
               <div className="mt-8 mb-6">
                 <label className="block text-[10px] font-bold text-indigo-700 mb-2 uppercase tracking-widest text-center">
-                  رمز المقرر المعتمد
+                  كود المقرر المعتمد
                 </label>
                 <div className="relative">
                   <input
@@ -35611,7 +35633,7 @@ ${rows
               >
                 {signupActivationBusy
                   ? "جاري تفعيل الحساب..."
-                  : "تأكيد الرمز وتفعيل الحساب"}
+                  : "تأكيد الكود وتفعيل الحساب"}
               </button>
 
               <div className="mt-6 pt-6 border-t border-slate-100">
@@ -35635,7 +35657,7 @@ ${rows
                 <ShieldCheck className="h-6 w-6" aria-hidden="true" />
               </span>
               <h2 className="text-2xl font-bold text-slate-950 font-sans">
-                تطابق الرمز الأكاديمي لشعبتك
+                تطابق الكود الأكاديمي لشعبتك
               </h2>
               <p className="text-slate-500 text-xs mt-2 leading-relaxed">
                 التسجيل للمستحقين فقط. اكتب معرّف شعبتك:
@@ -35644,7 +35666,7 @@ ${rows
               <div className="bg-amber-50/50 border border-amber-100 p-4 rounded-2xl my-5 text-right">
                 <span className="text-[11px] font-bold text-amber-800 flex items-center gap-1.5 mb-1">
                   <Lightbulb className="h-3.5 w-3.5" aria-hidden="true" />
-                  رموز الشعب النشطة حالياً بالاختبار:
+                  أكواد الشعب النشطة حالياً بالاختبار:
                 </span>
                 <p className="font-mono text-center text-xs font-bold text-slate-700 bg-white/70 py-1 rounded-lg border border-amber-200">
                   TECH-A1 • TECH-B2 • EDU-2026
@@ -35653,7 +35675,7 @@ ${rows
 
               <input
                 type="text"
-                placeholder="أدخل رمز شعبتك، مثال: TECH-A1"
+                placeholder="أدخل كود شعبتك، مثال: TECH-A1"
                 value={signupForm.sectionCode}
                 onChange={(e) =>
                   setSignupForm({ ...signupForm, sectionCode: e.target.value })
@@ -35852,13 +35874,13 @@ ${rows
                   <Key className="w-6 h-6 text-indigo-700" />
                 </div>
                 <span className="text-indigo-600 font-extrabold text-[11px] tracking-widest uppercase block mb-1">
-                  تسجيل الرمز / الانضمام المعملي
+                  تسجيل الكود / الانضمام المعملي
                 </span>
                 <h2 className="text-3xl font-bold tracking-tight text-slate-950 font-sans">
-                  تأكيد رمز انضمام المختبر
+                  تأكيد كود انضمام المختبر
                 </h2>
                 <p className="text-slate-500 text-xs mt-2 leading-relaxed">
-                  الرجاء تفعيل مسارك الشخصي الفريد للمقرر عبر إدراج الرمز
+                  الرجاء تفعيل مسارك الشخصي الفريد للمقرر عبر إدراج الكود
                   الجامعي المسجل داخل نسختك من الكتاب.
                 </p>
               </div>
@@ -36007,7 +36029,7 @@ ${rows
 
                 <div className="flex items-center gap-2 rounded-2xl border border-slate-200 bg-white/80 px-4 py-3 text-right text-[11px] font-bold leading-6 text-slate-500">
                   <Info className="h-4 w-4 shrink-0" aria-hidden="true" />
-                  <span>فقدان الرمز أو تبديل الجهاز: عبر الأستاذ فقط.</span>
+                  <span>فقدان الكود أو تبديل الجهاز: عبر الأستاذ فقط.</span>
                 </div>
               </div>
             </div>
@@ -37933,19 +37955,20 @@ ${rows
                                           "",
                                         );
                                     }}
-                                    className={`miras-dna-solid inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl transition duration-300 btn-spring-active disabled:cursor-not-allowed disabled:opacity-55 ${canOpen ? "bg-indigo-600 hover:bg-indigo-700 text-white" : "bg-slate-950 hover:bg-indigo-700 text-white"}`}
+                                    className={`miras-dna-solid miras-btn-labeled shrink-0 transition duration-300 btn-spring-active disabled:cursor-not-allowed disabled:opacity-55 ${canOpen ? "bg-indigo-600 hover:bg-indigo-700 text-white" : "bg-slate-950 hover:bg-indigo-700 text-white"}`}
                                     title={
                                       quizStartGuardActive
                                         ? "جاري فحص ثبات الشاشة"
-                                        : "فتح"
+                                        : "ابدأ الاختبار"
                                     }
                                     aria-label={
                                       quizStartGuardActive
                                         ? "جاري فحص ثبات الشاشة"
-                                        : "فتح"
+                                        : "ابدأ الاختبار"
                                     }
                                   >
-                                    <Play className="h-4 w-4" />
+                                    <Play className="h-4 w-4" aria-hidden="true" />
+                                    <span>ابدأ الاختبار</span>
                                   </button>
                                 ) : (
                                   <span
@@ -38143,9 +38166,10 @@ ${rows
                                         }}
                                         title="فتح"
                                         aria-label="فتح"
-                                        className="miras-dna-solid inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-indigo-600 text-white transition duration-300 hover:bg-indigo-700 btn-spring-active"
+                                        className="miras-dna-solid miras-btn-labeled shrink-0 bg-indigo-600 text-white transition duration-300 hover:bg-indigo-700 btn-spring-active"
                                       >
-                                        <Play className="h-4 w-4" />
+                                        <Play className="h-4 w-4" aria-hidden="true" />
+                                        <span>فتح</span>
                                       </button>
                                     ) : null}
                                   </div>
@@ -38247,7 +38271,7 @@ ${rows
                                             <p className="text-xs font-bold text-slate-700 font-sans">
                                               {isUploading
                                                 ? "جاري رفع المرفقات..."
-                                                : "ارفاق ملفات ومستندات (اضغط هنا أو اسحب الملف)"}
+                                                : "إرفاق ملفات ومستندات (اضغط هنا أو اسحب الملف)"}
                                             </p>
                                             <p className="text-[10px] text-slate-400 leading-normal">
                                               مستندات PDF، صور، Word، Excel، عرض
@@ -38296,11 +38320,12 @@ ${rows
                                           setExAnswerText("");
                                           setCurrentAttachments([]);
                                         }}
-                                        className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-slate-950 text-white miras-shadow-2 transition duration-300 hover:bg-indigo-600 btn-spring-active"
+                                        className="miras-btn-labeled shrink-0 bg-slate-950 text-white miras-shadow-2 transition duration-300 hover:bg-indigo-600 btn-spring-active"
                                         title="فتح"
                                         aria-label="فتح"
                                       >
-                                        <Play className="h-4 w-4" />
+                                        <Play className="h-4 w-4" aria-hidden="true" />
+                                        <span>فتح</span>
                                       </button>
                                     )}
                                 </div>
@@ -38760,7 +38785,7 @@ ${rows
                                   key={idx}
                                   className="bg-emerald-50 text-emerald-700 border border-emerald-100 text-[10px] font-bold px-2.5 py-1 rounded-full"
                                 >
-                                  <Star className="me-1 inline h-3 w-3 align-[-2px]" strokeWidth={2} aria-hidden="true" />
+                                  <Star className="me-1 inline h-3 w-3 align-[-2px]" strokeWidth={1.75} aria-hidden="true" />
                                   {s}
                                 </span>
                               ),
@@ -38777,7 +38802,7 @@ ${rows
                                   key={idx}
                                   className="bg-amber-50 text-amber-700 border border-amber-100 text-[10px] font-bold px-2.5 py-1 rounded-full"
                                 >
-                                  <AlertTriangle className="me-1 inline h-3 w-3 align-[-2px]" strokeWidth={2} aria-hidden="true" />
+                                  <AlertTriangle className="me-1 inline h-3 w-3 align-[-2px]" strokeWidth={1.75} aria-hidden="true" />
                                   {w}
                                 </span>
                               ),
@@ -38864,7 +38889,7 @@ ${rows
                   <span>سجل المحاولات</span><ShieldAlert className="h-4 w-4" />
                 </button>)}
                 <button type="button" onClick={() => openCodesQuickShortcut("reset")} className="flex w-full items-center justify-between rounded-2xl px-3 py-2.5 text-[11px] font-bold text-slate-700 hover:bg-rose-50 hover:text-rose-700">
-                  <span>طلبات الاسترجاع</span><Key className="h-4 w-4" />
+                  <span>طلبات استعادة كلمة المرور</span><Key className="h-4 w-4" />
                 </button>
               </div>
             )}
@@ -38900,7 +38925,7 @@ ${rows
                     <Cloud
                       aria-hidden="true"
                       className={liveConnectionTrouble || teacherCloudSyncing ? "animate-pulse" : ""}
-                      style={{ width: "0.95rem", height: "0.95rem", flex: "0 0 auto", color: liveConnectionTrouble || teacherCloudSyncing ? "#f59e0b" : "#059669" }}
+                      style={{ width: "0.95rem", height: "0.95rem", flex: "0 0 auto", color: liveConnectionTrouble || teacherCloudSyncing ? "#f59e0b" : "#64748b" }}
                     />
                   )}
                   {teacherSession?.name || "حساب المعلم"}
@@ -39153,7 +39178,7 @@ ${rows
                   <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
                     <div className="miras-teacher-heading-block flex min-w-0 flex-1 flex-col items-end text-right">
                       <div
-                        className="miras-teacher-account-pill relative mb-3 inline-flex max-w-full cursor-pointer items-center gap-2 self-end rounded-full bg-emerald-50 px-3.5 py-1.5 text-[11px] font-bold text-emerald-700 shadow-sm select-none"
+                        className="miras-teacher-account-pill relative mb-3 inline-flex max-w-full cursor-pointer items-center gap-2 self-end rounded-full bg-slate-100 px-3.5 py-1.5 text-[11px] font-bold text-slate-600 shadow-sm select-none"
                         role="button"
                         tabIndex={0}
                         aria-label="عرض حالة الاتصال"
@@ -39178,7 +39203,7 @@ ${rows
                             className={`h-4 w-4 shrink-0 ${
                               liveConnectionTrouble || teacherCloudSyncing
                                 ? "animate-pulse text-amber-500"
-                                : "text-emerald-600"
+                                : "text-slate-500"
                             }`}
                             aria-hidden="true"
                           />
@@ -39499,7 +39524,7 @@ ${rows
                         <div>
                           <h3 className="flex items-center gap-2 text-sm font-bold text-amber-900">
                             <Key className="h-4 w-4" />
-                            استرجاع
+                            طلبات استعادة كلمة المرور
                           </h3>
                           <p className="mt-1 text-[11px] font-bold text-amber-700">
                             طلبات جديدة فقط
@@ -39539,6 +39564,9 @@ ${rows
                               <Activity className="h-4 w-4 text-indigo-600" aria-hidden="true" />
                               نبض الاختبار
                             </h3>
+                            <p className="mt-0.5 text-[11px] font-bold text-slate-500">
+                              متابعة مباشرة لحالة الطلبة أثناء الاختبار
+                            </p>
                           </div>
                         </div>
 
@@ -41401,8 +41429,8 @@ ${rows
                   <div className="bg-slate-900 text-white rounded-3xl p-6">
                     <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
                       <div>
-                        <span className="text-[10px] bg-indigo-800 text-indigo-200 px-3 py-1 rounded-full font-mono">
-                          🔒 محتوى الأستاذ
+                        <span className="inline-flex items-center gap-1.5 text-[10px] bg-indigo-800 text-indigo-200 px-3 py-1 rounded-full font-mono">
+                          <Lock className="h-3 w-3" aria-hidden="true" /> محتوى الأستاذ
                         </span>
                         <h2 className="text-xl font-black mt-2">
                           مركز محتوى المقرر والتوليد الذكي
@@ -41447,7 +41475,7 @@ ${rows
                     {bookMetadata && (
                       <div className="mt-4 flex items-center justify-between bg-slate-800/80 p-3 rounded-lg border border-slate-200 text-xs">
                         <span className="text-slate-300">
-                          📖 المصدر النشط المحمي:{" "}
+                          <FileText className="ml-1 inline h-3.5 w-3.5 align-[-2px]" aria-hidden="true" />المصدر النشط المحمي:{" "}
                           <span className="font-bold text-white font-mono">
                             {bookMetadata.sourceId || bookMetadata.fileName}
                           </span>{" "}
@@ -41894,9 +41922,10 @@ ${rows
                             closeWorkspaceDrawers();
                             setProjectBuilderOpen(true);
                           }}
-                          className="inline-flex h-12 w-12 items-center justify-center rounded-2xl bg-emerald-600 text-white shadow-sm"
+                          className="miras-btn-labeled bg-emerald-600 text-white shadow-sm"
                         >
-                          <Plus className="h-5 w-5" />
+                          <Plus className="h-5 w-5" aria-hidden="true" />
+                          <span>مشروع جديد</span>
                         </button>
                       </div>
                     )}
@@ -42056,17 +42085,19 @@ ${rows
                                 onClick={() => startEditProject(project)}
                                 title="تعديل الدرجة والموعد"
                                 aria-label="تعديل الدرجة والموعد"
-                                className="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-indigo-50 text-indigo-700"
+                                className="miras-btn-labeled-sm bg-indigo-50 text-indigo-700"
                               >
-                                <Edit className="h-4 w-4" />
+                                <Edit className="h-4 w-4" aria-hidden="true" />
+                                <span>تعديل</span>
                               </button>
                               <button
                                 onClick={() => deleteProject(project.id)}
                                 title="حذف"
                                 aria-label="حذف"
-                                className="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-red-50 text-red-700"
+                                className="miras-btn-labeled-sm bg-red-50 text-red-700"
                               >
-                                <Trash2 className="h-4 w-4" />
+                                <Trash2 className="h-4 w-4" aria-hidden="true" />
+                                <span>حذف</span>
                               </button>
                             </div>
                           </div>
@@ -42123,13 +42154,14 @@ ${rows
                                   setExamBuilderOpen(true);
                                 }
                               }}
-                              className="inline-flex h-12 w-12 items-center justify-center rounded-2xl bg-slate-950 text-white hover:bg-indigo-700"
+                              className="miras-btn-labeled bg-slate-950 text-white hover:bg-indigo-700"
                             >
                               {examBuilderOpen ? (
-                                <X className="h-5 w-5" />
+                                <X className="h-5 w-5" aria-hidden="true" />
                               ) : (
-                                <Plus className="h-5 w-5" />
+                                <Plus className="h-5 w-5" aria-hidden="true" />
                               )}
+                              <span>{examBuilderOpen ? "إغلاق" : "اختبار جديد"}</span>
                             </button>
                           </div>
                         </div>
@@ -42767,17 +42799,19 @@ ${rows
                                       onClick={() => startEditExam(item)}
                                       title="تعديل"
                                       aria-label="تعديل"
-                                      className="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-indigo-50 text-indigo-700"
+                                      className="miras-btn-labeled-sm bg-indigo-50 text-indigo-700"
                                     >
-                                      <Edit className="h-4 w-4" />
+                                      <Edit className="h-4 w-4" aria-hidden="true" />
+                                      <span>تعديل</span>
                                     </button>
                                     <button
                                       onClick={() => deleteExam(item.id)}
                                       title="حذف"
                                       aria-label="حذف"
-                                      className="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-red-50 text-red-700"
+                                      className="miras-btn-labeled-sm bg-red-50 text-red-700"
                                     >
-                                      <Trash2 className="h-4 w-4" />
+                                      <Trash2 className="h-4 w-4" aria-hidden="true" />
+                                      <span>حذف</span>
                                     </button>
                                   </div>
                                 </div>
@@ -42833,9 +42867,10 @@ ${rows
                                 closeWorkspaceDrawers();
                                 setQuestionFormOpen(true);
                               }}
-                              className="inline-flex h-12 w-12 items-center justify-center rounded-2xl bg-indigo-600 text-white shadow-sm hover:bg-slate-950"
+                              className="miras-btn-labeled bg-indigo-600 text-white shadow-sm hover:bg-slate-950"
                             >
-                              <Plus className="h-5 w-5" />
+                              <Plus className="h-5 w-5" aria-hidden="true" />
+                              <span>سؤال جديد</span>
                             </button>
                           </div>
                           {questionFormOpen && (
@@ -43539,13 +43574,14 @@ ${rows
                                             : "تعديل"
                                         }
                                         onClick={() => toggleQuestionEdit(q)}
-                                        className="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-indigo-50 text-indigo-700 hover:bg-indigo-100"
+                                        className="miras-btn-labeled-sm bg-indigo-50 text-indigo-700 hover:bg-indigo-100"
                                       >
                                         {editingQuestionId === q.id ? (
-                                          <Check className="h-4 w-4" />
+                                          <Check className="h-4 w-4" aria-hidden="true" />
                                         ) : (
-                                          <Edit className="h-4 w-4" />
+                                          <Edit className="h-4 w-4" aria-hidden="true" />
                                         )}
+                                        <span>{editingQuestionId === q.id ? "حفظ" : "تعديل"}</span>
                                       </button>
                                       <button
                                         title="حذف"
@@ -43553,9 +43589,10 @@ ${rows
                                         onClick={() =>
                                           deleteQuestionFromBank(q.id)
                                         }
-                                        className="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-red-50 text-red-700 hover:bg-red-100"
+                                        className="miras-btn-labeled-sm bg-red-50 text-red-700 hover:bg-red-100"
                                       >
-                                        <Trash2 className="h-4 w-4" />
+                                        <Trash2 className="h-4 w-4" aria-hidden="true" />
+                                        <span>حذف</span>
                                       </button>
                                     </div>
                                   </div>
@@ -43578,9 +43615,10 @@ ${rows
                         title="إضافة مقرر"
                         aria-label="إضافة مقرر"
                         onClick={beginAddSection}
-                        className="inline-flex h-12 w-12 items-center justify-center rounded-2xl bg-slate-950 text-white hover:bg-indigo-700 shadow-sm"
+                        className="miras-btn-labeled bg-slate-950 text-white hover:bg-indigo-700 shadow-sm"
                       >
-                        <Plus className="h-5 w-5" />
+                        <Plus className="h-5 w-5" aria-hidden="true" />
+                        <span>مقرر جديد</span>
                       </button>
                     </div>
                     {sectionFormOpen && (
@@ -43649,7 +43687,7 @@ ${rows
                       {visibleTeacherSections.map((sec) => (
                         <div
                           key={sec.code}
-                          className="bg-slate-50/80 rounded-3xl border border-slate-200 p-5 space-y-4 text-right shadow-sm hover:shadow-md transition-all"
+                          className="@container bg-slate-50/80 rounded-3xl border border-slate-200 p-5 space-y-4 text-right shadow-sm hover:shadow-md transition-all"
                         >
                           <div className="flex items-center justify-end gap-3">
                             {(() => {
@@ -43683,34 +43721,38 @@ ${rows
                               {sec.semester}
                             </p>
                           </div>
-                          <div className="grid grid-cols-3 gap-2">
+                          <div className="miras-course-actions grid grid-cols-3 gap-2">
                             <button
-                              title={sec.isOpen ? "إغلاق" : "فتح"}
-                              aria-label={sec.isOpen ? "إغلاق" : "فتح"}
+                              title={sec.isOpen ? "قفل المقرر" : "فتح المقرر"}
+                              aria-label={sec.isOpen ? "قفل المقرر" : "فتح المقرر"}
                               onClick={() => toggleSectionStatus(sec)}
-                              className="inline-flex h-10 items-center justify-center rounded-2xl border border-slate-200 bg-white text-slate-700 hover:border-indigo-300 hover:text-indigo-700 transition-all"
+                              className="miras-btn-labeled-sm border border-slate-200 bg-white text-slate-700 hover:border-indigo-300 hover:text-indigo-700"
                             >
                               {sec.isOpen ? (
-                                <Lock className="h-4 w-4" strokeWidth={1.5} />
+                                <Lock className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
                               ) : (
-                                <Play className="h-4 w-4" strokeWidth={1.5} />
+                                <Play className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
                               )}
+                              <span className="hidden @[24rem]:inline">{sec.isOpen ? "قفل المقرر" : "فتح المقرر"}</span>
+                              <span className="@[24rem]:hidden" aria-hidden="true">{sec.isOpen ? "قفل" : "فتح"}</span>
                             </button>
                             <button
                               title="تعديل"
                               aria-label="تعديل"
                               onClick={() => beginEditSection(sec)}
-                              className="inline-flex h-10 items-center justify-center rounded-2xl border border-indigo-100 bg-indigo-50 text-indigo-700 transition-all"
+                              className="miras-btn-labeled-sm border border-indigo-100 bg-indigo-50 text-indigo-700"
                             >
-                              <Edit className="h-4 w-4" strokeWidth={1.5} />
+                              <Edit className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
+                              <span>تعديل</span>
                             </button>
                             <button
                               title="حذف"
                               aria-label="حذف"
                               onClick={() => deleteSectionSafely(sec)}
-                              className="inline-flex h-10 items-center justify-center rounded-2xl border border-red-100 bg-red-50 text-red-700 transition-all"
+                              className="miras-btn-labeled-sm border border-red-100 bg-red-50 text-red-700"
                             >
-                              <Trash2 className="h-4 w-4" strokeWidth={1.5} />
+                              <Trash2 className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
+                              <span>حذف</span>
                             </button>
                           </div>
                         </div>
@@ -44229,7 +44271,7 @@ ${rows
                                     text.includes("توليد") &&
                                     text.includes("رمز")
                                   )
-                                    return "رمز جديد";
+                                    return "كود جديد";
                                   if (
                                     text.includes("إنشاء") &&
                                     text.includes("كود")
@@ -46006,7 +46048,7 @@ ${rows
                                 ) : (
                                   <div className="space-y-2 bg-amber-50 rounded-xl p-3 border border-amber-100">
                                     <p className="text-[10px] font-bold text-amber-900 leading-4">
-                                      ⚠️ هل أنت متأكد؟ سيتم حذف بيانات الطلاب
+                                      <AlertTriangle className="ml-1 inline h-3.5 w-3.5 align-[-2px]" aria-hidden="true" />هل أنت متأكد؟ سيتم حذف بيانات الطلاب
                                       والعمليات المرتبطة بمقرراتك فقط، دون لمس
                                       أكواد الدخول نهائياً.
                                     </p>
@@ -46073,7 +46115,7 @@ ${rows
                                   ) : (
                                     <div className="space-y-2 bg-red-50 rounded-xl p-3 border border-red-100">
                                       <p className="text-[10px] font-bold text-red-900 leading-4">
-                                        🚨 تأكيد نهائي: سيتم تصفير المناهج
+                                        <ShieldAlert className="ml-1 inline h-3.5 w-3.5 align-[-2px]" aria-hidden="true" />تأكيد نهائي: سيتم تصفير المناهج
                                         والأسئلة والكشوفات والطلاب بالكامل ولا
                                         يمكن التراجع!
                                       </p>
@@ -46246,7 +46288,7 @@ ${rows
                               الحسابات والأجهزة
                             </h2>
                             <p className="text-[11px] font-bold leading-5 text-slate-500">
-                              طلبات الاسترجاع والأجهزة الموثوقة داخل مساحة واحدة
+                              طلبات استعادة كلمة المرور والأجهزة الموثوقة داخل مساحة واحدة
                               مغلقة وهادئة.
                             </p>
                           </div>
@@ -46279,7 +46321,7 @@ ${rows
                               <div>
                                 <h3 className="flex items-center gap-2 text-sm font-bold text-amber-900">
                                   <Key className="h-4 w-4" />
-                                  استرجاع
+                                  طلبات استعادة كلمة المرور
                                 </h3>
                                 <p className="mt-1 text-[11px] font-bold text-amber-700">
                                   {passwordResetRequests.length} طلب • مغلقة بهدوء
@@ -47072,7 +47114,7 @@ ${rows
                       },
                       {
                         id: "archive",
-                        label: "الأرشيف",
+                        label: "الأكواد",
                         Icon: FolderTree,
                         count: filteredJoinCodes.length,
                       },
@@ -47361,28 +47403,28 @@ ${rows
                         const cells = [
                           {
                             k: "total",
-                            label: "الرموز المصدرة الكليّة",
+                            label: "الأكواد المصدرة الكليّة",
                             n: total,
-                            unit: "رمز",
+                            unit: "كود",
                             note: "مجموع الكودات",
                           },
                           {
                             k: "active",
-                            label: "رموز فعالة وغير مستخدمة",
+                            label: "أكواد فعالة وغير مستخدمة",
                             n: nActive,
-                            unit: "رمز",
+                            unit: "كود",
                             note: "جاهزة للتوزيع",
                           },
                           {
                             k: "used",
-                            label: "رموز مستخدمة بالفعل",
+                            label: "أكواد مستخدمة بالفعل",
                             n: nUsed,
                             unit: "مستخدم",
                             note: "مقفل على طالب وجهاز",
                           },
                           {
                             k: "revoked",
-                            label: "رموز ملغاة/موقوفة مسبقاً",
+                            label: "أكواد ملغاة/موقوفة مسبقاً",
                             n: nRevoked,
                             unit: "ملغى",
                             note: "لا تقبل التفعيل",
@@ -47534,10 +47576,10 @@ ${rows
                             <div className="mb-3 flex items-center justify-between gap-3">
                               <div>
                                 <p className="text-xs font-bold text-slate-900">
-                                  مقرر إصدار الرمز
+                                  مقرر إصدار الكود
                                 </p>
                                 <p className="mt-1 text-[10px] font-bold leading-5 text-slate-500">
-                                  الرمز يرتبط بهذا المقرر مباشرة.
+                                  الكود يرتبط بهذا المقرر مباشرة.
                                 </p>
                               </div>
                               <span className="shrink-0 whitespace-nowrap rounded-full bg-white px-3 py-1 text-[10px] font-bold text-slate-500 shadow-sm">
@@ -47569,7 +47611,7 @@ ${rows
                               </select>
                             ) : (
                               <div className="rounded-2xl border border-amber-100 bg-amber-50 px-4 py-3 text-[11px] font-bold text-amber-700">
-                                لا يوجد مقرر متاح لإصدار الرموز.
+                                لا يوجد مقرر متاح لإصدار الأكواد.
                               </div>
                             )}
                           </div>
@@ -47578,19 +47620,19 @@ ${rows
                               <div className="flex items-center justify-between gap-3">
                                 <div>
                                   <p className="text-xs font-bold text-slate-800">
-                                    رموز عامة
+                                    أكواد عامة
                                   </p>
                                 </div>
                                 <button
                                   title={
                                     codesBatchFormOpen
                                       ? "إغلاق"
-                                      : "فتح توليد الرموز"
+                                      : "فتح توليد الأكواد"
                                   }
                                   aria-label={
                                     codesBatchFormOpen
                                       ? "إغلاق"
-                                      : "فتح توليد الرموز"
+                                      : "فتح توليد الأكواد"
                                   }
                                   onClick={() => {
                                     if (codesBatchFormOpen) {
@@ -47600,20 +47642,21 @@ ${rows
                                     closeWorkspaceDrawers();
                                     setCodesBatchFormOpen(true);
                                   }}
-                                  className={`inline-flex h-12 w-12 items-center justify-center rounded-2xl text-white shadow-sm ${codesBatchFormOpen ? "bg-slate-900 hover:bg-red-600" : "bg-indigo-600 hover:bg-slate-950"}`}
+                                  className={`miras-btn-labeled text-white shadow-sm ${codesBatchFormOpen ? "bg-slate-900 hover:bg-red-600" : "bg-indigo-600 hover:bg-slate-950"}`}
                                 >
                                   {codesBatchFormOpen ? (
-                                    <X className="h-5 w-5" />
+                                    <X className="h-5 w-5" aria-hidden="true" />
                                   ) : (
-                                    <Plus className="h-5 w-5" />
+                                    <Plus className="h-5 w-5" aria-hidden="true" />
                                   )}
+                                  <span>{codesBatchFormOpen ? "إغلاق" : "توليد أكواد"}</span>
                                 </button>
                               </div>
                               {codesBatchFormOpen && (
                                 <div className="space-y-4 animate-fade-in">
                                   <div className="flex items-center justify-between gap-3">
                                     <label className="text-xs font-bold text-slate-800">
-                                      عدد الرموز
+                                      عدد الأكواد
                                     </label>
                                     <span className="rounded-full bg-indigo-50 px-3 py-1 text-[10px] font-bold text-indigo-700">
                                       حتى 2000
@@ -47659,8 +47702,8 @@ ${rows
                                   />
                                   <button
                                     onClick={handleCreateJoinCodes}
-                                    title="توليد رموز عامة"
-                                    aria-label="توليد رموز عامة"
+                                    title="توليد أكواد عامة"
+                                    aria-label="توليد أكواد عامة"
                                     className="inline-flex h-12 w-12 items-center justify-center rounded-2xl bg-indigo-600 text-white hover:bg-slate-950 disabled:bg-slate-300 disabled:text-slate-500 shadow-sm"
                                   >
                                     <Key className="h-5 w-5" />
@@ -47669,13 +47712,13 @@ ${rows
                                     <div className="rounded-3xl border border-indigo-100 bg-indigo-50/60 p-3 text-right shadow-sm">
                                       <div className="flex items-center justify-between gap-3">
                                         <span className="text-[11px] font-bold text-indigo-900">
-                                          آخر رموز عامة مولدة
+                                          آخر أكواد عامة مولدة
                                         </span>
                                         <span className="rounded-full bg-white px-2 py-0.5 text-[11px] font-black text-indigo-700 shadow-sm">
                                           {lastGeneratedJoinCodes[0]
                                             ?.summaryOnly
                                             ? lastGeneratedJoinCodes[0]?.code
-                                            : `${lastGeneratedJoinCodes.length} رمز`}
+                                            : `${lastGeneratedJoinCodes.length} كود`}
                                         </span>
                                       </div>
                                       <div className="mt-2 max-h-32 space-y-1 overflow-y-auto pr-1">
@@ -47710,7 +47753,7 @@ ${rows
                                           <div className="rounded-2xl bg-white/70 px-3 py-2 text-center text-[10px] font-bold text-slate-500">
                                             +{" "}
                                             {lastGeneratedJoinCodes.length - 12}{" "}
-                                            رموز أخرى محفوظة في القائمة
+                                            أكواد أخرى محفوظة في القائمة
                                           </div>
                                         )}
                                       </div>
@@ -47759,15 +47802,15 @@ ${rows
                             <div className="flex items-start justify-between gap-3">
                               <div>
                                 <p className="text-xs font-bold text-emerald-800">
-                                  رمز مجاني لطالب محدد
+                                  كود مجاني لطالب محدد
                                 </p>
                               </div>
                               <button
                                 title={
-                                  singleCodeFormOpen ? "إغلاق" : "فتح رمز لطالب"
+                                  singleCodeFormOpen ? "إغلاق" : "فتح كود لطالب"
                                 }
                                 aria-label={
-                                  singleCodeFormOpen ? "إغلاق" : "فتح رمز لطالب"
+                                  singleCodeFormOpen ? "إغلاق" : "فتح كود لطالب"
                                 }
                                 onClick={() => {
                                   if (singleCodeFormOpen) {
@@ -47824,8 +47867,8 @@ ${rows
                                     </p>
                                   )}
                                 <button
-                                  title="توليد رمز خاص"
-                                  aria-label="توليد رمز خاص"
+                                  title="توليد كود خاص"
+                                  aria-label="توليد كود خاص"
                                   onClick={handleCreateSingleStudentCode}
                                   className="inline-flex h-12 w-12 items-center justify-center rounded-2xl bg-emerald-600 text-white hover:bg-emerald-700 shadow-sm"
                                 >
@@ -47846,7 +47889,7 @@ ${rows
                           <div className="flex w-full flex-col xl:flex-row justify-between items-start xl:items-center gap-4 border-b border-slate-100 pb-4 text-right">
                             <div className="miras-code-stats flex flex-wrap items-center gap-2 rounded-2xl px-2 py-1 text-right">
                               <h3 className="font-black text-base text-slate-900">
-                                بيانات كروت حالة الرموز والتفعيل
+                                حالة الأكواد والتفعيل
                               </h3>
                               <span
                                 title="أكواد عامة فعّالة لم تُصدَّر للمطبعة بعد — وهي وحدها ما يدخل ملف التصدير القادم"
@@ -47886,8 +47929,8 @@ ${rows
                                   e.stopPropagation();
                                   exportCodesToCSV();
                                 }}
-                                title="تصدير رموز جاهزة للطباعة"
-                                aria-label="تصدير رموز جاهزة للطباعة"
+                                title="تصدير أكواد جاهزة للطباعة"
+                                aria-label="تصدير أكواد جاهزة للطباعة"
                                 className="inline-flex h-11 w-11 items-center justify-center rounded-2xl bg-emerald-600 text-white hover:bg-slate-900 transition-all shadow-sm"
                               >
                                 <FileText className="w-4 h-4" />
@@ -47923,8 +47966,8 @@ ${rows
                                     );
                                   }}
                                   placeholder="الكل"
-                                  title={`عدد الكروت المطلوب تصديرها (اتركه فارغاً لتصدير الكل — الجاهز ${readyToPrintCodesCount})`}
-                                  aria-label="عدد كروت التفعيل المطلوب طباعتها"
+                                  title={`عدد الأكواد المطلوب تصديرها (اتركه فارغاً لتصدير الكل — الجاهز ${readyToPrintCodesCount})`}
+                                  aria-label="عدد أكواد التفعيل المطلوب طباعتها"
                                   className="h-11 w-20 rounded-2xl border border-indigo-100 bg-white px-3 text-center font-mono tabular-nums text-[12px] font-black text-indigo-700 outline-none placeholder:font-sans placeholder:text-slate-400 focus:ring-2 focus:ring-indigo-100"
                                 />
                               )}
@@ -47951,8 +47994,8 @@ ${rows
                                     e.stopPropagation();
                                     exportCodesArchiveToCSV();
                                   }}
-                                  title="تصدير أرشيف الرموز الكامل"
-                                  aria-label="تصدير أرشيف الرموز الكامل"
+                                  title="تصدير أرشيف الأكواد الكامل"
+                                  aria-label="تصدير أرشيف الأكواد الكامل"
                                   className="inline-flex h-11 w-11 items-center justify-center rounded-2xl border border-slate-200 bg-white text-slate-600 hover:border-indigo-200 hover:text-indigo-700 transition-all shadow-sm"
                                 >
                                   <Download className="w-4 h-4" />
@@ -47970,7 +48013,7 @@ ${rows
                                     <Search className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
                                     <input
                                       type="text"
-                                      placeholder="ابحث بالرمز، الرقم، الاسم..."
+                                      placeholder="ابحث بالكود، الرقم، الاسم..."
                                       value={codesFilterSearch}
                                       onChange={(e) => {
                                         setCodesFilterSearch(e.target.value);
@@ -48017,7 +48060,7 @@ ${rows
                                     ) : (
                                       <>
                                         يعرض {pagedJoinCodes.length} من أصل{" "}
-                                        {codeArchiveView.total} رمز —{" "}
+                                        {codeArchiveView.total} كود —{" "}
                                         {codesPageSize} في الصفحة.
                                         {!codeArchiveSearch.trim() && Number(codeArchiveView.counts?.archived) > 0 && (
                                           <span className="block text-slate-400">
@@ -48088,7 +48131,7 @@ ${rows
                                           )}
                                           {c.status === "used" && (
                                             <span className="rounded-full bg-slate-500 px-2 py-0.5 text-[11px] font-black text-white">
-                                              تم استخدامه ومحفوظ بالأرشيف
+                                              تم استخدامه ومحفوظ في السجل
                                             </span>
                                           )}
                                         </div>
@@ -48139,7 +48182,7 @@ ${rows
                                           <span className="text-emerald-700">
                                             {c.assignedStudentId
                                               ? `${c.assignedStudentName || "-"} (${c.assignedStudentId})`
-                                              : "رمز عام متاح"}
+                                              : "كود عام متاح"}
                                           </span>
                                         )}
                                         {c.status === "revoked" && (
@@ -48245,8 +48288,8 @@ ${rows
                                               handleReissueJoinCode(c.code)
                                             }
                                             className="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-indigo-50 text-indigo-700 transition-all hover:bg-indigo-100"
-                                            title="إصدار رمز بديل"
-                                            aria-label="إصدار رمز بديل"
+                                            title="إصدار كود بديل"
+                                            aria-label="إصدار كود بديل"
                                           >
                                             <RefreshCw className="h-4 w-4" />
                                           </button>
@@ -48258,8 +48301,8 @@ ${rows
                                               handleDeleteJoinCode(c.code)
                                             }
                                             className="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-red-50 text-red-600 transition-all hover:bg-red-100"
-                                            title="أرشفة الرمز وتعطيل استخدامه"
-                                            aria-label="أرشفة الرمز"
+                                            title="أرشفة الكود وتعطيل استخدامه"
+                                            aria-label="أرشفة الكود"
                                           >
                                             <Trash2 className="h-4 w-4" />
                                           </button>
@@ -48296,9 +48339,9 @@ ${rows
                                       </button>
                                     </span>
                                   ) : isAdminTeacher ? (
-                                    "لا توجد رموز مطابقة حالياً. جرّب تغيير البحث أو الفلتر أو ولّد دفعة جديدة."
+                                    "لا توجد أكواد مطابقة حالياً. جرّب تغيير البحث أو الفلتر أو ولّد دفعة جديدة."
                                   ) : (
-                                    "لا توجد رموز مستخدمة من طلبتك حتى الآن."
+                                    "لا توجد أكواد مستخدمة من طلبتك حتى الآن."
                                   )}
                                 </div>
                               )}
@@ -49553,7 +49596,7 @@ ${rows
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <div className="bg-white rounded-3xl p-6 max-w-sm w-full space-y-4 text-center">
             <span className="w-12 h-12 bg-indigo-50 text-indigo-600 font-black text-xl rounded-full flex items-center justify-center mx-auto">
-              🛡️
+              <ShieldCheck className="h-6 w-6" aria-hidden="true" />
             </span>
             <div>
               <h3 className="font-black text-slate-800 text-base">
@@ -50022,7 +50065,7 @@ ${rows
                 mirasRadarTab === "active" ? !r.resolvedAt : !!r.resolvedAt,
               ).length === 0 ? (
                 <div className="grid place-items-center py-14 text-center">
-                  <div className="text-5xl">🛰️</div>
+                  <ShieldCheck className="h-12 w-12 text-slate-300" aria-hidden="true" />
                   <p className="mt-3 text-[15px] font-black text-slate-800">
                     {mirasRadarTab === "active"
                       ? "الرادار صافٍ — لا أخطاء نشطة"
@@ -50113,7 +50156,7 @@ ${rows
                                 title="ينسخ تشخيصاً كاملاً جاهزاً للإرسال — ألصقه لي وأتكفّل بالإصلاح"
                                 onClick={() => {
                                   const diag = [
-                                    "🛰️ تشخيص من رادار مِراس:",
+                                    "تشخيص من رادار مِراس:",
                                     `الرسالة: ${r.message}`,
                                     `المصدر: ${r.source} | التكرار: ×${r.count || 1}`,
                                     `أول ظهور: ${formatKwDateTime(r.firstSeenAt)} | آخر: ${formatKwDateTime(r.lastSeenAt)}`,
@@ -50155,10 +50198,14 @@ ${rows
           </div>
         </div>
       )}
-      {studentDeadlineCardOpen && studentUpcomingDeadlineCards.length > 0 && (
+      {/* تسلسل بصري: الجولة أولاً ثم التنبيه — لا يتكدّسان */}
+      {studentDeadlineCardOpen && !showStudentOnboarding && studentUpcomingDeadlineCards.length > 0 && (
         <div
           className="fixed inset-0 z-[120] flex items-center justify-center bg-slate-900/45 p-4 backdrop-blur-sm"
           dir="rtl"
+          role="dialog"
+          aria-modal="true"
+          aria-label="تنبيه مهم"
           onMouseDown={(e) => {
             if (e.target === e.currentTarget) setStudentDeadlineCardOpen(false);
           }}
@@ -50190,7 +50237,7 @@ ${rows
             <div className="space-y-3 px-5 py-4">
               <div className="rounded-2xl bg-slate-50/80 px-4 py-3.5 text-right">
                 <p className="text-[14px] font-bold text-slate-900">
-                  لديك تنبيه مهم قبل انتهاء الوقت.
+                  موعد تسليم يقترب
                 </p>
                 <p className="mt-1 text-[12px] font-semibold leading-relaxed text-slate-500">
                   اضغط البطاقة لفتح الصفحة المناسبة، بدون بدء أي اختبار.
