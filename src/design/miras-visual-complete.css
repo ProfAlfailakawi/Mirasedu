@@ -83,6 +83,10 @@ html body .meras-teacher-shell .miras-submissions-panel .miras-stack-bar > .is-g
 html body .meras-teacher-shell .miras-submissions-panel .miras-stack-bar > .is-pending:not(#_):not(#__):not(.meras-exam-shell *) {
   background: linear-gradient(90deg, #cbd5e1, #94a3b8);
 }
+/* الداكن: شريحة «بانتظار» هي الأكبر عادةً، وبرماديّها الفاتح كانت أسطع ما في البطاقة وتطغى على المرصود. */
+html[data-theme="dark"] body .meras-teacher-shell .miras-submissions-panel .miras-stack-bar > .is-pending:not(#_):not(#__):not(.meras-exam-shell *) {
+  background: linear-gradient(90deg, rgba(148, 163, 184, 0.42), rgba(148, 163, 184, 0.3));
+}
 html body .meras-teacher-shell .miras-submissions-panel .miras-stack-bar > .is-returned:not(#_):not(#__):not(.meras-exam-shell *) {
   background: linear-gradient(90deg, #818cf8, #4f46e5);
 }
@@ -136,4 +140,24 @@ html[data-theme="dark"] body .meras-teacher-shell .miras-submissions-panel > div
 html[data-theme="dark"] body .meras-teacher-shell .miras-submissions-panel > div.mb-3 > button:hover:not(#_):not(#__):not(.meras-exam-shell *) {
   color: #d1fae5 !important;
   background: linear-gradient(145deg, rgba(52, 211, 153, 0.38), rgba(52, 211, 153, 0.18)) !important;
+}
+
+/* بطاقة حالة أمان الأكواد: تدرّج «المراقبة» و«الخطر» كان يمزج لونين متباعدين (بنّي→نيلي، قرمزي→نيلي) فيخرج بنفسجياً موحلاً.
+   تبقى كل حالة في عائلة لونها (عنبر / قرمزي) بتدرّج أعمق فقط، والتباين مع النص الأبيض أعلى مما كان. */
+html body .miras-admin-code-security-status-watch:not(#_):not(#__):not(.meras-exam-shell *) {
+  background: linear-gradient(145deg, #92400e, #78350f) !important;
+}
+html body .miras-admin-code-security-status-danger:not(#_):not(#__):not(.meras-exam-shell *) {
+  background: linear-gradient(145deg, #9f1239, #7f1d1d) !important;
+}
+
+/* بلاطات أمان الأكواد الضيقة: كانت التسمية تنكسر يتيمةً («كود ليس / له»)؛ الموازنة توزّع السطرين بالتساوي. */
+html body .miras-admin-code-security-metric > span:not(:first-child):not(#_):not(#__):not(.meras-exam-shell *) {
+  text-wrap: balance;
+}
+
+/* سجل التدقيق: صفّ الطالب المطويّ يحمل هامش سفلي (mb-3) مخصصاً للمحتوى المفتوح فيبدو المحتوى ملتصقاً بأعلى البطاقة.
+   حين لا يتبعه شيء يسقط الهامش فيتوسّط الصفّ. */
+html body .meras-teacher-shell .rounded-3xl > button.mb-3.w-full.justify-between:last-child:not(#_):not(#__):not(.meras-exam-shell *) {
+  margin-bottom: 0;
 }

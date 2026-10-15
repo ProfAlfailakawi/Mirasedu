@@ -157,8 +157,8 @@ html body .workspace-calm-shell .meras-topbar .miras-student-toolbar .miras-stud
   color: var(--miras-brand, #4f46e5) !important;
 }
 html body .workspace-calm-shell .meras-topbar .miras-student-toolbar .miras-student-tool--notify .miras-notification-badge:not(#_) {
-  top: 0.1rem !important;
-  left: 0.1rem !important;
+  top: -0.2rem !important;
+  left: -0.1rem !important;
   right: auto !important;
 }
 html body .workspace-calm-shell .meras-topbar .miras-student-toolbar .miras-student-tool--passkey:not(#_):not(#_):not(#_) {
