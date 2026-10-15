@@ -1,7 +1,5 @@
 import { groupSecurityNotifications } from "./src/shared/security-notification-groups";
 import { studentSubmissionDisplayText } from "./src/shared/submission-display-text";
-import { watchSolutionScrollJumps, markIntentionalSolutionScrollReset, type WatchedScrollJump } from "./src/shared/scroll-jump-watcher";
-import { formatScrollJumpReport } from "./src/shared/scroll-jump-diagnostic";
 import { keepSolutionBottomRoom } from "./src/shared/solution-scroll-room";
 import { joinCodeIssueScopeEmail as joinCodeIssueScopeEmailFor } from "./src/shared/join-code-issue-scope";
 import { notSubmittedListOpen } from "./src/shared/not-submitted-gate";
@@ -5764,6 +5762,59 @@ export default function App() {
       // نُبقي blob URL في ذاكرة الجلسة لتسريع إعادة فتح المستند.
     };
   }, [previewAttachment]);
+  // صور المرفقات: وسم <img src="/api/..."> لا يرسل ترويسة Authorization أبدًا، فيعتمد
+  // على كوكي الجلسة وحده. على آيفون (تطبيق PWA/سفاري) كثيرًا ما لا يصل الكوكي إلى
+  // طلبات الصور، فيرفض الخادم الطلب وتظهر «تعذر تحميل المرفق من الخادم» للمعلم رغم أن
+  // الملف سليم. الحل الجذري كما في PDF: جلب الصورة بـfetch مع توكن الجلسة ثم عرضها
+  // من blob: محلي.
+  const [previewImageBlob, setPreviewImageBlob] = useState<{
+    url: string;
+    src: string;
+  } | null>(null);
+  useEffect(() => {
+    setPreviewImageBlob(null);
+    if (!previewAttachment) return;
+    const name = mirasCleanAttachmentName(
+      previewAttachment.originalName || previewAttachment.name,
+      "مرفق",
+    );
+    const ext = name.slice(name.lastIndexOf(".")).toLowerCase();
+    const isImage =
+      [".jpg", ".jpeg", ".png", ".webp", ".gif", ".heic", ".heif"].includes(ext) ||
+      String(previewAttachment.mimeType || "").startsWith("image/");
+    if (!isImage) return;
+    const loadKey = attachmentLoadKey(previewAttachment);
+    const failureState = attachmentLoadFailures[loadKey] || 0;
+    // failureState > 0 = فشل التحميل ولم يضغط المستخدم «إعادة المحاولة» بعد.
+    if (failureState > 0) return;
+    const url = attachmentDisplayUrl(previewAttachment, Math.abs(failureState));
+    if (!url || url.startsWith("data:") || url.startsWith("blob:")) return;
+    let cancelled = false;
+    let objectUrl = "";
+    fetch(url, { headers: jsonHeaders(), cache: "no-store" })
+      .then(async (resp) => {
+        if (!resp.ok) throw new Error("image fetch failed");
+        const blob = await resp.blob();
+        if (!blob.size) throw new Error("empty image");
+        return blob;
+      })
+      .then((blob) => {
+        if (cancelled) return;
+        objectUrl = URL.createObjectURL(blob);
+        setPreviewImageBlob({ url, src: objectUrl });
+      })
+      .catch(() => {
+        if (cancelled) return;
+        setAttachmentLoadFailures((prev) => ({
+          ...prev,
+          [loadKey]: Math.abs(prev[loadKey] || 0) + 1,
+        }));
+      });
+    return () => {
+      cancelled = true;
+      if (objectUrl) URL.revokeObjectURL(objectUrl);
+    };
+  }, [previewAttachment, attachmentLoadFailures]);
   // معاينة داخل التطبيق لملفات إكسل/CSV (جدول) ووورد docx. (نص منسّق) بنفس
   // منطق مصادقة PDF أعلاه: جلب عبر fetch بترويسة الجلسة ثم تحويل النتيجة، بدل
   // فتحها خارجيًا برابط خام غير مصادَق. mammoth يحوّل docx إلى HTML، ونمرره عبر
@@ -5862,27 +5913,12 @@ export default function App() {
     useState("");
   // «قائمة الطلبة»: ورقة سفلية كبيرة بحقل بحث واسع وتصفية (الكل/سلّموا/لم يسلّموا)، بدل حقل ضيّق في الشريط.
   const [studentNavigatorOpen, setStudentNavigatorOpen] = useState(false);
-  // تشخيص «قفزة التمرير» في شاشة الحل: لا يظهر شيء إلا إذا قفز التمرير لأعلى وحده.
-  const [scrollJumpRecords, setScrollJumpRecords] = useState<WatchedScrollJump[]>([]);
-  const [scrollJumpPanelOpen, setScrollJumpPanelOpen] = useState(false);
   const solutionOpenForScrollWatch = !!selectedSubmissionDetail;
   // فراغ واضح تحت آخر سطر في الحل الطويل (يبقى الحل القصير كما هو).
   useEffect(() => {
     if (!solutionOpenForScrollWatch) return;
     return keepSolutionBottomRoom();
   }, [solutionOpenForScrollWatch]);
-  useEffect(() => {
-    if (!solutionOpenForScrollWatch) return;
-    return watchSolutionScrollJumps((record) =>
-      setScrollJumpRecords((prev) => [...prev.slice(-7), record]),
-    );
-  }, [solutionOpenForScrollWatch]);
-  const scrollJumpReportText = () =>
-    formatScrollJumpReport(scrollJumpRecords, {
-      "الجهاز": typeof navigator !== "undefined" ? navigator.userAgent : "-",
-      "وضع العرض": readMirasDisplayMode(),
-      "الشاشة": typeof window !== "undefined" ? `${window.innerWidth}x${window.innerHeight} @${window.devicePixelRatio}` : "-",
-    });
   const [studentNavigatorFilter, setStudentNavigatorFilter] = useState<"all" | "submitted" | "missing">("all");
   const [sectionFormOpen, setSectionFormOpen] = useState(false);
   const sectionCourseNameInputRef = useRef<HTMLInputElement | null>(null);
@@ -26953,7 +26989,6 @@ ${rows
     if (typeof window === "undefined" || typeof document === "undefined")
       return;
     const run = () => {
-      markIntentionalSolutionScrollReset();
       try {
         (document.activeElement as HTMLElement | null)?.blur?.();
       } catch {}
@@ -33801,83 +33836,6 @@ ${rows
         </div>
       )}
 
-      {selectedSubmissionDetail &&
-        scrollJumpRecords.length > 0 &&
-        typeof document !== "undefined" &&
-        createPortal(
-          <div className="fixed bottom-24 left-3 z-[100400]" dir="rtl">
-            {scrollJumpPanelOpen ? (
-              <div className="w-[min(92vw,22rem)] rounded-2xl border border-amber-200 bg-white p-3 shadow-2xl">
-                <div className="mb-2 flex items-center justify-between gap-2">
-                  <span className="text-[12px] font-black text-slate-900">تشخيص قفزة التمرير</span>
-                  <button
-                    type="button"
-                    onClick={() => setScrollJumpPanelOpen(false)}
-                    className="rounded-lg px-2 py-1 text-[12px] font-bold text-slate-500"
-                  >
-                    إغلاق
-                  </button>
-                </div>
-                <textarea
-                  readOnly
-                  data-scroll-jump-report="true"
-                  dir="auto"
-                  value={scrollJumpReportText()}
-                  onFocus={(event) => event.currentTarget.select()}
-                  className="h-40 w-full resize-none rounded-xl border border-slate-200 bg-slate-50 p-2 font-mono text-[10px] leading-4 text-slate-700"
-                />
-                <div className="mt-2 flex gap-2">
-                  <button
-                    type="button"
-                    onClick={async () => {
-                      const text = scrollJumpReportText();
-                      try {
-                        if (!navigator.clipboard?.writeText) throw new Error("clipboard-unavailable");
-                        await navigator.clipboard.writeText(text);
-                        setSuccessMsg("تم نسخ التقرير.");
-                      } catch {
-                        // بديل: يحدّد النص كله ليُنسخ يدوياً (اضغط مطولاً ثم «نسخ»).
-                        try {
-                          const area = document.querySelector<HTMLTextAreaElement>("textarea[data-scroll-jump-report]");
-                          area?.focus();
-                          area?.select();
-                          const copied = !!area && document.execCommand?.("copy");
-                          if (copied) setSuccessMsg("تم نسخ التقرير.");
-                          else setErrorMsg("تعذر النسخ تلقائياً. النص محدد: اضغط عليه مطولاً ثم اختر «نسخ».");
-                        } catch {
-                          setErrorMsg("تعذر النسخ تلقائياً. النص محدد: اضغط عليه مطولاً ثم اختر «نسخ».");
-                        }
-                      }
-                    }}
-                    className="flex-1 rounded-xl bg-indigo-600 px-3 py-2 text-[12px] font-bold text-white"
-                  >
-                    نسخ التقرير
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setScrollJumpRecords([]);
-                      setScrollJumpPanelOpen(false);
-                    }}
-                    className="rounded-xl border border-slate-200 px-3 py-2 text-[12px] font-bold text-slate-600"
-                  >
-                    مسح
-                  </button>
-                </div>
-              </div>
-            ) : (
-              <button
-                type="button"
-                onClick={() => setScrollJumpPanelOpen(true)}
-                className="rounded-full border border-amber-300 bg-amber-50 px-3 py-2 text-[11px] font-black text-amber-800 shadow-lg"
-              >
-                قفزة تمرير ({scrollJumpRecords.length})
-              </button>
-            )}
-          </div>,
-          document.body,
-        )}
-
       {selectedSubmissionDetail && (
         <div
           className="miras-submission-detail-overlay fixed inset-0 z-[100050] flex flex-col bg-slate-50 animate-fade-in"
@@ -34589,7 +34547,7 @@ ${rows
                 const loadKey = attachmentLoadKey(att);
                 const failureState = attachmentLoadFailures[loadKey] || 0;
                 const retryNonce = Math.abs(failureState);
-                const url = attachmentDisplayUrl(att, retryNonce);
+                const remoteUrl = attachmentDisplayUrl(att, retryNonce);
                 const name = mirasCleanAttachmentName(
                   att.originalName || att.name,
                   "مرفق",
@@ -34624,10 +34582,22 @@ ${rows
                 const isSpreadsheet = [".xls", ".xlsx", ".csv"].includes(ext);
                 const isWordDoc = ext === ".docx";
                 const isPlainText = [".txt", ".md"].includes(ext);
+                const imageNeedsAuthFetch =
+                  isImage &&
+                  !!remoteUrl &&
+                  !remoteUrl.startsWith("data:") &&
+                  !remoteUrl.startsWith("blob:");
+                const imageBlobReady =
+                  imageNeedsAuthFetch && previewImageBlob?.url === remoteUrl;
+                const url = imageNeedsAuthFetch
+                  ? imageBlobReady
+                    ? previewImageBlob!.src
+                    : remoteUrl
+                  : remoteUrl;
                 const loadFailed =
                   failureState > 0 &&
                   isImage &&
-                  !String(url || "").startsWith("data:");
+                  !String(remoteUrl || "").startsWith("data:");
                 const retryButton = (
                   <button
                     type="button"
@@ -34667,6 +34637,12 @@ ${rows
                       {url && retryButton}
                     </div>
                   );
+                if (isImage && imageNeedsAuthFetch && !imageBlobReady)
+                  return (
+                    <div className="flex min-h-[18rem] items-center justify-center text-[12px] font-bold text-slate-400">
+                      جارٍ تحميل الصورة...
+                    </div>
+                  );
                 if (isImage)
                   return (
                     <img
@@ -34674,14 +34650,16 @@ ${rows
                       src={url}
                       alt={name || "مرفق"}
                       className="miras-attachment-image-preview mx-auto block max-h-[78vh] w-auto max-w-full object-contain"
-                      onLoad={() =>
+                      onLoad={() => {
+                        // صور blob: لا تمسح حالة المحاولة (تعيد تشغيل الجلب بلا داعٍ).
+                        if (imageNeedsAuthFetch) return;
                         setAttachmentLoadFailures((prev) => {
                           if (!prev[loadKey]) return prev;
                           const next = { ...prev };
                           delete next[loadKey];
                           return next;
-                        })
-                      }
+                        });
+                      }}
                       onError={() =>
                         setAttachmentLoadFailures((prev) => ({
                           ...prev,
