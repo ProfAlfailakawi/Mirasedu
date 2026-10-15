@@ -21,7 +21,6 @@ import App from '../App.tsx';
 import '../index.css';
 import './design/dna.css';
 import './design/miras-dna-theme.css';
-import './design/miras-calm.css';
 import './design/miras-final.css';
 import './design/miras-code-cards.css';
 import './design/miras-card-layout.css';
@@ -53,6 +52,8 @@ import './design/miras-teacher-courses.css';
 import './design/miras-student-header.css';
 import './design/miras-student-home.css';
 import './design/miras-visual-complete.css';
+// آخر طبقة تُحمَّل — كما يعلن رأس الملف (كانت تُستورد ثالثةً فلا يصحّ ادعاء «الأخيرة»).
+import './design/miras-calm.css';
 
 // ───────────────────────────────────────────────────────────────────────────
 // حاجز عرض الواجهة (Render Guard)

@@ -4347,6 +4347,20 @@ export default function App() {
   >("overview");
   const [studentCourseFilter, setStudentCourseFilter] = useState<string>("all");
   const [studentTimelineOpen, setStudentTimelineOpen] = useState(false);
+  // Esc يغلق نوافذ الطالب الجانبية (السجل/التقويم/الأجهزة/المرآة) ما لم تعلُها الجولة أو بطاقة التنبيه.
+  useEffect(() => {
+    if (!(studentTimelineOpen || studentCalendarOpen || studentDevicesOpen || studentMirrorOpen)) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== "Escape") return;
+      if (document.querySelector(".miras-onboarding-overlay, [aria-label=\"تنبيه مهم\"][role=\"dialog\"]")) return;
+      setStudentTimelineOpen(false);
+      setStudentCalendarOpen(false);
+      setStudentDevicesOpen(false);
+      setStudentMirrorOpen(false);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [studentTimelineOpen, studentCalendarOpen, studentDevicesOpen, studentMirrorOpen]);
   const [studentEnrollments, setStudentEnrollments] = useState<any[]>(() => {
     try {
       const stored = localStorage.getItem("miras_student_session");
@@ -34899,7 +34913,7 @@ ${rows
           </span>
           <button
             onClick={() => setSuccessMsg("")}
-            className="grid h-8 w-8 shrink-0 place-items-center rounded-xl text-emerald-500 transition hover:bg-emerald-50 hover:text-emerald-700"
+            className="grid h-10 w-10 shrink-0 place-items-center rounded-xl text-emerald-500 transition hover:bg-emerald-50 hover:text-emerald-700"
             aria-label="إغلاق الرسالة"
           >
             <X className="h-4 w-4" aria-hidden="true" />
@@ -34927,7 +34941,7 @@ ${rows
           </span>
           <button
             onClick={() => setErrorMsg("")}
-            className="grid h-8 w-8 shrink-0 place-items-center rounded-xl text-amber-500 transition hover:bg-amber-50 hover:text-amber-700"
+            className="grid h-10 w-10 shrink-0 place-items-center rounded-xl text-amber-500 transition hover:bg-amber-50 hover:text-amber-700"
             aria-label="إغلاق الرسالة"
           >
             <X className="h-4 w-4" aria-hidden="true" />
