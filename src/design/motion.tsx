@@ -30,6 +30,15 @@ export function prefersReducedMotion(): boolean {
   return typeof window !== 'undefined' && !!window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
 }
 
+/** Share of the element's height currently inside the viewport (0..1). */
+function onScreenShare(el: Element): number {
+  const r = el.getBoundingClientRect();
+  const vh = window.innerHeight || document.documentElement.clientHeight || 0;
+  if (!(r.height > 0) || !(vh > 0)) return 0;
+  const visible = Math.min(r.bottom, vh) - Math.max(r.top, 0);
+  return Math.max(0, Math.min(1, visible / r.height));
+}
+
 /** True when an entrance may be armed now. Decided synchronously, before first paint. */
 export function canPlayMotion(playKey?: string): boolean {
   if (typeof window === 'undefined' || typeof IntersectionObserver === 'undefined') return false;
@@ -74,7 +83,8 @@ export function useMotionPhase<T extends HTMLElement = HTMLElement>(playKey?: st
     const play = () => {
       stop();
       io.disconnect();
-      if (document.hidden) return setPhase('rest');
+      // The preference can change while the element waits: re-check before playing.
+      if (document.hidden || prefersReducedMotion()) return setPhase('rest');
       if (playKey) journeyMarkPlayed(STORE + playKey);
       setPhase('play');
     };
@@ -84,7 +94,8 @@ export function useMotionPhase<T extends HTMLElement = HTMLElement>(playKey?: st
         if (!journeyIsCovered(el)) return play();
         if (poll) return;
         poll = setInterval(() => {
-          if (!journeyIsCovered(el)) play();
+          // Once the cover is gone the element may have been scrolled away: only play while it is really on screen.
+          if (!journeyIsCovered(el) && onScreenShare(el) >= eff - 0.01) play();
         }, COVER_POLL_MS);
         giveUp = setTimeout(() => {
           stop();
