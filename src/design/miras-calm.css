@@ -1304,3 +1304,9 @@ html[data-theme="dark"] body .teacher-command-header .student-icon-btn:not(.noti
     margin-inline: -0.7rem !important;
   }
 }
+
+/* الليلي: زر «التالي/ابدأ» في الجولة — أبيض على #8b80ff كان 3.17:1؛ نيلي أغمق ≥4.5:1 (لون فقط) */
+html[data-theme="dark"] body .miras-tour-cta:not(#_):not(#_):not(#_) {
+  background: #5a4fe6 !important;
+  color: #fff !important;
+}

@@ -126,8 +126,8 @@ html body .meras-teacher-shell .miras-metric-card .miras-metric-value .miras-met
     min-width: 0 !important;
   }
   html body #root .miras-mobile-teacher-zero-header .miras-zero-action-btn:not(#_):not(#_):not(#__):not(#___):not(#____):not(#_____) {
-    width: clamp(1.9rem, 8.6vw, 2.5rem) !important;
-    height: clamp(1.9rem, 8.6vw, 2.5rem) !important;
+    width: 2.5rem !important;
+    height: 2.5rem !important;
     min-width: 0 !important;
     flex: 0 0 auto !important;
   }
