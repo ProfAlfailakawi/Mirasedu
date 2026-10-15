@@ -915,8 +915,8 @@ const simplifyStudentMessage = (
   )
     return "البيانات غير صحيحة";
   if (any("اكتب كود تفعيل", "يرجى إدخال رمز الانضمام", "أدخل رمز الانضمام"))
-    return "اكتب رمز المقرر";
-  if (any("الرجاء إدخال كود المختبر")) return "اكتب رمز المقرر";
+    return "اكتب كود المقرر";
+  if (any("الرجاء إدخال كود المختبر")) return "اكتب كود المقرر";
 
   if (any("تم الدخول بالبصمة", "تم فتح جلسة SEB", "أهلاً بك مجدداً", "مرحباً"))
     return "تم الدخول بنجاح";
@@ -995,7 +995,7 @@ const simplifyStudentMessage = (
     return "تعذر التحقق من الجهاز. أعد فتح مِراس.";
   if (any("الرابط مرتبط بجهاز التفعيل"))
     return "اطلب رابط استرجاع من معلّمك؛ جهازك الموثوق لن يتغير.";
-  if (any("يجب الدخول من الجهاز الأصلي")) return "ادخل من الجهاز الأصلي";
+  if (any("يجب الدخول من الجهاز الأصلي")) return "أدخل من الجهاز الأصلي";
   if (
     any(
       "مرتبط بجهاز آخر",
@@ -1209,7 +1209,7 @@ const simplifyMirasMessage = (
       if (any("كلمة المرور", "كلمة مرور")) return "اكتب كلمة المرور";
       if (any("رقمك الجامعي", "الرقم الجامعي")) return "اكتب رقمك الجامعي";
       if (any("رمز", "كود") && any("مقرر", "انضمام", "تفعيل"))
-        return "اكتب رمز المقرر";
+        return "اكتب كود المقرر";
       if (any("مقرر")) return "اختر المقرر";
       if (any("عنوان")) return "اكتب العنوان";
       return "راجع الحقول المطلوبة";
@@ -1292,7 +1292,7 @@ const compactMirasDialogMessage = (
   if (/إيقاف|تعطيل/.test(text)) return "إيقاف الحساب؟";
   if (/إعادة تفعيل|تفعيل/.test(text)) return "تفعيل الحساب؟";
   if (/تغيير حالة|حالة/.test(text)) return "تغيير الحالة؟";
-  if (/رمز بديل|بديل/.test(text)) return "إصدار رمز بديل؟";
+  if (/كود بديل|بديل/.test(text)) return "إصدار كود بديل؟";
   if (/درجة|درجات|رصد/.test(text)) return "اعتماد الدرجات؟";
   if (/استيراد/.test(text)) return "استيراد البيانات؟";
   if (/تصدير/.test(text)) return "تصدير البيانات؟";
@@ -4096,6 +4096,17 @@ export default function App() {
   // بطاقة «تنبيه مهم قبل انتهاء الوقت» الأنيقة التي تظهر عند دخول الطالب إن اقترب
   // موعد نشاط — بديلة عن فتح لوحة التنبيهات الفارغة/المزعجة عند كل دخول.
   const [studentDeadlineCardOpen, setStudentDeadlineCardOpen] = useState(false);
+  // Esc يغلق بطاقة التنبيه (إلا والجولة مفتوحة فوقها: الجولة تأخذ Esc أولاً).
+  useEffect(() => {
+    if (!studentDeadlineCardOpen) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== "Escape") return;
+      if (document.querySelector(".miras-onboarding-overlay")) return;
+      setStudentDeadlineCardOpen(false);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [studentDeadlineCardOpen]);
   const [studentSeenKeysState, setStudentSeenKeysState] = useState<Set<string>>(
     new Set(),
   );
@@ -12162,7 +12173,7 @@ export default function App() {
       const linked = joinCodeLinkedCourseInfo(value, code);
       if (linked.name) return linked.name;
       if (linked.code) return courseLabelFromAny(value, linked.code);
-      return "رمز عام — يُربط عند التفعيل";
+      return "كود عام — يُربط عند التفعيل";
     }
     return courseLabelFromAny(value, code);
   };
@@ -12458,7 +12469,7 @@ export default function App() {
     TAB_SWITCH: "خروج من نافذة الاختبار",
     PASTE_BLOCKED: "منع لصق نص",
     THIRD_DEVICE_BLOCKED: "جهاز غير معتمد مرفوض",
-    JOIN_CODE_REDEEMED: "استخدام رمز انضمام",
+    JOIN_CODE_REDEEMED: "استخدام كود انضمام",
     ENROLLMENT_SUSPENDED: "تعليق التسجيل",
     GRADE_RELEASED: "اعتماد الدرجة",
   };
@@ -14761,7 +14772,7 @@ export default function App() {
     link.click();
     document.body.removeChild(link);
     URL.revokeObjectURL(url);
-    setSuccessMsg(`تم تصدير ${rows.length} رمز جاهز للطباعة.`);
+    setSuccessMsg(`تم تصدير ${rows.length} كود جاهز للطباعة.`);
   };
 
   const exportCodesArchiveToCSV = async () => {
@@ -14836,7 +14847,7 @@ export default function App() {
 
     // التصدير عملية تنزيل فقط: لا نحذف الرموز، ولا نصفر الصفحة، ولا نغيّر الفلاتر أو التبويب.
     // أي حذف للأرشيف يجب أن يبقى في مسار مستقل وصريح حتى لا تختفي البطاقات أو الإحصائيات بعد التصدير.
-    setSuccessMsg(`تم تصدير أرشيف الرموز بنجاح (${rows.length} رمز).`);
+    setSuccessMsg(`تم تصدير أرشيف الأكواد بنجاح (${rows.length} كود).`);
   };
 
   const escapeHtml = (value: any) =>
@@ -15234,7 +15245,7 @@ ${rows
       : "";
     if (!code || code.toLowerCase() === "all") {
       setErrorMsg(
-        "اختر مقررًا محددًا قبل توليد الرمز. لا يتم إصدار رموز عامة بلا مقرر.",
+        "اختر مقررًا محددًا قبل توليد الكود. لا يتم إصدار أكواد عامة بلا مقرر.",
       );
       setCodesSubTab("generate");
       return "";
@@ -15278,7 +15289,7 @@ ${rows
         } else {
           setLastGeneratedJoinCodes([
             {
-              code: `${d.count || newCodesCount} رمز`,
+              code: `${d.count || newCodesCount} كود`,
               semester: newCodesSemester,
               createdAt: new Date().toISOString(),
               summaryOnly: true,
@@ -15290,16 +15301,16 @@ ${rows
         setCodesFilterSearch("");
         setCodesPage(1);
         setSuccessMsg(
-          `تم توليد ${d.count || createdCodes.length || newCodesCount} رمز. بقيت النتيجة محفوظة أمامك.`,
+          `تم توليد ${d.count || createdCodes.length || newCodesCount} كود. بقيت النتيجة محفوظة أمامك.`,
         );
         setTimeout(() => fetchJoinCodes(), 250);
         fetchLogs();
         return;
       }
-      setErrorMsg(d.error || "تعذر توليد الرموز حالياً.");
+      setErrorMsg(d.error || "تعذر توليد الأكواد حالياً.");
     } catch (e) {
       setErrorMsg(
-        "تعذر الاتصال بالخادم. لم يتم توليد أي رموز محلية حتى لا تتعارض مع السجل الرسمي.",
+        "تعذر الاتصال بالخادم. لم يتم توليد أي أكواد محلية حتى لا تتعارض مع السجل الرسمي.",
       );
     }
   };
@@ -15310,7 +15321,7 @@ ${rows
     if (!issueCourseCode) return;
     const id = singleCodeStudentId.trim();
     if (!/^\d{4,}$/.test(id)) {
-      setErrorMsg("أدخل الرقم الجامعي للطالب قبل توليد الرمز الخاص.");
+      setErrorMsg("أدخل الرقم الجامعي للطالب قبل توليد الكود الخاص.");
       return;
     }
     const studentRow =
@@ -15339,7 +15350,7 @@ ${rows
       )
     ) {
       setErrorMsg(
-        "يوجد رمز فعال لهذا الطالب في هذا المقرر بالفعل. لا يتم إنشاء رمز مكرر.",
+        "يوجد كود فعال لهذا الطالب في هذا المقرر بالفعل. لا يتم إنشاء كود مكرر.",
       );
       return;
     }
@@ -15365,7 +15376,7 @@ ${rows
           ...prev.filter((j: any) => j.code !== d.created[0].code),
         ]);
         setSuccessMsg(
-          `تم توليد رمز خاص مجاني للطالب ${name}: ${d.created[0].code}`,
+          `تم توليد كود خاص مجاني للطالب ${name}: ${d.created[0].code}`,
         );
         setTeacherTab("codes");
         setCodesSubTab("archive");
@@ -15387,7 +15398,7 @@ ${rows
       }
       if (d.existingCode) {
         setErrorMsg(
-          `يوجد رمز فعال لهذا الطالب في هذا المقرر بالفعل: ${d.existingCode}`,
+          `يوجد كود فعال لهذا الطالب في هذا المقرر بالفعل: ${d.existingCode}`,
         );
         return;
       }
@@ -15395,10 +15406,10 @@ ${rows
         setErrorMsg(d.error);
         return;
       }
-      setErrorMsg("تعذر توليد الرمز الخاص من السجل الرسمي.");
+      setErrorMsg("تعذر توليد الكود الخاص من السجل الرسمي.");
     } catch {
       setErrorMsg(
-        "تعذر الاتصال بالخادم. لم يتم توليد رمز محلي حتى لا يتعارض مع السجل الرسمي.",
+        "تعذر الاتصال بالخادم. لم يتم توليد كود محلي حتى لا يتعارض مع السجل الرسمي.",
       );
     }
   };
@@ -15406,7 +15417,7 @@ ${rows
   const copyCodeToClipboard = async (code: string) => {
     try {
       await navigator.clipboard.writeText(code);
-      setSuccessMsg("تم نسخ الرمز.");
+      setSuccessMsg("تم نسخ الكود.");
     } catch {
       setSuccessMsg(code);
     }
@@ -15550,7 +15561,7 @@ ${rows
   };
 
   const handleUpdateJoinCodeStatus = async (code: string, status: string) => {
-    if (!(await confirmAction("هل أنت متأكد من تغيير حالة هذا الرمز؟"))) return;
+    if (!(await confirmAction("هل أنت متأكد من تغيير حالة هذا الكود؟"))) return;
     const applyLocalStatus = () =>
       setJoinCodesList((prev) =>
         prev.map((item: any) =>
@@ -15572,20 +15583,20 @@ ${rows
       if (resp.ok) {
         applyLocalStatus();
         setCodesPage(1);
-        setSuccessMsg(`تم تغيير حالة الرمز (${code}) بنجاح.`);
+        setSuccessMsg(`تم تغيير حالة الكود (${code}) بنجاح.`);
         await fetchJoinCodes();
         fetchLogs();
         return;
       }
       const d = await resp.json().catch(() => ({}));
-      setErrorMsg(d.error || `تعذر تغيير حالة الرمز (${code}).`);
+      setErrorMsg(d.error || `تعذر تغيير حالة الكود (${code}).`);
       return;
     } catch (e) {}
-    setErrorMsg(`تعذر تغيير حالة الرمز (${code}) حالياً.`);
+    setErrorMsg(`تعذر تغيير حالة الكود (${code}) حالياً.`);
   };
 
   const handleDeleteJoinCode = async (code: string) => {
-    if (!(await confirmAction("هل أنت متأكد من حذف هذا الرمز؟"))) return;
+    if (!(await confirmAction("هل أنت متأكد من حذف هذا الكود؟"))) return;
     const applyLocalDelete = () =>
       setJoinCodesList((prev) =>
         prev.filter((item: any) => item.code !== code),
@@ -15601,8 +15612,8 @@ ${rows
         applyLocalDelete();
         setSuccessMsg(
           d.activationRequiredStudentId || d.resetActivationStudentId
-            ? "تم حذف الرمز وإرجاع المقرر لدى الطالب إلى حالة انتظار التفعيل."
-            : "تم حذف الرمز بنجاح.",
+            ? "تم حذف الكود وإرجاع المقرر لدى الطالب إلى حالة انتظار التفعيل."
+            : "تم حذف الكود بنجاح.",
         );
         // الرمز أُزيل محلياً بالفعل (applyLocalDelete أعلاه)؛ إعادة الجلب في
         // الخلفية فلا ينتظر الزر دورة شبكة ثانية.
@@ -15611,11 +15622,11 @@ ${rows
         return;
       }
       const d = await resp.json().catch(() => ({}));
-      setErrorMsg(d.error || "تعذر حذف الرمز من السجل الرسمي.");
+      setErrorMsg(d.error || "تعذر حذف الكود من السجل الرسمي.");
       return;
     } catch (e) {}
     setErrorMsg(
-      "تعذر الاتصال بالخادم. لم يتم حذف الرمز محلياً حفاظاً على السجل الرسمي.",
+      "تعذر الاتصال بالخادم. لم يتم حذف الكود محلياً حفاظاً على السجل الرسمي.",
     );
   };
 
@@ -15625,8 +15636,8 @@ ${rows
     );
     const reissueMessage =
       existingCode?.status === "used"
-        ? "إصدار رمز بديل لهذا الطالب سيحفظ قفل الجهاز الحالي ولا يسمح بنقل الكود لجهاز آخر. إذا كان الطالب غيّر جهازه، استخدم بعد ذلك زر إيقاف/تبديل جهاز من بطاقة الطالب."
-        : "هل أنت متأكد من إصدار رمز بديل؟";
+        ? "إصدار كود بديل لهذا الطالب سيحفظ قفل الجهاز الحالي ولا يسمح بنقل الكود لجهاز آخر. إذا كان الطالب غيّر جهازه، استخدم بعد ذلك زر إيقاف/تبديل جهاز من بطاقة الطالب."
+        : "هل أنت متأكد من إصدار كود بديل؟";
     if (!(await confirmAction(reissueMessage))) return;
     try {
       const resp = await fetch("/api/teacher/join-codes/reissue", {
@@ -15655,18 +15666,18 @@ ${rows
         setCodesPage(1);
         setSuccessMsg(
           d.deviceLockPreserved
-            ? `تم إصدار الرمز البديل مع حفظ قفل الجهاز: ${newCodeObj.code}`
-            : `تم بنجاح إلغاء الرمز القديم وإصدار الرمز البديل: ${newCodeObj.code}`,
+            ? `تم إصدار الكود البديل مع حفظ قفل الجهاز: ${newCodeObj.code}`
+            : `تم بنجاح إلغاء الكود القديم وإصدار الكود البديل: ${newCodeObj.code}`,
         );
         // الرمز البديل ظاهر محلياً بالفعل (أعلاه)؛ إعادة الجلب في الخلفية.
         void fetchJoinCodes();
         fetchLogs();
         return;
       }
-      setErrorMsg(d.error || "تعذر إصدار الرمز البديل.");
+      setErrorMsg(d.error || "تعذر إصدار الكود البديل.");
     } catch (e) {
       setErrorMsg(
-        "تعذر الاتصال بالخادم. لم يتم إصدار رمز محلي حفاظاً على السجل الرسمي.",
+        "تعذر الاتصال بالخادم. لم يتم إصدار كود محلي حفاظاً على السجل الرسمي.",
       );
     }
   };
@@ -15683,7 +15694,7 @@ ${rows
       );
       if (resp.ok) {
         setSuccessMsg(
-          "تم تفعيل الطالب يدوياً بنجاح وتجاوز مطالبة رمز الانضمام في حسابه.",
+          "تم تفعيل الطالب يدوياً بنجاح وتجاوز مطالبة كود الانضمام في حسابه.",
         );
         fetchReports();
         fetchLogs();
@@ -16539,7 +16550,7 @@ ${rows
 
   const saveSection = async () => {
     if (!sectionDraft.code.trim() || !sectionDraft.courseName.trim()) {
-      setErrorMsg("يرجى إدخال رمز المقرر واسم المقرر.");
+      setErrorMsg("يرجى إدخال كود المقرر واسم المقرر.");
       return;
     }
     try {
@@ -17350,7 +17361,7 @@ ${rows
       return;
     }
     if (!isUnifiedJoinCode(formattedOtp)) {
-      setErrorMsg("اكتب رمز المقرر كاملًا");
+      setErrorMsg("اكتب كود المقرر كاملًا");
       setCurrentView("otp");
       return;
     }
@@ -17415,7 +17426,7 @@ ${rows
     ) {
       setCurrentView(studentSession?.isPaid ? "student_workspace" : "payment");
     } else {
-      setErrorMsg("رمز المقرر الأكاديمي لا يتوافق مع بياناتك في كشف المقرر.");
+      setErrorMsg("كود المقرر الأكاديمي لا يتوافق مع بياناتك في كشف المقرر.");
     }
   };
 
@@ -19446,12 +19457,12 @@ ${rows
     setErrorMsg("");
     setSuccessMsg("");
     if (!joinCodeInput.trim()) {
-      setErrorMsg("يرجى إدخال رمز الانضمام أولاً.");
+      setErrorMsg("يرجى إدخال كود الانضمام أولاً.");
       return;
     }
     if (!isUnifiedJoinCode(joinCodeInput)) {
       setErrorMsg(
-        "صيغة رمز التفعيل غير صحيحة. اكتب الكود كما هو ظاهر أو امسحه من QR.",
+        "صيغة كود التفعيل غير صحيحة. اكتب الكود كما هو ظاهر أو امسحه من QR.",
       );
       return;
     }
@@ -33662,7 +33673,7 @@ ${rows
             <div className="flex items-start justify-between gap-3 text-right">
               <div className="inline-flex items-center gap-2 rounded-2xl border border-indigo-100 bg-indigo-50/70 px-3 py-1.5 text-[11px] font-bold text-indigo-700">
                 <QrCode className="h-4 w-4" />
-                {passwordResetQrLink ? "تغيير كلمة المرور" : "رمز تفعيل مباشر"}
+                {passwordResetQrLink ? "تغيير كلمة المرور" : "كود تفعيل مباشر"}
               </div>
               <button
                 type="button"
@@ -33679,7 +33690,7 @@ ${rows
             <div className="mx-auto mt-4 flex aspect-square w-full max-w-[15rem] items-center justify-center rounded-[var(--miras-r-lg)] border border-slate-100 bg-white p-3 shadow-inner">
               {joinQrBusy ? (
                 <span className="text-[11px] font-bold text-slate-400">
-                  جارٍ توليد الرمز…
+                  جارٍ توليد الكود…
                 </span>
               ) : joinQrSvg ? (
                 <div
@@ -33688,7 +33699,7 @@ ${rows
                 />
               ) : (
                 <span className="px-3 text-[11px] font-bold leading-5 text-red-500">
-                  تعذّر توليد الرمز. تحقّق من الاتصال ثم أعد المحاولة.
+                  تعذّر توليد الكود. تحقّق من الاتصال ثم أعد المحاولة.
                 </span>
               )}
             </div>
@@ -35277,7 +35288,7 @@ ${rows
                             type="text"
                             inputMode="text"
                             autoComplete="username"
-                            placeholder="ادخل رقمك الجامعي"
+                            placeholder="أدخل رقمك الجامعي"
                             value={loginForm.idNumber}
                             onChange={(e) =>
                               setLoginForm({
@@ -35514,7 +35525,7 @@ ${rows
 
               <div className="mt-8 mb-6">
                 <label className="block text-[10px] font-bold text-indigo-700 mb-2 uppercase tracking-widest text-center">
-                  رمز المقرر المعتمد
+                  كود المقرر المعتمد
                 </label>
                 <div className="relative">
                   <input
@@ -35566,7 +35577,7 @@ ${rows
               >
                 {signupActivationBusy
                   ? "جاري تفعيل الحساب..."
-                  : "تأكيد الرمز وتفعيل الحساب"}
+                  : "تأكيد الكود وتفعيل الحساب"}
               </button>
 
               <div className="mt-6 pt-6 border-t border-slate-100">
@@ -35590,7 +35601,7 @@ ${rows
                 <ShieldCheck className="h-6 w-6" aria-hidden="true" />
               </span>
               <h2 className="text-2xl font-bold text-slate-950 font-sans">
-                تطابق الرمز الأكاديمي لشعبتك
+                تطابق الكود الأكاديمي لشعبتك
               </h2>
               <p className="text-slate-500 text-xs mt-2 leading-relaxed">
                 التسجيل للمستحقين فقط. اكتب معرّف شعبتك:
@@ -35608,7 +35619,7 @@ ${rows
 
               <input
                 type="text"
-                placeholder="أدخل رمز شعبتك، مثال: TECH-A1"
+                placeholder="أدخل كود شعبتك، مثال: TECH-A1"
                 value={signupForm.sectionCode}
                 onChange={(e) =>
                   setSignupForm({ ...signupForm, sectionCode: e.target.value })
@@ -35807,13 +35818,13 @@ ${rows
                   <Key className="w-6 h-6 text-indigo-700" />
                 </div>
                 <span className="text-indigo-600 font-extrabold text-[11px] tracking-widest uppercase block mb-1">
-                  تسجيل الرمز / الانضمام المعملي
+                  تسجيل الكود / الانضمام المعملي
                 </span>
                 <h2 className="text-3xl font-bold tracking-tight text-slate-950 font-sans">
-                  تأكيد رمز انضمام المختبر
+                  تأكيد كود انضمام المختبر
                 </h2>
                 <p className="text-slate-500 text-xs mt-2 leading-relaxed">
-                  الرجاء تفعيل مسارك الشخصي الفريد للمقرر عبر إدراج الرمز
+                  الرجاء تفعيل مسارك الشخصي الفريد للمقرر عبر إدراج الكود
                   الجامعي المسجل داخل نسختك من الكتاب.
                 </p>
               </div>
@@ -35962,7 +35973,7 @@ ${rows
 
                 <div className="flex items-center gap-2 rounded-2xl border border-slate-200 bg-white/80 px-4 py-3 text-right text-[11px] font-bold leading-6 text-slate-500">
                   <Info className="h-4 w-4 shrink-0" aria-hidden="true" />
-                  <span>فقدان الرمز أو تبديل الجهاز: عبر الأستاذ فقط.</span>
+                  <span>فقدان الكود أو تبديل الجهاز: عبر الأستاذ فقط.</span>
                 </div>
               </div>
             </div>
@@ -38813,7 +38824,7 @@ ${rows
                   <span>سجل المحاولات</span><ShieldAlert className="h-4 w-4" />
                 </button>)}
                 <button type="button" onClick={() => openCodesQuickShortcut("reset")} className="flex w-full items-center justify-between rounded-2xl px-3 py-2.5 text-[11px] font-bold text-slate-700 hover:bg-rose-50 hover:text-rose-700">
-                  <span>طلبات الاسترجاع</span><Key className="h-4 w-4" />
+                  <span>طلبات استعادة كلمة المرور</span><Key className="h-4 w-4" />
                 </button>
               </div>
             )}
@@ -39448,7 +39459,7 @@ ${rows
                         <div>
                           <h3 className="flex items-center gap-2 text-sm font-bold text-amber-900">
                             <Key className="h-4 w-4" />
-                            استرجاع
+                            طلبات استعادة كلمة المرور
                           </h3>
                           <p className="mt-1 text-[11px] font-bold text-amber-700">
                             طلبات جديدة فقط
@@ -39488,6 +39499,9 @@ ${rows
                               <Activity className="h-4 w-4 text-indigo-600" aria-hidden="true" />
                               نبض الاختبار
                             </h3>
+                            <p className="mt-0.5 text-[11px] font-bold text-slate-500">
+                              متابعة مباشرة لحالة الطلبة أثناء الاختبار
+                            </p>
                           </div>
                         </div>
 
@@ -44174,7 +44188,7 @@ ${rows
                                     text.includes("توليد") &&
                                     text.includes("رمز")
                                   )
-                                    return "رمز جديد";
+                                    return "كود جديد";
                                   if (
                                     text.includes("إنشاء") &&
                                     text.includes("كود")
@@ -46190,7 +46204,7 @@ ${rows
                               الحسابات والأجهزة
                             </h2>
                             <p className="text-[11px] font-bold leading-5 text-slate-500">
-                              طلبات الاسترجاع والأجهزة الموثوقة داخل مساحة واحدة
+                              طلبات استعادة كلمة المرور والأجهزة الموثوقة داخل مساحة واحدة
                               مغلقة وهادئة.
                             </p>
                           </div>
@@ -46223,7 +46237,7 @@ ${rows
                               <div>
                                 <h3 className="flex items-center gap-2 text-sm font-bold text-amber-900">
                                   <Key className="h-4 w-4" />
-                                  استرجاع
+                                  طلبات استعادة كلمة المرور
                                 </h3>
                                 <p className="mt-1 text-[11px] font-bold text-amber-700">
                                   {passwordResetRequests.length} طلب • مغلقة بهدوء
@@ -47016,7 +47030,7 @@ ${rows
                       },
                       {
                         id: "archive",
-                        label: "الأرشيف",
+                        label: "الأكواد",
                         Icon: FolderTree,
                         count: filteredJoinCodes.length,
                       },
@@ -47307,14 +47321,14 @@ ${rows
                             k: "total",
                             label: "الرموز المصدرة الكليّة",
                             n: total,
-                            unit: "رمز",
+                            unit: "كود",
                             note: "مجموع الكودات",
                           },
                           {
                             k: "active",
                             label: "رموز فعالة وغير مستخدمة",
                             n: nActive,
-                            unit: "رمز",
+                            unit: "كود",
                             note: "جاهزة للتوزيع",
                           },
                           {
@@ -47478,10 +47492,10 @@ ${rows
                             <div className="mb-3 flex items-center justify-between gap-3">
                               <div>
                                 <p className="text-xs font-bold text-slate-900">
-                                  مقرر إصدار الرمز
+                                  مقرر إصدار الكود
                                 </p>
                                 <p className="mt-1 text-[10px] font-bold leading-5 text-slate-500">
-                                  الرمز يرتبط بهذا المقرر مباشرة.
+                                  الكود يرتبط بهذا المقرر مباشرة.
                                 </p>
                               </div>
                               <span className="shrink-0 whitespace-nowrap rounded-full bg-white px-3 py-1 text-[10px] font-bold text-slate-500 shadow-sm">
@@ -47619,7 +47633,7 @@ ${rows
                                           {lastGeneratedJoinCodes[0]
                                             ?.summaryOnly
                                             ? lastGeneratedJoinCodes[0]?.code
-                                            : `${lastGeneratedJoinCodes.length} رمز`}
+                                            : `${lastGeneratedJoinCodes.length} كود`}
                                         </span>
                                       </div>
                                       <div className="mt-2 max-h-32 space-y-1 overflow-y-auto pr-1">
@@ -47703,15 +47717,15 @@ ${rows
                             <div className="flex items-start justify-between gap-3">
                               <div>
                                 <p className="text-xs font-bold text-emerald-800">
-                                  رمز مجاني لطالب محدد
+                                  كود مجاني لطالب محدد
                                 </p>
                               </div>
                               <button
                                 title={
-                                  singleCodeFormOpen ? "إغلاق" : "فتح رمز لطالب"
+                                  singleCodeFormOpen ? "إغلاق" : "فتح كود لطالب"
                                 }
                                 aria-label={
-                                  singleCodeFormOpen ? "إغلاق" : "فتح رمز لطالب"
+                                  singleCodeFormOpen ? "إغلاق" : "فتح كود لطالب"
                                 }
                                 onClick={() => {
                                   if (singleCodeFormOpen) {
@@ -47768,8 +47782,8 @@ ${rows
                                     </p>
                                   )}
                                 <button
-                                  title="توليد رمز خاص"
-                                  aria-label="توليد رمز خاص"
+                                  title="توليد كود خاص"
+                                  aria-label="توليد كود خاص"
                                   onClick={handleCreateSingleStudentCode}
                                   className="inline-flex h-12 w-12 items-center justify-center rounded-2xl bg-emerald-600 text-white hover:bg-emerald-700 shadow-sm"
                                 >
@@ -47914,7 +47928,7 @@ ${rows
                                     <Search className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
                                     <input
                                       type="text"
-                                      placeholder="ابحث بالرمز، الرقم، الاسم..."
+                                      placeholder="ابحث بالكود، الرقم، الاسم..."
                                       value={codesFilterSearch}
                                       onChange={(e) => {
                                         setCodesFilterSearch(e.target.value);
@@ -47961,7 +47975,7 @@ ${rows
                                     ) : (
                                       <>
                                         يعرض {pagedJoinCodes.length} من أصل{" "}
-                                        {codeArchiveView.total} رمز —{" "}
+                                        {codeArchiveView.total} كود —{" "}
                                         {codesPageSize} في الصفحة.
                                         {!codeArchiveSearch.trim() && Number(codeArchiveView.counts?.archived) > 0 && (
                                           <span className="block text-slate-400">
@@ -48083,7 +48097,7 @@ ${rows
                                           <span className="text-emerald-700">
                                             {c.assignedStudentId
                                               ? `${c.assignedStudentName || "-"} (${c.assignedStudentId})`
-                                              : "رمز عام متاح"}
+                                              : "كود عام متاح"}
                                           </span>
                                         )}
                                         {c.status === "revoked" && (
@@ -48189,8 +48203,8 @@ ${rows
                                               handleReissueJoinCode(c.code)
                                             }
                                             className="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-indigo-50 text-indigo-700 transition-all hover:bg-indigo-100"
-                                            title="إصدار رمز بديل"
-                                            aria-label="إصدار رمز بديل"
+                                            title="إصدار كود بديل"
+                                            aria-label="إصدار كود بديل"
                                           >
                                             <RefreshCw className="h-4 w-4" />
                                           </button>
@@ -48202,8 +48216,8 @@ ${rows
                                               handleDeleteJoinCode(c.code)
                                             }
                                             className="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-red-50 text-red-600 transition-all hover:bg-red-100"
-                                            title="أرشفة الرمز وتعطيل استخدامه"
-                                            aria-label="أرشفة الرمز"
+                                            title="أرشفة الكود وتعطيل استخدامه"
+                                            aria-label="أرشفة الكود"
                                           >
                                             <Trash2 className="h-4 w-4" />
                                           </button>
@@ -50098,10 +50112,14 @@ ${rows
           </div>
         </div>
       )}
-      {studentDeadlineCardOpen && studentUpcomingDeadlineCards.length > 0 && (
+      {/* تسلسل بصري: الجولة أولاً ثم التنبيه — لا يتكدّسان */}
+      {studentDeadlineCardOpen && !showStudentOnboarding && studentUpcomingDeadlineCards.length > 0 && (
         <div
           className="fixed inset-0 z-[120] flex items-center justify-center bg-slate-900/45 p-4 backdrop-blur-sm"
           dir="rtl"
+          role="dialog"
+          aria-modal="true"
+          aria-label="تنبيه مهم"
           onMouseDown={(e) => {
             if (e.target === e.currentTarget) setStudentDeadlineCardOpen(false);
           }}
@@ -50133,7 +50151,7 @@ ${rows
             <div className="space-y-3 px-5 py-4">
               <div className="rounded-2xl bg-slate-50/80 px-4 py-3.5 text-right">
                 <p className="text-[14px] font-bold text-slate-900">
-                  لديك تنبيه مهم قبل انتهاء الوقت.
+                  موعد تسليم يقترب
                 </p>
                 <p className="mt-1 text-[12px] font-semibold leading-relaxed text-slate-500">
                   اضغط البطاقة لفتح الصفحة المناسبة، بدون بدء أي اختبار.
