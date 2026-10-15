@@ -112,13 +112,13 @@ test('hook waits (bounded) while an overlay covers the stepper and then still co
   assert.match(src, /setLit\(null\); \/\/ show the real state; the intro is not consumed/);
 });
 
-test('css: rail dots opt out of the global 44px button minimum (they are 10px dots, the ::after is the touch target)', async () => {
+test('css: rail dots opt out of the global 44px button minimum (they are 10px dots, the ::after is the 40px touch target)', async () => {
   const { readFileSync } = await import('node:fs');
   const css = readFileSync(new URL('../src/design/journey.css', import.meta.url), 'utf8');
   const dot = css.match(/\.journey-rail \.journey-rail-dot \{[^}]*\}/)![0];
   assert.match(dot, /min-width: 0 !important;/);
   assert.match(dot, /min-height: 0 !important;/);
-  assert.match(css, /\.journey-rail-dot::after \{ content: ''; position: absolute; inset: -14px -6px; \}/);
+  assert.match(css, /\.journey-rail-dot::after \{ content: ''; position: absolute; inset: -16px -16px; \}/);
 });
 
 test('css: fill origin follows the nearest direction (:dir() last, attribute fallbacks first)', async () => {
