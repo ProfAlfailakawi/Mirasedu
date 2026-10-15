@@ -198,7 +198,7 @@ svg.lucide {
   /* الخروج مفصول بخط رفيع وبلون تحذيري خفيف */
   html body .miras-app-teacher-root.miras-teacher-viewport-v5 .miras-zero-action-btn.miras-zero-action-logout:not(#_) {
     margin-inline-start: 0.3rem !important;
-    color: #e11d48 !important;
+    color: var(--miras-ink-2) !important; /* رأس محايد: اللون للحالات فقط */
   }
   html body .miras-app-teacher-root.miras-teacher-viewport-v5 .miras-zero-action-btn.miras-zero-action-logout::before {
     content: "";
@@ -776,11 +776,12 @@ html body .miras-student-alert-popover .miras-notice-timeline-card > div.mt-3:no
     position: relative;
   }
   html body .teacher-nav-desktop .teacher-orbit-dock-track button.miras-dock-item > span.absolute.z-10:not(#_) {
-    /* RTL: «نهاية السطر» هي اليسار، فكانت الشارة تنزل فوق الأيقونة؛ حافتها اليسرى مثبّتة يمين الأيقونة، فتتسع الشارة («99+») نحو الخارج ولا تغطّيها. */
+    /* ركن الأيقونة العلوي (يمينها) لا فوقها: الشارة العريضة «99+» كانت تغطي الأيقونة.
+       تنمو الشارة نحو الخارج من حافة الأيقونة فلا تتداخل مهما بلغ عرضها. */
     inset-inline-start: auto !important;
     inset-inline-end: auto !important;
-    left: calc(50% + 0.55rem) !important;
-    right: auto !important;
+    left: auto !important;
+    right: calc(50% + 0.62rem) !important;
     inset-block-start: 0 !important;
     top: auto;
   }
@@ -903,7 +904,7 @@ html[data-theme="dark"] .miras-course-ring b { color: #e2e8f0; }
   height: 2rem !important;
   border-radius: 0.7rem !important;
 }
-.miras-roster-card:not(.is-editing) .miras-roster-foot button svg { width: 1rem; height: 1rem; stroke-width: 1.5; }
+.miras-roster-card:not(.is-editing) .miras-roster-foot button svg { width: 1rem; height: 1rem; stroke-width: 1.75; }
 .miras-roster-card { position: relative; }
 
 /* ═══════════════ ١٣) التسليمات: شريط مكدّس رفيع وأرقام أكبر (من العدّادات الظاهرة أصلاً) ═══════════════ */
@@ -960,7 +961,7 @@ html[data-theme="dark"] .miras-course-ring b { color: #e2e8f0; }
   box-shadow: inset 0 0 0 1.5px rgba(220, 38, 38, 0.45) !important;
 }
 .miras-app-teacher-root button[aria-label="تطهير كامل"]:not(#_):hover { background: rgba(220, 38, 38, 0.08) !important; }
-.miras-app-teacher-root button[aria-label="تطهير كامل"] svg { stroke-width: 1.5; }
+.miras-app-teacher-root button[aria-label="تطهير كامل"] svg { stroke-width: 1.75; }
 html[data-theme="dark"] .miras-app-teacher-root button[aria-label="تطهير كامل"]:not(#_) { color: #fca5a5 !important; box-shadow: inset 0 0 0 1.5px rgba(252, 165, 165, 0.5) !important; }
 
 /* ═══════════════ ١٦) أزرار الأيقونات: مقاس ونصف قطر وسماكة خط موحّدة (لون أساسي واحد) ═══════════════
@@ -1177,4 +1178,129 @@ html[data-theme="dark"] .miras-metric-card .miras-metric-ring-fill { stroke: var
     padding: 0.55rem 0.1rem;
   }
   .miras-join-code-card > .mt-4.grid > div:first-child { border-top: 0; }
+}
+
+/* ═══════════════ ٢٦) أيقونات الرأس محايدة: الأخضر/الأحمر للحالة فقط ═══════════════ */
+html body .miras-app-teacher-root.miras-teacher-viewport-v5 .miras-zero-name-pill:not(#_):not(#_) {
+  background: transparent !important;
+  border-color: transparent !important;
+  color: var(--miras-ink-2) !important;
+}
+
+/* ═══════════════ ٢٧) أزرار أساسية بنص ظاهر بجانب الأيقونة (≥44px) ═══════════════
+   كانت أيقونة وحدها؛ النص يزيل التخمين. الدور والسلوك كما هما. */
+.miras-btn-labeled,
+.miras-btn-labeled-sm {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.45rem;
+  min-height: 2.75rem;
+  white-space: nowrap;
+  font-weight: 800;
+  transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+}
+.miras-btn-labeled {
+  padding-inline: 1.05rem;
+  border-radius: 0.95rem;
+  font-size: 0.875rem;
+}
+.miras-btn-labeled-sm {
+  padding-inline: 0.8rem;
+  border-radius: 0.85rem;
+  font-size: 0.75rem;
+  min-width: 0;
+}
+.miras-app-teacher-root .miras-btn-labeled:is(.bg-slate-950, .bg-emerald-600, .bg-indigo-600, .bg-slate-900):not(:disabled):not(#_) {
+  background: var(--miras-brand, #4f46e5) !important;
+  color: #fff !important;
+}
+.miras-btn-labeled svg,
+.miras-btn-labeled-sm svg { flex: none; }
+.miras-course-actions .miras-btn-labeled-sm { padding-inline: 0.25rem; gap: 0.35rem; border-radius: 1rem; }
+.miras-course-actions > * { min-width: 0; }
+
+/* ═══════════════ ٢٨) شارة العرض التجريبي على الهاتف: لا تغطي «حساب الطالب» ولا زرّ الخروج ═══════════════
+   كانت في الزاوية العليا اليسرى فوق كبسولة الحساب وأزرار الرأس. تُنقل إلى الفراغ بين
+   العنوان وأزرار الرأس؛ وعند الفتح تتوسّط الشاشة. هدف اللمس يبقى 44px. */
+@media (max-width: 767px) {
+  .miras-demo-bar:not(#_):not(#_):not(#_) { justify-content: center !important; padding-left: 0 !important; }
+  .miras-demo-bar:not(.is-open):not(#_):not(#_):not(#_) > div {
+    position: absolute;
+    left: max(212px, 56vw);
+    margin-top: 6px !important;
+  }
+}
+/* سطح المكتب: أزرار الشارة 40px على الأقل */
+@media (min-width: 768px) {
+  .miras-demo-bar:not(#_):not(#_) button { min-width: 40px; min-height: 40px; }
+}
+
+/* ═══════════════ ٢٩) رأس الطالب: أيقونات محايدة (الأخضر/الأحمر للحالة فقط) — الجرس وحده بلون الهوية ═══════════════ */
+html body .miras-student-tool:not(.miras-student-tool--notify):not(#_):not(#_):not(#_):not(#_) {
+  color: var(--miras-ink-2) !important;
+  background: var(--miras-surface-2, #f5f7fb) !important;
+  background-image: none !important;
+  border-color: var(--miras-line, #e6eaf2) !important;
+}
+html body .miras-student-tool:not(.miras-student-tool--notify) svg:not(#_):not(#_) { color: inherit !important; }
+html body .miras-student-tool:not(.miras-student-tool--notify):hover:not(#_):not(#_):not(#_) {
+  color: var(--miras-ink) !important;
+}
+
+html body .miras-student-account-pill:not(#_):not(#_):not(#_) {
+  background: transparent !important;
+  border-color: transparent !important;
+  color: var(--miras-ink-2) !important;
+}
+html body .meras-teacher-shell.teacher-calm-shell .teacher-command-header .miras-teacher-heading-block > div.miras-teacher-account-pill:first-child:not(#_):not(#_):not(#_) {
+  background-color: var(--miras-surface-2, #f5f7fb) !important;
+  border-color: var(--miras-line, #e6eaf2) !important;
+  color: var(--miras-ink-2) !important;
+}
+
+/* ═══════════════ ٣١) الجولة الثانية: تباين الليلي، حياد رأس الليلي، أهداف لمس ≥40px ═══════════════ */
+/* زر أساسي في الليلي: أبيض على #8b80ff كان 3.17:1؛ نيلي أغمق يبلغ >4.5:1 (لون فقط). */
+html[data-theme="dark"] body .miras-btn-labeled:not(:disabled):not(#_):not(#_):not(#_) {
+  background: #5a4fe6 !important;
+  color: #fff !important;
+}
+/* أيقونات الرأس محايدة في الليلي أيضاً (الخروج/البصمة) */
+html[data-theme="dark"] body .miras-zero-action-btn:not(.miras-zero-action-notifications):not(#_):not(#_):not(#_):not(#_),
+html[data-theme="dark"] body .miras-student-tool:not(.miras-student-tool--notify):not(#_):not(#_):not(#_):not(#_) {
+  color: var(--miras-ink-2) !important;
+}
+html[data-theme="dark"] body .miras-zero-action-btn:not(.miras-zero-action-notifications) svg:not(#_):not(#_),
+html[data-theme="dark"] body .miras-student-tool:not(.miras-student-tool--notify) svg:not(#_):not(#_) {
+  color: inherit !important;
+  stroke: currentColor !important;
+}
+html[data-theme="dark"] body .teacher-command-header .student-icon-btn:not(.notification-alert-glowing-btn):not(#_):not(#_):not(#_) {
+  color: var(--miras-ink-2) !important;
+}
+/* أهداف اللمس */
+.miras-app-teacher-root .miras-zero-action-btn:not(#_):not(#_):not(#_) {
+  flex-shrink: 0 !important;
+  min-width: 2.5rem !important;
+  min-height: 2.5rem !important;
+}
+.miras-app-teacher-root button:is(.h-10.w-10, .h-9.w-9, .h-8.w-8):not(#_):not(#_):not(#_) {
+  min-width: 2.5rem !important;
+  min-height: 2.5rem !important;
+}
+@media (max-width: 920px), (pointer: coarse) and (hover: none) {
+  html body .miras-app-teacher-root.miras-teacher-viewport-v5 .miras-zero-name-pill:not(#_):not(#_):not(#_) {
+    min-height: 2.5rem !important;
+    display: flex !important;
+    align-items: center !important;
+  }
+}
+@media (max-width: 767px) {
+  html body .miras-student-account-pill:not(#_):not(#_):not(#_) { min-height: 2.5rem !important; display: inline-flex !important; align-items: center !important; }
+}
+/* رأس الطالب اللاصق على الهاتف: ملء العرض بدقة (كان -1rem فوق حشوة 0.7rem فيتجاوز الحافة بـ5px) */
+@media (max-width: 767px) {
+  html body .meras-student-shell main > .meras-topbar:not(#_):not(#_):not(#_) {
+    margin-inline: -0.7rem !important;
+  }
 }

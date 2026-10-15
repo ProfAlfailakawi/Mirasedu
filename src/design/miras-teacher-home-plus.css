@@ -1,7 +1,7 @@
 /*
  * Teacher home, creative pass (CSS only; every number, label and icon is the one already shown).
- * - Each stat tile gets its own accent (one coherent six-colour palette) drawn as a soft
- *   corner glow, a tinted icon tile, a coloured figure and a thin accent rail at the bottom.
+ * - Stat tiles use the brand indigo accent only (soft corner glow, tinted icon tile, thin rail);
+ *   colour is reserved for status: the alerts tile keeps amber.
  * - Display numerals: bigger tabular figures, larger still on desktop.
  * - Desktop: three roomy tiles per row instead of six slivers, so the page uses its width.
  * - Staggered rise-in, only when reduced motion is not requested. No blur, no filters.
@@ -17,11 +17,8 @@ html body .meras-teacher-shell .miras-metric-card:not(#_):not(#_):not(#__):not(.
     0 16px 28px -20px rgb(var(--acc) / 0.5) !important;
   border-radius: 22px !important;
 }
-html body .meras-teacher-shell .miras-metric-card:nth-child(2):not(#_):not(#_):not(#__) { --acc: 5 150 105; }
-html body .meras-teacher-shell .miras-metric-card:nth-child(3):not(#_):not(#_):not(#__) { --acc: 124 58 237; }
-html body .meras-teacher-shell .miras-metric-card:nth-child(4):not(#_):not(#_):not(#__) { --acc: 2 132 199; }
-html body .meras-teacher-shell .miras-metric-card:nth-child(5):not(#_):not(#_):not(#__) { --acc: 13 148 136; }
-html body .meras-teacher-shell .miras-metric-card:nth-child(6):not(#_):not(#_):not(#__) { --acc: 217 119 6; }
+/* Calm palette: tiles stay brand indigo; amber only for the status tile (alerts). */
+html body .meras-teacher-shell .miras-metric-card:has(.miras-metric-icon-wrap .bg-amber-50):not(#_):not(#_):not(#__) { --acc: 217 119 6; }
 html[data-theme="dark"] body .meras-teacher-shell .miras-metric-card:not(#_):not(#_):not(#__) {
   background:
     radial-gradient(120% 130% at 100% 0%, rgb(var(--acc) / 0.28), transparent 60%),
@@ -48,6 +45,15 @@ html body .meras-teacher-shell .miras-metric-card .miras-metric-value:not(#_):no
 }
 html:not([data-theme="dark"]) body .meras-teacher-shell .miras-metric-card .miras-metric-value:not(#_):not(#_):not(#__) {
   color: #0b1020 !important;
+}
+/* The count-up wrapper (.dna-cu) was picking up a generic small span size (~14px), so the
+   numerals rendered far below the 2.1rem set on .miras-metric-value. Make it, and the inner
+   spans it renders while counting up, inherit. */
+html body .meras-teacher-shell .miras-metric-card .miras-metric-value .dna-cu:not(#_):not(#_):not(#__):not(#___):not(#____):not(#_____),
+html body .meras-teacher-shell .miras-metric-card .miras-metric-value .dna-cu span:not(#_):not(#_):not(#__):not(#___):not(#____):not(#_____) {
+  font-size: inherit !important;
+  line-height: inherit !important;
+  font-weight: inherit !important;
 }
 html body .meras-teacher-shell .miras-metric-card .miras-metric-value .miras-metric-of:not(#_):not(#_):not(#__) {
   font-size: 0.8125rem !important;

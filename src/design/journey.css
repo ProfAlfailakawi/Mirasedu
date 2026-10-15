@@ -113,7 +113,7 @@
   min-height: 0 !important;
   border-radius: 50% !important;
 }
-.journey-rail-dot::after { content: ''; position: absolute; inset: -14px -6px; }
+.journey-rail-dot::after { content: ''; position: absolute; inset: -16px -16px; }
 .journey-rail-dot[data-state='done'] { background: #fff; }
 .journey-rail-dot[data-state='current'] {
   background: #fff;
