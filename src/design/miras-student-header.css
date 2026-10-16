@@ -206,3 +206,12 @@ html body .workspace-calm-shell .meras-topbar .miras-student-toolbar .miras-stud
     min-width: 2.55rem !important;
   }
 }
+
+/* absurdly long student name: clip with an ellipsis inside the header instead of running past the card edge */
+html body .workspace-calm-shell .meras-topbar .miras-student-identity .miras-student-name:not(#_):not(#_):not(#_):not(#_) {
+  min-width: 0 !important;
+  max-width: 100% !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+  white-space: nowrap !important;
+}
