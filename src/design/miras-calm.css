@@ -921,6 +921,11 @@ html[data-theme="dark"] .miras-course-ring b { color: #e2e8f0; }
 }
 .miras-roster-card:not(.is-editing) .miras-roster-foot button svg { width: 1rem; height: 1rem; stroke-width: 1.75; }
 .miras-roster-card { position: relative; }
+/* very long names: break inside words rather than overflow, and pin the avatar and the
+   actions to the first line so a tall name does not leave them floating mid-card */
+.miras-roster-card:not(.is-editing) .miras-roster-name > div { overflow-wrap: anywhere; hyphens: auto; text-wrap: balance; }
+.miras-roster-card:not(.is-editing) .miras-roster-avatar,
+.miras-roster-card:not(.is-editing) .miras-roster-foot { align-self: start; }
 
 /* ═══════════════ ١٣) التسليمات: شريط مكدّس رفيع وأرقام أكبر (من العدّادات الظاهرة أصلاً) ═══════════════ */
 .miras-stack-bar {
@@ -1325,3 +1330,8 @@ html[data-theme="dark"] body .miras-tour-cta:not(#_):not(#_):not(#_) {
   background: #5a4fe6 !important;
   color: #fff !important;
 }
+
+/* empty courses tab: the trailing empty card grid still adds its flow gap, leaving a blank band
+   under the lone "new course" button; collapse the gap only when that grid has no cards */
+.space-y-5 > .flex.justify-end:has(+ .grid:empty) { margin-bottom: 0 !important; }
+.space-y-5 > .grid:empty { margin-top: 0 !important; }
