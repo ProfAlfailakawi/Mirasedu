@@ -162,6 +162,13 @@ html body .meras-teacher-shell .miras-submissions-panel > div.mb-3 > button:hove
     margin-top: 0 !important;
   }
 }
+/* the teacher floating dock (<=920px) covers the bottom ~4.1rem: add that to the height so the crests
+   clear it while the filled part still reaches the screen edge. The student shell has no dock. */
+@media (max-width: 920px) {
+  html body .meras-teacher-shell .miras-phone-wave:not(#_):not(#__) {
+    height: calc(min(170px, 24svh) + 4.1rem + env(safe-area-inset-bottom));
+  }
+}
 @media (min-width: 768px) {
   html body .miras-phone-wave.miras-phone-wave--sub:not(#_):not(#__) {
     display: none;
