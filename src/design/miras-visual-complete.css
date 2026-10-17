@@ -20,6 +20,9 @@
   html body .meras-teacher-shell .teacher-command-main > .miras-teacher-home-panel.miras-teacher-home-panel:not(#_):not(#__):not(.meras-exam-shell *),
   html body .meras-student-shell .miras-student-overview-fixed-panel.miras-student-overview-fixed-panel:not(#_):not(#__):not(.meras-exam-shell *) {
     min-height: max(26rem, calc(100svh - 10rem));
+    background-image: var(--mv-wave);
+    background-repeat: no-repeat;
+    background-position: center bottom;
     background-size: 100% min(300px, 38vh);
   }
 }
@@ -133,38 +136,35 @@ html body .meras-teacher-shell .miras-submissions-panel > div.mb-3 > button:hove
 }
 
 /* ───────── phones: the same wave, pinned to the bottom of the screen ─────────
-   Behind the content (z-index -1 inside the isolated shell), above the shell background, under the
-   floating dock. Purely ornamental: no pointer events, no layout impact. */
+   <span class="miras-phone-wave"> (aria-hidden, first child of each panel) is a fixed ornament: painted
+   above its stacking context's background, under the panel content and the floating dock, no pointer
+   events, out of flow. Hidden on desktop widths, where the panel-anchored wave is used instead. */
+.miras-phone-wave {
+  display: none;
+}
 @media (max-width: 1023px) {
-  html body .meras-teacher-shell:has(.miras-teacher-home-panel):not(.meras-exam-shell *),
-  html body .meras-student-shell:has(.miras-student-overview-fixed-panel):not(.meras-exam-shell *) {
-    isolation: isolate;
-  }
-  html body .meras-teacher-shell:has(.miras-teacher-home-panel):not(.meras-exam-shell *)::before,
-  html body .meras-student-shell:has(.miras-student-overview-fixed-panel):not(.meras-exam-shell *)::before {
-    content: "";
+  html body .miras-phone-wave:not(#_):not(#__):not(.meras-exam-shell *) {
+    display: block;
     position: fixed;
-    inset-inline: 0;
-    bottom: 0;
+    inset: auto 0 0 0;
     height: min(170px, 24svh);
     z-index: -1;
     pointer-events: none;
     background: var(--mv-wave) no-repeat center bottom / 100% 100%;
+  }
+  /* own stacking context, so the -1 layer paints above the shell background rather than behind it */
+  html body .meras-teacher-shell:has(.miras-phone-wave):not(.meras-exam-shell *),
+  html body .meras-student-shell:has(.miras-phone-wave):not(.meras-exam-shell *) {
+    isolation: isolate;
+  }
+  /* the tailwind space-y rule would otherwise add a top margin to the first real child */
+  html body .miras-phone-wave + *:not(#_):not(#__) {
+    margin-top: 0 !important;
   }
 }
-@media (max-width: 767px) {
-  html body .meras-teacher-shell:has(.miras-submissions-panel):not(.meras-exam-shell *) {
-    isolation: isolate;
-  }
-  html body .meras-teacher-shell:has(.miras-submissions-panel):not(.meras-exam-shell *)::before {
-    content: "";
-    position: fixed;
-    inset-inline: 0;
-    bottom: 0;
-    height: min(170px, 24svh);
-    z-index: -1;
-    pointer-events: none;
-    background: var(--mv-wave) no-repeat center bottom / 100% 100%;
+@media (min-width: 768px) {
+  html body .miras-phone-wave.miras-phone-wave--sub:not(#_):not(#__) {
+    display: none;
   }
 }
 
