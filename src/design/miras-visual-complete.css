@@ -147,7 +147,9 @@ html body .meras-teacher-shell .miras-submissions-panel > div.mb-3 > button:hove
     display: block;
     position: fixed;
     inset: auto 0 0 0;
-    height: min(170px, 24svh);
+    /* the floating dock covers the bottom ~4.1rem: add that to the height so the crests clear it
+       while the filled part still reaches the screen edge */
+    height: calc(min(170px, 24svh) + 4.1rem + env(safe-area-inset-bottom));
     z-index: -1;
     pointer-events: none;
     background: var(--mv-wave) no-repeat center bottom / 100% 100%;
