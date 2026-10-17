@@ -37020,6 +37020,7 @@ ${rows
                     className="miras-student-overview-fixed-panel space-y-1.5 p-0 text-right animate-fade-in sm:p-2 lg:p-3"
                     dir="rtl"
                   >
+                    <span aria-hidden="true" className="miras-phone-wave" />
                     {/* Row 1 */}
                     <div className="grid grid-cols-12 gap-3 sm:gap-4">
                       {/* Welcome Card */}
@@ -39477,6 +39478,7 @@ ${rows
 
               {teacherTab === "home" && (
                 <div className="miras-teacher-home-panel pt-0 p-3 sm:p-6 lg:p-8 space-y-5">
+                  <span aria-hidden="true" className="miras-phone-wave" />
                   <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-6">
                     <TeacherMetricCard
                       label="عدد المقررات"
@@ -39929,6 +39931,7 @@ ${rows
                 <div
                   className={`miras-submissions-panel space-y-5 p-3 sm:p-6 lg:p-8 ${submissionSubTab === "projects" && selectedSubmissionActivityId ? "pb-10 sm:pb-6" : ""}`}
                 >
+                  <span aria-hidden="true" className="miras-phone-wave miras-phone-wave--sub" />
                   <div className="rounded-[var(--miras-r-xl)] border border-white/80 bg-white/84 p-4 miras-shadow-2 backdrop-blur-xl space-y-3">
                     <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                       <div className="min-w-0 text-right">
