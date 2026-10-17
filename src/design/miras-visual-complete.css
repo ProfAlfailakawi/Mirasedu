@@ -147,9 +147,7 @@ html body .meras-teacher-shell .miras-submissions-panel > div.mb-3 > button:hove
     display: block;
     position: fixed;
     inset: auto 0 0 0;
-    /* the floating dock covers the bottom ~4.1rem: add that to the height so the crests clear it
-       while the filled part still reaches the screen edge */
-    height: calc(min(170px, 24svh) + 4.1rem + env(safe-area-inset-bottom));
+    height: min(170px, 24svh);
     z-index: -1;
     pointer-events: none;
     background: var(--mv-wave) no-repeat center bottom / 100% 100%;
@@ -162,6 +160,13 @@ html body .meras-teacher-shell .miras-submissions-panel > div.mb-3 > button:hove
   /* the tailwind space-y rule would otherwise add a top margin to the first real child */
   html body .miras-phone-wave + *:not(#_):not(#__) {
     margin-top: 0 !important;
+  }
+}
+/* the teacher floating dock (<=920px) covers the bottom ~4.1rem: add that to the height so the crests
+   clear it while the filled part still reaches the screen edge. The student shell has no dock. */
+@media (max-width: 920px) {
+  html body .meras-teacher-shell .miras-phone-wave:not(#_):not(#__) {
+    height: calc(min(170px, 24svh) + 4.1rem + env(safe-area-inset-bottom));
   }
 }
 @media (min-width: 768px) {
