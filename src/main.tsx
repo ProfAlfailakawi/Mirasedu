@@ -54,6 +54,8 @@ import './design/miras-student-home.css';
 import './design/miras-visual-complete.css';
 // آخر طبقة تُحمَّل — كما يعلن رأس الملف (كانت تُستورد ثالثةً فلا يصحّ ادعاء «الأخيرة»).
 import './design/miras-calm.css';
+// طبقة الهوية البصرية «الكرّاسة» — تُحمَّل بعد calm.css (عرض فقط).
+import './design/miras-identity.css';
 
 // ───────────────────────────────────────────────────────────────────────────
 // حاجز عرض الواجهة (Render Guard)

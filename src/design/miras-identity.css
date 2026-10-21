@@ -1,0 +1,218 @@
+/*
+ * مِراس — طبقة الهوية البصرية «الكرّاسة» (عرض فقط: لا تغيّر سلوكاً ولا نصوصاً ولا بيانات).
+ *
+ * الفكرة: مِراس = المران والإتقان. الواجهة ورقة مربّعات بحبر نيلي: أرقام بخط نسخ
+ * (أميري) كأنها خُطّت بالقلم، ومسطرة تدريج صغيرة تحت كل رقم، وزاوية بطاقة مطويّة
+ * كورقة امتحان. لون الهوية يبقى النيلي الوحيد (قاعدة docs/DESIGN.md)؛
+ * اللون الآخر للحالة فقط. تُحمَّل هذه الطبقة آخر الطبقات (main.tsx).
+ *
+ * الخط: «أميري» (SIL OFL 1.1) مُجزَّأ إلى العربية والأرقام واللاتينية الأساسية
+ * ومستضاف محلياً — للعناوين والأرقام فقط، وبقية الواجهة تبقى تجوال.
+ */
+@font-face {
+  font-family: "Miras Naskh";
+  src: url("../assets/fonts/Amiri-Bold-subset.woff2") format("woff2");
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+
+:root {
+  --mi-naskh: "Miras Naskh", "Amiri", "Noto Naskh Arabic", "Tajawal", serif;
+  --mi-ink: #1d1a66;
+  --mi-ink-deep: #14114a;
+  --mi-grid: rgba(67, 56, 202, 0.055);
+  --mi-grid-size: 28px;
+  --mi-tick: rgba(67, 56, 202, 0.38);
+  --mi-fold: 16px;
+}
+:root[data-theme="dark"] {
+  --mi-grid: rgba(165, 180, 252, 0.05);
+  --mi-tick: rgba(165, 180, 252, 0.42);
+}
+
+/* ───────────── ١) العناوين والأرقام بخط النسخ ───────────── */
+html body #root .miras-teacher-heading-block h1:not(#_):not(#__):not(#___):not(#____):not(#_____):not(#______),
+html body #root h1.miras-student-name:not(#_):not(#__):not(#___):not(#____):not(#_____):not(#______),
+html body #root .meras-auth-card h2:not(#_):not(#__):not(#___):not(#____):not(#_____):not(#______) {
+  font-family: var(--mi-naskh) !important;
+  font-weight: 700 !important;
+  letter-spacing: 0 !important;
+  line-height: 1.25 !important;
+}
+html body #root h1.miras-student-name:not(#_):not(#__):not(#___):not(#____):not(#_____):not(#______) { font-size: clamp(1.35rem, 1.1rem + 0.8vw, 1.6rem) !important; }
+html body #root .miras-study-path h3:not(#_):not(#__):not(#___):not(#____):not(#_____):not(#______) { font-family: var(--mi-naskh) !important; font-weight: 700 !important; font-size: 1.3rem !important; letter-spacing: 0 !important; }
+html body #root .miras-teacher-heading-block h1:not(#_):not(#__):not(#___):not(#____):not(#_____):not(#______) { font-size: clamp(1.7rem, 1.2rem + 1.2vw, 2.15rem) !important; }
+html body #root .meras-auth-card h2:not(#_):not(#__):not(#___):not(#____):not(#_____):not(#______) { font-size: 2rem !important; }
+html body #root .miras-metric-card .miras-metric-value:not(#_):not(#__):not(#___):not(#____):not(#_____):not(#______),
+html body #root .miras-course-ring b:not(#_):not(#__):not(#___):not(#____):not(#_____):not(#______) {
+  font-family: var(--mi-naskh) !important;
+  font-weight: 700 !important;
+  font-variant-numeric: lining-nums;
+}
+
+/* ───────────── ٢) الورق: شبكة مربّعات خفيفة بدل بقع الألوان ───────────── */
+html body #root .meras-teacher-shell:not(#_):not(#__):not(#___):not(#____):not(#_____):not(#______),
+html body #root .meras-student-shell:not(#_):not(#__):not(#___):not(#____):not(#_____):not(#______) {
+  background-color: var(--miras-surface-2) !important;
+  background-image:
+    linear-gradient(var(--mi-grid) 1px, transparent 1px),
+    linear-gradient(90deg, var(--mi-grid) 1px, transparent 1px) !important;
+  background-size: var(--mi-grid-size) var(--mi-grid-size) !important;
+  background-position: -1px -1px !important;
+}
+html body #root .meras-teacher-shell:not(#_):not(#__):not(#___):not(#____):not(#_____):not(#______)::before,
+html body #root .meras-student-shell:not(#_):not(#__):not(#___):not(#____):not(#_____):not(#______)::before {
+  background-image: none !important;
+  mask-image: none !important;
+}
+
+/* ───────────── ٣) بطاقات الأرقام: قسيمة بزاوية مطويّة ومسطرة تدريج ───────────── */
+html body #root .meras-teacher-shell .miras-metric-card:not(#_):not(#__):not(#___):not(#____):not(#_____):not(#______) {
+  position: relative;
+  border-radius: 6px 6px 6px 6px !important;
+  border: 1px solid var(--miras-line) !important;
+  border-bottom: 1px solid var(--miras-line) !important;
+  background: var(--miras-surface) !important;
+  background-image:
+    linear-gradient(225deg, var(--miras-surface-3) 0 var(--mi-fold), transparent 0) !important;
+  box-shadow: 0 1px 0 rgba(11, 16, 32, 0.04), 0 10px 22px -16px rgba(29, 26, 102, 0.35) !important;
+  clip-path: polygon(0 0, calc(100% - var(--mi-fold)) 0, 100% var(--mi-fold), 100% 100%, 0 100%);
+  overflow: hidden;
+  padding-bottom: 1.35rem !important;
+}
+/* واشٍ لوني زخرفي قديم (أزرق/وردي) يخالف قاعدة «لون الهوية الوحيد» */
+html body #root .meras-teacher-shell .miras-metric-card:not(#_):not(#__):not(#___):not(#____):not(#_____):not(#______)::before { background: none !important; }
+html body #root .meras-teacher-shell .miras-metric-card:not(#_):not(#__):not(#___):not(#____):not(#_____):not(#______)::after {
+  content: "";
+  position: absolute;
+  inset-inline: 14px;
+  bottom: 9px;
+  height: 7px;
+  pointer-events: none;
+  /* مسطرة: علامة طويلة كل خمس علامات */
+  background:
+    repeating-linear-gradient(90deg, var(--mi-tick) 0 1px, transparent 1px 10px) bottom / 100% 4px no-repeat,
+    repeating-linear-gradient(90deg, var(--mi-tick) 0 1px, transparent 1px 50px) bottom / 100% 7px no-repeat;
+  opacity: 0.8;
+  border: 0 !important;
+  box-shadow: none !important;
+}
+html body #root .meras-teacher-shell .miras-metric-card .miras-metric-value:not(#_):not(#__):not(#___):not(#____):not(#_____):not(#______) {
+  font-size: clamp(2rem, 1.5rem + 1.4vw, 2.7rem) !important;
+  line-height: 1.05 !important;
+  color: var(--mi-ink) !important;
+}
+html[data-theme="dark"] body #root .meras-teacher-shell .miras-metric-card .miras-metric-value:not(#_):not(#__):not(#___):not(#____):not(#_____):not(#______) { color: var(--miras-ink) !important; }
+html body #root .meras-teacher-shell .miras-metric-card .miras-metric-icon-wrap:not(#_):not(#__):not(#___):not(#____):not(#_____):not(#______) { transform: scale(0.86); transform-origin: center; }
+
+/* ───────────── ٤) شريط التنقل: تحديد بقلم التظليل بدل الكبسولة ───────────── */
+html body #root .teacher-nav-desktop .miras-dock-item.is-active:not(#_):not(#__):not(#___):not(#____):not(#_____):not(#______) {
+  background: linear-gradient(transparent 56%, rgba(99, 102, 241, 0.22) 56% 90%, transparent 90%) center / 66% 100% no-repeat !important;
+  border-radius: 3px !important;
+  box-shadow: none !important;
+}
+
+/* ───────────── ٥) بطاقات المقررات: شريط جانبي حبري وحلقة بخط النسخ ───────────── */
+html body #root .miras-course-ring:not(#_):not(#__):not(#___):not(#____):not(#_____):not(#______) { font-family: var(--mi-naskh); }
+html body #root div:has(> .miras-course-actions):not(#_):not(#__):not(#___):not(#____):not(#_____):not(#______) {
+  border-radius: 10px !important;
+  background-image: none !important;
+  background-color: var(--miras-surface) !important;
+  box-shadow: 0 1px 0 rgba(11, 16, 32, 0.04), 0 12px 24px -18px rgba(29, 26, 102, 0.4) !important;
+}
+
+/* ───────────── ٦) الدخول: ورقة على لوح حبر نيلي ───────────── */
+html[data-theme] body #root .meras-auth-shell.miras-calm-auth:not(#_):not(#__):not(#___):not(#____):not(#_____):not(#______) {
+  background-color: var(--miras-surface-2) !important;
+  background-image:
+    linear-gradient(var(--mi-grid) 1px, transparent 1px),
+    linear-gradient(90deg, var(--mi-grid) 1px, transparent 1px) !important;
+  background-size: var(--mi-grid-size) var(--mi-grid-size) !important;
+}
+html[data-theme] body #root .meras-auth-shell.miras-calm-auth:not(#_):not(#__):not(#___):not(#____):not(#_____):not(#______)::before {
+  content: "" !important;
+  display: block !important;
+  position: absolute;
+  z-index: 0;
+  pointer-events: none;
+  inset-block: 0;
+  inset-inline-start: 0;
+  width: 36%;
+  mask-image: none !important;
+  opacity: 1 !important;
+  background:
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'%3E%3Cg fill='%23a5b4fc' stroke='%23a5b4fc'%3E%3Cpath fill-rule='evenodd' d='M386 178A86 86 0 1 0 214 178A86 86 0 1 0 386 178ZM342 178A42 42 0 1 1 258 178A42 42 0 1 1 342 178Z'/%3E%3Cpath d='M250 219 C 268 308, 244 374, 150 404' stroke-width='44' stroke-linecap='butt' fill='none'/%3E%3C/g%3E%3C/svg%3E") no-repeat 50% 22% / min(40%, 190px) auto,
+    repeating-linear-gradient(0deg, rgba(255, 255, 255, 0.06) 0 1px, transparent 1px 36px),
+    linear-gradient(90deg, transparent calc(100% - 56px), rgba(165, 180, 252, 0.35) calc(100% - 56px) calc(100% - 55px), transparent calc(100% - 55px)),
+    linear-gradient(160deg, var(--mi-ink) 0%, var(--mi-ink-deep) 100%);
+}
+html[data-theme] body #root .meras-auth-shell.miras-calm-auth:not(#_):not(#__):not(#___):not(#____):not(#_____):not(#______)::after {
+  content: "منصّة الاختبارات والتعلّم الذكي" !important;
+  display: block !important;
+  position: absolute;
+  z-index: 0;
+  inset: auto auto 12% 0;
+  inset-inline-start: 0;
+  width: 36%;
+  box-sizing: border-box;
+  padding-inline: 11% 18%;
+  text-wrap: balance;
+  text-align: start;
+  font-family: var(--mi-naskh);
+  font-size: clamp(1.4rem, 1rem + 1.4vw, 2.1rem);
+  line-height: 1.5;
+  color: #e0e7ff;
+  background: none !important;
+  border: 0 !important;
+  box-shadow: none !important;
+  border-radius: 0 !important;
+  pointer-events: none;
+  inset-block-start: auto !important;
+}
+html[data-theme] body #root .meras-auth-shell.miras-calm-auth .meras-auth-card:not(#_):not(#__):not(#___):not(#____):not(#_____):not(#______) {
+  position: relative;
+  z-index: 2;
+  border-radius: 10px !important;
+  border: 1px solid var(--miras-line) !important;
+  box-shadow: 0 1px 0 rgba(11, 16, 32, 0.05), 0 30px 50px -34px rgba(29, 26, 102, 0.55) !important;
+}
+html[data-theme] body #root .meras-auth-shell.miras-calm-auth:not(#_):not(#__):not(#___):not(#____):not(#_____):not(#______) { padding-inline-start: 36%; }
+@media (max-width: 859px) {
+  html[data-theme] body #root .meras-auth-shell.miras-calm-auth:not(#_):not(#__):not(#___):not(#____):not(#_____):not(#______) { padding-inline-start: 0; }
+  html[data-theme] body #root .meras-auth-shell.miras-calm-auth:not(#_):not(#__):not(#___):not(#____):not(#_____):not(#______)::before {
+    inset-block: 0 auto;
+    inset-inline: 0;
+    width: auto;
+    height: 36dvh;
+    background:
+      url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'%3E%3Cg fill='%23a5b4fc' stroke='%23a5b4fc'%3E%3Cpath fill-rule='evenodd' d='M386 178A86 86 0 1 0 214 178A86 86 0 1 0 386 178ZM342 178A42 42 0 1 1 258 178A42 42 0 1 1 342 178Z'/%3E%3Cpath d='M250 219 C 268 308, 244 374, 150 404' stroke-width='44' stroke-linecap='butt' fill='none'/%3E%3C/g%3E%3C/svg%3E") no-repeat 50% 5dvh / 66px auto,
+      repeating-linear-gradient(0deg, rgba(255, 255, 255, 0.06) 0 1px, transparent 1px 30px),
+      linear-gradient(160deg, var(--mi-ink) 0%, var(--mi-ink-deep) 100%);
+  }
+  html[data-theme] body #root .meras-auth-shell.miras-calm-auth:not(#_):not(#__):not(#___):not(#____):not(#_____):not(#______)::after {
+    inset: 0 0 auto 0;
+    inset-block-start: calc(5dvh + 86px) !important;
+    width: auto;
+    padding-inline: 1rem;
+    text-align: center;
+    font-size: 1.25rem;
+  }
+}
+
+/* ───────────── ٧) حركة واحدة هادئة: المسطرة تُرسم مرة عند الفتح ───────────── */
+@media (prefers-reduced-motion: no-preference) {
+  @keyframes mi-ruler-draw {
+    from { transform: scaleX(0); opacity: 0; }
+    to { transform: scaleX(1); opacity: 0.8; }
+  }
+  html body #root .meras-teacher-shell .miras-metric-card:not(#_):not(#__):not(#___):not(#____):not(#_____):not(#______)::after {
+    transform-origin: 100% 50%;
+    animation: mi-ruler-draw 0.7s cubic-bezier(0.2, 0.7, 0.2, 1) both;
+  }
+  html body #root .meras-teacher-shell .miras-metric-card:nth-child(2):not(#_):not(#__):not(#___):not(#____):not(#_____):not(#______)::after { animation-delay: 0.06s; }
+  html body #root .meras-teacher-shell .miras-metric-card:nth-child(3):not(#_):not(#__):not(#___):not(#____):not(#_____):not(#______)::after { animation-delay: 0.12s; }
+  html body #root .meras-teacher-shell .miras-metric-card:nth-child(4):not(#_):not(#__):not(#___):not(#____):not(#_____):not(#______)::after { animation-delay: 0.18s; }
+  html body #root .meras-teacher-shell .miras-metric-card:nth-child(5):not(#_):not(#__):not(#___):not(#____):not(#_____):not(#______)::after { animation-delay: 0.24s; }
+  html body #root .meras-teacher-shell .miras-metric-card:nth-child(6):not(#_):not(#__):not(#___):not(#____):not(#_____):not(#______)::after { animation-delay: 0.3s; }
+}
