@@ -183,3 +183,13 @@ html:not([data-theme="dark"]) body #root .miras-study-path span.text-slate-500:n
     min-height: 44px;
   }
 }
+
+/* شارات العدّ البرتقالية: أبيض على amber-500 ≈ 2.1:1 → amber-700 (≈ 5:1). عرض فقط. */
+html body #root :is(span, button).bg-amber-500.text-white:not(#_):not(#__) {
+  background-color: #b45309;
+}
+
+/* عنوان «المكتمل» في بطاقة تقدّم الطالب: slate-500 على زجاج أبيض 4.43:1 → slate-600 */
+html:not([data-theme="dark"]) body #root [data-reveal-target="student-progress"] span.text-slate-500:not(#_):not(#__) {
+  color: #475569;
+}

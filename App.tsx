@@ -41755,6 +41755,8 @@ ${rows
                           <button
                             title="المشاريع"
                             aria-label="المشاريع"
+                            role="tab"
+                            aria-selected={questionMode === "projects"}
                             onClick={() => {
                               setQuestionMode("projects");
                               setProjectBuilderOpen(false);
@@ -41767,6 +41769,8 @@ ${rows
                           <button
                             title="الاختبارات"
                             aria-label="الاختبارات"
+                            role="tab"
+                            aria-selected={questionMode === "exams"}
                             onClick={() => setQuestionMode("exams")}
                             className={`inline-flex h-11 w-11 items-center justify-center rounded-2xl transition-all hover:-translate-y-0.5 ${questionMode === "exams" ? "bg-white text-indigo-700 shadow-sm" : "text-slate-500 hover:bg-white hover:text-slate-800"}`}
                           >
@@ -41775,6 +41779,8 @@ ${rows
                           <button
                             title="بنك الأسئلة"
                             aria-label="بنك الأسئلة"
+                            role="tab"
+                            aria-selected={questionMode === "bank"}
                             onClick={() => setQuestionMode("bank")}
                             className={`inline-flex h-11 w-11 items-center justify-center rounded-2xl transition-all hover:-translate-y-0.5 ${questionMode === "bank" ? "bg-white text-indigo-700 shadow-sm" : "text-slate-500 hover:bg-white hover:text-slate-800"}`}
                           >
