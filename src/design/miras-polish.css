@@ -133,3 +133,23 @@ html body #root .meras-teacher-shell div.space-y-2.max-h-\[560px\] > div.rounded
     transition: none !important;
   }
 }
+
+/* ───────────── ٤) رأس المعلم على الشاشات الضيقة جداً (≤ 340px) ─────────────
+   ستة أزرار بعرض 2.5rem تترك للعنوان نحو 46px على شاشة 320px فيُقطع («المقررات»، «التسليمات»…).
+   هنا يأخذ العنوان سطره الكامل، وتنزل الأزرار إلى سطرٍ ثانٍ، ثم شارة الاسم. الأزرار تبقى 2.5rem (هدف لمس ≥ 40px). */
+@media (max-width: 340px) {
+  html body #root .miras-mobile-teacher-zero-header h1:not(#_):not(#_):not(#__):not(#___):not(#____):not(#_____) {
+    grid-row: 1 !important;
+    grid-column: 1 / -1 !important;
+  }
+  html body #root .miras-mobile-teacher-zero-header .miras-zero-actions-row:not(#_):not(#_):not(#__):not(#___):not(#____):not(#_____) {
+    grid-row: 2 !important;
+    grid-column: 1 / -1 !important;
+    justify-self: stretch !important;
+    justify-content: space-between !important;
+    margin-inline-start: 0 !important;
+  }
+  html body #root .miras-mobile-teacher-zero-header .miras-zero-name-pill:not(#_):not(#_):not(#__):not(#___):not(#____):not(#_____) {
+    grid-row: 3 !important;
+  }
+}
