@@ -818,6 +818,20 @@ html body .miras-section-hero .miras-section-current-title.miras-section-title-d
   white-space: nowrap !important;
   border: 0 !important;
 }
+/* على الهاتف فقط: عنوان التبويب الفرعي يكرّر اسم القسم في الرأس؛ على سطح المكتب يبقى ليُرسي شريط التبويبات. */
+@media (max-width: 920px) {
+  html body .miras-section-hero .miras-section-current-title.miras-section-title-dup-sm:not(#_) {
+    position: absolute !important;
+    width: 1px !important;
+    height: 1px !important;
+    margin: -1px !important;
+    padding: 0 !important;
+    overflow: hidden !important;
+    clip: rect(0 0 0 0) !important;
+    white-space: nowrap !important;
+    border: 0 !important;
+  }
+}
 @media (min-width: 921px) {
   html body .teacher-command-main:not(#_) {
     row-gap: 0.75rem !important;
