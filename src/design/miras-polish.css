@@ -165,7 +165,7 @@ html:not([data-theme="dark"]) body #root span.text-amber-600:not(#_):not(#__) {
   color: #b45309;
 }
 html:not([data-theme="dark"]) body #root .miras-study-path span.text-slate-500:not(#_):not(#__) {
-  color: #475569;
+  color: #475569 !important;
 }
 
 /* أهداف اللمس ٤٤px على الهاتف: شريط الأدوات العلوي وأزرار بطاقة الطالب */
@@ -191,5 +191,5 @@ html body #root :is(span, button).bg-amber-500.text-white:not(#_):not(#__) {
 
 /* عنوان «المكتمل» في بطاقة تقدّم الطالب: slate-500 على زجاج أبيض 4.43:1 → slate-600 */
 html:not([data-theme="dark"]) body #root [data-reveal-target="student-progress"] span.text-slate-500:not(#_):not(#__) {
-  color: #475569;
+  color: #475569 !important;
 }
