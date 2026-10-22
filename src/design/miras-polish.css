@@ -1,0 +1,135 @@
+/*
+ * مِراس — طبقة الصقل والحركة (الجولة الثانية). عرض فقط: لا تغيّر سلوكاً ولا نصوصاً ولا بيانات.
+ *
+ * تُحمَّل آخر الطبقات (src/main.tsx) وتبني على calm / identity / dna-motion دون مزاحمتها:
+ *   - رموز حركة مشتركة (منحنى واحد، ثلاث مدد).
+ *   - دخول هادئ مرة واحدة للعناصر التي لا حركة لها (الثمانية الأولى فقط، بفارق 40ms).
+ *   - لمسات دقيقة: ضغطة الزر، رفع البطاقة عند المرور، استقرار أيقونة التبويب النشط.
+ *   - صقل ساكن: تباعد وتراتبية في لوحات الطالب، تهدئة أزرار صفوف الأسئلة، صفّا الرفع/الإضافة جنباً إلى جنب.
+ *
+ * قواعد الحركة: transform/opacity (و scale/translate المستقلة) فقط، 120–260ms، بلا تكرار،
+ * وكل شيء داخل prefers-reduced-motion: no-preference؛ الحالة النهائية = التصميم الساكن
+ * (fill-mode: both) فمن لا يملك JS أو يطلب تقليل الحركة يرى كل شيء كاملاً.
+ * لا حركة على: الاختبار والإجابات، إصدار الدرجات، قفل الجهاز، الإشعارات، حقول الإدخال، النصوص الطويلة.
+ */
+:root {
+  --mo-ease: cubic-bezier(0.2, 0.7, 0.2, 1);
+  --mo-fast: 120ms;
+  --mo-base: 180ms;
+  --mo-slow: 260ms;
+  --mo-rise: 8px;
+  --mo-step: 40ms;
+}
+
+/* ───────────── ١) صقل ساكن ───────────── */
+
+/* لوحات الطالب الرئيسية: تنفّس أوسع وعنوان أوضح على الشاشات الواسعة */
+@media (min-width: 768px) {
+  html body .miras-student-overview-card .miras-now-available:not(#_):not(#__),
+  html body .miras-student-overview-card .miras-study-path:not(#_):not(#__) {
+    padding: 1.1rem 1.25rem !important;
+  }
+  html body .miras-student-overview-card .miras-now-available:not(#_):not(#__) > :first-child {
+    margin-bottom: 0.6rem;
+  }
+  html body .miras-student-overview-card .miras-study-path:not(#_):not(#__) h3 {
+    margin-bottom: 0.35rem;
+  }
+}
+
+/* أزرار صفوف بنك الأسئلة: نفس لغة بطاقات المقررات — تعديل محايد، وحذف شبحي (النص والتسمية كما هما) */
+html body #root .meras-teacher-shell div.space-y-2.max-h-\[560px\] > div.rounded-2xl .miras-btn-labeled-sm.bg-indigo-50:not(#_):not(#__) {
+  background: transparent !important;
+  color: var(--miras-ink-2) !important;
+  box-shadow: inset 0 0 0 1px var(--miras-line) !important;
+}
+html body #root .meras-teacher-shell div.space-y-2.max-h-\[560px\] > div.rounded-2xl .miras-btn-labeled-sm.bg-indigo-50:not(#_):not(#__):hover {
+  background: var(--miras-brand-tint) !important;
+  color: var(--miras-brand-ink) !important;
+}
+html body #root .meras-teacher-shell div.space-y-2.max-h-\[560px\] > div.rounded-2xl .miras-btn-labeled-sm.bg-red-50:not(#_):not(#__) {
+  background: transparent !important;
+  box-shadow: none !important;
+}
+html body #root .meras-teacher-shell div.space-y-2.max-h-\[560px\] > div.rounded-2xl .miras-btn-labeled-sm.bg-red-50:not(#_):not(#__):hover {
+  background: rgba(220, 38, 38, 0.08) !important;
+}
+
+/* شاشة الطلبة على سطح المكتب: صفّا «رفع Excel» و«إضافة يدوية» جنباً إلى جنب بدل شريطين عريضين نصفهما فراغ */
+@media (min-width: 1024px) {
+  html body #root .meras-teacher-shell div.space-y-4:has(> div.border-indigo-100.rounded-3xl):has(> div.border-emerald-100.rounded-3xl):not(#_):not(#__) {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 1rem;
+    align-items: start;
+  }
+  html body #root .meras-teacher-shell div.space-y-4:has(> div.border-indigo-100.rounded-3xl):has(> div.border-emerald-100.rounded-3xl):not(#_):not(#__) > * {
+    margin: 0 !important;
+  }
+  html body #root .meras-teacher-shell div.space-y-4:has(> div.border-indigo-100.rounded-3xl):has(> div.border-emerald-100.rounded-3xl):not(#_):not(#__) > :nth-child(n + 3) {
+    grid-column: 1 / -1;
+  }
+}
+
+/* ───────────── ٢) حركة هادئة (مرة واحدة، بلا تكرار) ───────────── */
+@media (prefers-reduced-motion: no-preference) {
+  @keyframes mo-rise {
+    from { opacity: 0; transform: translateY(var(--mo-rise)); }
+    to { opacity: 1; transform: none; }
+  }
+  /* fill-mode: backwards — الحالة النهائية هي التصميم الساكن نفسه، فلا يبقى transform ولا سياق تكديس بعد الانتهاء */
+  @keyframes mo-settle {
+    from { opacity: 0.4; transform: translateY(3px) scale(0.9); }
+    to { opacity: 1; transform: none; }
+  }
+
+  /* قوائم بلا حركة دخول: بطاقات الطلبة وصفوف الأسئلة — الثمانية الأولى فقط، فارق 40ms */
+  html body #root .meras-teacher-shell .miras-roster-card:not(#_):not(#__),
+  html body #root .meras-teacher-shell div.space-y-2.max-h-\[560px\] > div.rounded-2xl:not(#_):not(#__) {
+    animation: mo-rise var(--mo-slow) var(--mo-ease) backwards;
+  }
+  html body #root .meras-teacher-shell :is(.miras-roster-card, div.space-y-2.max-h-\[560px\] > div.rounded-2xl):nth-child(2):not(#_):not(#__) { animation-delay: calc(var(--mo-step) * 1); }
+  html body #root .meras-teacher-shell :is(.miras-roster-card, div.space-y-2.max-h-\[560px\] > div.rounded-2xl):nth-child(3):not(#_):not(#__) { animation-delay: calc(var(--mo-step) * 2); }
+  html body #root .meras-teacher-shell :is(.miras-roster-card, div.space-y-2.max-h-\[560px\] > div.rounded-2xl):nth-child(4):not(#_):not(#__) { animation-delay: calc(var(--mo-step) * 3); }
+  html body #root .meras-teacher-shell :is(.miras-roster-card, div.space-y-2.max-h-\[560px\] > div.rounded-2xl):nth-child(5):not(#_):not(#__) { animation-delay: calc(var(--mo-step) * 4); }
+  html body #root .meras-teacher-shell :is(.miras-roster-card, div.space-y-2.max-h-\[560px\] > div.rounded-2xl):nth-child(6):not(#_):not(#__) { animation-delay: calc(var(--mo-step) * 5); }
+  html body #root .meras-teacher-shell :is(.miras-roster-card, div.space-y-2.max-h-\[560px\] > div.rounded-2xl):nth-child(7):not(#_):not(#__) { animation-delay: calc(var(--mo-step) * 6); }
+  html body #root .meras-teacher-shell :is(.miras-roster-card, div.space-y-2.max-h-\[560px\] > div.rounded-2xl):nth-child(8):not(#_):not(#__) { animation-delay: calc(var(--mo-step) * 7); }
+  /* ما بعد الثامن يظهر فوراً (لا ذيل طويل من التأخير) */
+  html body #root .meras-teacher-shell :is(.miras-roster-card, div.space-y-2.max-h-\[560px\] > div.rounded-2xl):nth-child(n + 9):not(#_):not(#__) { animation: none; }
+
+  /* أيقونة التبويب النشط تستقرّ مرة عند التفعيل (تُطبَّق حين يظهر صنف is-active) */
+  html body #root .miras-dock-item.is-active > .miras-dock-icon:not(#_):not(#__) {
+    animation: mo-settle var(--mo-base) var(--mo-ease) backwards;
+  }
+
+  /* ضغطة الزر: scale مستقلة لا تتعارض مع أي transform قائم. لا تُطبَّق داخل الاختبار ولا على المعطَّل */
+  html body #root button:active:not(:disabled):not([aria-disabled="true"]):not(.meras-exam-shell *):not(#_):not(#__) {
+    scale: 0.98;
+    transition: scale var(--mo-fast) var(--mo-ease), background-color var(--mo-base) ease, box-shadow var(--mo-base) ease, opacity var(--mo-base) ease;
+  }
+}
+
+/* رفع البطاقة عند المرور (للمؤشر فقط، لا اللمس). translate المستقلة فلا تمسّ transform القائمة */
+@media (prefers-reduced-motion: no-preference) and (hover: hover) {
+  html body #root .meras-teacher-shell :is(.miras-roster-card, div.space-y-2.max-h-\[560px\] > div.rounded-2xl, .miras-join-code-card, div.bg-slate-50\/80.rounded-3xl.space-y-4):not(#_):not(#__) {
+    transition: translate var(--mo-base) var(--mo-ease), box-shadow var(--mo-base) var(--mo-ease), border-color var(--mo-base) ease;
+  }
+  html body #root .meras-teacher-shell :is(.miras-roster-card, div.space-y-2.max-h-\[560px\] > div.rounded-2xl, .miras-join-code-card, div.bg-slate-50\/80.rounded-3xl.space-y-4):hover:not(#_):not(#__) {
+    translate: 0 -1px;
+    box-shadow: 0 10px 24px -16px rgba(29, 26, 102, 0.45);
+  }
+}
+
+/* ───────────── ٣) تقليل الحركة: كل شيء ظاهر وساكن ───────────── */
+@media (prefers-reduced-motion: reduce) {
+  html body #root :is(.miras-roster-card, div.space-y-2.max-h-\[560px\] > div.rounded-2xl, .miras-join-code-card, div.bg-slate-50\/80.rounded-3xl.space-y-4, .miras-dock-item.is-active > .miras-dock-icon):not(#_):not(#__) {
+    animation: none !important;
+    transition: none !important;
+    translate: none !important;
+  }
+  html body #root button:active:not(#_):not(#__) {
+    scale: none !important;
+    transition: none !important;
+  }
+}

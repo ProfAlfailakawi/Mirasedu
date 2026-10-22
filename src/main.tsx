@@ -56,6 +56,8 @@ import './design/miras-visual-complete.css';
 import './design/miras-calm.css';
 // طبقة الهوية البصرية «الكرّاسة» — تُحمَّل بعد calm.css (عرض فقط).
 import './design/miras-identity.css';
+// طبقة الصقل والحركة (الجولة الثانية) — آخر الطبقات، عرض فقط.
+import './design/miras-polish.css';
 
 // ───────────────────────────────────────────────────────────────────────────
 // حاجز عرض الواجهة (Render Guard)
