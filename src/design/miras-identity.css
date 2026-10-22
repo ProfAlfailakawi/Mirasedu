@@ -161,7 +161,7 @@ html[data-theme] body #root .meras-auth-shell.miras-calm-auth .meras-auth-card:n
 }
 html[data-theme] body #root .meras-auth-shell.miras-calm-auth:not(#_):not(#__):not(#___):not(#____):not(#_____):not(#______) { padding-inline-start: 36%; }
 @media (max-width: 859px) {
-  html[data-theme] body #root .meras-auth-shell.miras-calm-auth:not(#_):not(#__):not(#___):not(#____):not(#_____):not(#______) { padding-inline-start: 0; }
+  html[data-theme] body #root .meras-auth-shell.miras-calm-auth:not(#_):not(#__):not(#___):not(#____):not(#_____):not(#______) { padding-inline-start: 1rem; /* مطابق لـ px-4 حتى تتوسّط البطاقة أفقياً */ }
   html[data-theme] body #root .meras-auth-shell.miras-calm-auth:not(#_):not(#__):not(#___):not(#____):not(#_____):not(#______)::before {
     inset-block: 0 auto;
     inset-inline: 0;
