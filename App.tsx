@@ -356,6 +356,7 @@ import {
   Share,
   Eye,
   Info,
+  Hash,
 } from "lucide-react";
 
 type MirasLocalVisionMode =
@@ -30875,14 +30876,27 @@ ${rows
         <div className="space-y-4 animate-fade-in">
           <div className="grid grid-cols-1 md:grid-cols-[1fr_auto] gap-3 rounded-3xl border border-indigo-100 bg-indigo-50/40 p-4">
             <div className="text-xs text-slate-600 leading-6">
-              <p className="font-black text-slate-800">رفع سريع من Excel</p>
-              <p>
-                يجب أن يحتوي الملف بوضوح على عمود{" "}
-                <span className="font-bold text-indigo-700">اسم الطالب</span>{" "}
-                وعمود{" "}
-                <span className="font-bold text-indigo-700">الرقم الجامعي</span>
-                . سيتم ربط جميع الأسماء تلقائياً بالمقرر.
+              <p className="inline-flex items-center gap-1.5 font-black text-slate-800">
+                <FileSpreadsheet className="h-4 w-4 text-indigo-600" aria-hidden="true" />
+                رفع سريع من Excel
               </p>
+              <p className="sr-only">
+                يجب أن يحتوي الملف بوضوح على عمود اسم الطالب وعمود الرقم الجامعي. سيتم ربط جميع الأسماء تلقائياً بالمقرر.
+              </p>
+              <div className="mt-1.5 flex flex-wrap items-center gap-1.5" aria-hidden="true">
+                <span className="inline-flex items-center gap-1 rounded-full border border-indigo-100 bg-white px-2.5 py-1 font-bold text-indigo-700">
+                  <User className="h-3.5 w-3.5" />
+                  اسم الطالب
+                </span>
+                <span className="inline-flex items-center gap-1 rounded-full border border-indigo-100 bg-white px-2.5 py-1 font-bold text-indigo-700">
+                  <Hash className="h-3.5 w-3.5" />
+                  الرقم الجامعي
+                </span>
+                <span className="inline-flex items-center gap-1 text-slate-500">
+                  <Link2 className="h-3.5 w-3.5" />
+                  يُربطون بالمقرر تلقائياً
+                </span>
+              </div>
             </div>
             <div className="flex flex-col gap-2">
               <input
@@ -39934,7 +39948,7 @@ ${rows
                   <span aria-hidden="true" className="miras-phone-wave miras-phone-wave--sub" />
                   <div className="rounded-[var(--miras-r-xl)] border border-white/80 bg-white/84 p-4 miras-shadow-2 backdrop-blur-xl space-y-3">
                     <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                      <div className="min-w-0 text-right">
+                      <div className="sr-only sm:not-sr-only sm:min-w-0 sm:text-right">
                         <p className="text-[10px] font-bold text-indigo-500">وضع التصحيح السريع</p>
                         <h3 className="mt-0.5 text-lg font-black text-slate-950">التسليمات</h3>
                       </div>
@@ -43757,7 +43771,7 @@ ${rows
                               title="تعديل"
                               aria-label="تعديل"
                               onClick={() => beginEditSection(sec)}
-                              className="miras-btn-labeled-sm border border-indigo-100 bg-indigo-50 text-indigo-700"
+                              className="miras-btn-labeled-sm border border-slate-200 bg-white text-slate-700 hover:border-indigo-300 hover:text-indigo-700"
                             >
                               <Edit className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
                               <span>تعديل</span>
@@ -43766,7 +43780,7 @@ ${rows
                               title="حذف"
                               aria-label="حذف"
                               onClick={() => deleteSectionSafely(sec)}
-                              className="miras-btn-labeled-sm border border-red-100 bg-red-50 text-red-700"
+                              className="miras-btn-labeled-sm border border-transparent bg-transparent text-red-700 hover:bg-red-50"
                             >
                               <Trash2 className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
                               <span>حذف</span>
@@ -47157,7 +47171,7 @@ ${rows
                       <div className="miras-section-hero">
                         <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
                           <div className="text-right">
-                            <h2 className="miras-section-current-title">
+                            <h2 className={`miras-section-current-title${activeTab.id === "archive" ? " miras-section-title-dup-sm" : ""}`}>
                               {activeTab.label}
                             </h2>
                           </div>
