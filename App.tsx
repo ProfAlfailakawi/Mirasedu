@@ -35037,6 +35037,7 @@ ${rows
         {currentView === "student_device_locked" && (
           <div
             dir="rtl"
+            role="main"
             className="miras-device-lock-screen min-h-[100svh] flex items-center justify-center bg-[#f4f5f8] px-4 py-8 text-center"
           >
             <div className="w-full max-w-md rounded-[var(--miras-r-xl)] border border-white/80 bg-white/95 p-7 miras-shadow-3 sm:p-9">
@@ -35073,6 +35074,7 @@ ${rows
         {currentView === "signup" && (
           <div
             dir="rtl"
+            role="main"
             className="meras-auth-shell miras-calm-auth min-h-[100dvh] flex flex-col items-center justify-center px-4 py-4 relative overflow-hidden bg-[#f4f5f8]"
           >
             <div className={`meras-auth-card w-full max-w-xl h-auto max-h-[calc(100dvh-2rem)] overflow-y-auto flex flex-col justify-center glass-panel rounded-[var(--miras-r-xl)] shadow-premium-lg p-8 sm:p-10 border border-white/60 relative z-10 transition-all duration-300`}>
@@ -37493,6 +37495,7 @@ ${rows
                                           </span>
                                         </span>
                                         <select
+                                          aria-label="تصفية حسب المقرر"
                                           value={studentCourseFilter}
                                           onChange={(event) =>
                                             setStudentCourseFilter(
@@ -39463,6 +39466,7 @@ ${rows
                   <div className="relative w-full">
                     <select
                       id="teacher-global-course-dropdown"
+                      aria-label="المقرر الحالي"
                       value={selectedTeacherCourseCode || activeCourseCode}
                       onChange={(e) => {
                         const val = e.target.value;
@@ -42921,6 +42925,7 @@ ${rows
                                       نوع السؤال
                                     </label>
                                     <select
+                                      aria-label="نوع السؤال"
                                       value={newQuestionType}
                                       onChange={(e) => {
                                         const t = e.target.value;
@@ -43033,6 +43038,7 @@ ${rows
                                     </div>
                                   ) : newQuestionType === "true-false" ? (
                                     <select
+                                      aria-label="الإجابة الصحيحة"
                                       value={newQuestionAnswer}
                                       onChange={(e) =>
                                         setNewQuestionAnswer(e.target.value)
@@ -43369,6 +43375,7 @@ ${rows
                                       {editingQuestionId === q.id ? (
                                         <div className="grid grid-cols-1 gap-2 md:grid-cols-[160px_1fr_1fr_120px]">
                                           <select
+                                            aria-label="نوع السؤال"
                                             value={normalizeQuestionTypeValue(
                                               q.type,
                                             )}
@@ -43426,6 +43433,7 @@ ${rows
                                               q.type,
                                             ) === "true-false" ? (
                                             <select
+                                              aria-label="الإجابة الصحيحة"
                                               value={normalizeTrueFalseAnswer(
                                                 q.correctAnswer || "صح",
                                               )}
@@ -47619,6 +47627,7 @@ ${rows
                             </div>
                             {joinCodeIssueCourseOptions.length > 0 ? (
                               <select
+                                aria-label="مقرر إصدار الكود"
                                 value={joinCodeIssueCourseCode}
                                 onChange={(e) => {
                                   const val = e.target.value;

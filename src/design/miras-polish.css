@@ -153,3 +153,33 @@ html body #root .meras-teacher-shell div.space-y-2.max-h-\[560px\] > div.rounded
     grid-row: 3 !important;
   }
 }
+
+/* ═════════════ الجولة ٣ — تباين وأهداف لمس (عرض فقط) ═════════════ */
+
+/* تباين: نصوص slate-400/amber-600 الصغيرة على الخلفيات الفاتحة تحت 4.5:1.
+   الوضع الليلي له ألوانه الخاصة فلا يُمسّ؛ والحالة :hover تحتفظ بلونها. */
+html:not([data-theme="dark"]) body #root :is(span, p, label, small, button).text-slate-400:not(:hover):not(#_):not(#__) {
+  color: #64748b;
+}
+html:not([data-theme="dark"]) body #root span.text-amber-600:not(#_):not(#__) {
+  color: #b45309;
+}
+html:not([data-theme="dark"]) body #root .miras-study-path span.text-slate-500:not(#_):not(#__) {
+  color: #475569;
+}
+
+/* أهداف اللمس ٤٤px على الهاتف: شريط الأدوات العلوي وأزرار بطاقة الطالب */
+@media (max-width: 767px) {
+  html body #root .miras-zero-action-btn:not(#_):not(#__) {
+    min-width: 44px;
+    min-height: 44px;
+  }
+  html body #root .miras-zero-name-pill:not(#_):not(#__),
+  html body #root .miras-student-account-pill:not(#_):not(#__) {
+    min-height: 44px;
+  }
+  html body #root .miras-roster-card button.h-10.w-10:not(#_):not(#__) {
+    min-width: 44px;
+    min-height: 44px;
+  }
+}
