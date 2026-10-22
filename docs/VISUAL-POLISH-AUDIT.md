@@ -51,3 +51,45 @@ The site already has a calm layer (`miras-calm.css`, `dna.css`, about 36 design 
 
 ## Verification
 See the commit message / final report for the exact commands and results.
+
+---
+
+# Round 2 — elevation and motion
+
+Presentation only. One new layer, `src/design/miras-polish.css`, imported last in `src/main.tsx` (after `miras-identity.css`). It builds on `calm`, `identity`, `dna-motion` and the existing per-screen rise animations; it does not merge or edit any of them (DESIGN.md: do not merge layers). No `App.tsx`, logic, markup, route, test or dependency was changed.
+
+Method: production build served locally in demo mode on a spare port with Firestore config moved aside (restored byte-for-byte, `git status` clean apart from the two intended files). Playwright (Chromium) screenshots at 390px and 1280px before and after, teacher (courses, students, questions, submissions, codes, home) and student (home, exams, projects), plus a dark-theme pass on the two screens changed. Findings of the pass: the product was already at a high level (stat tiles, rings, step rails, icon tabs, Naskh numerals, graph-paper identity), so Round 2 is deliberately restrained.
+
+## What changed, per screen
+| Screen | Change |
+|---|---|
+| Teacher Students (1280) | The "Excel upload" and "add student manually" strips were two full-width bars, each mostly empty space between label and button. On >=1024px they now sit side by side in a two-column grid (the roster header below stays full width). Phone layout unchanged. |
+| Teacher Questions bank | Row actions follow the Round 1 course-card language: edit is neutral outline, delete is a quiet ghost with red text and a tint on hover. Visible labels, handlers and aria names untouched. |
+| Student Home (>=768px) | The two main panels ("available now", "study path") get roomier padding and a little space under their headings (they were flush to the panel edge). |
+| Teacher Students, Questions, Codes, Courses | First-appearance rise and a 1px hover lift (see motion). |
+| Teacher nav | The active tab icon settles once when it becomes active. |
+
+## Motion inventory (one token set: `--mo-ease` cubic-bezier(.2,.7,.2,1); `--mo-fast` 120ms, `--mo-base` 180ms, `--mo-slow` 260ms, rise 8px, stagger step 40ms)
+| What | Trigger | Duration | Notes |
+|---|---|---|---|
+| Student roster cards and question-bank rows fade+rise (`mo-rise`) | element mount | 260ms, delay 0..280ms for the first 8; rest appear instantly | once per element; fill-mode `backwards`, so the end state is the static style (no leftover transform) |
+| Active dock icon settle (`mo-settle`) | `is-active` class applied | 180ms | once per activation |
+| Button press `scale: .98` | `:active` | 120ms in, instant out | not inside `.meras-exam-shell`, not on disabled buttons |
+| Card hover lift `translate: 0 -1px` + soft shadow | hover (pointer devices only) | 180ms | roster cards, question rows, code cards, course cards |
+All of it is inside `@media (prefers-reduced-motion: no-preference)`; a matching `reduce` block sets `animation/transition: none` and clears `scale/translate`. Only `transform`/`opacity` family properties (individual `scale`/`translate`) animate, plus the box-shadow change on hover. No infinite loops were added.
+
+Verified in the browser (Web Animations API): the keyframes run with 1 iteration, durations 180/260ms with 40ms steps, final computed style is `opacity 1 / transform none`; card rectangles are identical before and after the animation (no layout shift); with `reducedMotion: 'reduce'` no animation exists and `:active` leaves scale unset; horizontal overflow is 0 at 390 and 1280 on every screen visited.
+
+## Left alone on purpose
+- Exam-taking, answer inputs, grade release, device lock, notifications (including the student "important alert" popover and its entrance): calm static only, no new motion.
+- Tab-content fade stays opacity-only (`miras-transitions.css`): adding a translate there would briefly displace fixed-position dialogs that live inside tab content.
+- Focus-ring ease-in: outline is not a transform/opacity property, so it was not animated.
+- Existing entrance animations (metric tiles, course cards, code stats, student lists, auth card) and the existing infinite loops (orb, connection pulse, hub breathe, loader): not touched.
+- The student-side and teacher-side modals/drawers/toasts already have their own entrance (`mirasCmdk*`, `mirasToastQuietIn`, `mirasReady*`); not duplicated.
+- No skeleton shimmer was added: the demo never shows a genuinely loading block other than `MirasLoader`.
+- No new stats or numbers; no infographic with invented data.
+
+## Could not verify
+- Empty, error and loading states (demo data is always seeded), passkey login branches, teacher textbook, learning-intelligence panel, exam-taking and grade-release screens: not reachable or deliberately not exercised.
+- Light theme only was checked on the screens that did not change; dark theme was checked on Students and Questions.
+- The standard `npm run test:flows` refuses to run because another process holds port 3000 on this machine; the same script ran against the production build on a different port (see the final report for the result). `npm test` does not exist in this repo (CI runs lint, test:flows, build).
