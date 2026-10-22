@@ -162,11 +162,19 @@ html[data-theme] body #root .meras-auth-shell.miras-calm-auth .meras-auth-card:n
 html[data-theme] body #root .meras-auth-shell.miras-calm-auth:not(#_):not(#__):not(#___):not(#____):not(#_____):not(#______) { padding-inline-start: 36%; }
 @media (max-width: 859px) {
   html[data-theme] body #root .meras-auth-shell.miras-calm-auth:not(#_):not(#__):not(#___):not(#____):not(#_____):not(#______) { padding-inline-start: 1rem; /* مطابق لـ px-4 حتى تتوسّط البطاقة أفقياً */ }
+  /* الجوال: البطاقة تتدلّى من حدّ اللوح النيلي بتداخل ثابت (~2.5rem) بدل أن تتوسّط الشاشة فتقطعها حافة اللوح في منتصفها. */
+  html[data-theme] body #root .meras-auth-shell.miras-calm-auth:not(#_):not(#__):not(#___):not(#____):not(#_____):not(#______) {
+    justify-content: flex-start !important;
+    padding-top: calc(30dvh - 2.5rem) !important;
+  }
+  html[data-theme] body #root .meras-auth-shell.miras-calm-auth .meras-auth-card:not(#_):not(#__):not(#___):not(#____):not(#_____):not(#______) {
+    max-height: calc(100dvh - (30dvh - 2.5rem) - 1rem) !important;
+  }
   html[data-theme] body #root .meras-auth-shell.miras-calm-auth:not(#_):not(#__):not(#___):not(#____):not(#_____):not(#______)::before {
     inset-block: 0 auto;
     inset-inline: 0;
     width: auto;
-    height: 36dvh;
+    height: 30dvh;
     background:
       url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'%3E%3Cg fill='%23a5b4fc' stroke='%23a5b4fc'%3E%3Cpath fill-rule='evenodd' d='M386 178A86 86 0 1 0 214 178A86 86 0 1 0 386 178ZM342 178A42 42 0 1 1 258 178A42 42 0 1 1 342 178Z'/%3E%3Cpath d='M250 219 C 268 308, 244 374, 150 404' stroke-width='44' stroke-linecap='butt' fill='none'/%3E%3C/g%3E%3C/svg%3E") no-repeat 50% 5dvh / 66px auto,
       repeating-linear-gradient(0deg, rgba(255, 255, 255, 0.06) 0 1px, transparent 1px 30px),
