@@ -5409,7 +5409,12 @@ export default function App() {
           return isFreshSubmissionNews(sub, seenAt, {
             returned,
             inProgress,
-            alert: isCheatingAttemptSubmission(sub) || isWithdrawnSubmission(sub),
+            alert:
+              isCheatingAttemptSubmission(sub) ||
+              isWithdrawnSubmission(sub) ||
+              // انتهى وقته قبل أن يسلّم: تنبيه للمعلم حتى لو سُجّلت له درجة تلقائياً.
+              String(sub?.status || "").trim() === EXAM_TIME_EXPIRED_STATUS ||
+              /انتهى\s*وقت\s*الاختبار/.test(String(sub?.answerText || "")),
           });
         }).length;
       }
