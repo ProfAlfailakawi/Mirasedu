@@ -25,7 +25,11 @@ import { shouldApplySubmissionCourseResponse } from "./src/shared/submission-fet
 import { dateInputValueInTimeZone } from "./src/shared/date-input";
 import { deviceAuditForDisplay } from "./src/shared/device-audit";
 import { sameTeacherIdentity } from "./src/shared/teacher-account-scope";
-import { teacherOwnsProjectSubmission } from "./src/shared/project-submission-scope";
+import {
+  isFreshSubmissionNews,
+  teacherOwnsProjectSubmission,
+  teacherOwnsSubmissionCourse,
+} from "./src/shared/project-submission-scope";
 import {
   useState,
   useEffect,
@@ -5340,6 +5344,9 @@ export default function App() {
   const [dockSeenCounts, setDockSeenCounts] = useState<Record<string, number>>({});
   const [dockSeenAtMs, setDockSeenAtMs] = useState<Record<string, number>>({});
   const dockLongPressTimerRef = useRef<number | null>(null);
+  // قبل أن يصل «شوهد» من الخادم (أو لمن لم يفتح التبويب قط) نعدّ الجديد منذ فتح الصفحة فقط،
+  // فلا تضيء الشارة بكل التسليمات القديمة.
+  const dockSubmissionsBaselineRef = useRef(Date.now());
   const dockBadgeCountForTab = (tab: typeof teacherTab) => {
     try {
       if (tab === "sections") return Number(visibleTeacherSections?.length || 0);
@@ -5358,7 +5365,23 @@ export default function App() {
         (teacherCreatedExams?.length || 0) +
         (teacherProjects?.length || 0),
       );
-      if (tab === "submissions") return Number(latestSubmissionRows(teacherSubmissions).filter(isTeacherSubmissionAwaitingGrade).length || 0);
+      if (tab === "submissions") {
+        // «يحتاج التفاتك»: مشروع بانتظار الرصد، أو تسليم/تنبيه جديد منذ آخر فتح للتبويب.
+        // نعدّ كل تسليم مرة واحدة حتى لو انطبق عليه الشرطان.
+        const seenAt = Number(dockSeenAtMs.submissions || 0) || dockSubmissionsBaselineRef.current;
+        return latestSubmissionRows(teacherSubmissions).filter((sub: any) => {
+          if (isTeacherSubmissionAwaitingGrade(sub)) return true;
+          const kind = String(sub?.kind || "").toLowerCase();
+          if (kind !== "project" && kind !== "exam") return false;
+          if (!isSubmissionForActiveActivity(sub)) return false;
+          if (!teacherOwnsSubmissionCourse(sub, activeTeacherEmail(), courseOwnerEmail)) return false;
+          return isFreshSubmissionNews(sub, seenAt, {
+            returned: isTeacherReturnedSubmission(sub),
+            inProgress: isExamInProgressSubmission(sub),
+            alert: isCheatingAttemptSubmission(sub) || isWithdrawnSubmission(sub),
+          });
+        }).length;
+      }
       if (tab === "codes") return Number(joinCodesList?.length || 0);
       if (tab === "analytics") {
         const submissionFlags = latestSubmissionRows(teacherSubmissions).filter(
@@ -5417,7 +5440,7 @@ export default function App() {
     setDockSeenCounts((prev) =>
       Number(prev[tab] ?? -1) === count ? prev : { ...prev, [tab]: count },
     );
-    if (tab === "codes" || tab === "analytics")
+    if (tab === "codes" || tab === "analytics" || tab === "submissions")
       setDockSeenAtMs((prev) => ({ ...prev, [tab]: seenAt }));
     // مزامنة "شوهد" عبر الأجهزة (نفس مخزن مفاتيح القراءة المتزامن).
     const teacherKey = String(
@@ -5434,7 +5457,7 @@ export default function App() {
           // Epoch timestamps distinguish "opened at this time" from the
           // legacy count snapshot. Later inventory hydration must not revive
           // an already-seen badge; only items created after this timestamp do.
-          keys: [`dock|${tab}|${tab === "codes" || tab === "analytics" ? seenAt : count}`],
+          keys: [`dock|${tab}|${tab === "codes" || tab === "analytics" || tab === "submissions" ? seenAt : count}`],
         }),
         keepalive: true,
       }).catch(() => undefined);
@@ -6002,6 +6025,19 @@ export default function App() {
   const [editingProjectId, setEditingProjectId] = useState<string | null>(null);
   const [teacherProjects, setTeacherProjects] = useState<any[]>([]);
   const [teacherSubmissions, setTeacherSubmissions] = useState<any[]>([]);
+  // فتح التسليمات بأي طريق (الشريط، البحث، تنبيه) يعني أنك رأيت الجديد: نسجّل «شوهد» عند
+  // الدخول وعند الخروج، ونحدّثه محلياً مع كل تحديث للقائمة وأنت داخل التبويب فلا تضيء
+  // الشارة بما تراه أمامك. المشاريع بانتظار الرصد تبقى ظاهرة حتى تُرصد درجتها.
+  useEffect(() => {
+    if (teacherTab !== "submissions") return;
+    dismissDockBadge("submissions");
+    return () => dismissDockBadge("submissions");
+  }, [teacherTab]);
+  useEffect(() => {
+    if (teacherTab !== "submissions") return;
+    const now = Date.now();
+    setDockSeenAtMs((prev) => ({ ...prev, submissions: now }));
+  }, [teacherTab, teacherSubmissions]);
   const [submissionLocks, setSubmissionLocks] = useState<Record<string, any>>(
     () => {
       try {
