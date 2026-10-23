@@ -8166,17 +8166,8 @@ export default function App() {
   const [loginCloudReady, setLoginCloudReady] = useState(false);
   const loginCloudGateWanted =
     currentView === "signup" && instructorMode === true && !passwordResetToken;
-  // بوابة الجلسة المحفوظة: من فتح التطبيق بجلسة مخزّنة لا يدخل مساحته قبل أن
-  // تردّ السحابة بنجاح مرة واحدة في هذه الفتحة. بعدها لا تُعاد البوابة، فانقطاعٌ
-  // لاحق لا يُخرج طالباً من اختباره (مؤشرات الانقطاع الحالية تبقى كما هي).
-  const [sessionCloudVerified, setSessionCloudVerified] = useState(false);
-  const sessionCloudGateWanted =
-    !sessionCloudVerified &&
-    !demoActive &&
-    (currentView === "student_workspace" || currentView === "teacher_workspace" || currentView === "payment");
-  const cloudProbeWanted = loginCloudGateWanted || sessionCloudGateWanted;
   useEffect(() => {
-    if (!cloudProbeWanted) {
+    if (!loginCloudGateWanted) {
       setLoginCloudReady(false);
       return;
     }
@@ -8197,7 +8188,6 @@ export default function App() {
       if (cancelled) return;
       if (ok) {
         setLoginCloudReady(true);
-        setSessionCloudVerified(true);
         return;
       }
       // A waking server becomes ready within seconds: re-check quickly first.
@@ -8214,7 +8204,7 @@ export default function App() {
       window.clearTimeout(timer);
       window.removeEventListener("online", onOnline);
     };
-  }, [cloudProbeWanted]);
+  }, [loginCloudGateWanted]);
   const loginCloudGateActive = loginCloudGateWanted && !loginCloudReady;
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -32630,24 +32620,6 @@ ${rows
                       </section>
   );
 
-  if (sessionCloudGateWanted) {
-    return (
-      <div
-        dir="rtl"
-        role="status"
-        aria-live="polite"
-        className="min-h-screen flex flex-col items-center justify-center gap-4 bg-[#f4f5f8] px-4 text-center"
-      >
-        <MirasLoader size={40} role="current" delay={0} label="جارٍ الاتصال بالسحابة…" />
-        <p className="text-sm font-bold text-slate-700">جارٍ الاتصال بالسحابة…</p>
-        {isAppOffline && (
-          <p className="max-w-xs text-xs font-semibold leading-6 text-slate-500">
-            لا يوجد اتصال بالإنترنت. سيكمل الدخول تلقائياً فور عودة الاتصال.
-          </p>
-        )}
-      </div>
-    );
-  }
 
   return (
     <div
