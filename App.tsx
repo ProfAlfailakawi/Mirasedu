@@ -6236,7 +6236,6 @@ export default function App() {
       window.removeEventListener("error", onError);
       window.removeEventListener("unhandledrejection", onRejection);
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
   useEffect(() => {
     mirasRadarCtxRef.current = teacherSession
@@ -6278,7 +6277,6 @@ export default function App() {
       setMirasRadarAllowed(false);
       setMirasRadarOpen(false);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [teacherSession?.email, teacherSession?.id]);
   // تحديث حيّ كل ٣٠ث أثناء فتح اللوحة.
   useEffect(() => {
@@ -6286,7 +6284,6 @@ export default function App() {
     void fetchMirasRadar();
     const t = window.setInterval(() => void fetchMirasRadar(), 30000);
     return () => window.clearInterval(t);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mirasRadarOpen]);
   const resolveMirasRadarItem = async (id: string) => {
     setMirasRadarData((prev) => ({
@@ -8260,7 +8257,6 @@ export default function App() {
         window.history.replaceState(null, "", newUrl);
       }
     } catch {}
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Security elements
@@ -22239,11 +22235,16 @@ ${rows
   const courseInCurrentScope = (code: string) => isAccountAuditView
     ? scopedOwnerEmail === "all" || isSameTeacherIdentity(courseOwnerEmail(code), scopedOwnerEmail)
     : courseCodesMatch(code, activeCourseCode);
-  const scopedTeacherStudents = teacherStudents.filter((student: any) =>
+  // ── محسوبة مرة لكل تغيّر في البيانات، لا مع كل رسم ─────────────────────────
+  // كانت هذه القائمة (ومعها دليل الطلبة أدناه) تُعاد مع كل ضغطة حرف في أي مكان:
+  // مطابقة كل طالب بكل مقرر عبر courseCodesMatch (تعابير نمطية لكل مقارنة)، ثم
+  // مقارنة كل سطر من الكشف بكل طالب. وكانت مصفوفة جديدة كل رسم، فتُبطل
+  // useMemo في تبويب «تفعيل» فيُعاد الترتيب والعدّ مع كل حرف في البحث.
+  const scopedTeacherStudents = useMemo(() => teacherStudents.filter((student: any) =>
     isAccountAuditView
       ? scopedOwnerEmail === "all" || auditCourseCodes.some(code => studentBelongsToCourse(student, code))
       : studentBelongsToCourse(student, activeCourseCode),
-  );
+  ), [teacherStudents, isAccountAuditView, scopedOwnerEmail, auditCourseCodes, activeCourseCode]);
   // تغيير المقرر أو نطاق المراجعة يمسح تحديد «تبديل الكل» حتى لا يشمل طلبة غير ظاهرين.
   useEffect(() => {
     setDeviceBatchSelection({});
@@ -22312,7 +22313,7 @@ ${rows
   useEffect(() => {
     setManualActivationLimit(8);
   }, [manualActivationSearch, manualActivationFilter]);
-  const allowedRosterForCourse = allowedStudentsText
+  const allowedRosterForCourse = useMemo(() => allowedStudentsText
     .split("\n")
     .map((line) => line.split(",").map((part) => part.trim()))
     .filter(
@@ -22341,8 +22342,12 @@ ${rows
           enrollment?.isSuspended === true ||
           enrollment?.status === "suspended",
       };
-    });
-  const courseStudentDirectory = [
+    }),
+  [allowedStudentsText, isAccountAuditView, scopedOwnerEmail, activeCourseCode, teacherSections, scopedTeacherStudents]);
+  const courseStudentDirectory = useMemo(() => {
+  // نفس المقارنة (String(value || "") === String(row.id)) عبر مجموعة بدل بحث متداخل.
+  const rosterIds = new Set(allowedRosterForCourse.map((row: any) => String(row.id)));
+  return [
     ...allowedRosterForCourse.map((row: any) => ({
       ...row,
       id: row.id || row.idNumber,
@@ -22351,10 +22356,8 @@ ${rows
     ...scopedTeacherStudents
       .filter(
         (st: any) =>
-          !allowedRosterForCourse.some((row: any) =>
-            [st.id, st.idNumber, st.studentId].some(
-              (value: any) => String(value || "") === String(row.id),
-            ),
+          ![st.id, st.idNumber, st.studentId].some(
+            (value: any) => rosterIds.has(String(value || "")),
           ),
       )
       .map((st: any) => {
@@ -22381,6 +22384,7 @@ ${rows
         };
       }),
   ];
+  }, [allowedRosterForCourse, scopedTeacherStudents, activeCourseCode]);
   const joinCodeIssueCourseStudentDirectory =
     !joinCodeIssueCourseCode ||
     courseCodesMatch(joinCodeIssueCourseCode, activeCourseCode)
@@ -22728,7 +22732,6 @@ ${rows
   useEffect(() => {
     if (!codeArchiveOpen || !teacherSession?.email) return;
     void fetchCodeArchivePage();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [codeArchiveOpen, codesPage, codesFilterStatus, codeArchiveSearch, auditScopeEmail, teacherSession?.email]);
   // قائمة فارغة لأن الأكواد لم تصل من السحابة بعد (أو تعذّر جلبها)، لا لأنها غير موجودة.
   const joinCodesAwaitingCloud =
