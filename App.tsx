@@ -5387,7 +5387,21 @@ export default function App() {
             ? teacherOwnsProjectSubmission(sub, project, activeTeacherEmail(), courseOwnerEmail)
             : teacherOwnsSubmissionCourse(sub, activeTeacherEmail(), courseOwnerEmail);
         };
-        return latestSubmissionRows(teacherSubmissions).filter((sub: any) => {
+        // طالب انتهى وقته فحاول التسليم بعد الإغلاق: تُسجَّل محاولته على المشروع لا في التسليمات،
+        // وينتظر أن تفتح له الباب. نعدّ المحاولات الجديدة منذ آخر فتح للتبويب.
+        const lateAttemptNews = teacherProjects.reduce((sum: number, project: any) => {
+          if (!isActiveRecord(project)) return sum;
+          if (!teacherOwnsSubmissionCourse(
+            { courseCode: project?.courseCode || project?.sectionCode },
+            activeTeacherEmail(),
+            courseOwnerEmail,
+          )) return sum;
+          const attempts = Array.isArray(project?.lateAttempts) ? project.lateAttempts : [];
+          return sum + attempts.filter(
+            (item: any) => (new Date(item?.lastAt || 0).getTime() || 0) > seenAt,
+          ).length;
+        }, 0);
+        return lateAttemptNews + latestSubmissionRows(teacherSubmissions).filter((sub: any) => {
           const kind = String(sub?.kind || "").toLowerCase();
           if (kind !== "project" && kind !== "exam") return false;
           if (!isCurrent(sub) || !isMine(sub)) return false;
