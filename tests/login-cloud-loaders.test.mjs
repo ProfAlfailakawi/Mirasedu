@@ -284,8 +284,9 @@ test('post-paint submissions bootstrap reads every teacher course and scoped ref
  assert.equal(submissions.find(row => row.id === 'one').score, 95);
 });
 
-test('scoped submission polling waits for the initial all-course snapshot', async () => {
- const start = source.indexOf('  useEffect(() => {\n    if (\n      currentView !== "teacher_workspace" ||\n      !["home", "submissions", "questions"].includes(teacherTab)');
+test('submission polling waits for the initial all-course snapshot, then reads every course', async () => {
+ const start = source.indexOf('  useEffect(() => {\n    if (\n      currentView !== "teacher_workspace" ||\n      !activeCourseCode || !teacherWorkspaceInteractive\n    )\n      return;\n    // نقطة «التسليمات»');
+ assert.ok(start >= 0, 'poll effect marker not found');
  const endMarker = '\n  }, [\n    currentView, teacherTab, activeCourseCode, teacherSession?.email,\n    teacherSession?.authToken, teacherWorkspaceInteractive, submissionSubTab,\n    selectedSubmissionActivityId, submissionStatusFilter,\n  ]);';
  const effect = source.slice(start, source.indexOf(endMarker, start) + endMarker.length);
  const scheduler = await paintScheduler(), initial = deferred(), calls = [];
@@ -303,7 +304,8 @@ test('scoped submission polling waits for the initial all-course snapshot', asyn
  assert.deepEqual(calls, []);
  initial.resolve(true); await turn();
  assert.equal(calls.length, 1);
- assert.deepEqual(calls[0].slice(0, 3), [undefined, 'course-a', 'teacher@test.kw']);
+ assert.deepEqual(calls[0].slice(0, 3), [undefined, undefined, 'teacher@test.kw']);
+ assert.equal(calls[0][3].allCourses, true, 'the Submissions dot covers every course, so the poll reads them all from any tab');
  assert.ok(calls[0][3].signal instanceof AbortSignal, 'the poll carries an abort signal so a hung request cannot block it');
 });
 
