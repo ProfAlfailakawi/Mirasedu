@@ -5117,7 +5117,13 @@ function getStudentEnrollmentDetails(student: any, ownerFilter = "") {
       const pendingActivation = enrollmentState === "pending_activation";
       const isActive = enrollmentState === "active";
       const courseName = String(sec?.courseName || sec?.name || sectionDisplayCode(canonicalCourseCode) || canonicalCourseCode).trim();
+      // وقت انضمام الطالب لهذا المقرر: يحتاجه المعلم ليعرف من سجّل بعد إغلاق مشروع
+      // (لم تتح له فرصة التسليم) فيفتح له باب التسليم.
+      const activatedAtMs = hasActivatedLink
+        ? latestStudentCourseActivationTime(student, canonicalCourseCode, teacherEmail)
+        : 0;
       return {
+        activatedAt: activatedAtMs ? new Date(activatedAtMs).toISOString() : "",
         courseCode: canonicalCourseCode,
         sectionCode: canonicalCourseCode,
         studentSection: canonicalCourseCode,
