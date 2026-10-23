@@ -3,7 +3,7 @@ import { studentSubmissionDisplayText } from "./src/shared/submission-display-te
 import { keepSolutionBottomRoom } from "./src/shared/solution-scroll-room";
 import { joinCodeIssueScopeEmail as joinCodeIssueScopeEmailFor } from "./src/shared/join-code-issue-scope";
 import { notSubmittedListOpen } from "./src/shared/not-submitted-gate";
-import { attemptStudentId } from "./src/shared/late-attempts";
+import { attemptStudentId, joinedCourseAtMs } from "./src/shared/late-attempts";
 import { studentsWaitingOnTeacher, studentsExpectedByExtension } from "./src/shared/waiting-on-teacher";
 import { daysUntilDeadline } from "./src/shared/deadline-days";
 import { createCloudSingleFlight, cloudSessionKey } from "./src/shared/cloud-single-flight";
@@ -5401,7 +5401,32 @@ export default function App() {
             (item: any) => (new Date(item?.lastAt || 0).getTime() || 0) > seenAt,
           ).length;
         }, 0);
-        return lateAttemptNews + latestSubmissionRows(teacherSubmissions).filter((sub: any) => {
+        // طالب سجّل في المقرر بعد إغلاق مشروع فلم تتح له فرصة التسليم: يحتاج أن تفتح له الباب.
+        // تبقى الإشارة حتى تمنحه تمديداً أو يسلّم، ولمدة أسبوع من تسجيله فقط.
+        const now = Date.now();
+        const RECENT_JOIN_MS = 7 * 24 * 3600 * 1000;
+        const needsReopen = teacherProjects.reduce((sum: number, project: any) => {
+          if (!isActiveRecord(project) || !isProjectClosed(project)) return sum;
+          const course = String(project?.courseCode || project?.sectionCode || "").trim();
+          if (!course) return sum;
+          if (!teacherOwnsSubmissionCourse({ courseCode: course }, activeTeacherEmail(), courseOwnerEmail)) return sum;
+          const closeMs = mirasDeadlineEndMs(project?.closeDate || project?.dueDate);
+          if (!Number.isFinite(closeMs) || !closeMs) return sum;
+          const handedIn = new Set(
+            (Array.isArray(teacherSubmissions) ? teacherSubmissions : [])
+              .filter((sub: any) => String(sub?.activityId || sub?.projectId || "") === String(project.id))
+              .map((sub: any) => attemptStudentId(sub?.studentId || sub?.studentIdNumber)),
+          );
+          return sum + (Array.isArray(teacherStudents) ? teacherStudents : []).filter((student: any) => {
+            const id = attemptStudentId(student?.id || student?.idNumber);
+            if (!id || handedIn.has(id)) return false;
+            if (projectExtensionFor(project, student?.id || student?.idNumber)) return false;
+            if (!studentBelongsToCourse(student, course)) return false;
+            const joinedAt = joinedCourseAtMs(student, course, courseCodesMatch);
+            return joinedAt > closeMs && now - joinedAt < RECENT_JOIN_MS;
+          }).length;
+        }, 0);
+        return needsReopen + lateAttemptNews + latestSubmissionRows(teacherSubmissions).filter((sub: any) => {
           const kind = String(sub?.kind || "").toLowerCase();
           if (kind !== "project" && kind !== "exam") return false;
           if (!isCurrent(sub) || !isMine(sub)) return false;
@@ -21855,6 +21880,7 @@ ${rows
     // نقطة «التسليمات» في الشريط السفلي تغطي كل مقررات المعلم وتظهر في كل التبويبات،
     // فيستمر الاستطلاع خارج شاشة التسليمات أيضاً (أخفّ: كل ٢٠ ثانية بدل ٥).
     let tick = 0;
+    let rosterTick = 1;
     let refreshing = false;
     let refreshStartedAt = 0;
     let active = true;
@@ -21886,6 +21912,10 @@ ${rows
         // محاولات التسليم بعد الإغلاق تُسجَّل على المشروع نفسه، فنحدّثه مع التسليمات.
         if (active && session.isCurrent()) {
           await fetchTeacherProjects(teacherSession?.email, { onlyIfChanged: true });
+        }
+        // الطلبة المسجّلون حديثاً (طالب سجّل بعد إغلاق مشروع يحتاج فتح الباب): كل دقيقة تقريباً.
+        if (active && session.isCurrent() && rosterTick++ % (onSubmissionsTab ? 12 : 3) === 0) {
+          await fetchReports(teacherSession?.email, { quiet: true });
         }
       } finally {
         window.clearTimeout(abortTimer);
