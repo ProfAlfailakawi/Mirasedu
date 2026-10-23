@@ -42,3 +42,20 @@ export function recordLateAttempt(
   };
   return [...list.filter((item) => attemptStudentId(item?.studentId) !== id), entry].slice(-MAX_LATE_ATTEMPTS);
 }
+
+/**
+ * When the student joined `course` (activation time of the matching enrollment), in ms; 0 if unknown.
+ * A student who joined after a project closed never had a chance to submit it.
+ */
+export function joinedCourseAtMs(
+  student: any,
+  course: string,
+  sameCourse: (a: any, b: any) => boolean,
+): number {
+  const enrollments = Array.isArray(student?.enrollments) ? student.enrollments : [];
+  const entry = enrollments.find((item: any) =>
+    sameCourse(item?.courseCode || item?.sectionCode || item?.studentSection, course),
+  );
+  const raw = entry ? entry.reactivatedAt || entry.activatedAt : "";
+  return Date.parse(String(raw || "")) || 0;
+}
