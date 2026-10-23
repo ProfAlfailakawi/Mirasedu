@@ -5467,6 +5467,16 @@ export default function App() {
   const renderDockBadge = (tab: typeof teacherTab, tone: string) => {
     const count = dockUnreadBadgeCountForTab(tab);
     if (!shouldShowDockBadge(tab)) return null;
+    // التسليمات: إشارة نقطة فقط («ادخل، يوجد جديد») بلا رقم.
+    if (tab === "submissions")
+      return (
+        <span
+          aria-hidden="true"
+          data-testid="submissions-dock-dot"
+          className="miras-dock-dot pointer-events-none rounded-full bg-rose-500 ring-2 ring-white"
+          style={{ position: "absolute", zIndex: 10, top: "0.3rem", insetInlineStart: "calc(50% - 1rem)", width: "0.7rem", height: "0.7rem" }}
+        />
+      );
     return (
       <span
         title={`${count.toLocaleString("en-US")} إجمالي`}
@@ -6026,18 +6036,13 @@ export default function App() {
   const [teacherProjects, setTeacherProjects] = useState<any[]>([]);
   const [teacherSubmissions, setTeacherSubmissions] = useState<any[]>([]);
   // فتح التسليمات بأي طريق (الشريط، البحث، تنبيه) يعني أنك رأيت الجديد: نسجّل «شوهد» عند
-  // الدخول وعند الخروج، ونحدّثه محلياً مع كل تحديث للقائمة وأنت داخل التبويب فلا تضيء
-  // الشارة بما تراه أمامك. المشاريع بانتظار الرصد تبقى ظاهرة حتى تُرصد درجتها.
+  // الدخول وعند الخروج؛ فإن وصل تسليم وأنت داخل التبويب تضيء النقطة حتى تغادره.
+  // المشاريع بانتظار الرصد تبقى ظاهرة حتى تُرصد درجتها.
   useEffect(() => {
     if (teacherTab !== "submissions") return;
     dismissDockBadge("submissions");
     return () => dismissDockBadge("submissions");
   }, [teacherTab]);
-  useEffect(() => {
-    if (teacherTab !== "submissions") return;
-    const now = Date.now();
-    setDockSeenAtMs((prev) => ({ ...prev, submissions: now }));
-  }, [teacherTab, teacherSubmissions]);
   const [submissionLocks, setSubmissionLocks] = useState<Record<string, any>>(
     () => {
       try {
