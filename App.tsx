@@ -21849,15 +21849,19 @@ ${rows
   useEffect(() => {
     if (
       currentView !== "teacher_workspace" ||
-      !["home", "submissions", "questions"].includes(teacherTab) ||
       !activeCourseCode || !teacherWorkspaceInteractive
     )
       return;
+    // نقطة «التسليمات» في الشريط السفلي تغطي كل مقررات المعلم وتظهر في كل التبويبات،
+    // فيستمر الاستطلاع خارج شاشة التسليمات أيضاً (أخفّ: كل ٢٠ ثانية بدل ٥).
+    let tick = 0;
     let refreshing = false;
     let refreshStartedAt = 0;
     let active = true;
     const refresh = async () => {
       if (!active || document.visibilityState === "hidden") return;
+      const onSubmissionsTab = teacherTab === "submissions";
+      if (!onSubmissionsTab && tick++ % 4 !== 0) return;
       // طلب علق (يحدث في iOS بعد الخروج للخلفية) كان يوقف التحديث نهائياً حتى مغادرة الشاشة.
       if (refreshing && Date.now() - refreshStartedAt < 12000) return;
       refreshing = true;
@@ -21875,12 +21879,12 @@ ${rows
         if (!active || !session.isCurrent()) return;
         await fetchTeacherSubmissions(
           undefined,
-          teacherTab === "submissions" ? undefined : activeCourseCode,
+          undefined,
           teacherSession?.email,
-          { signal: controller.signal, allCourses: teacherTab === "submissions" },
+          { signal: controller.signal, allCourses: true },
         );
-        // محاولات التسليم بعد الإغلاق تُسجَّل على المشروع نفسه، فنحدّثه مع التسليمات في شاشة التسليمات.
-        if (active && session.isCurrent() && teacherTab === "submissions") {
+        // محاولات التسليم بعد الإغلاق تُسجَّل على المشروع نفسه، فنحدّثه مع التسليمات.
+        if (active && session.isCurrent()) {
           await fetchTeacherProjects(teacherSession?.email, { onlyIfChanged: true });
         }
       } finally {
