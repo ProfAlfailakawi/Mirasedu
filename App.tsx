@@ -5369,15 +5369,46 @@ export default function App() {
         // «يحتاج التفاتك»: مشروع بانتظار الرصد، أو تسليم/تنبيه جديد منذ آخر فتح للتبويب.
         // نعدّ كل تسليم مرة واحدة حتى لو انطبق عليه الشرطان.
         const seenAt = Number(dockSeenAtMs.submissions || 0) || dockSubmissionsBaselineRef.current;
+        // نستبعد فقط ما نعرف يقيناً أنه محذوف/مؤرشف. النشاط غير المعروف لقائمة المعلم
+        // (مثل المشروع الشخصي للطالب) لا يُسقط التسليم: السقوط الصامت يخفي النقطة.
+        const isCurrent = (sub: any) => {
+          if (!isActiveRecord(sub)) return false;
+          const kind = String(sub?.kind || "").toLowerCase();
+          const known = (kind === "exam" ? teacherCreatedExams : teacherProjects).find(
+            (item: any) => String(item?.id || "") === String(sub?.activityId || ""),
+          );
+          return !known || isActiveRecord(known);
+        };
+        const isMine = (sub: any) => {
+          const project = teacherProjects.find(
+            (item: any) => String(item?.id || "") === String(sub?.activityId || ""),
+          );
+          return project && String(sub?.kind || "").toLowerCase() === "project"
+            ? teacherOwnsProjectSubmission(sub, project, activeTeacherEmail(), courseOwnerEmail)
+            : teacherOwnsSubmissionCourse(sub, activeTeacherEmail(), courseOwnerEmail);
+        };
         return latestSubmissionRows(teacherSubmissions).filter((sub: any) => {
-          if (isTeacherSubmissionAwaitingGrade(sub)) return true;
           const kind = String(sub?.kind || "").toLowerCase();
           if (kind !== "project" && kind !== "exam") return false;
-          if (!isSubmissionForActiveActivity(sub)) return false;
-          if (!teacherOwnsSubmissionCourse(sub, activeTeacherEmail(), courseOwnerEmail)) return false;
+          if (!isCurrent(sub) || !isMine(sub)) return false;
+          const returned = isTeacherReturnedSubmission(sub);
+          const inProgress = isExamInProgressSubmission(sub);
+          if (returned || inProgress) return false;
+          // مشروع مسلَّم بلا درجة: يبقى حتى تُرصد.
+          const status = String(sub?.status || "").trim().toLowerCase();
+          const submitted =
+            !!sub?.submittedAt &&
+            (status === "submitted" || status === "مقفل بعد التسليم" || status === "جاهز للمراجعة");
+          const graded = !!(
+            sub?.teacherGradeOverride ||
+            teacherVisibleGradeText(sub) ||
+            isSubmissionGradeOfficiallyRecorded(sub) ||
+            isTimeExpiredRecordedSubmission(sub)
+          );
+          if (kind === "project" && submitted && !graded) return true;
           return isFreshSubmissionNews(sub, seenAt, {
-            returned: isTeacherReturnedSubmission(sub),
-            inProgress: isExamInProgressSubmission(sub),
+            returned,
+            inProgress,
             alert: isCheatingAttemptSubmission(sub) || isWithdrawnSubmission(sub),
           });
         }).length;
