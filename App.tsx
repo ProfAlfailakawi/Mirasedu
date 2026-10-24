@@ -40564,7 +40564,7 @@ ${rows
                                   : "الدرجة من 100";
                               })()}
                               aria-label="الدرجة التي ستُرصد للطلبة المحدَّدين"
-                              className="w-full rounded-2xl border border-indigo-100 bg-white px-4 py-3 text-center font-mono text-sm font-semibold text-indigo-700 shadow-sm outline-none focus:border-indigo-300"
+                              className="w-full rounded-2xl border border-indigo-100 bg-white px-4 py-3 text-center font-mono text-base sm:text-sm font-semibold text-indigo-700 shadow-sm outline-none focus:border-indigo-300"
                             />
                           </div>
                           <div className="mx-auto max-w-md">
