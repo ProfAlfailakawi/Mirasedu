@@ -12,8 +12,6 @@
 name: نشر مِراس API إلى Cloud Run
 
 on:
-  push:
-    branches: [main]
   workflow_dispatch: {}
 
 permissions:
