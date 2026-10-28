@@ -4862,7 +4862,12 @@ export default function App() {
       try {
         scannedCode = sessionStorage.getItem("miras_pending_join_code") || "";
       } catch {}
-      setInstallGate(scannedCode ? "card" : "signup");
+      // طالب معه كود: لا نقاطعه بنافذة التثبيت، يكمل التفعيل مباشرة.
+      if (scannedCode) {
+        setInstructorMode(false);
+        return;
+      }
+      setInstallGate("signup");
       return;
     }
     setInstructorMode(false);
@@ -36177,13 +36182,15 @@ ${rows
                   </p>
                 </div>
 
-                <button
-                  onClick={() => handleJoinLab()}
-                  className="w-full bg-indigo-600 hover:bg-indigo-700 text-white py-4 rounded-2xl font-bold text-xs transition duration-300 btn-spring-active shadow-premium-md flex items-center justify-center gap-2"
-                >
-                  <CheckCircle className="w-4.5 h-4.5" />
-                  <span>تفعيل المسار والانضمام الذكي فورا </span>
-                </button>
+                <div className="sticky bottom-0 z-20 -mx-2 bg-gradient-to-t from-white via-white/95 to-transparent px-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] pt-3">
+                  <button
+                    onClick={() => handleJoinLab()}
+                    className="w-full bg-indigo-600 hover:bg-indigo-700 text-white py-4 rounded-2xl font-black text-base transition duration-300 btn-spring-active shadow-premium-md flex items-center justify-center gap-2"
+                  >
+                    <CheckCircle className="w-5 h-5" />
+                    <span>تفعيل الكود</span>
+                  </button>
+                </div>
 
                 <div className="flex items-center gap-2 rounded-2xl border border-slate-200 bg-white/80 px-4 py-3 text-right text-[11px] font-bold leading-6 text-slate-500">
                   <Info className="h-4 w-4 shrink-0" aria-hidden="true" />
@@ -49852,7 +49859,12 @@ ${rows
 
       {/* PWA Floating Alert Banner — صفّ هادئ أسفل الشاشة لا يغطي البطاقة */}
       {/* بعد التفعيل من المتصفح لا ندعو للتثبيت: التطبيق المثبّت سيُمنع بقفل الجهاز. */}
-      {showPwaBanner && !isAppStandalone && !studentSession && (
+      {showPwaBanner &&
+        !isAppStandalone &&
+        !studentSession &&
+        currentView !== "signup" &&
+        currentView !== "payment" &&
+        currentView !== "otp" && (
         <div
           dir="rtl"
           className="miras-pwa-row fixed inset-x-0 bottom-0 z-50 animate-fade-in text-right"
