@@ -3,10 +3,6 @@
 name: Deploy to Firebase Hosting on Merge
 
 on:
-  push:
-    branches:
-      - main
-      - master
   workflow_dispatch: {}
 
 permissions:
