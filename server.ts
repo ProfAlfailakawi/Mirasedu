@@ -838,12 +838,12 @@ function responseForPasskeyUser(req: express.Request, saved: any, user: any) {
   });
   const responseStudent: any = sebLoginPass
     ? {
-        ...student,
+        ...withoutStudentSecrets(student),
         sectionCode: sebLoginPass.courseCode,
         activeSebExamId: sebLoginPass.examId,
         enrollments: getStudentEnrollmentDetails(student),
       }
-    : { ...student, enrollments: getStudentEnrollmentDetails(student) };
+    : { ...withoutStudentSecrets(student), enrollments: getStudentEnrollmentDetails(student) };
   return {
     success: true,
     student: responseStudent,
@@ -4030,7 +4030,7 @@ function buildStudentActivationSuccessPayload(
   const activatedCourseCodes = activatedCourseCodesForStudent(student, resolvedCourseCode);
   const course = buildActivationCoursePayload(resolvedCourseCode);
   const responseStudent = {
-    ...student,
+    ...withoutStudentSecrets(student),
     authToken,
     isPaid: true,
     isActivated: true,
@@ -5196,6 +5196,24 @@ function pruneGhostCoursePatch(student: any): Record<string, any> | null {
   }
   return changed ? patch : null;
 }
+// The stored password hash never leaves the server: the client never reads it,
+// and legacy rows are unsalted sha256 that can be cracked offline.
+function withoutStudentSecrets(student: any): any {
+  if (!student || typeof student !== "object") return student;
+  const { passwordHash: _passwordHash, ...rest } = student;
+  return rest;
+}
+
+// GET /api/students/:id and its siblings let any verified teacher session
+// through the global middleware, so the handler must refuse a teacher who does
+// not teach this student (students and SEB passes are checked upstream).
+function teacherBlockedFromStudentRoute(req: express.Request, res: express.Response, student: any): boolean {
+  const teacherEmail = teacherEmailFromRequest(req);
+  if (!teacherEmail || teacherCanManageStudent(student, teacherEmail)) return false;
+  res.status(403).json({ error: "هذا الطالب ليس ضمن مقرراتك.", code: "STUDENT_NOT_IN_TEACHER_SCOPE" });
+  return true;
+}
+
 function sanitizeStudentForClient(student: any, enrollmentDetails?: any[]): any {
   if (!student) return student;
   const enrollments = Array.isArray(enrollmentDetails)
@@ -5231,7 +5249,7 @@ function sanitizeStudentForClient(student: any, enrollmentDetails?: any[]): any 
   let keepActivationCode = true;
   if (activationCode && activatedCourseCodes.length === 0) keepActivationCode = false;
   return {
-    ...student,
+    ...withoutStudentSecrets(student),
     activatedCourseCodes,
     enrollments,
     sectionCode: safeSection(student.sectionCode || student.studentSection),
@@ -16067,6 +16085,7 @@ app.get("/api/students/:id", (req, res) => {
   if (!student) {
     return res.status(404).json({ error: "الطالب غير موجود" });
   }
+  if (teacherBlockedFromStudentRoute(req, res, student)) return;
 
   // Ensure and filter out projects/submissions for student
   const filteredProjects = dbInstance
@@ -16081,7 +16100,7 @@ app.get("/api/students/:id", (req, res) => {
 
   return res.json({
     student: {
-      ...(student as any),
+      ...withoutStudentSecrets(student),
       enrollments: getStudentEnrollmentDetails(student),
     },
     projects: filteredProjects.filter(
@@ -16101,6 +16120,7 @@ app.get("/api/students/:id/session-status", (req, res) => {
       blocked: true,
       reason: "هذا الحساب لم يعد موجوداً في النظام.",
     });
+  if (teacherBlockedFromStudentRoute(req, res, student)) return;
   const activationCode = (student as any).activationCode;
   const linkedCode = activationCode
     ? dbInstance
@@ -16154,6 +16174,7 @@ app.get("/api/students/:id/session-status", (req, res) => {
 app.post("/api/students/:id/snapshot", (req, res) => {
   const student = findStudentByRouteId(req.params.id);
   if (!student) return res.status(404).json({ error: "الطالب غير كائن" });
+  if (teacherBlockedFromStudentRoute(req, res, student)) return;
 
   const { snapshot, purpose, verificationCode } = req.body;
   dbInstance.updateStudent(student.id, { webcamSnapshot: snapshot });
@@ -23294,9 +23315,24 @@ app.delete("/api/teacher/password-reset-requests/:id", (req, res) => {
   return res.json({ success: true, deletedIds });
 });
 
+// Same ownership rule as teacherProjectsData: a teacher lists only the exams of
+// courses they own (or created); admin keeps the full list. Delete, remind and
+// release-grades already refuse other teachers' exams.
+function teacherExamsData(teacherEmail: string) {
+  return activeTeacherExams().filter((exam: any) => {
+    if (!teacherEmail || isAdminEmail(teacherEmail)) return true;
+    const code = String(exam.courseCode || "");
+    return (
+      !code ||
+      sectionOwnerEmail(code) === teacherEmail ||
+      String(exam.createdBy || "").toLowerCase() === teacherEmail
+    );
+  });
+}
+
 app.get("/api/teacher/exams", async (req, res) => {
   await dbInstance.initialSyncPromise;
-  return res.json({ success: true, exams: activeTeacherExams() });
+  return res.json({ success: true, exams: teacherExamsData(teacherEmailFromRequest(req)) });
 });
 
 app.post("/api/teacher/exams", async (req, res) => {
@@ -25253,7 +25289,7 @@ app.get("/api/teacher/workspace", (req, res) => {
       success: true,
       teacherEmail,
       sections: teacherSectionsData(teacherEmail),
-      exams: activeTeacherExams(),
+      exams: teacherExamsData(teacherEmail),
       projects: teacherProjectsData(teacherEmail),
       requests: teacherPasswordResetRequestsData(req, teacherEmail),
       logs: teacherLogsData(teacherEmail),

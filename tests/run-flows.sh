@@ -97,6 +97,7 @@ run_group tests/flows.public-device-login.mjs
 run_group tests/flows.cloud-workspace.mjs
 run_group tests/flows.audit-scope.mjs tests/seed-audit-scope.cjs
 run_group tests/flows.authz-audit.mjs
+run_group tests/flows.student-record-scope.mjs
 run_group tests/flows.demo-hosting.mjs
 run_group tests/flows.login-ip-limit.mjs
 run_group tests/flows.login-identify.mjs tests/seed-login-identify.cjs
