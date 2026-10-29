@@ -90,7 +90,11 @@ const aiInstance = process.env.GEMINI_API_KEY
 const app = express();
 // خلف Cloud Run وسيط واحد؛ ضبطه يجعل req.ip عنوان العميل الحقيقي لا عنوان الوسيط.
 app.set("trust proxy", 1);
-const PORT = isProductionLikeRuntime() ? Number(process.env.PORT || 8080) : 3000;
+// Local/test runs listen on 3000 unless MIRAS_TEST_PORT picks another port
+// (tests/run-flows.sh passes it so the suite can run beside other servers).
+const PORT = isProductionLikeRuntime()
+  ? Number(process.env.PORT || 8080)
+  : Number(process.env.MIRAS_TEST_PORT || 3000);
 
 const PASSKEY_RP_NAME = "مِراس";
 type PasskeyRole = "student" | "teacher";
