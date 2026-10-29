@@ -12,6 +12,9 @@ set -uo pipefail
 cd "$(dirname "$0")/.."
 ROOT="$(pwd)"
 PORT="${MIRAS_TEST_PORT:-3000}"
+# The server and every HTTP test must use the same port as the guard above.
+export MIRAS_TEST_PORT="$PORT"
+export MIRAS_TEST_BASE="${MIRAS_TEST_BASE:-http://localhost:$PORT}"
 CFG="firebase-applet-config.json"
 CFG_BAK="$CFG.flowtest-bak"
 DB="data/db.json"
@@ -94,6 +97,7 @@ run_group tests/flows.public-device-login.mjs
 run_group tests/flows.cloud-workspace.mjs
 run_group tests/flows.audit-scope.mjs tests/seed-audit-scope.cjs
 run_group tests/flows.authz-audit.mjs
+run_group tests/flows.student-record-scope.mjs
 run_group tests/flows.demo-hosting.mjs
 run_group tests/flows.login-ip-limit.mjs
 run_group tests/flows.login-identify.mjs tests/seed-login-identify.cjs
