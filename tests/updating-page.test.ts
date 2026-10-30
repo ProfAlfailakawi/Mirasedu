@@ -5,7 +5,7 @@
 //   U2) لا يمسّ /api ولا /seb ولا غيرَ GET، ولا يحفظ جوابَ 5xx في أيّ ذاكرة، ولا يحفظ
 //       صفحةَ التحديث هيكلاً؛ ودون اتصالٍ حقيقي يبقى الهيكل.
 //   U3) التثبيتُ يحفظ الصفحة في ذاكرةٍ ثابتة يُبقيها التفعيل؛ وبصمةُ البناء باقية.
-//   U4) الصفحة: مستقلّة بلا طلبٍ خارجي، RTL، نهاري/ليلي، تسأل /api/health كل ٣ ثوانٍ
+//   U4) الصفحة («حصة تحديث»): مستقلّة بلا طلبٍ خارجي، RTL، نهاري/ليلي، تسأل /api/health كل ٣ ثوانٍ
 //       وتتباطأ، وتعيد فتح الرابط نفسه، ولا تدور في حلقة.
 //   U5) الخادم: GET /api/health قبل كل وسيط؛ والتطبيق: 5xx بغير JSON على /api ← شريطٌ
 //       هادئ لا رسالةُ خطأ؛ وتعافي الحزم يسأل الخادم قبل أن يمسح شيئاً.
@@ -87,7 +87,7 @@ const deploying = (status: number | 'drop'): Net => async (pathname) => {
 };
 const isUpdatingPage = async (response: Response | null) =>
   !!response && response.status === 503 && response.headers.get('cache-control') === 'no-store' &&
-  /text\/html/.test(response.headers.get('content-type') || '') && (await response.clone().text()).includes('نُحدّث البرنامج الآن');
+  /text\/html/.test(response.headers.get('content-type') || '') && (await response.clone().text()).includes('مِراس في حصة تحديث');
 
 test('U1 a 500/502/503/504 navigation gets the updating page (503, no-store)', async () => {
   for (const status of [500, 502, 503, 504]) {
@@ -173,8 +173,10 @@ test('U4 the page is self-contained, RTL, light/dark, and in Modern Standard Ara
   assert.match(PAGE, /<html lang="ar" dir="rtl">/);
   assert.match(PAGE, /prefers-color-scheme:dark/);
   assert.match(PAGE, /prefers-reduced-motion/);
-  assert.match(PAGE, /<title>نُحدّث البرنامج · مِراس<\/title>/);
-  for (const text of ['نُحدّث البرنامج الآن', 'لحظاتٍ ونعود', 'أعد المحاولة الآن', 'لا اتصال بالإنترنت الآن']) assert.ok(PAGE.includes(text), text);
+  assert.match(PAGE, /<title>حصة تحديث · مِراس<\/title>/);
+  for (const text of ['مِراس في حصة تحديث', 'يُستأنف الدرس بعد قليل', 'تُفتح وحدها', 'جرّب الدخول الآن', 'انقطع الاتصال بالإنترنت', 'أكثر من المعتاد']) assert.ok(PAGE.includes(text), text);
+  assert.match(PAGE, /id="note" role="status" aria-live="polite"/);
+  assert.match(PAGE, /<button type="button" id="retry">/);
   // The app mark itself (brand/miras-mark.svg), not an invented logo.
   assert.ok(PAGE.includes('M386 178A86 86 0 1 0 214 178') && PAGE.includes('M250 219 C 268 308, 244 374, 150 404'));
   // docs/DESIGN.md: no emoji in the interface.
@@ -230,7 +232,7 @@ test('U4 no reload loop: 3 reloads in 2 minutes slow it to every 30 s', async ()
   const now = Date.now();
   const page = runPage({ health: [true], recent: [now - 5000, now - 4000, now - 3000] });
   assert.equal(await page.step(), 30000);
-  assert.ok(page.nodes.lead.textContent.includes('وقتاً أطول'));
+  assert.ok(page.nodes.lead.textContent.includes('أكثر من المعتاد'));
 });
 
 test('U4 opened by name it returns to the start; offline it says so and does not ask', async () => {
@@ -241,7 +243,7 @@ test('U4 opened by name it returns to the start; offline it says so and does not
   const offline = runPage({ health: [true], online: false });
   await offline.step();
   assert.equal(offline.asked.length, 0);
-  assert.ok(offline.nodes.title.textContent.includes('لا اتصال'));
+  assert.ok(offline.nodes.title.textContent.includes('انقطع الاتصال'));
 });
 
 test('U5 server: GET /api/health answers {ok:true} before every middleware', () => {
