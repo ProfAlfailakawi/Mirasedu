@@ -19,11 +19,48 @@ try {
   importScripts('https://www.gstatic.com/firebasejs/10.12.5/firebase-messaging-compat.js');
 } catch (e) {}
 
+/*
+ * «نُحدّث البرنامج» بدل صفحة Google الإنجليزية.
+ *
+ * أثناء نشر miras-api يتبدّل الخادم، فتجيب واجهةُ Google الأمامية بصفحة
+ * «Error: Server Error … try again in 30 seconds» لا يراها خادمُنا أصلاً.
+ * الصفحةُ البديلة (/updating.html) تُحفظ هنا عند التثبيت في ذاكرةٍ ثابتة الاسم
+ * لا يمسحها التفعيل، وتُقدَّم للتنقّل وحده — لا لـ/api ولا لغير GET ولا لجوابٍ
+ * ناجح — حين يعود 500/502/503/504 أو ينقطع الطلب والجهازُ متّصل.
+ * لا يُحفظ جوابُ 5xx في أيّ ذاكرة هنا أبداً.
+ */
+const MIRAS_UPDATING_CACHE = 'miras-updating';
+const MIRAS_UPDATING_PAGE = '/updating.html';
+const isMirasUpdatingStatus = (status) => status === 500 || status === 502 || status === 503 || status === 504;
+async function storeMirasUpdatingPage() {
+  const response = await fetch(MIRAS_UPDATING_PAGE, { cache: 'no-store' });
+  if (response.ok && (response.headers.get('content-type') || '').includes('text/html')) {
+    await (await caches.open(MIRAS_UPDATING_CACHE)).put(MIRAS_UPDATING_PAGE, response);
+  }
+}
+/* مسحتها الاستعادةُ مع كل الذاكرة؟ تُعاد بعد أول تنقّلٍ ناجح، ولا يُنتظر ذلك. */
+function refillMirasUpdatingPage() {
+  return caches.open(MIRAS_UPDATING_CACHE)
+    .then((cache) => cache.match(MIRAS_UPDATING_PAGE))
+    .then((hit) => (hit ? undefined : storeMirasUpdatingPage()))
+    .catch(() => undefined);
+}
+async function mirasUpdatingResponse() {
+  const page = await caches.open(MIRAS_UPDATING_CACHE).then((cache) => cache.match(MIRAS_UPDATING_PAGE)).catch(() => undefined);
+  if (!page) return null;
+  return new Response(await page.text(), {
+    status: 503,
+    statusText: 'Service Unavailable',
+    headers: { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store', 'Retry-After': '5', 'X-Miras-Updating': '1' }
+  });
+}
+
 self.addEventListener('install', (event) => {
   self.skipWaiting();
   event.waitUntil(Promise.all([
     initMirasFirebaseMessaging(),
-    caches.open(MIRAS_CACHE_VERSION).then((cache) => cache.addAll(MIRAS_STATIC_ASSETS)).catch(() => undefined)
+    caches.open(MIRAS_CACHE_VERSION).then((cache) => cache.addAll(MIRAS_STATIC_ASSETS)).catch(() => undefined),
+    storeMirasUpdatingPage().catch(() => undefined)
   ]));
 });
 self.addEventListener('activate', (event) => {
@@ -406,19 +443,34 @@ self.addEventListener('fetch', (event) => {
 
   if (request.mode === 'navigate') {
     event.respondWith((async () => {
+      let fresh;
       try {
-        const fresh = await fetch(request, { cache: 'no-store' });
-        const cache = await caches.open(MIRAS_CACHE_VERSION);
-        cache.put('/', fresh.clone()).catch(() => undefined);
-        return fresh;
+        fresh = await fetch(request, { cache: 'no-store' });
       } catch {
-        const cached = await caches.match('/') || await caches.match('/index.html');
-        if (cached) return cached;
-        return new Response('مِراس غير متصل حالياً. أعد المحاولة عند توفر الاتصال.', {
-          status: 503,
-          headers: { 'Content-Type': 'text/plain; charset=utf-8' }
-        });
+        fresh = null;
       }
+      if (fresh) {
+        // 5xx = المنصّة تبدّل الخادم: صفحةُ التحديث تنتظره وتعيد فتح الرابط نفسه.
+        if (isMirasUpdatingStatus(fresh.status)) return (await mirasUpdatingResponse()) || fresh;
+        // الهيكل لا يُحفظ إلا من جوابٍ ناجح، ولا تُحفظ صفحةُ التحديث نفسها هيكلاً.
+        if (fresh.ok && url.pathname !== MIRAS_UPDATING_PAGE) {
+          const cache = await caches.open(MIRAS_CACHE_VERSION);
+          cache.put('/', fresh.clone()).catch(() => undefined);
+        }
+        if (fresh.ok) void refillMirasUpdatingPage();
+        return fresh;
+      }
+      // انقطع الطلب والجهازُ يقول إنه متّصل: هي لحظةُ النشر نفسها. دون اتصالٍ حقيقي يبقى الهيكل.
+      if (self.navigator?.onLine !== false) {
+        const page = await mirasUpdatingResponse();
+        if (page) return page;
+      }
+      const cached = await caches.match('/') || await caches.match('/index.html');
+      if (cached) return cached;
+      return new Response('مِراس غير متصل حالياً. أعد المحاولة عند توفر الاتصال.', {
+        status: 503,
+        headers: { 'Content-Type': 'text/plain; charset=utf-8' }
+      });
     })());
     return;
   }

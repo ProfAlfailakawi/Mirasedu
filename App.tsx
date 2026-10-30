@@ -1,4 +1,5 @@
 import { groupSecurityNotifications } from "./src/shared/security-notification-groups";
+import { isPlatformUpdating, showUpdatingNotice, updatingJsonResponse } from "./src/shared/updating-notice";
 import { studentSubmissionDisplayText } from "./src/shared/submission-display-text";
 import { keepSolutionBottomRoom } from "./src/shared/solution-scroll-room";
 import { joinCodeIssueScopeEmail as joinCodeIssueScopeEmailFor } from "./src/shared/join-code-issue-scope";
@@ -3208,6 +3209,13 @@ async function mirasFetch(
       }
     } catch {}
     const resp = await mirasFetchWithRecovery(input, init);
+    /* خادمُنا يجيب /api بـJSON دائماً. صفحة 5xx بـHTML هي المنصّة تبدّل الخادم أثناء
+       النشر: شريطٌ هادئ واحد ورسالةٌ هادئة بدل «تعذر التنفيذ». (src/shared/updating-notice.ts) */
+    if (requestPath.startsWith("/api/") && isPlatformUpdating(resp.status, resp.headers.get("content-type"))) {
+      showUpdatingNotice();
+      if (trackFaviconRequest) notifyMirasFaviconActionResult("attention", resp.status);
+      return updatingJsonResponse(trackMutatingRequest);
+    }
     if (resp.status === 403 || resp.status === 409) {
       try {
         const clone = resp.clone();

@@ -90,6 +90,12 @@ const aiInstance = process.env.GEMINI_API_KEY
 const app = express();
 // خلف Cloud Run وسيط واحد؛ ضبطه يجعل req.ip عنوان العميل الحقيقي لا عنوان الوسيط.
 app.set("trust proxy", 1);
+// هل الخادم يجيب أصلاً؟ تسأله صفحة «نُحدّث البرنامج» (public/updating.html) وشريط
+// التطبيق أثناء النشر. قبل كل وسيط عمداً: بلا جلسة، ولا ينتظر قاعدة البيانات، ولا يكتب شيئاً.
+app.get("/api/health", (_req, res) => {
+  res.setHeader("Cache-Control", "no-store");
+  res.json({ ok: true });
+});
 // Local/test runs listen on 3000 unless MIRAS_TEST_PORT picks another port
 // (tests/run-flows.sh passes it so the suite can run beside other servers).
 const PORT = isProductionLikeRuntime()

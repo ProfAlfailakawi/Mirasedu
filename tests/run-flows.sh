@@ -126,6 +126,7 @@ node node_modules/.bin/tsx --test tests/journey-reveal.test.ts || overall=1
 node node_modules/.bin/tsx --test tests/journey-reveal-render.test.tsx || overall=1
 node node_modules/.bin/tsx --test tests/motion.test.tsx || overall=1
 node node_modules/.bin/tsx --test tests/cloud-readiness-probe.test.ts || overall=1
+node node_modules/.bin/tsx --test tests/updating-page.test.ts || overall=1
 node node_modules/.bin/tsx --test tests/password-reset-routing.test.ts || overall=1
 node node_modules/.bin/tsx --test tests/home-password-reset-requests.test.ts || overall=1
 node node_modules/.bin/tsx --test tests/password-reset-retention.test.ts || overall=1
