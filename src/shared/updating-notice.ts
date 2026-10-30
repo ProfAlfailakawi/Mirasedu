@@ -6,14 +6,14 @@
  * تحاول قراءتها JSON فتعرض «تعذر التنفيذ»، وكان تعافي الحزم يظنّ التعثّر نسخةً
  * قديمة فيمسح الذاكرة ويُسقط العامل في اللحظة التي يلزم فيها.
  *
- * هنا يُعرف ذلك الجواب، ويظهر شريطٌ هادئ واحد بدل رسالة الخطأ، ويسأل
+ * هنا يُعرف ذلك الجواب، وتظهر رسالةٌ عائمة واحدة («حصة تحديث») بدل رسالة الخطأ، ويسأل
  * /api/health كل ثلاث ثوانٍ حتى يعود الخادم فيختفي ويُعلم من ينتظر.
  */
 
 const UPDATING_STATUSES = new Set([500, 502, 503, 504]);
 
-export const UPDATING_MESSAGE = "نُحدّث البرنامج الآن، لحظاتٍ ونعود.";
-export const UPDATING_WRITE_MESSAGE = `${UPDATING_MESSAGE} إن كنت تحفظ تغييراً فتأكد من حالته بعد عودتنا.`;
+export const UPDATING_MESSAGE = "مِراس في حصة تحديث قصيرة، ويُستأنف الدرس بعد قليل.";
+export const UPDATING_WRITE_MESSAGE = `${UPDATING_MESSAGE} إن كنت تحفظ تغييراً فراجِعه حين يُقرع الجرس.`;
 /** يُطلق على window حين يعود الخادم. */
 export const SERVER_BACK_EVENT = "miras:server-back";
 export const HEALTH_URL = "/api/health";
@@ -54,18 +54,42 @@ export const nextDelay = (tries: number) => Math.min(15_000, Math.round(3000 * M
 export function showUpdatingNotice(probe: () => Promise<boolean> = serverAnswers, onBack?: () => void): void {
   if (onBack) waiting.add(onBack);
   if (notice || typeof document === "undefined" || !document.body) return;
+  // بشكل الرسائل العائمة في التطبيق (.miras-floating-toast): مربّع أيقونة ملوّن ونصّ عريض.
   const bar = document.createElement("div");
   bar.className = "miras-updating-notice";
   bar.setAttribute("role", "status");
   bar.setAttribute("aria-live", "polite");
   bar.dir = "rtl";
-  bar.textContent = UPDATING_MESSAGE;
   bar.style.cssText = [
-    "position:fixed", "inset-inline:0", "bottom:max(18px,env(safe-area-inset-bottom))", "margin:0 auto", "width:max-content", "max-width:calc(100vw - 32px)",
-    "z-index:2147483000", "padding:11px 18px", "border-radius:14px", "font-family:inherit", "font-size:14px", "font-weight:700", "line-height:1.6",
-    "background:var(--miras-surface,#fff)", "color:var(--miras-ink,#0B1020)", "border:1px solid var(--miras-line,#E6EAF2)",
-    "box-shadow:var(--miras-e3,0 18px 44px rgba(11,16,32,.12))", "text-align:center", "pointer-events:none",
+    "position:fixed", "inset-inline:0", "bottom:calc(env(safe-area-inset-bottom,0px) + 1.25rem)", "margin:0 auto",
+    "width:min(30rem,calc(100vw - 1.5rem))", "z-index:2147483000", "display:flex", "align-items:center", "gap:0.6rem",
+    "padding:0.55rem 0.75rem", "border-radius:var(--miras-r-lg,20px)", "font-family:inherit", "text-align:right",
+    "background:var(--miras-surface,#fff)", "color:var(--miras-brand-ink,#312E81)", "border:1px solid var(--miras-brand-line,#DCDCFB)",
+    "box-shadow:var(--miras-e3,0 18px 44px rgba(11,16,32,.12))", "pointer-events:none",
   ].join(";");
+  const tile = document.createElement("span");
+  tile.setAttribute("aria-hidden", "true");
+  tile.style.cssText = "display:grid;place-items:center;flex:none;width:2.25rem;height:2.25rem;border-radius:0.9rem;background:var(--miras-brand-tint,#EEF0FE);color:var(--miras-brand,#4338CA)";
+  const svgNs = "http://www.w3.org/2000/svg";
+  const bell = document.createElementNS(svgNs, "svg");
+  bell.setAttribute("viewBox", "0 0 24 24");
+  bell.setAttribute("width", "18");
+  bell.setAttribute("height", "18");
+  bell.setAttribute("fill", "none");
+  bell.setAttribute("stroke", "currentColor");
+  bell.setAttribute("stroke-width", "1.75");
+  bell.setAttribute("stroke-linecap", "round");
+  bell.setAttribute("stroke-linejoin", "round");
+  for (const d of ["M10.268 21a2 2 0 0 0 3.464 0", "M3.262 15.326A1 1 0 0 0 4 17h16a1 1 0 0 0 .74-1.673C19.41 13.956 18 12.499 18 8A6 6 0 0 0 6 8c0 4.499-1.411 5.956-2.738 7.326"]) {
+    const path = document.createElementNS(svgNs, "path");
+    path.setAttribute("d", d);
+    bell.appendChild(path);
+  }
+  tile.appendChild(bell);
+  const text = document.createElement("span");
+  text.textContent = UPDATING_MESSAGE;
+  text.style.cssText = "flex:1;min-width:0;font-size:0.8125rem;font-weight:700;line-height:1.6";
+  bar.append(tile, text);
   document.body.appendChild(bar);
   notice = bar;
   let tries = 0;

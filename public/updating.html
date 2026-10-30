@@ -1,6 +1,9 @@
 <!doctype html>
 <!--
-  صفحة «نُحدّث البرنامج».
+  صفحة «حصة تحديث» (البرنامج يُحدَّث).
+
+  الفكرة: بطاقة جدول حصص؛ الحصة الجارية اسمها «تحديث» وحولها حلقة عدٍّ تنازلي
+  تمتلئ كجرس يقترب، والحصة التالية هي صفحة الزائر نفسها.
 
   أثناء نشر خدمة miras-api على Cloud Run يتبدّل الخادم، فتجيب واجهةُ Google
   الأماميّة بصفحة خطأٍ إنجليزية (500/502/503/504) لا يكتبها خادمُنا أصلاً.
@@ -21,88 +24,159 @@
 <meta name="color-scheme" content="light dark">
 <meta name="theme-color" content="#F5F7FB" media="(prefers-color-scheme: light)">
 <meta name="theme-color" content="#0A0A12" media="(prefers-color-scheme: dark)">
-<title>نُحدّث البرنامج · مِراس</title>
+<title>حصة تحديث · مِراس</title>
 <style>
+/* رموز مِراس نفسها (index.css: --miras-*) منسوخةً هنا لأن الصفحة مستقلّة. */
 :root{
-  --bg:#F5F7FB;--ink:#0B1020;--muted:#46506A;--line:rgb(11 16 32 / .10);
-  --accent:#4338CA;--glow:rgba(67,56,202,.12);--scan:#4338CA;--spark:#4338CA;--spark-2:#8B80FF;
-  --button:#FFFFFF;--button-line:#E6EAF2;--shadow:rgba(49,46,129,.30);
+  --brand:#4338CA;--brand-strong:#312E81;--brand-tint:#EEF0FE;--brand-line:#DCDCFB;--brand-on:#FFFFFF;
+  --surface:#FFFFFF;--surface-2:#F5F7FB;--surface-3:#EDF1F8;--line:#E6EAF2;--line-soft:#EFF2F7;
+  --ink:#0B1020;--ink-2:#46506A;--ink-3:#6B7690;--ok:#14956b;
+  --grid:rgb(67 56 202 / .06);
+  --e3:0 4px 10px rgba(11,16,32,.05),0 18px 44px rgba(11,16,32,.09);
+  --e2:0 2px 4px rgba(11,16,32,.04),0 8px 20px rgba(11,16,32,.06);
   color-scheme:light;
 }
 @media (prefers-color-scheme:dark){
   :root{
-    --bg:#0A0A12;--ink:#F2F4FA;--muted:#AFB6C9;--line:rgb(255 255 255 / .09);
-    --accent:#8B80FF;--glow:rgba(139,128,255,.20);--scan:#8B80FF;--spark:#8B80FF;--spark-2:#C9C4FF;
-    --button:#12121C;--button-line:#262636;--shadow:rgba(0,0,0,.6);
+    --brand:#8B80FF;--brand-strong:#B4ACFF;--brand-tint:#221E4D;--brand-line:#322C6B;--brand-on:#0B0A1F;
+    --surface:#12121C;--surface-2:#0A0A12;--surface-3:#1B1B29;--line:#262636;--line-soft:#1F1F2E;
+    --ink:#F2F4FA;--ink-2:#AFB6C9;--ink-3:#848DA4;--ok:#46c79c;
+    --grid:rgb(139 128 255 / .07);
+    --e3:0 4px 10px rgba(0,0,0,.46),0 18px 44px rgba(0,0,0,.46);
+    --e2:0 2px 4px rgba(0,0,0,.44),0 8px 20px rgba(0,0,0,.40);
     color-scheme:dark;
   }
 }
 *{box-sizing:border-box}
-html,body{height:100%}
+html,body{min-height:100%}
 body{
-  margin:0;min-height:100%;display:grid;place-items:center;
-  padding:max(24px,env(safe-area-inset-top)) 16px max(24px,env(safe-area-inset-bottom));
-  background:radial-gradient(circle at 50% 40%,var(--glow),transparent 46%),var(--bg);
+  margin:0;min-height:100vh;display:flex;align-items:center;justify-content:center;
+  padding:max(20px,env(safe-area-inset-top)) 16px max(20px,env(safe-area-inset-bottom));
+  /* ورقة دفترٍ مربّعة خفيفة خلف البطاقة */
+  background-color:var(--surface-2);
+  background-image:linear-gradient(var(--grid) 1px,transparent 1px),linear-gradient(90deg,var(--grid) 1px,transparent 1px);
+  background-size:22px 22px;background-position:center;
   color:var(--ink);
-  font-family:"Tajawal",-apple-system,BlinkMacSystemFont,"Segoe UI","Noto Sans Arabic",Tahoma,sans-serif;
-  font-synthesis:none;-webkit-font-smoothing:antialiased;text-align:center;
+  font-family:"Tajawal","IBM Plex Sans Arabic","Noto Sans Arabic",-apple-system,BlinkMacSystemFont,"Segoe UI",Tahoma,sans-serif;
+  font-synthesis:none;-webkit-font-smoothing:antialiased;text-align:start;
 }
-main{display:grid;justify-items:center;gap:0;max-width:420px;width:100%}
-.stage{position:relative;width:132px;height:132px;display:grid;place-items:center;margin-bottom:30px}
-.halo{position:absolute;inset:0;width:100%;height:100%;animation:turn 3.6s linear infinite}
-.halo circle{fill:none;stroke-width:2;stroke-linecap:round}
-.halo .track{stroke:var(--line)}
-.halo .arc{stroke:var(--accent);stroke-dasharray:96 400;opacity:.85}
-.mark{width:84px;height:84px;display:block;filter:drop-shadow(0 18px 30px var(--shadow))}
-.mark .meem{transform-box:fill-box;transform-origin:50% 50%;animation:breathe 2.4s cubic-bezier(.45,0,.25,1) infinite}
-.spark{position:absolute;fill:var(--spark);animation:twinkle 2.4s ease-in-out infinite}
-.spark.one{width:20px;height:20px;top:6px;inset-inline-start:8px}
-.spark.two{width:12px;height:12px;bottom:14px;inset-inline-end:6px;fill:var(--spark-2);animation-delay:1.2s}
-h1{margin:0;font-size:clamp(22px,5.6vw,27px);font-weight:700;line-height:1.5;letter-spacing:0}
-.lead{margin:6px 0 0;font-size:16px;line-height:1.7;color:var(--muted)}
-.pulse{width:132px;height:2px;margin:26px 0 28px;border-radius:99px;background:var(--line);overflow:hidden}
-.pulse i{display:block;width:36%;height:100%;border-radius:inherit;background:linear-gradient(90deg,transparent,var(--scan),transparent);animation:scan 1.5s ease-in-out infinite}
+.card{
+  width:100%;max-width:400px;background:var(--surface);border:1px solid var(--line);
+  border-radius:26px;box-shadow:var(--e3);overflow:hidden;
+}
+.top{display:flex;align-items:center;gap:10px;padding:14px 18px;border-bottom:1px dashed var(--line)}
+.top .mark{width:36px;height:36px;flex:none;display:block;border-radius:11px}
+.top div{line-height:1.3}
+.top b{font-size:15px;font-weight:800}
+.top small{display:block;font-size:12px;font-weight:500;color:var(--ink-3)}
+.bell{
+  margin-inline-start:auto;display:inline-flex;align-items:center;gap:6px;
+  height:30px;padding:0 11px;border-radius:999px;background:var(--brand-tint);color:var(--brand);
+  font-size:12px;font-weight:700;white-space:nowrap;
+}
+.bell svg{width:15px;height:15px;transform-origin:50% 10%;animation:ring 4s ease-in-out infinite}
+.intro{padding:20px 18px 6px}
+h1{margin:0;font-size:24px;font-weight:800;line-height:1.45;letter-spacing:0}
+.lead{margin:4px 0 0;font-size:15.5px;line-height:1.75;color:var(--ink-2)}
+ol{list-style:none;margin:14px 0 0;padding:0 12px;display:grid;gap:8px}
+li{display:flex;align-items:center;gap:12px;padding:10px 12px;border-radius:16px}
+.slot{flex:none;width:44px;height:44px;border-radius:14px;display:grid;place-items:center;font-size:15px;font-weight:800}
+.what{flex:1;min-width:0}
+.what b{display:block;font-size:15px;font-weight:700;line-height:1.4}
+.what span{display:block;font-size:12.5px;line-height:1.5;color:var(--ink-3)}
+.tag{flex:none;font-size:12px;font-weight:700;padding:4px 10px;border-radius:999px;white-space:nowrap}
+.done{opacity:.72}
+.done .slot{background:var(--surface-3);color:var(--ink-3)}
+.done .what b{color:var(--ink-2)}
+.done .tag{color:var(--ok);display:inline-flex;align-items:center;gap:4px}
+.done .tag svg{width:14px;height:14px}
+.now{background:var(--brand-tint);border:1px solid var(--brand-line);padding:12px;box-shadow:var(--e2)}
+.now .what b{font-size:20px;font-weight:800;color:var(--brand-strong)}
+.now .what span{color:var(--ink-2)}
+.now .tag{background:var(--brand);color:var(--brand-on)}
+.clock{flex:none;position:relative;width:56px;height:56px}
+.clock svg{width:100%;height:100%;display:block;transform:rotate(-90deg)}
+.clock circle{fill:none;stroke-width:5;stroke-linecap:round}
+.clock .track{stroke:var(--brand-line)}
+.clock .fill{stroke:var(--brand);stroke-dasharray:138.2;stroke-dashoffset:138.2;animation:count 8s linear infinite}
+.clock i{position:absolute;inset:0;display:grid;place-items:center;font-style:normal;font-size:17px;font-weight:800;color:var(--brand)}
+.next .slot{border:1.5px dashed var(--brand-line);color:var(--brand)}
+.next .tag{color:var(--ink-3);border:1px solid var(--line)}
+.foot{margin-top:16px;padding:16px 18px 18px;background:var(--surface-2);border-top:1px solid var(--line-soft);display:grid;gap:10px}
+.note{margin:0;min-height:22px;font-size:13.5px;line-height:1.7;color:var(--ink-2)}
 button{
-  min-height:44px;padding:0 22px;border-radius:14px;cursor:pointer;
-  border:1px solid var(--button-line);background:var(--button);color:var(--ink);
-  font:inherit;font-size:14px;font-weight:700;
-  transition:border-color .2s ease,transform .2s ease;
+  min-height:48px;width:100%;padding:0 20px;border-radius:14px;cursor:pointer;
+  border:0;background:var(--brand);color:var(--brand-on);
+  font:inherit;font-size:15px;font-weight:800;
+  display:inline-flex;align-items:center;justify-content:center;gap:8px;
+  box-shadow:0 8px 18px rgb(67 56 202 / .22);
+  transition:filter .2s ease,transform .2s ease;
 }
-button:hover{border-color:var(--accent)}
+button svg{width:18px;height:18px}
+button:hover{filter:brightness(1.07)}
 button:active{transform:scale(.98)}
-button:focus-visible{outline:2px solid var(--accent);outline-offset:3px}
-.note{min-height:20px;margin:14px 0 0;font-size:12.5px;line-height:1.6;color:var(--muted)}
-@keyframes turn{to{transform:rotate(360deg)}}
-@keyframes breathe{0%,100%{transform:scale(1)}50%{transform:scale(.9)}}
-@keyframes twinkle{0%,100%{opacity:.25;transform:scale(.7) rotate(0)}50%{opacity:1;transform:scale(1) rotate(20deg)}}
-@keyframes scan{0%{transform:translateX(130%)}100%{transform:translateX(-360%)}}
+button:focus-visible{outline:2px solid var(--brand);outline-offset:3px}
+@keyframes count{0%{stroke-dashoffset:138.2}90%,100%{stroke-dashoffset:0}}
+@keyframes ring{0%,80%,100%{transform:rotate(0)}84%{transform:rotate(14deg)}88%{transform:rotate(-12deg)}92%{transform:rotate(8deg)}96%{transform:rotate(-4deg)}}
 @media (prefers-reduced-motion:reduce){
-  .halo,.mark .meem,.spark,.pulse i{animation:none}
-  .spark{opacity:.8}
+  .clock .fill,.bell svg{animation:none}
+  .clock .fill{stroke-dashoffset:42}
+  button{transition:none}
 }
 </style>
 </head>
 <body>
-<main>
-  <div class="stage" aria-hidden="true">
-    <svg class="halo" viewBox="0 0 132 132" focusable="false"><circle class="track" cx="66" cy="66" r="63"/><circle class="arc" cx="66" cy="66" r="63"/></svg>
+<main class="card">
+  <header class="top">
     <!-- أيقونة البرنامج نفسها: علامة الميم من brand/miras-mark.svg على مربّع النيلي. -->
-    <svg class="mark" viewBox="0 0 512 512" focusable="false">
+    <svg class="mark" viewBox="0 0 512 512" focusable="false" aria-hidden="true">
       <defs><linearGradient id="tile" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#5148D6"/><stop offset="1" stop-color="#3730A3"/></linearGradient></defs>
       <rect width="512" height="512" rx="115" fill="url(#tile)"/>
-      <g transform="translate(256 256) scale(.95) translate(-268 -248)"><g class="meem" fill="#FFFFFF" stroke="#FFFFFF">
+      <g transform="translate(256 256) scale(.95) translate(-268 -248)"><g fill="#FFFFFF" stroke="#FFFFFF">
         <path fill-rule="evenodd" stroke="none" d="M386 178A86 86 0 1 0 214 178A86 86 0 1 0 386 178ZM342 178A42 42 0 1 1 258 178A42 42 0 1 1 342 178Z"/>
         <path d="M250 219 C 268 308, 244 374, 150 404" stroke-width="44" stroke-linecap="butt" fill="none"/>
       </g></g>
     </svg>
-    <svg class="spark one" viewBox="0 0 24 24" focusable="false"><path d="M12 0c.7 6.4 5.6 11.3 12 12-6.4.7-11.3 5.6-12 12-.7-6.4-5.6-11.3-12-12C6.4 11.3 11.3 6.4 12 0z"/></svg>
-    <svg class="spark two" viewBox="0 0 24 24" focusable="false"><path d="M12 0c.7 6.4 5.6 11.3 12 12-6.4.7-11.3 5.6-12 12-.7-6.4-5.6-11.3-12-12C6.4 11.3 11.3 6.4 12 0z"/></svg>
-  </div>
-  <h1 id="title">نُحدّث البرنامج الآن</h1>
-  <p class="lead" id="lead">لحظاتٍ ونعود</p>
-  <div class="pulse" aria-hidden="true"><i></i></div>
-  <button type="button" id="retry">أعد المحاولة الآن</button>
-  <p class="note" id="note" role="status" aria-live="polite">ستُفتح الصفحة التي طلبتها تلقائياً حين نعود.</p>
+    <div><b>مِراس</b><small>جدول اليوم</small></div>
+    <span class="bell" aria-hidden="true">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M10.268 21a2 2 0 0 0 3.464 0"/><path d="M3.262 15.326A1 1 0 0 0 4 17h16a1 1 0 0 0 .74-1.673C19.41 13.956 18 12.499 18 8A6 6 0 0 0 6 8c0 4.499-1.411 5.956-2.738 7.326"/></svg>
+      الجرس قريب
+    </span>
+  </header>
+
+  <section class="intro">
+    <h1 id="title">مِراس في حصة تحديث</h1>
+    <p class="lead" id="lead">نُجهّز الصف، ويُستأنف الدرس بعد قليل.</p>
+  </section>
+
+  <ol aria-label="جدول الحصص">
+    <li class="done">
+      <span class="slot" aria-hidden="true">١</span>
+      <span class="what"><b>الحصة السابقة</b><span>ما أنجزته محفوظ</span></span>
+      <span class="tag"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>انتهت</span>
+    </li>
+    <li class="now" aria-current="step">
+      <span class="clock" aria-hidden="true">
+        <svg viewBox="0 0 56 56" focusable="false"><circle class="track" cx="28" cy="28" r="22"/><circle class="fill" cx="28" cy="28" r="22"/></svg>
+        <i>٢</i>
+      </span>
+      <span class="what"><b>تحديث</b><span>نرتّب الصف لك الآن</span></span>
+      <span class="tag">الآن</span>
+    </li>
+    <li class="next">
+      <span class="slot" aria-hidden="true">٣</span>
+      <span class="what"><b>صفحتك</b><span>تُفتح تلقائياً بعد الجرس</span></span>
+      <span class="tag">التالية</span>
+    </li>
+  </ol>
+
+  <footer class="foot">
+    <p class="note" id="note" role="status" aria-live="polite">ابقَ في مقعدك: صفحتك تُفتح وحدها حين يُقرع الجرس.</p>
+    <button type="button" id="retry">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M8 16H3v5"/></svg>
+      جرّب الدخول الآن
+    </button>
+  </footer>
 </main>
 <script>
 (function () {
@@ -136,17 +210,17 @@ button:focus-visible{outline:2px solid var(--accent);outline-offset:3px}
 
   function describe() {
     if (navigator.onLine === false) {
-      title.textContent = "لا اتصال بالإنترنت الآن";
-      lead.textContent = "سنعود تلقائياً حين يعود الاتصال";
+      title.textContent = "انقطع الاتصال بالإنترنت";
+      lead.textContent = "نُكمل الدرس حين يعود الاتصال، دون أن تفعل شيئاً.";
       note.textContent = "";
     } else if (stuck()) {
-      title.textContent = "نُحدّث البرنامج الآن";
-      lead.textContent = "يستغرق ذلك وقتاً أطول من المعتاد";
-      note.textContent = "سنحاول مرّةً كل نصف دقيقة، ويمكنك المحاولة الآن.";
+      title.textContent = "مِراس في حصة تحديث";
+      lead.textContent = "طالت الحصة اليوم أكثر من المعتاد، فشكراً على صبرك.";
+      note.textContent = "نتفقّد الصف مرّةً كل نصف دقيقة، ولك أن تجرّب الدخول الآن.";
     } else {
-      title.textContent = "نُحدّث البرنامج الآن";
-      lead.textContent = "لحظاتٍ ونعود";
-      note.textContent = "ستُفتح الصفحة التي طلبتها تلقائياً حين نعود.";
+      title.textContent = "مِراس في حصة تحديث";
+      lead.textContent = "نُجهّز الصف، ويُستأنف الدرس بعد قليل.";
+      note.textContent = "ابقَ في مقعدك: صفحتك تُفتح وحدها حين يُقرع الجرس.";
     }
   }
 
