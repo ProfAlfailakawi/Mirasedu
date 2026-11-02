@@ -35266,12 +35266,11 @@ ${rows
                 <button
                   type="button"
                   onClick={() => setInstructorMode(true)}
-                  className="absolute right-6 top-6 inline-flex h-11 min-w-11 items-center justify-center gap-2 rounded-2xl border border-indigo-200 bg-indigo-50 px-3 text-indigo-700 shadow-sm backdrop-blur-xl transition-all duration-300 hover:bg-indigo-100 active:scale-95 sm:right-8 sm:top-8"
+                  className="absolute right-6 top-6 inline-flex h-10 w-10 items-center justify-center rounded-2xl border border-slate-200/60 bg-white/70 text-slate-500 shadow-sm backdrop-blur-xl transition-all duration-300 hover:bg-white hover:text-indigo-700 active:scale-95"
                   title="تسجيل الدخول"
                   aria-label="تسجيل الدخول"
                 >
                   <Lock className="h-4.5 w-4.5" />
-                  <span className="text-[11px] font-extrabold">تسجيل الدخول</span>
                 </button>
               )}
 
@@ -35602,6 +35601,13 @@ ${rows
                             />
                           </div>
 
+                          <button
+                            type="button"
+                            onClick={handleForgotPassword}
+                            className="text-[11px] font-bold text-indigo-700 hover:underline"
+                          >
+                            نسيت كلمة المرور؟
+                          </button>
                         </>
                       )}
 
@@ -35712,30 +35718,6 @@ ${rows
                 </div>
               )}
             </div>
-            {instructorMode && !passwordResetToken && !showCompactPasskeyLogin && (
-              <div
-                dir="rtl"
-                className="miras-auth-helpbar relative z-20 mt-3 grid w-full max-w-xl grid-cols-2 gap-2 rounded-2xl border border-white/80 bg-white/95 p-2 shadow-lg backdrop-blur-xl sm:mt-4 sm:gap-3 sm:p-3"
-                aria-label="خيارات حساب الطالب"
-              >
-                <button
-                  type="button"
-                  onClick={() => setInstructorMode(false)}
-                  className="flex min-h-12 items-center justify-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2.5 text-center text-[12px] font-extrabold text-emerald-800 transition hover:bg-emerald-100 active:scale-[.98] sm:min-h-14 sm:text-sm"
-                >
-                  <UserPlus className="h-4 w-4 shrink-0 sm:h-5 sm:w-5" aria-hidden="true" />
-                  <span>تفعيل / إنشاء حساب</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => void handleForgotPassword()}
-                  className="flex min-h-12 items-center justify-center gap-2 rounded-xl border border-indigo-200 bg-indigo-50 px-3 py-2.5 text-center text-[12px] font-extrabold text-indigo-800 transition hover:bg-indigo-100 active:scale-[.98] sm:min-h-14 sm:text-sm"
-                >
-                  <KeyRound className="h-4 w-4 shrink-0 sm:h-5 sm:w-5" aria-hidden="true" />
-                  <span>تغيير الرقم السري</span>
-                </button>
-              </div>
-            )}
           </div>
         )}
 
