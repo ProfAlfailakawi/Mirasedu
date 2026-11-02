@@ -19148,6 +19148,63 @@ html[data-theme="dark"] body .miras-teacher-alert-popover .miras-teacher-alert-d
 #root .miras-teacher-five-nav:not(#_):not(#_) { grid-template-columns: repeat(5, minmax(0, 1fr)) !important; }
 
 /* تفعيل الطلبة: الملخص يأخذ سطره كاملاً تحت العنوان والشرائح بدل أن ينحشر بينهما (سطح المكتب والتابلت) */
+/* Keep the activation and password-reset confirmation controls inside the visible
+   phone viewport while preserving the existing form and its scroll behavior. */
+@media (max-width: 640px) {
+  .miras-activation-fixed-page {
+    height: 100dvh !important;
+    max-height: 100dvh !important;
+    min-height: 100dvh !important;
+    justify-content: flex-start !important;
+    overflow-y: auto !important;
+    padding-bottom: max(1rem, env(safe-area-inset-bottom, 0px)) !important;
+    scroll-padding-bottom: max(1rem, env(safe-area-inset-bottom, 0px)) !important;
+  }
+
+  .miras-activation-fixed-page > .miras-activation-card {
+    flex: 0 0 auto !important;
+    max-height: none !important;
+    overflow: visible !important;
+    margin-block: 0 !important;
+    transform: none !important;
+    padding: 1.25rem !important;
+  }
+
+  .miras-activation-submit {
+    position: sticky !important;
+    bottom: max(.5rem, env(safe-area-inset-bottom, 0px)) !important;
+    z-index: 10 !important;
+    box-shadow: 0 8px 22px rgba(15, 23, 42, .22) !important;
+  }
+
+  .meras-auth-shell:has(.miras-password-reset-card) {
+    height: 100dvh !important;
+    min-height: 100dvh !important;
+    max-height: 100dvh !important;
+    overflow-y: auto !important;
+    justify-content: flex-start !important;
+    padding-top: max(.5rem, env(safe-area-inset-top, 0px)) !important;
+    padding-bottom: max(.75rem, env(safe-area-inset-bottom, 0px)) !important;
+    scroll-padding-bottom: max(.75rem, env(safe-area-inset-bottom, 0px)) !important;
+  }
+
+  .miras-password-reset-card {
+    flex: 0 0 auto !important;
+    max-height: none !important;
+    overflow: visible !important;
+    margin-block: 0 !important;
+    justify-content: flex-start !important;
+  }
+
+  .miras-password-reset-card .meras-main-action {
+    position: sticky !important;
+    bottom: max(.5rem, env(safe-area-inset-bottom, 0px)) !important;
+    z-index: 10 !important;
+    box-shadow: 0 8px 22px rgba(15, 23, 42, .22) !important;
+  }
+}
+
+/* تفعيل الطلبة: الملخص يأخذ سطره كاملاً تحت العنوان والشرائح بدل أن ينحشر بينهما (سطح المكتب والتابلت) */
 @media (min-width: 761px) {
   .miras-manual-activation-card .miras-manual-activation-toggle {
     flex-wrap: wrap !important;

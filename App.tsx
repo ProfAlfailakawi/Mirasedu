@@ -35218,7 +35218,7 @@ ${rows
             role="main"
             className="meras-auth-shell miras-calm-auth min-h-[100dvh] flex flex-col items-center justify-center px-4 py-4 relative overflow-hidden bg-[#f4f5f8]"
           >
-            <div className={`meras-auth-card w-full max-w-xl h-auto max-h-[calc(100dvh-2rem)] overflow-y-auto flex flex-col justify-center glass-panel rounded-[var(--miras-r-xl)] shadow-premium-lg p-8 sm:p-10 border border-white/60 relative z-10 transition-all duration-300`}>
+            <div className={`meras-auth-card w-full max-w-xl h-auto max-h-[calc(100dvh-2rem)] overflow-y-auto flex flex-col justify-center glass-panel rounded-[var(--miras-r-xl)] shadow-premium-lg p-8 sm:p-10 border border-white/60 relative z-10 transition-all duration-300 ${passwordResetToken ? "miras-password-reset-card" : ""}`}>
               <div className="absolute top-6 left-6 z-20 flex items-center gap-2">
                 <button
                   type="button"
@@ -35725,9 +35725,9 @@ ${rows
         {currentView === "otp" && (
           <div
             dir="rtl"
-            className="miras-activation-fixed-page h-[100svh] max-h-[100svh] flex flex-col items-center justify-start bg-[#f4f5f8] px-4 pt-6 pb-8 sm:pt-10 relative overflow-hidden"
+            className="miras-activation-fixed-page h-[100svh] max-h-[100svh] flex flex-col items-center justify-start bg-[#f4f5f8] px-4 pt-[max(1rem,env(safe-area-inset-top))] pb-[max(1.25rem,env(safe-area-inset-bottom))] sm:pt-10 relative overflow-y-auto overscroll-contain"
           >
-            <div className="w-full max-w-md glass-panel rounded-[var(--miras-r-xl)] shadow-premium-lg p-8 sm:p-10 text-center relative z-10 border border-white/60">
+            <div className="miras-activation-card w-full max-w-md glass-panel rounded-[var(--miras-r-xl)] shadow-premium-lg p-8 sm:p-10 text-center relative z-10 border border-white/60">
               <button
                 type="button"
                 onClick={() => {
@@ -35800,7 +35800,7 @@ ${rows
               <button
                 onClick={handleRegisterConfirm}
                 disabled={signupActivationBusy}
-                className="w-full bg-slate-950 hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-70 text-white py-4.5 rounded-2xl font-bold text-xs transition duration-300 btn-spring-active shadow-premium-md"
+                className="miras-activation-submit w-full bg-slate-950 hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-70 text-white py-4.5 rounded-2xl font-bold text-xs transition duration-300 btn-spring-active shadow-premium-md"
               >
                 {signupActivationBusy
                   ? "جاري تفعيل الحساب..."
