@@ -51,7 +51,9 @@ start_server() {
     [ "$(curl -s -o /dev/null -w '%{http_code}' "http://localhost:$PORT/api/auth/lookup-student/1001" 2>/dev/null)" = "200" ] && return 0
     sleep 1
   done
-  echo "❌ server did not become ready; see /tmp/miras_flowtest_server.log"; return 1
+  echo "❌ server did not become ready; see /tmp/miras_flowtest_server.log"
+  echo "--- last lines of the server log ---"; tail -n 40 /tmp/miras_flowtest_server.log 2>/dev/null || true
+  return 1
 }
 stop_server() {
   if [ -n "$SRV_PID" ]; then
@@ -65,7 +67,7 @@ overall=0
 run_group() { # <label> <test-file>
   stop_server
   node "${2:-tests/seed.cjs}" >/dev/null
-  start_server || { overall=1; return; }
+  start_server || { overall=1; echo "server cannot start; aborting remaining groups"; exit 1; }
   node "$1" || overall=1
 }
 
