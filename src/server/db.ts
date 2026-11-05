@@ -4066,8 +4066,9 @@ const gracefulDbShutdown = (signal: NodeJS.Signals) => {
     liveDbInstance.flushLocalSave();
   } catch {}
   const finish = () => process.exit(0);
-  // سقف 3 ثوانٍ حتى لا يتعلّق الإيقاف عند تعطل الشبكة.
-  const timer = setTimeout(finish, 3000);
+  // Cloud Run يمهل الحاوية 10 ثوانٍ بعد SIGTERM. نمنح المزامنة الأخيرة حتى 8 ثوانٍ
+  // (كانت 3) لأن الخادم صار يتوقف عند الخمول، فلا يضيع آخر تعديل عند الإيقاف.
+  const timer = setTimeout(finish, 8000);
   Promise.resolve(liveDbInstance.waitForSync())
     .catch(() => {})
     .finally(() => {

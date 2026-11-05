@@ -9649,12 +9649,22 @@ app.use(async (req, res, next) => {
       // while other students are active. Retain the same target on retry.
       const responseMutationVersion = dbInstance.getMutationVersion();
       const cloudWaitStartedAt = performance.now();
-      const waitForResponseWrites = () => responseMutationVersion > mutationVersionAtRequest
+      const boundLenient = <T,>(wait: Promise<T>): Promise<T | void> => durabilityLenient
+        ? Promise.race([
+            wait.catch(() => {}),
+            new Promise<void>((resolve) => setTimeout(resolve, 2500)),
+          ])
+        : wait;
+      const waitForResponseWrites = () => boundLenient(responseMutationVersion > mutationVersionAtRequest
         ? dbInstance.waitForMutationSync(responseMutationVersion)
         : (!readOnlyAuthMetadata && dbInstance.isDatabaseGuardLocked()
           ? dbInstance.waitForSync()
-          : Promise.resolve());
+          : Promise.resolve()));
       // محاولة ثانية واحدة قبل إرجاع 503: أغلب الإخفاقات تأخّر عابر في الكتابة.
+      // المسارات المتساهلة تنتظر المزامنة أيضاً لكن بسقف قصير (انظر boundLenient):
+      // عند فوترة Cloud Run «حسب الطلب» يتوقف المعالج بعد الرد، فالحفظ المتروك
+      // للخلفية قد يتأخر أو يضيع. بقاء الرد معلّقاً 2.5 ث كحد أقصى يُبقي المعالج
+      // مفعّلاً حتى تصل الكتابة، ولا يحوّل التأخّر إلى خطأ للمستخدم.
       Promise.resolve(waitForResponseWrites())
         .catch(() => waitForResponseWrites())
         .then(() => {
