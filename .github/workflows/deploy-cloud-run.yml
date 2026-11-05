@@ -79,13 +79,15 @@ jobs:
       # `--max-instances=1` إلزامي: الخادم يحمل قاعدة البيانات في ذاكرة العملية،
       # ونسخة ثانية تعني حالتين منفصلتين وكتاباتٍ ضائعة (README يشرح ذلك).
       #
-      # `--min-instances=1`: بدونه يتوقف الخادم بعد الخمول، فيعيد أول طلب بعده قراءة
-      # القاعدة كاملة من Firestore قبل أي رد، وتظهر لوحة المعلم فارغة لدقائق كأن
-      # البيانات انمسحت. نسخة دائمة واحدة تُبقي القاعدة في الذاكرة (لها تكلفة شهرية
-      # لأنها لا تتوقف). و`--cpu-boost` يسرّع الإقلاع الذي يبقى بعد كل نشر.
-      # المستمع السحابي والحفظ بعد الرد يحتاجان CPU حتى أثناء الخمول؛ إبقاء
-      # نسخة واحدة وحده لا يضمن ذلك مع الفوترة حسب الطلب.
-      #
+      # الفوترة «حسب الطلب» (CPU يُفوتَر أثناء الطلب فقط) و`--min-instances=0`:
+      # الخادم لا يُفوتَر وهو خامل. أول طلب بعد توقّفه ينتظر قراءة القاعدة من
+      # Firestore (نحو 4–6 ثوانٍ بحسب سجلات الإقلاع)، ولا يُفتح المنفذ قبل اكتمالها
+      # (`bootstrap` ينتظر `initialSyncPromise` قبل `listen`)، فلا تظهر لوحة فارغة.
+      # الكتابات تُؤكَّد قبل الرد (حارس الدوام العام + سقف 2.5 ث للمسارات المتساهلة)
+      # فلا شيء يبقى للخلفية، وإيقاف الحاوية يمهل المزامنة الأخيرة 8 ثوانٍ.
+      # مهمة Cloud Scheduler تُنادي /api/health كل 5 دقائق فتبقى الحاوية دافئة
+      # دون كلفة (طلب خفيف لا يلمس القاعدة)، فلا يواجه الطلبة إقلاعاً بارداً.
+      # `--cpu-boost` يسرّع الإقلاع عند كل نشر ومع كل إقلاع بارد.
       # ولا يُمرَّر `--set-secrets` ولا `--set-env-vars` عمداً: تمريرهما يستبدل ما
       # هو مضبوط على الخدمة اليوم — ومنه MIRAS_SESSION_SECRET. والنشر لا يجوز أن
       # يمحو إعدادًا لم يطلب أحد تغييره، فيُتحقَّق منه بعده بدل أن يُعاد ضبطه.
@@ -100,8 +102,8 @@ jobs:
             --platform managed \
             --allow-unauthenticated \
             --max-instances=1 \
-            --min-instances=1 \
-            --no-cpu-throttling \
+            --min-instances=0 \
+            --cpu-throttling \
             --cpu-boost \
             --quiet
 
@@ -119,15 +121,15 @@ jobs:
           MIN="$(gcloud run services describe "$CLOUD_RUN_SERVICE" \
                   --project "$GCP_PROJECT_ID" --region "$GCP_REGION" \
                   --format='value(spec.template.metadata.annotations["autoscaling.knative.dev/minScale"])')"
-          if [[ "$MIN" != "1" ]]; then
-            echo "minScale = '$MIN' وليس 1 — الخادم سيتوقف عند الخمول ويعيد تحميل القاعدة كاملة عند أول طلب." >&2
+          if [[ -n "$MIN" && "$MIN" != "0" ]]; then
+            echo "minScale = '$MIN' — الاتفاق: 0 (فوترة حسب الطلب). نسخة دائمة تكلّف شهرياً." >&2
             exit 1
           fi
           THROTTLED="$(gcloud run services describe "$CLOUD_RUN_SERVICE" \
                   --project "$GCP_PROJECT_ID" --region "$GCP_REGION" \
                   --format='value(spec.template.metadata.annotations["run.googleapis.com/cpu-throttling"])')"
-          if [[ "$THROTTLED" != "false" ]]; then
-            echo "CPU يتوقف خارج الطلبات؛ الحفظ والمستمع السحابي يحتاجان CPU دائماً." >&2
+          if [[ -n "$THROTTLED" && "$THROTTLED" != "true" ]]; then
+            echo "cpu-throttling = '$THROTTLED' — الاتفاق: true (CPU وقت الطلب فقط)." >&2
             exit 1
           fi
           if ! gcloud run services describe "$CLOUD_RUN_SERVICE" \
@@ -136,4 +138,4 @@ jobs:
             echo "MIRAS_SESSION_SECRET غير مضبوط على الخدمة — الحاوية ترفض الإقلاع بدونه." >&2
             exit 1
           fi
-          echo "النشر تمّ: maxScale=1 وminScale=1 وCPU دائم وسرّ الجلسة مضبوط."
+          echo "النشر تمّ: maxScale=1 وminScale=0 وفوترة حسب الطلب وسرّ الجلسة مضبوط."
