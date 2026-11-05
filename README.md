@@ -47,7 +47,7 @@ The `/api/**` and `/seb/**` Hosting rewrites point at the Cloud Run service `mir
     gcloud run services update miras-api --region us-central1 --max-instances=1
     ```
 
-    The service runs with **`--min-instances=0`** and request-based CPU billing, so it costs nothing while idle. After it stops, the first request waits ~4–6 s while the database is re-read from Firestore; the port opens only after that sync completes, so the dashboard is never shown empty. A Cloud Scheduler job (`miras-api-keepwarm`) pings `/api/health` every 5 minutes to keep the container warm. Writes are confirmed before the response is sent (see the durability guard in `server.ts`), so nothing depends on background CPU. The deploy workflow passes `--cpu-boost` and verifies these settings.
+    The service runs with **`--min-instances=0`** and request-based CPU billing, so it costs nothing while idle. After it stops, the first request waits ~4–6 s while the database is re-read from Firestore; the port opens only after that sync completes, so the dashboard is never shown empty. There is deliberately no keep-warm job (owner's decision: zero idle cost); the first request after idling accepts a cold start. Writes are confirmed before the response is sent (see the durability guard in `server.ts`), so nothing depends on background CPU. The deploy workflow passes `--cpu-boost` and verifies these settings.
 
 2.  **`MIRAS_SESSION_SECRET` is mandatory.** The container refuses to boot without it (see `.env.example`). Set it as a secret, never as a committed value:
 
