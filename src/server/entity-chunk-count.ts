@@ -36,3 +36,23 @@ export function effectiveEntityChunkCount(
   }
   return count;
 }
+
+/**
+ * Last resort when the joined chunks are not valid JSON: the shortest run of leading
+ * chunks that is a complete JSON array or object. A complete document cannot be cut
+ * short by accident, so whatever follows it can only be leftovers of another write.
+ */
+export function recoverEntityPayload(parts: string[]): { value: any; chunkCount: number } | null {
+  let joined = "";
+  for (let i = 0; i < parts.length - 1; i += 1) {
+    joined += parts[i];
+    const end = joined.trimEnd().slice(-1);
+    if (end !== "]" && end !== "}") continue;
+    try {
+      return { value: JSON.parse(joined), chunkCount: i + 1 };
+    } catch {
+      // Not complete yet.
+    }
+  }
+  return null;
+}
