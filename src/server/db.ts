@@ -17,6 +17,7 @@ import { getFirestore } from "firebase-admin/firestore";
 import { getStorage } from "firebase-admin/storage";
 import type { CodeLedgerEvent, SignedJoinCodeFields } from "../shared/types";
 import { createDemoDatabaseState } from "./demoSeed";
+import { effectiveEntityChunkCount } from "./entity-chunk-count";
 
 // Initialize Firebase server-side if exists
 let dbFS: any = null;
@@ -1531,15 +1532,38 @@ export class LocalDatabase {
         if (!Number.isFinite(chunkCount) || chunkCount > 250) {
           throw new Error(`Invalid chunk count for entity ${key}: ${info?.chunkCount}`);
         }
-        const chunkSnaps = await Promise.all(
+        let chunkSnaps = await Promise.all(
           Array.from({ length: chunkCount }, (_, index) =>
             this.cloudEntityDocRef(key, index).get(),
           ),
         );
+        // The manifest is written after the chunks; if a writer stopped in between,
+        // it can still describe an older layout. Trust the newest chunk generation.
+        const chunkInfo = () =>
+          chunkSnaps.map((snap) => {
+            const data = snap.exists ? (snap.data() as any) : null;
+            return data
+              ? { generation: Number(data.generation), chunkCount: Number(data.chunkCount) }
+              : null;
+          });
+        const effectiveCount = effectiveEntityChunkCount(chunkInfo(), chunkCount);
+        if (effectiveCount > chunkSnaps.length) {
+          const extra = await Promise.all(
+            Array.from({ length: effectiveCount - chunkSnaps.length }, (_, i) =>
+              this.cloudEntityDocRef(key, chunkSnaps.length + i).get(),
+            ),
+          );
+          chunkSnaps = chunkSnaps.concat(extra);
+        } else if (effectiveCount < chunkSnaps.length) {
+          console.warn(
+            `⚠️ Entity ${key}: ignoring ${chunkSnaps.length - effectiveCount} stale cloud chunk(s) from an older write (manifest says ${chunkCount}, newest write used ${effectiveCount}).`,
+          );
+          chunkSnaps = chunkSnaps.slice(0, effectiveCount);
+        }
         const payload = chunkSnaps
           .map((snap, index) => {
             if (!snap.exists) {
-              throw new Error(`Missing Firestore chunk ${index + 1}/${chunkCount} for entity ${key}`);
+              throw new Error(`Missing Firestore chunk ${index + 1}/${chunkSnaps.length} for entity ${key}`);
             }
             const chunkPayload = snap.data()?.payload;
             if (typeof chunkPayload !== "string") {
