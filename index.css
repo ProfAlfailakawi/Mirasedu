@@ -17926,7 +17926,12 @@ html.miras-teacher-scroll-locked .meras-teacher-shell.teacher-calm-shell .teache
      ٣) ‎setTimeout(..., 3900)‎ في App.tsx الذي يزيل العنصر من DOM.
    أي تعديل لأحدها دون الآخرين يكسر «الذوبان في التطبيق». */
 .miras-splash {
-  background: var(--miras-splash-from) !important;
+  /* لا !important على لون الخلفية: الحركة (miras-splash-land) لا تغلب إعلاناً
+     مُعلَّماً !important، فكانت الخلفية تبقى نيلية والحبر يتحوّل إلى داكن
+     فتظهر «مِراس» شبه سوداء على النيلي نحو ثانية. التدرّجات القديمة
+     تُلغى بـ background-image فقط. */
+  background-image: none !important;
+  background-color: var(--miras-splash-from);
   animation: miras-splash-land 3.4s cubic-bezier(.65,0,.35,1) forwards;
   overflow: hidden;
 }
