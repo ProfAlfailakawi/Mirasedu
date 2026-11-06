@@ -1265,6 +1265,13 @@ html body .miras-app-teacher-root.miras-teacher-viewport-v5 .miras-zero-name-pil
     margin-top: 6px !important;
   }
 }
+/* ٦٠٠–٧٦٧px (دو مفتوح عمودياً، تقسيم ثلثين): ‎56vw‎ يهبط على اسم الأستاذ.
+   الفراغ الحقيقي بين أزرار الرأس واسم الحساب أضيق وأقرب إلى اليسار. */
+@media (min-width: 600px) and (max-width: 767px) {
+  .miras-demo-bar:not(.is-open):not(#_):not(#_):not(#_) > div {
+    left: clamp(250px, 38vw, 300px);
+  }
+}
 /* سطح المكتب: أزرار الشارة 40px على الأقل */
 @media (min-width: 768px) {
   .miras-demo-bar:not(#_):not(#_) button { min-width: 40px; min-height: 40px; }
