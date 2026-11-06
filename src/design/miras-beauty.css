@@ -119,3 +119,13 @@
     max-height: calc(100dvh - (34dvh - 2.75rem) - 1rem) !important;
   }
 }
+
+/* ───────────── ٥) بطاقة الاختبار عند الطالب: اسم المقرر لا يُقطع بـ«…» ─────────────
+   عند ٣٨٢px كان «تقنيات التعليم الحديثة — شعبة B2» يُقصّ إلى «شعـ…»: ضياع معلومة
+   (أي شعبة؟). يلتفّ على سطرين بدل القصّ. */
+html body #root .miras-practice-quizzes span.truncate:not(#_):not(#__) {
+  white-space: normal !important;
+  overflow: visible !important;
+  text-overflow: clip !important;
+  min-width: 0;
+}
