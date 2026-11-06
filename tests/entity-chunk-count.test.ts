@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { effectiveEntityChunkCount } from "../src/server/entity-chunk-count.ts";
+import { effectiveEntityChunkCount, recoverEntityPayload } from "../src/server/entity-chunk-count.ts";
+import { changedEntityChunks } from "../src/shared/atomic-cloud-write.ts";
 
 const c = (generation: number, chunkCount: number) => ({ generation, chunkCount });
 
@@ -30,4 +31,23 @@ test("falls back to the manifest when chunks carry no usable metadata", () => {
   assert.equal(effectiveEntityChunkCount([null, null], 2), 2);
   assert.equal(effectiveEntityChunkCount([c(Number.NaN, 1)], 4), 4);
   assert.equal(effectiveEntityChunkCount([c(3, 0), c(3, 0)], 2), 2);
+});
+
+test("recovers the complete leading document when a stale tail follows it", () => {
+  // Production case: 3 new chunks, then a later write touched a stale tail chunk,
+  // so the newest chunk claims 9 parts and the count alone cannot separate them.
+  const parts = ['[{"a":1},', '{"a":2}', ',{"a":3}]', ',{"a":4}', ',{"a":5}]'];
+  assert.deepEqual(recoverEntityPayload(parts), { value: [{ a: 1 }, { a: 2 }, { a: 3 }], chunkCount: 3 });
+});
+
+test("does not invent data when no leading run is complete", () => {
+  assert.equal(recoverEntityPayload(['[{"a":1},', '{"a":2}']), null);
+  assert.equal(recoverEntityPayload(["broken"]), null);
+});
+
+test("an entity left out of the manifest is rewritten whole, never patched", () => {
+  const value = Array.from({ length: 30 }, (_, i) => ({ id: i, text: "x".repeat(200) }));
+  const stored = changedEntityChunks(value, undefined, null, 1000, 1000);
+  assert.ok(stored.payloads.length > 1);
+  assert.deepEqual(stored.indexes, stored.payloads.map((_: string, i: number) => i));
 });
