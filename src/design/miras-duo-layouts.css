@@ -1,0 +1,236 @@
+/*
+ * miras-duo-layouts.css — طبقة المقاس المتجاوب (iPhone Duo وكل الشاشات).
+ *
+ * تُحمَّل آخر طبقة في main.tsx. القاعدة: القرار حسب عرض النافذة الفعلي (media
+ * width) لا نوع الجهاز ولا الاتجاه ولا device-posture (غير مفعّلة افتراضياً).
+ *
+ *   الطبقة ١  أساس: قفل الاتجاه، لمس، حقول، dvh.
+ *   الطبقة ٢  ≥600px: تخطيط لوحة (عمودان / ٣ أعمدة) بدل هاتف ممدود.
+ *   الطبقة ٣  ارتفاع قصير (≤480px): شريط علوي مضغوط، بلا تمرير للشريط السفلي.
+ *
+ * عرض فقط — لا منطق، لا بيانات. المحدِّدات ترفع التخصيص بـ :not(#_) لأن طبقات
+ * التصميم السابقة تستعمل !important وتخصيصات عالية (انظر miras-calm.css).
+ */
+
+/* ───────── ١) الأساس ───────── */
+
+/* ١-أ) قفل «يرجى استخدام الوضع العمودي» أُلغي: الجهاز المطوي عرضياً وiPhone
+   العرضي والـDuo المفتوح عرضياً (951px) يجب أن يعرضوا الواجهة، فالتبديل
+   بحسب المساحة. (كان يغطي الشاشة كلها لأي لمس + أفقي.) */
+html body .miras-orientation-guard:not(#_):not(#__) {
+  display: none !important;
+}
+
+/* ١-ب) منع التكبير العرَضي بلمستين سريعتين بلا منع التكبير الإرادي بالقرص. */
+html:not(#_),
+body:not(#_),
+button:not(#_),
+a:not(#_),
+[role="button"]:not(#_),
+input:not(#_),
+select:not(#_),
+textarea:not(#_),
+label:not(#_),
+summary:not(#_) {
+  touch-action: manipulation;
+}
+
+/* ١-ج) iOS يكبّر الصفحة عند التركيز على حقل خطه أقل من ١٦px. بعد إزالة قفل
+   التكبير نبقي الحقول ١٦px على اللمس فلا تقفز الصفحة عند الكتابة. */
+@media (pointer: coarse) {
+  html body input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="file"]):not(#_):not(#__),
+  html body select:not(#_):not(#__),
+  html body textarea:not(#_):not(#__) {
+    font-size: max(16px, 1em) !important;
+  }
+}
+
+/* ١-هـ) 100vh يتجاوز المساحة المرئية حين يظهر شريط Safari — dvh حيث يُدعم. */
+@supports (height: 100dvh) {
+  html body:not(#_):not(#__) {
+    min-height: 100dvh;
+  }
+  html body.loading:not(#_):not(#__) {
+    height: 100dvh;
+  }
+}
+
+/* ١-د) أهداف اللمس ≥44px (كانت ٤٠×٤٠: أزرار الترويسة وإجراءات بطاقات الطلبة). */
+@media (pointer: coarse) {
+  html body #root :is(.miras-zero-action-btn, .miras-roster-card button, .miras-student-tool, .miras-demo-bar button):not(#_):not(#__):not(#___) {
+    min-width: 44px !important;
+    min-height: 44px !important;
+  }
+}
+
+/* ───────── ٢) ≥600px: لوحة بدل هاتف ممدود ─────────
+   Tailwind يبدأ md عند 768 وsm عند 640، فكان النطاق 600–767 (Duo المفتوح
+   طولياً ~669، وSplit العريض ~620) يعرض عموداً واحداً بعرض الشاشة كلها.
+   هنا نعيد عمودين/٣ أعمدة من 600 مع بقاء ما فوق 768 كما هو. */
+@media (min-width: 600px) {
+  /* ٢-أ) شبكات md/sm ذات العمودين تبدأ من 600. */
+  html body #root .grid[class*="md:grid-cols-2"]:not([class*="md:grid-cols-["]):not(#_):not(#__) {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  html body #root .grid[class*="sm:grid-cols-2"]:not(#_):not(#__) {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  /* md:grid-cols-3 بين 600 و767 يصير عمودين (٣ أعمدة ضيقة تقصّ المحتوى). */
+  html body #root .grid[class*="md:grid-cols-3"]:not(#_):not(#__) {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  html body #root .grid[class*="md:grid-cols-[1fr_auto]"]:not(#_):not(#__) {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+  /* بطاقات الأكواد: عمودان من 600 (كانت xl فقط). */
+  html body #root .grid[class*="xl:grid-cols-2"]:has(> .miras-join-code-card):not(#_):not(#__) {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  /* بنك الأسئلة: قائمة مرتّبة بعمودين. */
+  html body #root .space-y-2.max-h-\[560px\]:not(#_):not(#__) {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.75rem;
+    align-content: start;
+  }
+  html body #root .space-y-2.max-h-\[560px\] > *:not(#_):not(#__) {
+    margin-top: 0;
+  }
+}
+
+/* ───────── ٣) المعلّم 600–920: شريط علوي بصف واحد + لوحة الرئيسية ───────── */
+@media (min-width: 600px) and (max-width: 920px) {
+  :root { --miras-teacher-header-space: 4.5rem; }
+
+  /* الشريط العلوي: العنوان | اسم الحساب | الأدوات في صف واحد بدل صفين. */
+  html body #root .miras-mobile-teacher-zero-header:not(#_):not(#__):not(#___) {
+    grid-template-columns: auto minmax(0, 1fr) auto !important;
+    grid-template-rows: auto !important;
+    align-items: center !important;
+    column-gap: 0.75rem !important;
+    min-height: 0 !important;
+    padding-block: 0.5rem !important;
+  }
+  html body #root .miras-mobile-teacher-zero-header h1:not(#_):not(#__):not(#___) {
+    grid-area: 1 / 1 !important;
+  }
+  html body #root .miras-mobile-teacher-zero-header .miras-zero-name-pill:not(#_):not(#__):not(#___) {
+    grid-area: 1 / 2 !important;
+    justify-self: center;
+    max-width: 100%;
+    min-width: 0;
+  }
+  html body #root .miras-mobile-teacher-zero-header .miras-zero-actions-row:not(#_):not(#__):not(#___) {
+    grid-area: 1 / 3 !important;
+  }
+
+  /* لوحة الرئيسية: الإحصاءات ٣×٢ بدل عمودين (بطاقتا التنبيه والنبض تبقيان
+     بعرض كامل كي لا يُقصّ اسم المقرر في عمود ضيق). */
+  html body #root .miras-teacher-home-panel > .grid:not(#_):not(#__) {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  /* الشريط السفلي: لا يمتد بعرض ٦٥٠px — يتوسّط ويبقى في متناول الإبهام. */
+  html body #root .teacher-nav-mobile.teacher-orbit-dock.miras-dock-shell-v2:not(#_):not(#__):not(#___) {
+    left: 0 !important;
+    right: 0 !important;
+    margin-inline: auto !important;
+    width: min(34rem, calc(100% - 1.5rem)) !important;
+  }
+}
+
+/* ───────── ٤) ارتفاع قصير (≤480): مطوي عرضياً / iPhone عرضي ─────────
+   الشريط السفلي + الترويسة يلتهمان ~٨٠٪ من 350px. نحوّل الشريط السفلي إلى
+   rail عمودي على الحافة (RTL: اليمين) ونضغط الترويسة في صف واحد. */
+@media (max-height: 480px) and (min-width: 520px) and (max-width: 920px) {
+  :root { --miras-teacher-header-space: 3.7rem; }
+
+  html body #root .miras-mobile-teacher-zero-header:not(#_):not(#__):not(#___) {
+    grid-template-columns: auto minmax(0, 1fr) auto !important;
+    grid-template-rows: auto !important;
+    align-items: center !important;
+    column-gap: 0.6rem !important;
+    min-height: 0 !important;
+    padding-block: 0.3rem !important;
+  }
+  html body #root .miras-mobile-teacher-zero-header h1:not(#_):not(#__):not(#___) {
+    grid-area: 1 / 1 !important;
+    font-size: 1.15rem !important;
+  }
+  html body #root .miras-mobile-teacher-zero-header .miras-zero-name-pill:not(#_):not(#__):not(#___) {
+    grid-area: 1 / 2 !important;
+    justify-self: center;
+    min-width: 0;
+  }
+  html body #root .miras-mobile-teacher-zero-header .miras-zero-actions-row:not(#_):not(#__):not(#___) {
+    grid-area: 1 / 3 !important;
+  }
+
+  /* الشريط السفلي ← rail عمودي على الحافة. */
+  html body #root .teacher-nav-mobile.teacher-orbit-dock.miras-dock-shell-v2:not(#_):not(#__):not(#___) {
+    top: calc(var(--miras-teacher-header-space) + 0.9rem + env(safe-area-inset-top, 0px)) !important;
+    bottom: max(0.5rem, env(safe-area-inset-bottom, 0px)) !important;
+    right: max(0.5rem, env(safe-area-inset-right, 0px)) !important;
+    left: auto !important;
+    width: 4.6rem !important;
+    height: auto !important;
+    margin-inline: 0 !important;
+    padding: 0.35rem !important;
+    flex-direction: column !important;
+    border-radius: 1.4rem !important;
+  }
+  html body #root .teacher-nav-mobile .miras-teacher-nav-track:not(#_):not(#__):not(#___) {
+    grid-template-columns: minmax(0, 1fr) !important;
+    grid-auto-flow: row !important;
+    grid-auto-rows: minmax(0, 1fr) !important;
+    width: 100% !important;
+    height: 100% !important;
+    gap: 0.15rem !important;
+  }
+  html body #root .teacher-nav-mobile button.miras-dock-item:not(#_):not(#__):not(#___) {
+    min-height: 2.9rem !important;
+    padding-block: 0.15rem !important;
+  }
+  /* المحتوى يترك الحافة اليمنى للـrail ولا يحتاج هامشاً سفلياً للشريط. */
+  html body #root .teacher-command-main:not(#_):not(#__):not(#___) {
+    padding-right: calc(5.6rem + env(safe-area-inset-right, 0px)) !important;
+    padding-bottom: calc(1rem + env(safe-area-inset-bottom, 0px)) !important;
+  }
+  html body #root .miras-teacher-bottom-safe-spacer:not(#_):not(#__):not(#___) {
+    display: none !important;
+  }
+}
+
+/* ───────── ٥) الطالب ≥600: ترويسة بصف واحد + لوحة مسار/آخر تسليم ───────── */
+@media (min-width: 600px) {
+  /* الهوية يميناً والأدوات يساراً في صف واحد بدل عمودين متراكبين. */
+  html body #root .miras-student-header-stack:not(#_):not(#__):not(#___) {
+    flex-direction: row !important;
+    align-items: center !important;
+    justify-content: space-between !important;
+    gap: 0.75rem !important;
+  }
+  html body #root .miras-student-header-stack > .miras-student-identity:not(#_):not(#__):not(#___) {
+    flex: 1 1 auto;
+    min-width: 0;
+  }
+  html body #root .miras-student-header-stack > *:not(.miras-student-identity):not(#_):not(#__):not(#___) {
+    flex: 0 0 auto;
+  }
+}
+@media (min-width: 760px) {
+  /* «المتاح الآن» بعرض كامل، ثم «مسارك الدراسي» و«آخر تسليم» جنباً إلى جنب. */
+  html body #root .miras-student-overview-card .relative.z-10.space-y-3:not(#_):not(#__):not(#___) {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.9rem;
+    align-items: stretch;
+  }
+  html body #root .miras-student-overview-card .relative.z-10.space-y-3 > *:not(#_):not(#__):not(#___) {
+    margin-top: 0;
+    min-width: 0;
+  }
+  html body #root .miras-student-overview-card .relative.z-10.space-y-3 > .miras-now-available:not(#_):not(#__):not(#___) {
+    grid-column: 1 / -1;
+  }
+}

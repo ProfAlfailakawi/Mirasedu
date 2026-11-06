@@ -115,7 +115,7 @@ svg.lucide {
 }
 
 /* ═══════════════ ٤) رأس المعلم على الجوال: صف واحد — العنوان يميناً والأزرار في شريط واحد يساراً ═══════════════ */
-@media (max-width: 920px), (pointer: coarse) and (hover: none) {
+@media (max-width: 920px) {
   html body .miras-app-teacher-root.miras-teacher-viewport-v5 .miras-mobile-teacher-zero-header:not(#_) {
     min-height: 0 !important;
     flex-direction: row !important;
@@ -1100,7 +1100,7 @@ html[data-theme="dark"] .miras-app-teacher-root button[aria-label="تطهير ك
 
 /* ═══════════════ ٢١) اسم المعلم في الرأس: يلتف على أسطر ولا يُقصّ أو يُقسَّم كلمة كلمة ═══════════════
    النص كما تعطيه البيانات؛ يبقى تحت العنوان بحجم 12px على الأقل. */
-@media (max-width: 920px), (pointer: coarse) and (hover: none) {
+@media (max-width: 920px) {
   html body .miras-app-teacher-root.miras-teacher-viewport-v5 .miras-zero-name-pill:not(#_) {
     white-space: normal !important;
     /* حدّ أقصى سطران للأسماء الشاذة فقط؛ النص كاملاً يبقى في DOM */
@@ -1120,7 +1120,7 @@ html[data-theme="dark"] .miras-app-teacher-root button[aria-label="تطهير ك
 }
 
 /* الإزاحة المحجوزة تحت الرأس الثابت تغطي أقصى ارتفاع له (اسم بسطرين) */
-@media (max-width: 920px), (pointer: coarse) and (hover: none) {
+@media (max-width: 920px) {
   .miras-app-teacher-root.miras-teacher-viewport-v5 { --miras-teacher-header-space: 5.35rem; }
   html body .miras-app-teacher-root.miras-teacher-viewport-v5 .miras-zero-name-pill:not(#_) > svg {
     display: inline-block;
@@ -1322,7 +1322,7 @@ html[data-theme="dark"] body .teacher-command-header .student-icon-btn:not(.noti
   min-width: 2.5rem !important;
   min-height: 2.5rem !important;
 }
-@media (max-width: 920px), (pointer: coarse) and (hover: none) {
+@media (max-width: 920px) {
   html body .miras-app-teacher-root.miras-teacher-viewport-v5 .miras-zero-name-pill:not(#_):not(#_):not(#_) {
     min-height: 2.5rem !important;
     display: flex !important;

@@ -3411,31 +3411,11 @@ export default function App() {
     if (typeof window === "undefined" || typeof document === "undefined")
       return;
     document.documentElement.classList.add("miras-app-shell");
-    const preventMultiTouch = (event: TouchEvent) => {
-      if (event.touches.length > 1) event.preventDefault();
-    };
-    let lastTouchEnd = 0;
-    const preventDoubleTapZoom = (event: TouchEvent) => {
-      const now = Date.now();
-      if (now - lastTouchEnd <= 320) event.preventDefault();
-      lastTouchEnd = now;
-    };
-    const preventGestureZoom = (event: Event) => event.preventDefault();
-    document.addEventListener("touchstart", preventMultiTouch, {
-      passive: false,
-    });
-    document.addEventListener("touchend", preventDoubleTapZoom, {
-      passive: false,
-    });
-    document.addEventListener("gesturestart", preventGestureZoom, {
-      passive: false,
-    } as any);
-    document.addEventListener("gesturechange", preventGestureZoom, {
-      passive: false,
-    } as any);
-    document.addEventListener("gestureend", preventGestureZoom, {
-      passive: false,
-    } as any);
+    /* لا نمنع التكبير بالأصابع ولا اللمس المزدوج: كان هنا
+       preventDefault على touchstart/touchend/gesture* فيُحرَم من يحتاج
+       التكبير (إمكانية الوصول، WCAG 1.4.4). منع التكبير العرَضي باللمس
+       المزدوج صار بـ touch-action: manipulation في miras-duo-layouts.css،
+       ومنع قفز الصفحة عند التركيز بخط ≥16px للحقول هناك أيضاً. */
     const normalizeNumericInput = (event: Event) => {
       const target = event.target as
         HTMLInputElement | HTMLTextAreaElement | null;
@@ -3465,11 +3445,6 @@ export default function App() {
     document.addEventListener("change", normalizeNumericInput, true);
     return () => {
       document.documentElement.classList.remove("miras-app-shell");
-      document.removeEventListener("touchstart", preventMultiTouch as any);
-      document.removeEventListener("touchend", preventDoubleTapZoom as any);
-      document.removeEventListener("gesturestart", preventGestureZoom as any);
-      document.removeEventListener("gesturechange", preventGestureZoom as any);
-      document.removeEventListener("gestureend", preventGestureZoom as any);
       document.removeEventListener("input", normalizeNumericInput, true);
       document.removeEventListener("change", normalizeNumericInput, true);
     };
@@ -33021,7 +32996,7 @@ ${rows
       <style>{`
 
         /* MIRAS V5 hard teacher viewport: this style tag is rendered after all CSS files. */
-        @media (max-width: 920px), (pointer: coarse) and (hover: none) {
+        @media (max-width: 920px) {
           html.miras-teacher-scroll-locked,
           html.miras-teacher-scroll-locked body,
           html.miras-teacher-scroll-locked #root,
@@ -33196,7 +33171,7 @@ ${rows
           /* MIRAS V19 — no-top-gap mobile teacher header
              The header is pinned to the viewport itself, not left inside the
              scroll flow, so any old PWA/iOS spacer cannot appear above it. */
-          @media (max-width: 920px), (pointer: coarse) and (hover: none) {
+          @media (max-width: 920px) {
             .miras-app-teacher-root.miras-teacher-viewport-v5,
             .miras-app-teacher-root.miras-teacher-viewport-v5 > .miras-teacher-v5-shell,
             .miras-app-teacher-root.miras-teacher-viewport-v5 .miras-teacher-v5-main,
@@ -33281,7 +33256,7 @@ ${rows
            so no scroll spacer, PWA safe-area quirk, or old sticky header can
            appear above it. */
         .miras-mobile-teacher-zero-header { display: none; }
-        @media (max-width: 920px), (pointer: coarse) and (hover: none) {
+        @media (max-width: 920px) {
           .miras-app-teacher-root.miras-teacher-viewport-v5 .miras-mobile-teacher-zero-header {
             position: fixed !important;
             top: max(.26rem, env(safe-area-inset-top, 0px)) !important;
@@ -33484,7 +33459,7 @@ ${rows
           /* MIRAS V22 — bottom content clearance only.
              Leaves the smart dock behavior untouched; it only gives the
              teacher scroll container enough safe tail for expanded dock/PWA. */
-          @media (max-width: 920px), (pointer: coarse) and (hover: none) {
+          @media (max-width: 920px) {
             .miras-app-teacher-root.miras-teacher-viewport-v5 .miras-teacher-v5-shell .teacher-nav-mobile.teacher-orbit-dock,
             html.miras-teacher-scroll-locked .miras-teacher-v5-shell .teacher-nav-mobile.teacher-orbit-dock {
               --miras-teacher-dock-motion: translateY(0) scale(1);
@@ -33758,7 +33733,7 @@ ${rows
             letter-spacing: normal !important;
           }
 
-          @media (max-width: 920px), (pointer: coarse) and (hover: none) {
+          @media (max-width: 920px) {
             /* لوح ممتد بهامش 10px بدل شريط مركزي ضيّق تُقصّ تسمياته */
             .teacher-nav-mobile.teacher-orbit-dock.miras-dock-shell-v2:not(#_) {
               left: 10px !important;
