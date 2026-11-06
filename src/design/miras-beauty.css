@@ -28,6 +28,35 @@
   }
   html body #root .miras-demo-bar:not(#_):not(#__):not(#___) > div {
     margin-top: 0 !important;
+    padding: 0 !important;
+    gap: 2px !important;
+  }
+  /* مطويّةً كما على الهاتف: وسمٌ صغير لا يغطي بطاقات الصفحة، وتعود الكبسولة
+     كاملةً عند الفتح (الزرّ نفسه يبقى هدف لمسٍ ٤٤px). */
+  html body #root .miras-demo-bar:not(#_):not(#__):not(#___) .miras-demo-flask,
+  html body #root .miras-demo-bar:not(.is-open):not(#_):not(#__):not(#___) button:not(.miras-demo-toggle) {
+    display: none !important;
+  }
+  html body #root .miras-demo-bar:not(#_):not(#__):not(#___) .miras-demo-toggle {
+    display: grid !important;
+    place-items: center;
+    border-radius: 9999px;
+    width: 44px;
+    height: 44px;
+  }
+  html body #root .miras-demo-bar:not(.is-open):not(#_):not(#__):not(#___) > div {
+    background: transparent !important;
+    border-color: transparent !important;
+    box-shadow: none !important;
+    backdrop-filter: none !important;
+  }
+  html body #root .miras-demo-bar:not(.is-open):not(#_):not(#__):not(#___) .miras-demo-toggle {
+    background: radial-gradient(circle, rgb(254 243 199 / 0.78) 13.5px, rgb(252 211 77 / 0.55) 14px, transparent 14.5px);
+    opacity: 0.85;
+  }
+  html body #root .miras-demo-bar:not(.is-open):not(#_):not(#__):not(#___) .miras-demo-toggle svg {
+    width: 14px;
+    height: 14px;
   }
 }
 
@@ -63,7 +92,10 @@
 }
 @media (min-width: 600px) and (min-height: 760px) {
   html body #root .miras-submissions-panel > .grid > button:not(#_):not(#__) {
-    min-height: 210px;
+    min-height: 200px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
   }
 }
 
