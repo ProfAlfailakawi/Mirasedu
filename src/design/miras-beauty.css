@@ -35,7 +35,7 @@
    الرأس عند ~٩px من الحافة، أما لوحات «المقررات/الطلبة» فكانت تدفع محتواها إلى
    ~٢٣px (ثم بطاقات الطلبة إلى ~٣٦px) بسبب حشوة اللوحة + أربع حاويات متداخلة. */
 @media (max-width: 899px) {
-  html body #root .miras-teacher-v5-shell > .space-y-5.lg\:p-8:not(#_):not(#__) {
+  html body #root .miras-teacher-v5-main > .space-y-5.lg\:p-8:not(#_):not(#__) {
     padding-inline: 1px !important;
   }
   html body #root .miras-teacher-v5-shell .max-h-\[550px\].overflow-auto.rounded-2xl:not(#_):not(#__) {
