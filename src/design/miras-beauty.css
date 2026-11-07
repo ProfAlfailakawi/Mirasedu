@@ -287,3 +287,25 @@ html[data-theme="dark"] body #root .miras-demo-bar:not(.is-open):not(#_):not(#__
     height: 0;
   }
 }
+
+/* ───────────── ١١) الطالب: صفحة الاختبارات القصيرة تُختم بالتأليف نفسه ─────────────
+   عند ٦٦٩×٨٨٠ تبقى ثلاثة أرباع الشاشة فراغاً تحت بطاقة اختبار واحدة. */
+@media (min-width: 600px) and (min-height: 700px) {
+  html body #root .meras-student-shell .miras-practice-quizzes:not(#_):not(#__)::after {
+    content: "";
+    display: block;
+    height: 260px;
+    margin-top: 28px;
+    pointer-events: none;
+    background:
+      repeating-linear-gradient(90deg, rgba(79, 70, 229, 0.34) 0 1px, transparent 1px 14px) bottom / 100% 9px no-repeat,
+      repeating-radial-gradient(circle at 50% 150%, rgba(99, 102, 241, 0.24) 0 1.5px, transparent 1.5px 38px);
+    -webkit-mask-image: linear-gradient(180deg, transparent 0%, #000 70%);
+    mask-image: linear-gradient(180deg, transparent 0%, #000 70%);
+  }
+  html[data-theme="dark"] body #root .meras-student-shell .miras-practice-quizzes:not(#_):not(#__)::after {
+    background:
+      repeating-linear-gradient(90deg, rgba(165, 180, 252, 0.3) 0 1px, transparent 1px 14px) bottom / 100% 9px no-repeat,
+      repeating-radial-gradient(circle at 50% 150%, rgba(165, 180, 252, 0.2) 0 1.5px, transparent 1.5px 38px);
+  }
+}
