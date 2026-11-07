@@ -147,3 +147,56 @@ html[data-theme] body #root .meras-auth-card input:not([type="checkbox"]):not([t
 html body #root .meras-auth-card > div.absolute > button:not(#_):not(#__) {
   box-shadow: inset 0 0 0 1px rgba(148, 163, 184, 0.45) !important;
 }
+
+/* ───────────── ٧) المساحات الفارغة: تأليف هادئ بلا نصوص ─────────────
+   مستوحى من هوية مِراس نفسها (المسطرة والخطّ الشبكي): حلقات متّحدة المركز تنبثق
+   من أسفل الصفحة مع تدريج مسطرة رفيع، تتلاشى نحو الأعلى. تزيينٌ فقط: لا نصّ، لا
+   تفاعل (pointer-events: none)، ولا حركة. */
+
+/* (أ) الدخول عند <٨٦٠px: الثلث السفلي كان شبكة بيضاء فارغة. */
+@media (max-width: 859px) and (min-height: 700px) {
+  html[data-theme] body #root .meras-auth-shell.miras-calm-auth:not(#_):not(#__):not(#___):not(#____):not(#_____):not(#______)::after {
+    content: "" !important;
+    display: block !important;
+    position: absolute;
+    inset-inline: 0;
+    bottom: 0;
+    height: 30dvh;
+    z-index: 0;
+    pointer-events: none;
+    background:
+      repeating-linear-gradient(90deg, rgba(79, 70, 229, 0.30) 0 1px, transparent 1px 14px) bottom / 100% 9px no-repeat,
+      repeating-radial-gradient(circle at 50% 135%, rgba(99, 102, 241, 0.14) 0 1.5px, transparent 1.5px 38px),
+      linear-gradient(180deg, transparent 0%, rgba(99, 102, 241, 0.07) 100%);
+    -webkit-mask-image: linear-gradient(180deg, transparent 0%, #000 55%);
+    mask-image: linear-gradient(180deg, transparent 0%, #000 55%);
+  }
+  html[data-theme="dark"] body #root .meras-auth-shell.miras-calm-auth:not(#_):not(#__):not(#___):not(#____):not(#_____):not(#______)::after {
+    background:
+      repeating-linear-gradient(90deg, rgba(165, 180, 252, 0.34) 0 1px, transparent 1px 14px) bottom / 100% 9px no-repeat,
+      repeating-radial-gradient(circle at 50% 135%, rgba(165, 180, 252, 0.13) 0 1.5px, transparent 1.5px 38px),
+      linear-gradient(180deg, transparent 0%, rgba(99, 102, 241, 0.10) 100%);
+  }
+}
+
+/* (ب) التسليمات: بعد القائمة القصيرة تُختم الصفحة بنفس التأليف بدل فراغٍ أبيض. */
+@media (min-width: 600px) and (min-height: 700px) {
+  html body #root .miras-submissions-panel:not(#_):not(#__)::after {
+    content: "";
+    display: block;
+    height: 190px;
+    margin-top: 6px;
+    pointer-events: none;
+    border-radius: 28px;
+    background:
+      repeating-linear-gradient(90deg, rgba(79, 70, 229, 0.26) 0 1px, transparent 1px 14px) bottom / 100% 9px no-repeat,
+      repeating-radial-gradient(circle at 50% 150%, rgba(99, 102, 241, 0.13) 0 1.5px, transparent 1.5px 36px);
+    -webkit-mask-image: linear-gradient(180deg, transparent 0%, #000 70%);
+    mask-image: linear-gradient(180deg, transparent 0%, #000 70%);
+  }
+  html[data-theme="dark"] body #root .miras-submissions-panel:not(#_):not(#__)::after {
+    background:
+      repeating-linear-gradient(90deg, rgba(165, 180, 252, 0.30) 0 1px, transparent 1px 14px) bottom / 100% 9px no-repeat,
+      repeating-radial-gradient(circle at 50% 150%, rgba(165, 180, 252, 0.12) 0 1.5px, transparent 1.5px 36px);
+  }
+}
