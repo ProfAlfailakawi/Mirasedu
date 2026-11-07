@@ -143,3 +143,7 @@ html body #root .meras-auth-card input:not([type="checkbox"]):not([type="radio"]
 html[data-theme] body #root .meras-auth-card input:not([type="checkbox"]):not([type="radio"]):focus:not(#_):not(#__):not(#___):not(#____) {
   box-shadow: inset 0 0 0 1px #6366f1, 0 0 0 4px rgba(99, 102, 241, 0.18) !important;
 }
+/* زرّا الوضع الليلي/التثبيت أعلى بطاقة الدخول: نفس العلّة (حدّهما الأيمن يُقصّ عند ٣٨٢/٦٢٠px). */
+html body #root .meras-auth-card > div.absolute > button:not(#_):not(#__) {
+  box-shadow: inset 0 0 0 1px rgba(148, 163, 184, 0.45) !important;
+}
