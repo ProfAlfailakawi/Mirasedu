@@ -147,3 +147,77 @@ html[data-theme] body #root .meras-auth-card input:not([type="checkbox"]):not([t
 html body #root .meras-auth-card > div.absolute > button:not(#_):not(#__) {
   box-shadow: inset 0 0 0 1px rgba(148, 163, 184, 0.45) !important;
 }
+
+/* ───────────── ٧) المساحات الفارغة: تأليف هادئ بلا نصوص ─────────────
+   مستوحى من هوية مِراس نفسها (المسطرة والخطّ الشبكي): حلقات متّحدة المركز تنبثق
+   من أسفل الصفحة مع تدريج مسطرة رفيع، تتلاشى نحو الأعلى. تزيينٌ فقط: لا نصّ، لا
+   تفاعل (pointer-events: none)، ولا حركة. */
+
+/* (أ) الدخول عند <٨٦٠px: الثلث السفلي كان شبكة بيضاء فارغة. */
+@media (max-width: 859px) and (min-height: 700px) {
+  html[data-theme] body #root .meras-auth-shell.miras-calm-auth:not(#_):not(#__):not(#___):not(#____):not(#_____):not(#______)::after {
+    content: "" !important;
+    display: block !important;
+    position: absolute;
+    inset: auto 0 0 0;
+    height: 30dvh;
+    z-index: 0;
+    pointer-events: none;
+    border: 0 !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+    background:
+      repeating-linear-gradient(90deg, rgba(79, 70, 229, 0.30) 0 1px, transparent 1px 14px) bottom / 100% 9px no-repeat,
+      repeating-radial-gradient(circle at 50% 135%, rgba(99, 102, 241, 0.14) 0 1.5px, transparent 1.5px 38px),
+      linear-gradient(180deg, transparent 0%, rgba(99, 102, 241, 0.07) 100%);
+    -webkit-mask-image: linear-gradient(180deg, transparent 0%, #000 55%);
+    mask-image: linear-gradient(180deg, transparent 0%, #000 55%);
+  }
+  html[data-theme="dark"] body #root .meras-auth-shell.miras-calm-auth:not(#_):not(#__):not(#___):not(#____):not(#_____):not(#______)::after {
+    background:
+      repeating-linear-gradient(90deg, rgba(165, 180, 252, 0.34) 0 1px, transparent 1px 14px) bottom / 100% 9px no-repeat,
+      repeating-radial-gradient(circle at 50% 135%, rgba(165, 180, 252, 0.13) 0 1.5px, transparent 1.5px 38px),
+      linear-gradient(180deg, transparent 0%, rgba(99, 102, 241, 0.10) 100%);
+  }
+}
+
+/* (ب) لوحات المعلّم عند ٦٠٠–٧٦٧px: الصفحات القصيرة (التسليمات…) يبقى نصفها السفلي
+   فارغاً فوق الموجة. تُرسم الحلقات خلف المحتوى على عنصر الموجة نفسه (::after لا
+   يُمسّ في اللوحة فهو معطّل قديماً). خلف المحتوى دائماً: لا تأثير على القراءة. */
+@media (min-width: 600px) and (max-width: 767px) and (min-height: 700px) {
+  html body .meras-teacher-shell .miras-phone-wave:not(#_):not(#__)::after {
+    content: "";
+    position: absolute;
+    inset: auto 0 0 0;
+    height: 46svh;
+    pointer-events: none;
+    background:
+      repeating-radial-gradient(circle at 50% 120%, rgba(99, 102, 241, 0.2) 0 1.5px, transparent 1.5px 40px);
+    -webkit-mask-image: linear-gradient(180deg, transparent 0%, #000 60%);
+    mask-image: linear-gradient(180deg, transparent 0%, #000 60%);
+  }
+  html[data-theme="dark"] body .meras-teacher-shell .miras-phone-wave:not(#_):not(#__)::after {
+    background:
+      repeating-radial-gradient(circle at 50% 120%, rgba(165, 180, 252, 0.18) 0 1.5px, transparent 1.5px 40px);
+  }
+}
+
+/* ───────────── ٨) تفاصيل أخيرة من مراجعة الصور ─────────────
+   (أ) بطاقات المشاريع عند الطالب: اسم المقرر «تقنيات التعليم الحديثة — شعـ…» يُقصّ
+       كما كان في بطاقات الاختبارات؛ يلتفّ بدل القصّ.
+   (ب) شارة العرض في الوضع الليلي: دائرة بيج موحلة وأيقونتها غير مقروءة؛ تصبح
+       دائرة كهرمانية داكنة بأيقونة فاتحة. */
+html body #root :is(.miras-practice-projects, .miras-student-project-panel) span.truncate:not(#_):not(#__) {
+  white-space: normal !important;
+  overflow: visible !important;
+  text-overflow: clip !important;
+  min-width: 0;
+}
+html[data-theme="dark"] body #root .miras-demo-bar:not(.is-open):not(#_):not(#__):not(#___):not(#____) .miras-demo-toggle {
+  background: radial-gradient(circle, rgb(120 53 15 / 0.9) 13.5px, rgb(251 191 36 / 0.7) 14px, transparent 14.5px) !important;
+  color: #fde68a !important;
+  opacity: 1;
+}
+html[data-theme="dark"] body #root .miras-demo-bar:not(.is-open):not(#_):not(#__):not(#___):not(#____) .miras-demo-toggle svg {
+  stroke: #fde68a;
+}
