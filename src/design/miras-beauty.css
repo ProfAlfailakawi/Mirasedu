@@ -200,3 +200,23 @@ html body #root .meras-auth-card > div.absolute > button:not(#_):not(#__) {
       repeating-radial-gradient(circle at 50% 150%, rgba(165, 180, 252, 0.12) 0 1.5px, transparent 1.5px 36px);
   }
 }
+
+/* ───────────── ٨) تفاصيل أخيرة من مراجعة الصور ─────────────
+   (أ) بطاقات المشاريع عند الطالب: اسم المقرر «تقنيات التعليم الحديثة — شعـ…» يُقصّ
+       كما كان في بطاقات الاختبارات؛ يلتفّ بدل القصّ.
+   (ب) شارة العرض في الوضع الليلي: دائرة بيج موحلة وأيقونتها غير مقروءة؛ تصبح
+       دائرة كهرمانية داكنة بأيقونة فاتحة. */
+html body #root :is(.miras-practice-projects, .miras-student-project-panel) span.truncate:not(#_):not(#__) {
+  white-space: normal !important;
+  overflow: visible !important;
+  text-overflow: clip !important;
+  min-width: 0;
+}
+html[data-theme="dark"] body #root .miras-demo-bar:not(.is-open):not(#_):not(#__):not(#___):not(#____) .miras-demo-toggle {
+  background: radial-gradient(circle, rgb(120 53 15 / 0.9) 13.5px, rgb(251 191 36 / 0.7) 14px, transparent 14.5px) !important;
+  color: #fde68a !important;
+  opacity: 1;
+}
+html[data-theme="dark"] body #root .miras-demo-bar:not(.is-open):not(#_):not(#__):not(#___):not(#____) .miras-demo-toggle svg {
+  stroke: #fde68a;
+}
