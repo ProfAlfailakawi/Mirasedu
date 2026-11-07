@@ -221,3 +221,56 @@ html[data-theme="dark"] body #root .miras-demo-bar:not(.is-open):not(#_):not(#__
 html[data-theme="dark"] body #root .miras-demo-bar:not(.is-open):not(#_):not(#__):not(#___):not(#____) .miras-demo-toggle svg {
   stroke: #fde68a;
 }
+
+/* ───────────── ٩) الدخول على الارتفاعات القصيرة (≤٤٨٠px): مدمج وآمن التمرير ─────────────
+   مطويّاً أفقياً (٦٠٠×٣٥٠) كان زرّ «متابعة» تحت حافة الشاشة. تُضغط الحشوات والعنوان،
+   يُخفى وسم «مِراس» الصغير (العلامة الكبيرة في اللوح تكفي)، ويصير الصف الأعلى
+   (زرّا الوضع والتثبيت) بحجم أصغر بلا حجز ارتفاع؛ وتبقى الصفحة قابلة للتمرير. */
+@media (max-height: 480px) {
+  html body #root .meras-auth-shell.miras-calm-auth:not(#_):not(#__):not(#___):not(#____):not(#_____):not(#______) {
+    justify-content: flex-start !important;
+    padding-top: 10px !important;
+    padding-bottom: 10px !important;
+    min-height: 100dvh;
+    overflow-y: auto !important;
+    overflow-x: clip;
+  }
+  html[data-theme] body #root .meras-auth-shell.miras-calm-auth:not(#_):not(#__):not(#___):not(#____):not(#_____):not(#______)::before {
+    height: 100%;
+    inset-block: 0 auto;
+  }
+  html[data-theme] body #root .meras-auth-shell.miras-calm-auth .meras-auth-card:not(#_):not(#__):not(#___):not(#____):not(#_____):not(#______) {
+    max-height: none !important;
+    overflow: visible !important;
+    padding: 12px 20px 14px !important;
+    margin-block: 0;
+  }
+  html body #root .meras-auth-card > div.absolute:not(#_):not(#__) {
+    top: 10px !important;
+    left: 12px !important;
+  }
+  html body #root .meras-auth-card > div.absolute > button:not(#_):not(#__) {
+    width: 44px !important;
+    height: 44px !important;
+  }
+  html body #root .meras-auth-card > div.text-center:not(#_):not(#__) {
+    margin-bottom: 8px !important;
+    padding-top: 0 !important;
+  }
+  html body #root .meras-auth-card > div.text-center > span:not(#_):not(#__) {
+    display: none !important;
+  }
+  html body #root .meras-auth-card > div.text-center h2:not(#_):not(#__) {
+    font-size: 1.35rem !important;
+    line-height: 1.3 !important;
+    margin: 0 !important;
+  }
+  html body #root .meras-auth-card .space-y-5 > :not([hidden]) ~ :not([hidden]):not(#_):not(#__) {
+    margin-top: 8px !important;
+  }
+  html body #root .meras-auth-card .miras-login-primary:not(#_):not(#__) {
+    width: 56px !important;
+    height: 56px !important;
+    min-height: 44px;
+  }
+}
