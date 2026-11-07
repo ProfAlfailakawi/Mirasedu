@@ -181,25 +181,24 @@ html body #root .meras-auth-card > div.absolute > button:not(#_):not(#__) {
   }
 }
 
-/* (ب) التسليمات: بعد القائمة القصيرة تُختم الصفحة بنفس التأليف بدل فراغٍ أبيض. */
-@media (min-width: 600px) and (min-height: 700px) {
-  html body #root .miras-submissions-panel:not(#_):not(#__)::after {
+/* (ب) لوحات المعلّم عند ٦٠٠–٧٦٧px: الصفحات القصيرة (التسليمات…) يبقى نصفها السفلي
+   فارغاً فوق الموجة. تُرسم الحلقات خلف المحتوى على عنصر الموجة نفسه (::after لا
+   يُمسّ في اللوحة فهو معطّل قديماً). خلف المحتوى دائماً: لا تأثير على القراءة. */
+@media (min-width: 600px) and (max-width: 767px) and (min-height: 700px) {
+  html body .meras-teacher-shell .miras-phone-wave:not(#_):not(#__)::after {
     content: "";
-    display: block;
-    height: 190px;
-    margin-top: 6px;
+    position: absolute;
+    inset: auto 0 0 0;
+    height: 46svh;
     pointer-events: none;
-    border-radius: 28px;
     background:
-      repeating-linear-gradient(90deg, rgba(79, 70, 229, 0.40) 0 1px, transparent 1px 14px) bottom / 100% 9px no-repeat,
-      repeating-radial-gradient(circle at 50% 150%, rgba(99, 102, 241, 0.28) 0 1.5px, transparent 1.5px 36px);
-    -webkit-mask-image: linear-gradient(180deg, transparent 0%, #000 70%);
-    mask-image: linear-gradient(180deg, transparent 0%, #000 70%);
+      repeating-radial-gradient(circle at 50% 120%, rgba(99, 102, 241, 0.2) 0 1.5px, transparent 1.5px 40px);
+    -webkit-mask-image: linear-gradient(180deg, transparent 0%, #000 60%);
+    mask-image: linear-gradient(180deg, transparent 0%, #000 60%);
   }
-  html[data-theme="dark"] body #root .miras-submissions-panel:not(#_):not(#__)::after {
+  html[data-theme="dark"] body .meras-teacher-shell .miras-phone-wave:not(#_):not(#__)::after {
     background:
-      repeating-linear-gradient(90deg, rgba(165, 180, 252, 0.30) 0 1px, transparent 1px 14px) bottom / 100% 9px no-repeat,
-      repeating-radial-gradient(circle at 50% 150%, rgba(165, 180, 252, 0.12) 0 1.5px, transparent 1.5px 36px);
+      repeating-radial-gradient(circle at 50% 120%, rgba(165, 180, 252, 0.18) 0 1.5px, transparent 1.5px 40px);
   }
 }
 
