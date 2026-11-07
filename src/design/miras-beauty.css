@@ -132,3 +132,14 @@ html body #root .miras-practice-quizzes span.truncate:not(#_):not(#__) {
   text-overflow: clip !important;
   min-width: 0;
 }
+
+/* ───────────── ٦) حقول الدخول: الحدّ الأيمن لا يختفي ─────────────
+   عند ٩٥١px تقع البطاقة على موضعٍ كسري (الغلاف يزيح ‎36%‎ من العرض)، فيسقط حدّ
+   الحقل الأيمن (بكسل جهاز واحد شبه شفّاف) عند التقريب ويبدو الحقل مقطوعاً.
+   حلقة داخلية مرسومة بالظلّ لا تتأثر بتقريب الحدود، وتبقى حلقة التركيز كما هي. */
+html body #root .meras-auth-card input:not([type="checkbox"]):not([type="radio"]):not(#_):not(#__) {
+  box-shadow: inset 0 0 0 1px rgba(148, 163, 184, 0.55), 0 1px 0 rgba(15, 23, 42, 0.02) !important;
+}
+html[data-theme] body #root .meras-auth-card input:not([type="checkbox"]):not([type="radio"]):focus:not(#_):not(#__):not(#___):not(#____) {
+  box-shadow: inset 0 0 0 1px #6366f1, 0 0 0 4px rgba(99, 102, 241, 0.18) !important;
+}
