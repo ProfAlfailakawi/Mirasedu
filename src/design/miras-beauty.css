@@ -274,3 +274,16 @@ html[data-theme="dark"] body #root .miras-demo-bar:not(.is-open):not(#_):not(#__
     min-height: 44px;
   }
 }
+
+/* ───────────── ١٠) شريط التمرير في الدخول المدمج: يبقى التمرير ويختفي الشريط ───────────── */
+@media (max-height: 480px) {
+  html body #root .meras-auth-shell.miras-calm-auth:not(#_):not(#__):not(#___):not(#____):not(#_____):not(#______) {
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+  html body #root .meras-auth-shell.miras-calm-auth:not(#_):not(#__):not(#___):not(#____):not(#_____):not(#______)::-webkit-scrollbar {
+    display: none;
+    width: 0;
+    height: 0;
+  }
+}
