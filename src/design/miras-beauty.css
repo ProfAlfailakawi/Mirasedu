@@ -78,17 +78,37 @@
 /* ───────────── ٣) التسليمات: رأس الأدوات في صفّ واحد وبطاقات بحضور ─────────────
    البحث والتبديل (ملف/مجموعة) كانا في صفّين فيطول الرأس ويبقى نصفه فارغاً. */
 @media (min-width: 600px) {
-  html body #root .miras-submissions-panel > div.miras-shadow-2:not(#_):not(#__) {
+  html body #root .miras-submissions-panel > .miras-bulk-grade-card:not(#_):not(#__) {
+    display: block !important;
+    height: auto !important;
+    min-height: 0 !important;
+  }
+  html body #root .miras-submissions-panel > .miras-bulk-grade-card > .miras-bulk-grade-content:not(#_):not(#__) {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    max-width: none;
+  }
+  html body #root .miras-bulk-grade-content > div:first-child:not(#_) {
+    flex: 1 1 100%;
+  }
+  html body #root .miras-bulk-grade-content > div:not(:first-child):not(#_) {
+    flex: 0 1 240px;
+    margin: 0 !important;
+  }
+  html body #root .miras-submissions-panel > div.miras-shadow-2:not(.miras-bulk-grade-card):not(#_):not(#__) {
     display: flex !important;
     flex-wrap: nowrap;
     align-items: center;
     gap: 12px;
   }
-  html body #root .miras-submissions-panel > div.miras-shadow-2 > div:first-child:not(#_):not(#__) {
+  html body #root .miras-submissions-panel > div.miras-shadow-2:not(.miras-bulk-grade-card) > div:first-child:not(#_):not(#__) {
     flex: 1 1 auto;
     min-width: 0;
   }
-  html body #root .miras-submissions-panel > div.miras-shadow-2 > div:last-child:not(#_):not(#__) {
+  html body #root .miras-submissions-panel > div.miras-shadow-2:not(.miras-bulk-grade-card) > div:last-child:not(#_):not(#__) {
     flex: 0 0 auto;
     margin: 0 !important;
   }

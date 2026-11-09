@@ -8498,7 +8498,7 @@ html.miras-app-shell body {
     -webkit-overflow-scrolling: touch !important;
     overscroll-behavior: contain !important;
     scroll-padding-bottom: 2.25rem !important;
-    touch-action: pan-y !important;
+    touch-action: pan-y pinch-zoom !important;
   }
 
   .workspace-calm-shell .miras-student-alert-popover .miras-student-notice-list.teacher-important-list {
@@ -13036,7 +13036,7 @@ html.miras-student-scroll-locked .meras-student-shell.workspace-calm-shell > mai
   -webkit-overflow-scrolling: touch !important;
   scroll-behavior: smooth !important;
   scrollbar-width: none !important;
-  touch-action: pan-y !important;
+  touch-action: pan-y pinch-zoom !important;
 }
 .meras-student-shell.student-overview-fixed .miras-study-path::-webkit-scrollbar,
 .meras-student-shell.student-overview-fixed .miras-student-last-submission-wrap > .space-y-4::-webkit-scrollbar {
@@ -13136,7 +13136,7 @@ html.miras-student-scroll-locked #root::-webkit-scrollbar {
   scroll-behavior: smooth !important;
   scrollbar-width: none !important;
   -ms-overflow-style: none !important;
-  touch-action: pan-y !important;
+  touch-action: pan-y pinch-zoom !important;
   scroll-padding-block: 1rem !important;
 }
 .meras-student-shell.workspace-calm-shell > main > .miras-practice-quizzes::-webkit-scrollbar,
@@ -14266,7 +14266,7 @@ html.miras-teacher-scroll-locked .meras-teacher-shell.teacher-calm-shell .teache
   scroll-behavior: smooth !important;
   scrollbar-width: none !important;
   -ms-overflow-style: none !important;
-  touch-action: pan-y !important;
+  touch-action: pan-y pinch-zoom !important;
 }
 html.miras-teacher-scroll-locked .meras-teacher-shell.teacher-calm-shell .teacher-command-main::-webkit-scrollbar {
   width: 0 !important;
@@ -14395,7 +14395,7 @@ html.miras-teacher-scroll-locked .meras-teacher-shell.teacher-calm-shell .teache
     overflow-x: hidden !important;
     -webkit-overflow-scrolling: touch !important;
     overscroll-behavior-y: contain !important;
-    touch-action: pan-y !important;
+    touch-action: pan-y pinch-zoom !important;
     scrollbar-width: none !important;
     -ms-overflow-style: none !important;
     padding: max(.62rem, env(safe-area-inset-top)) .72rem calc(7.4rem + env(safe-area-inset-bottom)) !important;
@@ -17075,7 +17075,7 @@ html.miras-teacher-scroll-locked .meras-teacher-shell.teacher-calm-shell .teache
     overflow-x: hidden !important;
     overflow-y: auto !important;
     -webkit-overflow-scrolling: touch !important;
-    touch-action: pan-y !important;
+    touch-action: pan-y pinch-zoom !important;
     overscroll-behavior-x: none !important;
     overscroll-behavior-y: none !important;
     background: linear-gradient(180deg, #f8fbff 0%, #eef7ff 52%, #effdf8 100%) !important;

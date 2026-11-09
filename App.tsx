@@ -40512,8 +40512,8 @@ ${rows
                         </div>
                       ) : (
                       <>
-                      <div className="rounded-[var(--miras-r-xl)] border border-indigo-100 bg-gradient-to-br from-indigo-50/70 via-white to-emerald-50/40 p-4 miras-shadow-2">
-                        <div className="mx-auto max-w-3xl space-y-3 text-center">
+                      <div className="miras-bulk-grade-card rounded-[var(--miras-r-xl)] border border-indigo-100 bg-gradient-to-br from-indigo-50/70 via-white to-emerald-50/40 p-4 miras-shadow-2">
+                        <div className="miras-bulk-grade-content mx-auto max-w-3xl space-y-3 text-center">
                           <div className="flex flex-wrap items-center justify-center gap-2">
                             <h3 className="text-sm font-bold text-slate-900">
                               رصد درجات لمجموعة
