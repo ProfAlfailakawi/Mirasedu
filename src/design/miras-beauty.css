@@ -1,0 +1,311 @@
+/*
+ * طبقة الجمال (الجولة ٢) — CSS فقط، بلا منطق ولا بيانات ولا نصوص مضافة.
+ * كل قاعدة مكتوبة بعد النظر إلى لقطات حقيقية على ٣٨٢ / ٦٦٩ / ٩٥١px (دو مطويّاً
+ * ومفتوحاً عمودياً وأفقياً). لا حجب للتكبير، وأهداف اللمس ≥ ٤٤px تبقى كما هي.
+ */
+
+/* ───────────── ١) شارة البيئة التجريبية: لا تقع على شيء ─────────────
+   ٣٨٢px معلّم: كانت تعضّ طرف كبسولة الأزرار (الفراغ الحقيقي بينها وبين العنوان
+   يبدأ بعد ~٢٤٥px).  ٦٠٠–٧٦٧px طالب: رأس الطالب غير رأس المعلّم، فتتوسّط الفراغ
+   بين «حساب الطالب» والاسم. ٧٦٨–١٢٧٩px: الكبسولة المفتوحة وسط الشاشة كانت تصطدم
+   بكبسولة اسم الأستاذ، فتُنقل إلى الركن السفلي الأيسر الفارغ. */
+@media (max-width: 599px) {
+  /* «التسليمات» أطول عناوين الرأس: لا فراغ ٤٤px بينها وبين كبسولة الأزرار في الصف
+     الأول. تنتقل الشارة إلى يسار الصف الثاني (فارغ، اسم الأستاذ على يمينه). */
+  html body:has(.meras-teacher-shell) #root .miras-demo-bar:not(.is-open):not(#_):not(#__):not(#___):not(#____) > div {
+    left: 10px;
+    margin-top: 62px !important;
+  }
+}
+@media (min-width: 600px) and (max-width: 767px) {
+  html body:has(.meras-student-shell) #root .miras-demo-bar:not(.is-open):not(#_):not(#__):not(#___):not(#____) > div {
+    left: calc(50vw + 100px);
+  }
+}
+@media (min-width: 768px) and (max-width: 1279px) {
+  html body #root .miras-demo-bar:not(#_):not(#__):not(#___) {
+    top: auto !important;
+    bottom: max(12px, env(safe-area-inset-bottom)) !important;
+    justify-content: flex-end !important;
+    padding-left: max(12px, env(safe-area-inset-left)) !important;
+  }
+  html body #root .miras-demo-bar:not(#_):not(#__):not(#___) > div {
+    margin-top: 0 !important;
+    padding: 0 !important;
+    gap: 2px !important;
+  }
+  /* مطويّةً كما على الهاتف: وسمٌ صغير لا يغطي بطاقات الصفحة، وتعود الكبسولة
+     كاملةً عند الفتح (الزرّ نفسه يبقى هدف لمسٍ ٤٤px). */
+  html body #root .miras-demo-bar:not(#_):not(#__):not(#___) .miras-demo-flask,
+  html body #root .miras-demo-bar:not(.is-open):not(#_):not(#__):not(#___) button:not(.miras-demo-toggle) {
+    display: none !important;
+  }
+  html body #root .miras-demo-bar:not(#_):not(#__):not(#___) .miras-demo-toggle {
+    display: grid !important;
+    place-items: center;
+    border-radius: 9999px;
+    width: 44px;
+    height: 44px;
+  }
+  html body #root .miras-demo-bar:not(.is-open):not(#_):not(#__):not(#___) > div {
+    background: transparent !important;
+    border-color: transparent !important;
+    box-shadow: none !important;
+    backdrop-filter: none !important;
+  }
+  html body #root .miras-demo-bar:not(.is-open):not(#_):not(#__):not(#___) .miras-demo-toggle {
+    background: radial-gradient(circle, rgb(254 243 199 / 0.78) 13.5px, rgb(252 211 77 / 0.55) 14px, transparent 14.5px);
+    opacity: 0.85;
+  }
+  html body #root .miras-demo-bar:not(.is-open):not(#_):not(#__):not(#___) .miras-demo-toggle svg {
+    width: 14px;
+    height: 14px;
+  }
+}
+
+/* ───────────── ٢) لوحات المعلّم: هامش واحد مع الرأس ─────────────
+   الرأس عند ~٩px من الحافة، أما لوحات «المقررات/الطلبة» فكانت تدفع محتواها إلى
+   ~٢٣px (ثم بطاقات الطلبة إلى ~٣٦px) بسبب حشوة اللوحة + أربع حاويات متداخلة. */
+@media (max-width: 899px) {
+  html body #root .miras-teacher-v5-main > .space-y-5.lg\:p-8:not(#_):not(#__) {
+    padding-inline: 1px !important;
+  }
+  html body #root .miras-teacher-v5-shell .max-h-\[550px\].overflow-auto.rounded-2xl:not(#_):not(#__) {
+    padding: 8px !important;
+  }
+}
+
+/* ───────────── ٣) التسليمات: رأس الأدوات في صفّ واحد وبطاقات بحضور ─────────────
+   البحث والتبديل (ملف/مجموعة) كانا في صفّين فيطول الرأس ويبقى نصفه فارغاً. */
+@media (min-width: 600px) {
+  html body #root .miras-submissions-panel > div.miras-shadow-2:not(#_):not(#__) {
+    display: flex !important;
+    flex-wrap: nowrap;
+    align-items: center;
+    gap: 12px;
+  }
+  html body #root .miras-submissions-panel > div.miras-shadow-2 > div:first-child:not(#_):not(#__) {
+    flex: 1 1 auto;
+    min-width: 0;
+  }
+  html body #root .miras-submissions-panel > div.miras-shadow-2 > div:last-child:not(#_):not(#__) {
+    flex: 0 0 auto;
+    margin: 0 !important;
+  }
+}
+@media (min-width: 600px) and (min-height: 760px) {
+  html body #root .miras-submissions-panel > .grid > button:not(#_):not(#__) {
+    min-height: 200px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+  }
+}
+
+/* ───────────── ٤) الدخول عند ٦٠٠–٨٥٩px: لوحٌ نيلي مقصود لا حدٌّ مقطوع ─────────────
+   اللوح كان يقف بحدٍّ حاد خلف البطاقة والعلامة صغيرة (66px) في فراغ كبير.
+   نكبّر العلامة ونُرخي اللوح ظلاً وخطّاً أفتح على حدّه فيُقرأ كحافة حبر مقصودة. */
+@media (min-width: 600px) and (max-width: 859px) {
+  html[data-theme] body #root .meras-auth-shell.miras-calm-auth:not(#_):not(#__):not(#___):not(#____):not(#_____):not(#______)::before {
+    height: 34dvh;
+    box-shadow: 0 22px 44px -26px rgba(29, 26, 102, 0.7);
+    background:
+      linear-gradient(180deg, transparent calc(100% - 3px), rgba(165, 180, 252, 0.55) calc(100% - 3px)),
+      url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'%3E%3Cg fill='%23a5b4fc' stroke='%23a5b4fc'%3E%3Cpath fill-rule='evenodd' d='M386 178A86 86 0 1 0 214 178A86 86 0 1 0 386 178ZM342 178A42 42 0 1 1 258 178A42 42 0 1 1 342 178Z'/%3E%3Cpath d='M250 219 C 268 308, 244 374, 150 404' stroke-width='44' stroke-linecap='butt' fill='none'/%3E%3C/g%3E%3C/svg%3E") no-repeat 50% 4dvh / 104px auto,
+      repeating-linear-gradient(0deg, rgba(255, 255, 255, 0.06) 0 1px, transparent 1px 30px),
+      linear-gradient(160deg, var(--mi-ink) 0%, var(--mi-ink-deep) 100%);
+  }
+  html[data-theme] body #root .meras-auth-shell.miras-calm-auth:not(#_):not(#__):not(#___):not(#____):not(#_____):not(#______) {
+    padding-top: calc(34dvh - 2.75rem) !important;
+  }
+  html[data-theme] body #root .meras-auth-shell.miras-calm-auth .meras-auth-card:not(#_):not(#__):not(#___):not(#____):not(#_____):not(#______) {
+    max-height: calc(100dvh - (34dvh - 2.75rem) - 1rem) !important;
+  }
+}
+
+/* ───────────── ٥) بطاقة الاختبار عند الطالب: اسم المقرر لا يُقطع بـ«…» ─────────────
+   عند ٣٨٢px كان «تقنيات التعليم الحديثة — شعبة B2» يُقصّ إلى «شعـ…»: ضياع معلومة
+   (أي شعبة؟). يلتفّ على سطرين بدل القصّ. */
+html body #root .miras-practice-quizzes span.truncate:not(#_):not(#__) {
+  white-space: normal !important;
+  overflow: visible !important;
+  text-overflow: clip !important;
+  min-width: 0;
+}
+
+/* ───────────── ٦) حقول الدخول: الحدّ الأيمن لا يختفي ─────────────
+   عند ٩٥١px تقع البطاقة على موضعٍ كسري (الغلاف يزيح ‎36%‎ من العرض)، فيسقط حدّ
+   الحقل الأيمن (بكسل جهاز واحد شبه شفّاف) عند التقريب ويبدو الحقل مقطوعاً.
+   حلقة داخلية مرسومة بالظلّ لا تتأثر بتقريب الحدود، وتبقى حلقة التركيز كما هي. */
+html body #root .meras-auth-card input:not([type="checkbox"]):not([type="radio"]):not(#_):not(#__) {
+  box-shadow: inset 0 0 0 1px rgba(148, 163, 184, 0.55), 0 1px 0 rgba(15, 23, 42, 0.02) !important;
+}
+html[data-theme] body #root .meras-auth-card input:not([type="checkbox"]):not([type="radio"]):focus:not(#_):not(#__):not(#___):not(#____) {
+  box-shadow: inset 0 0 0 1px #6366f1, 0 0 0 4px rgba(99, 102, 241, 0.18) !important;
+}
+/* زرّا الوضع الليلي/التثبيت أعلى بطاقة الدخول: نفس العلّة (حدّهما الأيمن يُقصّ عند ٣٨٢/٦٢٠px). */
+html body #root .meras-auth-card > div.absolute > button:not(#_):not(#__) {
+  box-shadow: inset 0 0 0 1px rgba(148, 163, 184, 0.45) !important;
+}
+
+/* ───────────── ٧) المساحات الفارغة: تأليف هادئ بلا نصوص ─────────────
+   مستوحى من هوية مِراس نفسها (المسطرة والخطّ الشبكي): حلقات متّحدة المركز تنبثق
+   من أسفل الصفحة مع تدريج مسطرة رفيع، تتلاشى نحو الأعلى. تزيينٌ فقط: لا نصّ، لا
+   تفاعل (pointer-events: none)، ولا حركة. */
+
+/* (أ) الدخول عند <٨٦٠px: الثلث السفلي كان شبكة بيضاء فارغة. */
+@media (max-width: 859px) and (min-height: 700px) {
+  html[data-theme] body #root .meras-auth-shell.miras-calm-auth:not(#_):not(#__):not(#___):not(#____):not(#_____):not(#______)::after {
+    content: "" !important;
+    display: block !important;
+    position: absolute;
+    inset: auto 0 0 0;
+    height: 30dvh;
+    z-index: 0;
+    pointer-events: none;
+    border: 0 !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+    background:
+      repeating-linear-gradient(90deg, rgba(79, 70, 229, 0.30) 0 1px, transparent 1px 14px) bottom / 100% 9px no-repeat,
+      repeating-radial-gradient(circle at 50% 135%, rgba(99, 102, 241, 0.14) 0 1.5px, transparent 1.5px 38px),
+      linear-gradient(180deg, transparent 0%, rgba(99, 102, 241, 0.07) 100%);
+    -webkit-mask-image: linear-gradient(180deg, transparent 0%, #000 55%);
+    mask-image: linear-gradient(180deg, transparent 0%, #000 55%);
+  }
+  html[data-theme="dark"] body #root .meras-auth-shell.miras-calm-auth:not(#_):not(#__):not(#___):not(#____):not(#_____):not(#______)::after {
+    background:
+      repeating-linear-gradient(90deg, rgba(165, 180, 252, 0.34) 0 1px, transparent 1px 14px) bottom / 100% 9px no-repeat,
+      repeating-radial-gradient(circle at 50% 135%, rgba(165, 180, 252, 0.13) 0 1.5px, transparent 1.5px 38px),
+      linear-gradient(180deg, transparent 0%, rgba(99, 102, 241, 0.10) 100%);
+  }
+}
+
+/* (ب) لوحات المعلّم عند ٦٠٠–٧٦٧px: الصفحات القصيرة (التسليمات…) يبقى نصفها السفلي
+   فارغاً فوق الموجة. تُرسم الحلقات خلف المحتوى على عنصر الموجة نفسه (::after لا
+   يُمسّ في اللوحة فهو معطّل قديماً). خلف المحتوى دائماً: لا تأثير على القراءة. */
+@media (min-width: 600px) and (max-width: 767px) and (min-height: 700px) {
+  html body .meras-teacher-shell .miras-phone-wave:not(#_):not(#__)::after {
+    content: "";
+    position: absolute;
+    inset: auto 0 0 0;
+    height: 46svh;
+    pointer-events: none;
+    background:
+      repeating-radial-gradient(circle at 50% 120%, rgba(99, 102, 241, 0.2) 0 1.5px, transparent 1.5px 40px);
+    -webkit-mask-image: linear-gradient(180deg, transparent 0%, #000 60%);
+    mask-image: linear-gradient(180deg, transparent 0%, #000 60%);
+  }
+  html[data-theme="dark"] body .meras-teacher-shell .miras-phone-wave:not(#_):not(#__)::after {
+    background:
+      repeating-radial-gradient(circle at 50% 120%, rgba(165, 180, 252, 0.18) 0 1.5px, transparent 1.5px 40px);
+  }
+}
+
+/* ───────────── ٨) تفاصيل أخيرة من مراجعة الصور ─────────────
+   (أ) بطاقات المشاريع عند الطالب: اسم المقرر «تقنيات التعليم الحديثة — شعـ…» يُقصّ
+       كما كان في بطاقات الاختبارات؛ يلتفّ بدل القصّ.
+   (ب) شارة العرض في الوضع الليلي: دائرة بيج موحلة وأيقونتها غير مقروءة؛ تصبح
+       دائرة كهرمانية داكنة بأيقونة فاتحة. */
+html body #root :is(.miras-practice-projects, .miras-student-project-panel) span.truncate:not(#_):not(#__) {
+  white-space: normal !important;
+  overflow: visible !important;
+  text-overflow: clip !important;
+  min-width: 0;
+}
+html[data-theme="dark"] body #root .miras-demo-bar:not(.is-open):not(#_):not(#__):not(#___):not(#____) .miras-demo-toggle {
+  background: radial-gradient(circle, rgb(120 53 15 / 0.9) 13.5px, rgb(251 191 36 / 0.7) 14px, transparent 14.5px) !important;
+  color: #fde68a !important;
+  opacity: 1;
+}
+html[data-theme="dark"] body #root .miras-demo-bar:not(.is-open):not(#_):not(#__):not(#___):not(#____) .miras-demo-toggle svg {
+  stroke: #fde68a;
+}
+
+/* ───────────── ٩) الدخول على الارتفاعات القصيرة (≤٤٨٠px): مدمج وآمن التمرير ─────────────
+   مطويّاً أفقياً (٦٠٠×٣٥٠) كان زرّ «متابعة» تحت حافة الشاشة. تُضغط الحشوات والعنوان،
+   يُخفى وسم «مِراس» الصغير (العلامة الكبيرة في اللوح تكفي)، ويصير الصف الأعلى
+   (زرّا الوضع والتثبيت) بحجم أصغر بلا حجز ارتفاع؛ وتبقى الصفحة قابلة للتمرير. */
+@media (max-height: 480px) {
+  html body #root .meras-auth-shell.miras-calm-auth:not(#_):not(#__):not(#___):not(#____):not(#_____):not(#______) {
+    justify-content: flex-start !important;
+    padding-top: 10px !important;
+    padding-bottom: 10px !important;
+    min-height: 100dvh;
+    overflow-y: auto !important;
+    overflow-x: clip;
+  }
+  html[data-theme] body #root .meras-auth-shell.miras-calm-auth:not(#_):not(#__):not(#___):not(#____):not(#_____):not(#______)::before {
+    height: 100%;
+    inset-block: 0 auto;
+  }
+  html[data-theme] body #root .meras-auth-shell.miras-calm-auth .meras-auth-card:not(#_):not(#__):not(#___):not(#____):not(#_____):not(#______) {
+    max-height: none !important;
+    overflow: visible !important;
+    padding: 12px 20px 14px !important;
+    margin-block: 0;
+  }
+  html body #root .meras-auth-card > div.absolute:not(#_):not(#__) {
+    top: 10px !important;
+    left: 12px !important;
+  }
+  html body #root .meras-auth-card > div.absolute > button:not(#_):not(#__) {
+    width: 44px !important;
+    height: 44px !important;
+  }
+  html body #root .meras-auth-card > div.text-center:not(#_):not(#__) {
+    margin-bottom: 8px !important;
+    padding-top: 0 !important;
+  }
+  html body #root .meras-auth-card > div.text-center > span:not(#_):not(#__) {
+    display: none !important;
+  }
+  html body #root .meras-auth-card > div.text-center h2:not(#_):not(#__) {
+    font-size: 1.35rem !important;
+    line-height: 1.3 !important;
+    margin: 0 !important;
+  }
+  html body #root .meras-auth-card .space-y-5 > :not([hidden]) ~ :not([hidden]):not(#_):not(#__) {
+    margin-top: 8px !important;
+  }
+  html body #root .meras-auth-card .miras-login-primary:not(#_):not(#__) {
+    width: 56px !important;
+    height: 56px !important;
+    min-height: 44px;
+  }
+}
+
+/* ───────────── ١٠) شريط التمرير في الدخول المدمج: يبقى التمرير ويختفي الشريط ───────────── */
+@media (max-height: 480px) {
+  html body #root .meras-auth-shell.miras-calm-auth:not(#_):not(#__):not(#___):not(#____):not(#_____):not(#______) {
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+  html body #root .meras-auth-shell.miras-calm-auth:not(#_):not(#__):not(#___):not(#____):not(#_____):not(#______)::-webkit-scrollbar {
+    display: none;
+    width: 0;
+    height: 0;
+  }
+}
+
+/* ───────────── ١١) الطالب: صفحة الاختبارات القصيرة تُختم بالتأليف نفسه ─────────────
+   عند ٦٦٩×٨٨٠ تبقى ثلاثة أرباع الشاشة فراغاً تحت بطاقة اختبار واحدة. */
+@media (min-width: 600px) and (min-height: 700px) {
+  html body #root .meras-student-shell .miras-practice-quizzes:not(#_):not(#__)::after {
+    content: "";
+    display: block;
+    height: 260px;
+    margin-top: 28px;
+    pointer-events: none;
+    background:
+      repeating-linear-gradient(90deg, rgba(79, 70, 229, 0.34) 0 1px, transparent 1px 14px) bottom / 100% 9px no-repeat,
+      repeating-radial-gradient(circle at 50% 150%, rgba(99, 102, 241, 0.24) 0 1.5px, transparent 1.5px 38px);
+    -webkit-mask-image: linear-gradient(180deg, transparent 0%, #000 70%);
+    mask-image: linear-gradient(180deg, transparent 0%, #000 70%);
+  }
+  html[data-theme="dark"] body #root .meras-student-shell .miras-practice-quizzes:not(#_):not(#__)::after {
+    background:
+      repeating-linear-gradient(90deg, rgba(165, 180, 252, 0.3) 0 1px, transparent 1px 14px) bottom / 100% 9px no-repeat,
+      repeating-radial-gradient(circle at 50% 150%, rgba(165, 180, 252, 0.2) 0 1.5px, transparent 1.5px 38px);
+  }
+}

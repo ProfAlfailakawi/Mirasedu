@@ -15187,7 +15187,7 @@ html.miras-teacher-scroll-locked .meras-teacher-shell.teacher-calm-shell .teache
    - يترك فقط مساحة dock الحقيقية أسفل الصفحة.
    - يجعل عارض حل الواجب/المرفقات ممتدًا وآمنًا على iPhone/PWA.
    ========================================================= */
-@media (max-width: 920px), (pointer: coarse) and (hover: none) {
+@media (max-width: 920px) {
   html.miras-teacher-scroll-locked,
   body.miras-teacher-scroll-locked,
   html.miras-teacher-scroll-locked body,
@@ -15857,7 +15857,7 @@ html.miras-teacher-scroll-locked .meras-teacher-shell.teacher-calm-shell .teache
    وبقواعد padding قديمة. هذا الحارس يثبت غلاف المعلم ويجعل main وحده
    مسار الحركة، مع بداية قريبة جداً من أعلى الشاشة ونهاية مضبوطة فوق dock.
    ========================================================= */
-@media (max-width: 920px), (pointer: coarse) and (hover: none) {
+@media (max-width: 920px) {
   .miras-app-teacher-root,
   html.miras-teacher-scroll-locked .miras-app-teacher-root {
     width: 100% !important;
@@ -16022,7 +16022,7 @@ html.miras-teacher-scroll-locked .meras-teacher-shell.teacher-calm-shell .teache
    MIRAS V5 — Teacher mobile viewport hard fix
    يربط الإصلاح بكلاس جديد من React حتى لا تتغلب قواعد قديمة.
    ========================================================= */
-@media (max-width: 920px), (pointer: coarse) and (hover: none) {
+@media (max-width: 920px) {
   html.miras-teacher-scroll-locked,
   html.miras-teacher-scroll-locked body,
   html.miras-teacher-scroll-locked #root,
@@ -16210,7 +16210,7 @@ html.miras-teacher-scroll-locked .meras-teacher-shell.teacher-calm-shell .teache
    بصرية كبيرة قبل الهيدر. هذا الحارس الأخير يربط البداية بأعلى الشاشة
    ويضغط الهيدر بشكل أنيق دون تغيير أي وظيفة أو بيانات.
    ========================================================= */
-@media (max-width: 920px), (pointer: coarse) and (hover: none) {
+@media (max-width: 920px) {
   .miras-teacher-viewport-v5,
   .miras-teacher-viewport-v5 > .miras-teacher-v5-shell,
   .miras-teacher-v5-shell,
@@ -16300,7 +16300,7 @@ html.miras-teacher-scroll-locked .meras-teacher-shell.teacher-calm-shell .teache
    وفي iOS/PWA أحياناً يبدأ الهيدر بعد مساحة وهمية كبيرة. الحل هنا
    يثبت مسار المعلم مباشرة على حدود الشاشة ويجعل الهيدر أول بكسل فعلي.
    ========================================================= */
-@media (max-width: 920px), (pointer: coarse) and (hover: none) {
+@media (max-width: 920px) {
   html.miras-teacher-scroll-locked,
   html.miras-teacher-scroll-locked body,
   html.miras-teacher-scroll-locked #root,
@@ -16429,7 +16429,7 @@ html.miras-teacher-scroll-locked .meras-teacher-shell.teacher-calm-shell .teache
    Final CSS fallback: pin the teacher header to the viewport and
    reserve only its compact height inside the scroll area.
    ========================================================= */
-@media (max-width: 920px), (pointer: coarse) and (hover: none) {
+@media (max-width: 920px) {
   .miras-app-teacher-root.miras-teacher-viewport-v5,
   .miras-app-teacher-root.miras-teacher-viewport-v5 > .miras-teacher-v5-shell,
   html.miras-teacher-scroll-locked .miras-app-teacher-root.miras-teacher-viewport-v5,
@@ -16493,7 +16493,7 @@ html.miras-teacher-scroll-locked .meras-teacher-shell.teacher-calm-shell .teache
    ========================================================= */
 .miras-mobile-teacher-zero-header { display: none; }
 
-@media (max-width: 920px), (pointer: coarse) and (hover: none) {
+@media (max-width: 920px) {
   .miras-app-teacher-root.miras-teacher-viewport-v5 .miras-mobile-teacher-zero-header {
     position: fixed !important;
     top: max(.26rem, env(safe-area-inset-top, 0px)) !important;
@@ -16662,7 +16662,7 @@ html.miras-teacher-scroll-locked .meras-teacher-shell.teacher-calm-shell .teache
   }
 }
 
-@media (max-width: 920px), (pointer: coarse) and (hover: none) {
+@media (max-width: 920px) {
   .meras-teacher-shell.teacher-calm-shell .teacher-nav-mobile.teacher-orbit-dock,
   .meras-teacher-shell.teacher-calm-shell .miras-teacher-nav-shell.teacher-nav-mobile,
   .miras-teacher-v5-shell .teacher-nav-mobile.teacher-orbit-dock,
@@ -16744,7 +16744,7 @@ html.miras-teacher-scroll-locked .meras-teacher-shell.teacher-calm-shell .teache
 
 /* Keep the final student/submission row above the fixed teacher dock.
    This spacer belongs to the submissions content only; the dock is unchanged. */
-@media (max-width: 920px), (pointer: coarse) and (hover: none) {
+@media (max-width: 920px) {
   .miras-app-teacher-root.miras-teacher-viewport-v5 .miras-teacher-v5-shell .teacher-command-main > .miras-submissions-panel:last-child,
   html.miras-teacher-scroll-locked .miras-teacher-v5-shell .teacher-command-main > .miras-submissions-panel:last-child {
     box-sizing: border-box !important;
@@ -16758,7 +16758,7 @@ html.miras-teacher-scroll-locked .meras-teacher-shell.teacher-calm-shell .teache
    ظاهرة مثل الصورة. هنا يصبح الشريط فعلياً كبسولة صغيرة عند الخمول،
    ويعود كاملاً فقط عند اللمس/التركيز.
    ========================================================= */
-@media (max-width: 920px), (pointer: coarse) and (hover: none) {
+@media (max-width: 920px) {
   .miras-app-teacher-root .miras-teacher-nav-shell.teacher-nav-mobile,
   .miras-app-teacher-root .teacher-nav-mobile.teacher-orbit-dock,
   .miras-teacher-v5-shell .miras-teacher-nav-shell.teacher-nav-mobile,
@@ -16867,7 +16867,7 @@ html.miras-teacher-scroll-locked .meras-teacher-shell.teacher-calm-shell .teache
    2) Submission detail: always reopens at the top after return/navigation.
    Scope is visual only; no tests/submission/dock behavior changed.
    ========================================================= */
-@media (max-width: 760px), (pointer: coarse) and (hover: none) {
+@media (max-width: 760px) {
   .meras-student-shell.student-overview-fixed {
     overflow: hidden !important;
     height: 100dvh !important;
@@ -16944,7 +16944,7 @@ html.miras-teacher-scroll-locked .meras-teacher-shell.teacher-calm-shell .teache
 /* Instagram-style teacher dock: keep the complete navigation row visible.
    The React dock state and navigation handlers remain untouched; this final
    mobile-only layer makes both visual states use the same full-width layout. */
-@media (max-width: 920px), (pointer: coarse) and (hover: none) {
+@media (max-width: 920px) {
   html.miras-teacher-scroll-locked,
   html.miras-teacher-scroll-locked body,
   html.miras-teacher-scroll-locked body #root,
@@ -17066,7 +17066,7 @@ html.miras-teacher-scroll-locked .meras-teacher-shell.teacher-calm-shell .teache
 /* iPhone/Safari scroll repair: one scroll owner and one bottom clearance.
    This prevents nested rubber-band capture and removes the duplicated blank
    tail that used to appear below the final submission card. */
-@media (max-width: 920px), (pointer: coarse) and (hover: none) {
+@media (max-width: 920px) {
   html.miras-teacher-scroll-locked body
     .miras-app-teacher-root.miras-teacher-viewport-v5
     .miras-teacher-v5-shell
@@ -17935,7 +17935,12 @@ html.miras-teacher-scroll-locked .meras-teacher-shell.teacher-calm-shell .teache
      ٣) ‎setTimeout(..., 3900)‎ في App.tsx الذي يزيل العنصر من DOM.
    أي تعديل لأحدها دون الآخرين يكسر «الذوبان في التطبيق». */
 .miras-splash {
-  background: var(--miras-splash-from) !important;
+  /* لا !important على لون الخلفية: الحركة (miras-splash-land) لا تغلب إعلاناً
+     مُعلَّماً !important، فكانت الخلفية تبقى نيلية والحبر يتحوّل إلى داكن
+     فتظهر «مِراس» شبه سوداء على النيلي نحو ثانية. التدرّجات القديمة
+     تُلغى بـ background-image فقط. */
+  background-image: none !important;
+  background-color: var(--miras-splash-from);
   animation: miras-splash-land 3.4s cubic-bezier(.65,0,.35,1) forwards;
   overflow: hidden;
 }
@@ -19107,7 +19112,7 @@ html[data-theme="dark"] body .miras-teacher-alert-popover .miras-teacher-alert-d
   min-height: 2.75rem !important;
   transform: none !important;
 }
-@media (max-width: 920px), (pointer: coarse) and (hover: none) {
+@media (max-width: 920px) {
   #root .miras-mobile-teacher-zero-header:not(#_):not(#_) {
     display: grid !important;
     grid-template-columns: minmax(0, 1fr) auto !important;

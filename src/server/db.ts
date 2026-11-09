@@ -17,6 +17,7 @@ import { getFirestore } from "firebase-admin/firestore";
 import { getStorage } from "firebase-admin/storage";
 import type { CodeLedgerEvent, SignedJoinCodeFields } from "../shared/types";
 import { createDemoDatabaseState } from "./demoSeed";
+import { effectiveEntityChunkCount, recoverEntityPayload } from "./entity-chunk-count";
 
 // Initialize Firebase server-side if exists
 let dbFS: any = null;
@@ -1035,6 +1036,10 @@ export class LocalDatabase {
   // آخر بيان معروف بعدد أجزاء كل مفتاح — يُستخدم فقط لو احتجنا لاحقاً نقرأ
   // مفتاحاً واحداً بمعزل عن البقية؛ يُحدَّث من كل قراءة أو كتابة ناجحة.
   private lastEntityManifest: Record<string, { chunkCount: number }> = {};
+  // Entities whose manifest does not describe their chunks (a writer stopped before
+  // updating it). They stay out of the adopted manifest, so the next save rewrites
+  // them whole instead of patching single chunks into a mismatched layout.
+  private cloudLayoutMismatchKeys = new Set<string>();
   public syncPromise: Promise<void> | null = null;
   // ⚡ تجميع وتأجيل الحفظ: انفجار التعديلات داخل الطلب الواحد (حذف مقرر يلمس مئات
   // الطلاب، حذف طالب، إزالة مقرر...) كان ينفّذ كتابة كامل القاعدة على القرص +
@@ -1502,13 +1507,19 @@ export class LocalDatabase {
   // adoptManifest=false: the caller may still discard this snapshot (a late echo of
   // an earlier write). The writer must keep describing what the cloud holds now,
   // so it takes the manifest only from a state it actually adopts.
+  private adoptEntityManifest(manifest: Record<string, any>) {
+    const adopted = { ...manifest };
+    for (const key of this.cloudLayoutMismatchKeys) delete adopted[key];
+    this.lastEntityManifest = adopted;
+  }
+
   private async cloudStateFromEntityManifest(raw: any, adoptManifest = true): Promise<DatabaseState> {
     const manifest = raw?.entityManifest || {};
     const keys: string[] =
       Array.isArray(raw?.entityKeys) && raw.entityKeys.length
         ? raw.entityKeys
         : (MIRAS_CLOUD_ENTITY_KEYS as string[]);
-    if (adoptManifest) this.lastEntityManifest = manifest;
+    if (adoptManifest) this.adoptEntityManifest(manifest);
     const entries = await Promise.all(
       keys.map(async (key) => {
         const info = manifest[key];
@@ -1531,30 +1542,64 @@ export class LocalDatabase {
         if (!Number.isFinite(chunkCount) || chunkCount > 250) {
           throw new Error(`Invalid chunk count for entity ${key}: ${info?.chunkCount}`);
         }
-        const chunkSnaps = await Promise.all(
+        let chunkSnaps = await Promise.all(
           Array.from({ length: chunkCount }, (_, index) =>
             this.cloudEntityDocRef(key, index).get(),
           ),
         );
-        const payload = chunkSnaps
+        // The manifest is written after the chunks; if a writer stopped in between,
+        // it can still describe an older layout. Trust the newest chunk generation.
+        const chunkInfo = () =>
+          chunkSnaps.map((snap) => {
+            const data = snap.exists ? (snap.data() as any) : null;
+            return data
+              ? { generation: Number(data.generation), chunkCount: Number(data.chunkCount) }
+              : null;
+          });
+        const effectiveCount = effectiveEntityChunkCount(chunkInfo(), chunkCount);
+        this.cloudLayoutMismatchKeys.delete(key);
+        if (effectiveCount !== chunkCount) this.cloudLayoutMismatchKeys.add(key);
+        if (effectiveCount > chunkSnaps.length) {
+          const extra = await Promise.all(
+            Array.from({ length: effectiveCount - chunkSnaps.length }, (_, i) =>
+              this.cloudEntityDocRef(key, chunkSnaps.length + i).get(),
+            ),
+          );
+          chunkSnaps = chunkSnaps.concat(extra);
+        } else if (effectiveCount < chunkSnaps.length) {
+          console.warn(
+            `⚠️ Entity ${key}: ignoring ${chunkSnaps.length - effectiveCount} stale cloud chunk(s) from an older write (manifest says ${chunkCount}, newest write used ${effectiveCount}).`,
+          );
+          chunkSnaps = chunkSnaps.slice(0, effectiveCount);
+        }
+        const parts = chunkSnaps
           .map((snap, index) => {
             if (!snap.exists) {
-              throw new Error(`Missing Firestore chunk ${index + 1}/${chunkCount} for entity ${key}`);
+              throw new Error(`Missing Firestore chunk ${index + 1}/${chunkSnaps.length} for entity ${key}`);
             }
             const chunkPayload = snap.data()?.payload;
             if (typeof chunkPayload !== "string") {
               throw new Error(`Invalid Firestore chunk payload for entity ${key} at index ${index}`);
             }
             return chunkPayload;
-          })
-          .join("");
+          });
+        const payload = parts.join("");
         try {
           return [key, payload ? JSON.parse(payload) : null] as const;
         } catch (err: any) {
+          const recovered = recoverEntityPayload(parts);
+          if (recovered) {
+            this.cloudLayoutMismatchKeys.add(key);
+            console.error(
+              `🛠️ Entity ${key}: recovered from the first ${recovered.chunkCount} of ${parts.length} chunk(s); the rest were left by an interrupted write.`,
+            );
+            return [key, recovered.value] as const;
+          }
           throw new Error(`Failed to parse Firestore payload for entity ${key}: ${err?.message || String(err)}`);
         }
       }),
     );
+    if (adoptManifest) this.adoptEntityManifest(manifest);
     const partial: Partial<DatabaseState> = { lastUpdated: raw?.lastUpdated };
     entries.forEach(([key, value]) => {
       (partial as any)[key] = value;
@@ -1862,7 +1907,7 @@ export class LocalDatabase {
           this.lastSyncedState = cloneDbValue(incoming);
         }
         this.lastListenerAppliedStamp = incomingStamp;
-        if (this.isEntityCloudMeta(raw)) this.lastEntityManifest = raw?.entityManifest || {};
+        if (this.isEntityCloudMeta(raw)) this.adoptEntityManifest(raw?.entityManifest || {});
         this.knownCloudMetaRevision = snapshot.updateTime && this.isEntityCloudMeta(raw)
           ? { stamp: incomingStamp, updateTime: snapshot.updateTime }
           : null;
@@ -4066,8 +4111,9 @@ const gracefulDbShutdown = (signal: NodeJS.Signals) => {
     liveDbInstance.flushLocalSave();
   } catch {}
   const finish = () => process.exit(0);
-  // سقف 3 ثوانٍ حتى لا يتعلّق الإيقاف عند تعطل الشبكة.
-  const timer = setTimeout(finish, 3000);
+  // Cloud Run يمهل الحاوية 10 ثوانٍ بعد SIGTERM. نمنح المزامنة الأخيرة حتى 8 ثوانٍ
+  // (كانت 3) لأن الخادم صار يتوقف عند الخمول، فلا يضيع آخر تعديل عند الإيقاف.
+  const timer = setTimeout(finish, 8000);
   Promise.resolve(liveDbInstance.waitForSync())
     .catch(() => {})
     .finally(() => {

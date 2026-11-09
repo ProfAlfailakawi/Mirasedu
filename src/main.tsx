@@ -58,6 +58,9 @@ import './design/miras-calm.css';
 import './design/miras-identity.css';
 // طبقة الصقل والحركة (الجولة الثانية) — آخر الطبقات، عرض فقط.
 import './design/miras-polish.css';
+// طبقة المقاس المتجاوب (Duo/كل الشاشات) — آخر الطبقات، عرض فقط.
+import './design/miras-duo-layouts.css';
+import './design/miras-beauty.css';
 
 // ───────────────────────────────────────────────────────────────────────────
 // حاجز عرض الواجهة (Render Guard)
