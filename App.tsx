@@ -3411,16 +3411,36 @@ export default function App() {
     if (typeof window === "undefined" || typeof document === "undefined")
       return;
     document.documentElement.classList.add("miras-app-shell");
+    const allowTeacherGradeZoom = (event: Event) => {
+      const target = event.target;
+      if (!(target instanceof Element)) return false;
+      return !!target.closest(
+        '.miras-teacher-v5-shell [data-miras-grade-control="true"]',
+      );
+    };
+    const isTeacherWorkspace = () =>
+      document.documentElement.classList.contains("miras-teacher-workspace");
     const preventMultiTouch = (event: TouchEvent) => {
-      if (event.touches.length > 1) event.preventDefault();
+      if (
+        event.touches.length > 1 &&
+        (!isTeacherWorkspace() || !allowTeacherGradeZoom(event))
+      )
+        event.preventDefault();
     };
     let lastTouchEnd = 0;
     const preventDoubleTapZoom = (event: TouchEvent) => {
       const now = Date.now();
-      if (now - lastTouchEnd <= 320) event.preventDefault();
+      if (
+        now - lastTouchEnd <= 320 &&
+        (!isTeacherWorkspace() || !allowTeacherGradeZoom(event))
+      )
+        event.preventDefault();
       lastTouchEnd = now;
     };
-    const preventGestureZoom = (event: Event) => event.preventDefault();
+    const preventGestureZoom = (event: Event) => {
+      if (!isTeacherWorkspace() || !allowTeacherGradeZoom(event))
+        event.preventDefault();
+    };
     document.addEventListener("touchstart", preventMultiTouch, {
       passive: false,
     });
@@ -3710,6 +3730,14 @@ export default function App() {
     if (typeof document === "undefined") return;
     const lockTeacherViewport = currentView === "teacher_workspace";
     document.documentElement.classList.toggle(
+      "miras-teacher-workspace",
+      lockTeacherViewport,
+    );
+    document.body.classList.toggle(
+      "miras-teacher-workspace",
+      lockTeacherViewport,
+    );
+    document.documentElement.classList.toggle(
       "miras-teacher-scroll-locked",
       lockTeacherViewport,
     );
@@ -3729,6 +3757,8 @@ export default function App() {
     return () => {
       document.documentElement.classList.remove("miras-teacher-scroll-locked");
       document.body.classList.remove("miras-teacher-scroll-locked");
+      document.documentElement.classList.remove("miras-teacher-workspace");
+      document.body.classList.remove("miras-teacher-workspace");
     };
   }, [currentView]);
 
@@ -34604,6 +34634,7 @@ ${rows
                 <div className="shrink-0 bg-slate-50 border-t border-slate-100 p-4 rounded-b-3xl flex items-center justify-between gap-3">
                   <div className="flex items-center gap-2 shrink-0">
                     <input
+                      data-miras-grade-control="true"
                       value={teacherGradeInputValue(selectedSubmissionDetail)}
                       onChange={(e) => {
                         const grade = normalizeGradeChange(readGradeInputValue(e, selectedSubmissionDetail.grade));
@@ -34699,6 +34730,7 @@ ${rows
                 <div className="flex items-center gap-1.5 border-s border-slate-100 ps-2 ms-2">
                   <div className="flex items-center gap-1 bg-slate-50 border border-slate-100 rounded-xl px-2 py-1">
                     <input
+                      data-miras-grade-control="true"
                       value={teacherGradeInputValue(selectedSubmissionDetail)}
                       onChange={(e) => {
                         const grade = normalizeGradeChange(
@@ -40554,6 +40586,7 @@ ${rows
                           </div>
                           <div className="mx-auto max-w-md">
                             <input
+                              data-miras-grade-control="true"
                               value={bulkGradeInput}
                               onChange={(e) =>
                                 setBulkGradeInput(
@@ -40611,6 +40644,33 @@ ${rows
                               key={sub.id}
                               className="rounded-2xl border border-slate-100/80 bg-white/90 px-3 py-3 shadow-sm"
                             >
+                              <div className="mt-2 flex items-center gap-2 border-t border-slate-100 pt-2 md:hidden">
+                                <span className="shrink-0 text-[11px] font-bold text-slate-500">الدرجة</span>
+                                <input
+                                  data-miras-grade-control="true"
+                                  value={teacherGradeInputValue(sub)}
+                                  onChange={(e) => {
+                                    const grade = normalizeGradeChange(
+                                      readGradeInputValue(e, sub.grade),
+                                    );
+                                    updateSubmissionGrade(sub.id, grade);
+                                  }}
+                                  onBlur={(e) => {
+                                    const grade = normalizeGradeChange(
+                                      readGradeInputValue(e, sub.grade),
+                                    );
+                                    updateSubmissionGrade(sub.id, grade, {
+                                      notifyStudent: true,
+                                    });
+                                  }}
+                                  type="text"
+                                  dir="ltr"
+                                  inputMode="decimal"
+                                  aria-label="درجة الطالب"
+                                  className="h-10 min-w-0 flex-1 rounded-xl border border-slate-200 bg-white px-2 text-center font-mono text-sm font-bold text-indigo-700 focus:border-indigo-400 focus:outline-none focus:ring-2 focus:ring-indigo-50"
+                                />
+                                <span className="shrink-0 text-[10px] font-bold text-slate-400">{teacherGradeMaxText(sub)}</span>
+                              </div>
                               <div className="flex items-center gap-2 max-[379px]:flex-wrap max-[379px]:gap-y-1.5">
                                 <input
                                   type="checkbox"
@@ -40774,6 +40834,7 @@ ${rows
                                   <td className="p-3">
                                     <div className="flex items-center gap-2">
                                       <input
+                                        data-miras-grade-control="true"
                                         value={teacherGradeInputValue(sub)}
                                         onChange={(e) => {
                                           const grade = normalizeGradeChange(

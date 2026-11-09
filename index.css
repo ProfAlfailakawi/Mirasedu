@@ -1519,6 +1519,15 @@ html.miras-app-shell select,
 html.miras-app-shell button {
   font-size: 16px;
 }
+
+/* Restore browser zoom controls for teachers. */
+html.miras-teacher-workspace,
+html.miras-teacher-workspace body,
+html.miras-teacher-workspace .miras-teacher-v5-shell,
+html.miras-teacher-workspace .miras-teacher-v5-shell * {
+  touch-action: auto !important;
+}
+
 @media (min-width: 641px) {
   html.miras-app-shell input,
   html.miras-app-shell textarea,
