@@ -15789,12 +15789,14 @@ function verifyPasswordFlexible(stored: any, submitted: any) {
   if (!candidates.length) return false;
   const saved = String(stored || "");
   if (saved.startsWith("scrypt:")) return scryptMatches(saved, candidates);
+  // بصمات sha256 القديمة تبقى على سلوكها الأصلي حرفياً (تمهيد البيئة/بيانات قديمة)؛
+  // كل تسجيل وإعادة تعيين للطالب يُحفظ بـ scrypt حيث يعمل التسامح أعلاه.
+  const clean = String(submitted || "").trim();
   if (saved.startsWith("sha256:")) {
-    return candidates.some(
-      (clean) => saved === "sha256:" + crypto.createHash("sha256").update(clean).digest("hex"),
-    );
+    const candidate = "sha256:" + crypto.createHash("sha256").update(clean).digest("hex");
+    return saved === candidate;
   }
-  return candidates.includes(saved);
+  return saved === clean;
 }
 
 // تحقّق بـ scrypt فقط، للمسارات الجديدة. verifyPasswordFlexible يبقى للدخول
