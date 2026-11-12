@@ -343,3 +343,17 @@ html[data-theme="dark"] body #root .miras-demo-bar:not(.is-open):not(#_):not(#__
     white-space: nowrap;
   }
 }
+
+/* ── تجاوب: حقول الكتابة على الهاتف ١٦px — لا تكبير تلقائي في iOS ─────────
+   طبقة «حدّ ١٢px» في miras-final.css رفعت النصوص الصغيرة إلى ١٢px، فأصابت معها
+   حقولاً فعلية: بحث التسليمات، و«الدرجة من …» الجماعية، و«درجة الطالب» في كل
+   صف، وحقل كود المقرر المقفل، وساعة الإرجاع. حقلٌ أصغر من ١٦px يجعل Safari يكبّر
+   الصفحة عند لمسه (وقد أُزيل maximum-scale عمداً لإتاحة التكبير اليدوي).
+   الحجم وحده يتغيّر؛ سطح المكتب بالفأرة يبقى ١٢px كما هو. */
+@media (max-width: 767px), (pointer: coarse) {
+  html body .meras-teacher-shell.teacher-calm-shell .miras-submissions-panel input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not(#_):not(#_):not(#_):not(#_):not(#_):not(.meras-exam-shell *),
+  html body .miras-locked-course-input:not(#_):not(#_):not(#_):not(#_):not(#_):not(.meras-exam-shell *),
+  html body .miras-return-hour-input:not(#_):not(#_):not(#_):not(#_):not(#_):not(.meras-exam-shell *) {
+    font-size: 16px !important;
+  }
+}
