@@ -73,3 +73,34 @@ html body #root .miras-section-hero:has(.miras-section-title-dup):not(#_):not(#_
     display: none !important;
   }
 }
+
+/* ───────────── ٦) سطر البيانات في بطاقات الطالب: لا خط برمجي على العربية ─────────────
+   «آخر موعد: …» و«تسليم … | إغلاق …» كانت بخط JetBrains Mono، فتتباعد الحروف العربية
+   كأنها مُتتبَّعة. يرث السطر خط الواجهة، وتبقى الأرقام متساوية العرض. */
+html body #root .meras-student-shell .miras-dna-meta .font-mono:not(#_):not(#__) {
+  font-family: inherit !important;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0 !important;
+}
+
+/* ───────────── ٧) بطاقة الاختبار/المشروع على الهاتف: الزرّ تحت المحتوى ─────────────
+   على ٣٩٠px كان زرّ «ابدأ الاختبار» يأخذ نصف البطاقة فيلتفّ العنوان على ثلاثة أسطر. */
+@media (max-width: 479px) {
+  html body #root .meras-student-shell :is(.miras-practice-quizzes, .miras-practice-projects) .group > .relative.z-10.flex.items-start.justify-between:not(#_):not(#__):not(#___),
+  html body #root .meras-student-shell :is(.miras-practice-quizzes, .miras-practice-projects) .group:has(> .flex-1.space-y-3 + button):not(#_):not(#__):not(#___) {
+    flex-direction: column !important;
+    align-items: stretch !important;
+    gap: 0.85rem;
+  }
+  html body #root .meras-student-shell :is(.miras-practice-quizzes, .miras-practice-projects) .group > .relative.z-10.flex.items-start.justify-between > :last-child:not(:first-child):not(#_):not(#__):not(#___),
+  html body #root .meras-student-shell :is(.miras-practice-quizzes, .miras-practice-projects) .group:has(> .flex-1.space-y-3 + button) > :last-child:not(:first-child):not(#_):not(#__):not(#___) {
+    display: flex;
+    justify-content: center;
+    align-self: stretch !important;
+  }
+  html body #root .meras-student-shell :is(.miras-practice-quizzes, .miras-practice-projects) .group > .relative.z-10.flex.items-start.justify-between > :last-child:not(:first-child) > :is(button, a):not(#_):not(#__):not(#___),
+  html body #root .meras-student-shell :is(.miras-practice-quizzes, .miras-practice-projects) .group:has(> .flex-1.space-y-3 + button) > :last-child:not(:first-child) > :is(button, a):not(#_):not(#__):not(#___) {
+    flex: 1 1 auto;
+    justify-content: center;
+  }
+}
