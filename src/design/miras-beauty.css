@@ -345,16 +345,15 @@ html[data-theme="dark"] body #root .miras-demo-bar:not(.is-open):not(#_):not(#__
 }
 
 /* ── تجاوب: حقول الكتابة على الهاتف ١٦px — لا تكبير تلقائي في iOS ─────────
-   طبقة «حدّ ١٢px» في miras-final.css رفعت النصوص الصغيرة إلى ١٢px، فأصابت معها
-   حقولاً فعلية: بحث التسليمات، و«الدرجة من …» الجماعية، و«درجة الطالب» في كل
-   صف، وحقل كود المقرر المقفل، وساعة الإرجاع، وبحث أرشيف الأكواد (text-[11px]). حقلٌ أصغر من ١٦px يجعل Safari يكبّر
-   الصفحة عند لمسه (وقد أُزيل maximum-scale عمداً لإتاحة التكبير اليدوي).
-   الحجم وحده يتغيّر؛ سطح المكتب بالفأرة يبقى ١٢px كما هو. */
+   حقلٌ أصغر من ١٦px يجعل Safari يكبّر الصفحة عند لمسه (وقد أُزيل maximum-scale
+   عمداً لإتاحة التكبير اليدوي). القاعدة العامة في index.css (‎input { 16px }‎)
+   تغلبها أدوات Tailwind ‎text-[11px]/text-xs‎ وطبقة «حدّ ١٢px» في miras-final.css،
+   فوُجد ذلك فعلاً في: بحث التسليمات، و«الدرجة من …» الجماعية، و«درجة الطالب» في
+   كل صف، وبحث أرشيف الأكواد، وبحث قائمة الطلبة وفلترها، وحقل كود المقرر المقفل،
+   وساعة الإرجاع. الحجم وحده يتغيّر وعلى الهاتف/اللمس فقط؛ سطح المكتب بالفأرة كما
+   هو. شاشة الاختبار (‎.meras-exam-shell‎) لها طبقتها ولا تُمسّ هنا. */
 @media (max-width: 767px), (pointer: coarse) {
-  html body .meras-teacher-shell.teacher-calm-shell .miras-submissions-panel input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not(#_):not(#_):not(#_):not(#_):not(#_):not(.meras-exam-shell *),
-  html body .miras-locked-course-input:not(#_):not(#_):not(#_):not(#_):not(#_):not(.meras-exam-shell *),
-  html body .miras-return-hour-input:not(#_):not(#_):not(#_):not(#_):not(#_):not(.meras-exam-shell *),
-  html body .miras-codes-search-input:not(#_):not(#_):not(#_):not(#_):not(#_):not(.meras-exam-shell *) {
+  html body #root :is(input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="file"]):not([type="color"]):not([type="hidden"]), select, textarea):not(.meras-exam-shell *):not(#_):not(#__):not(#___):not(#____):not(#_____) {
     font-size: 16px !important;
   }
 }

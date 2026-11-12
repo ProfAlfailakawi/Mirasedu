@@ -48214,7 +48214,7 @@ ${rows
                                         setCodesFilterSearch(e.target.value);
                                         setCodesPage(1);
                                       }}
-                                      className="miras-codes-search-input w-full min-w-0 bg-white border border-slate-200 rounded-2xl pr-10 pl-3 py-3 text-right text-[11px] font-bold leading-5 outline-none placeholder:text-slate-400 sm:text-xs focus:ring-2 focus:ring-indigo-100"
+                                      className="w-full min-w-0 bg-white border border-slate-200 rounded-2xl pr-10 pl-3 py-3 text-right text-[11px] font-bold leading-5 outline-none placeholder:text-slate-400 sm:text-xs focus:ring-2 focus:ring-indigo-100"
                                     />
                                   </div>
                                   <div className="lg:col-span-5 grid grid-cols-4 gap-2 bg-white p-1.5 rounded-2xl border border-slate-200">
