@@ -1,0 +1,21 @@
+{
+  "repo": "Mirasedu",
+  "appId": "com.dralfailakawi.miras",
+  "nameAr": "مِراس",
+  "nameEn": "Miras",
+  "displayName": "مِراس",
+  "url": "https://mirasedu.web.app",
+  "allowNavigation": [
+    "meras-320eb.firebaseapp.com",
+    "*.googleapis.com"
+  ],
+  "icon": "ios-icon-512-v8.png",
+  "background": "#FFFFFF",
+  "backgroundDark": "#111214",
+  "accent": "#1F6F5C",
+  "lsCategory": "public.app-category.education",
+  "camera": true,
+  "photos": true,
+  "version": "1.0.0",
+  "build": 1
+}

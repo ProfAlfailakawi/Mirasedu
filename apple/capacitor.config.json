@@ -1,0 +1,29 @@
+{
+  "appId": "com.dralfailakawi.miras",
+  "appName": "Miras",
+  "webDir": "www",
+  "server": {
+    "url": "https://mirasedu.web.app",
+    "errorPath": "offline.html",
+    "allowNavigation": [
+      "mirasedu.web.app",
+      "meras-320eb.firebaseapp.com",
+      "*.googleapis.com"
+    ]
+  },
+  "ios": {
+    "contentInset": "never",
+    "backgroundColor": "#FFFFFF",
+    "scheme": "Miras",
+    "limitsNavigationsToAppBoundDomains": false,
+    "preferredContentMode": "mobile"
+  },
+  "plugins": {
+    "SplashScreen": {
+      "launchShowDuration": 600,
+      "launchAutoHide": true,
+      "backgroundColor": "#FFFFFF",
+      "showSpinner": false
+    }
+  }
+}
