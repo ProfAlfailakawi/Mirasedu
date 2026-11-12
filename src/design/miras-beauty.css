@@ -366,3 +366,24 @@ html[data-theme="dark"] body #root .miras-demo-bar:not(.is-open):not(#_):not(#__
 html body #root .teacher-nav-desktop .miras-dock-item.is-active:not(#_):not(#__):not(#___):not(#____):not(#_____):not(#______):not(#_______) {
   background-size: min(66%, 5.5rem) 100% !important;
 }
+
+/* ── تجاوب: رئيسية الطالب ≥١٠٢٤px — «مسارك الدراسي» و«آخر تسليم» جنباً إلى جنب ──
+   طبقة الدو (#280) تجعل «المتاح الآن» صفاً كاملاً ثم المسار وآخر تسليم في عمودين
+   (كما يظهر على ٧٦٠–١٠٢٣px). لكن قاعدة أقدم في miras-student-home-plus.css تمدّ
+   «آخر تسليم» بعرض الشبكة من ١٠٢٤px، فيبقى المسار وحده في نصف الصف ونصفه الآخر
+   فارغ على كل شاشات سطح المكتب. هنا يعود «آخر تسليم» إلى العمود المجاور، وتُصفّ
+   بطاقتا «الاختبارات/المشاريع» متجاورتين بدل شريطين عريضين بعرض ١٢٠٠px.
+   وإن غاب «آخر تسليم» (طالب جديد) يمتدّ المسار بعرض الصف بدل نصفٍ فارغ. */
+@media (min-width: 1024px) {
+  html body .miras-student-overview-card .relative.z-10.space-y-3:has(> .miras-study-path) > :has(.miras-student-last-submission-card):not(#_):not(#_):not(#__):not(#___) {
+    grid-column: auto;
+  }
+  html body .workspace-calm-shell .miras-student-overview-card .miras-now-available .grid:not(#_):not(#_):not(#__):not(#___) {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  }
+}
+@media (min-width: 760px) {
+  html body .miras-student-overview-card .relative.z-10.space-y-3:not(:has(.miras-student-last-submission-card)) > .miras-study-path:not(#_):not(#_):not(#__):not(#___) {
+    grid-column: 1 / -1;
+  }
+}
