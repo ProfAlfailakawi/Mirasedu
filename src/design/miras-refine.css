@@ -18,7 +18,7 @@ html body #root .teacher-nav-desktop .miras-dock-item.is-active .miras-dock-labe
   box-decoration-break: clone;
 }
 html[data-theme="dark"] body #root .teacher-nav-desktop .miras-dock-item.is-active .miras-dock-label:not(#_):not(#__):not(#___):not(#____):not(#_____):not(#______):not(#_______) {
-  background: linear-gradient(transparent 50%, rgba(165, 180, 252, 0.28) 50% 92%, transparent 92%) !important;
+  background: linear-gradient(transparent 50%, rgba(129, 140, 248, 0.45) 50% 92%, transparent 92%) !important;
 }
 
 /* ───────────── ٢) لوحة المعلم: الإيقاع العمودي تحت مبدّل المقرر ─────────────
