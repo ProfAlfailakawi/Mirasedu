@@ -43074,7 +43074,7 @@ ${rows
                                 <X className="h-4 w-4" />
                               </button>
                               <div className="grid grid-cols-1 xl:grid-cols-[220px_1fr_320px_120px_64px] gap-4 items-stretch min-w-0">
-                                <div className="rounded-3xl border border-slate-100 bg-slate-50 p-3 flex flex-col justify-center gap-3">
+                                <div className="rounded-3xl border border-slate-100 bg-slate-50 p-3 flex flex-col justify-start gap-3">
                                   <div>
                                     <label className="mb-2 block text-[11px] font-bold text-slate-600">
                                       نوع السؤال
