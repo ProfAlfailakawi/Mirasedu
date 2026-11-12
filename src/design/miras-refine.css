@@ -1,0 +1,48 @@
+/*
+ * مِراس — طبقة التهذيب (جولة ١٢ نوفمبر ٢٠٢٦). عرض فقط: لا منطق ولا نصوص ولا بيانات.
+ * تُحمَّل آخر الطبقات. كل قاعدة هنا كُتبت بعد لقطة حقيقية على ٣٩٠ و١٤٤٠px (نهاري وليلي).
+ * الهوية كما هي («الكرّاسة»، النيلي وحده لوناً للهوية)؛ التعديل في التوازن والمحاذاة فقط.
+ */
+
+/* ───────────── ١) شريط تنقّل المعلم: قلم التظليل يلتصق بالكلمة ─────────────
+   كان التظليل ٦٦٪ من عرض الزر (≈١٥٠px) تحت تسمية عرضها ≈٣٥px، فيبدو مستطيلاً
+   منفصلاً عن الكلمة. يبقى أسلوب «قلم التظليل» نفسه، لكن على التسمية وحدها. */
+html body #root .teacher-nav-desktop .miras-dock-item.is-active:not(#_):not(#__):not(#___):not(#____):not(#_____):not(#______):not(#_______) {
+  background: none !important;
+}
+html body #root .teacher-nav-desktop .miras-dock-item.is-active .miras-dock-label:not(#_):not(#__):not(#___):not(#____):not(#_____):not(#______):not(#_______) {
+  padding-inline: 0.3em;
+  border-radius: 2px;
+  background: linear-gradient(transparent 50%, rgba(99, 102, 241, 0.24) 50% 92%, transparent 92%) !important;
+  -webkit-box-decoration-break: clone;
+  box-decoration-break: clone;
+}
+html[data-theme="dark"] body #root .teacher-nav-desktop .miras-dock-item.is-active .miras-dock-label:not(#_):not(#__):not(#___):not(#____):not(#_____):not(#______):not(#_______) {
+  background: linear-gradient(transparent 50%, rgba(165, 180, 252, 0.28) 50% 92%, transparent 92%) !important;
+}
+
+/* ───────────── ٢) لوحة المعلم: الإيقاع العمودي تحت مبدّل المقرر ─────────────
+   على الشاشات الواسعة كانت المسافة بين مبدّل المقرر وأول عنصر ≈٦٠px في كل تبويب. */
+@media (min-width: 1024px) {
+  html body #root .teacher-command-main > .miras-global-course-switcher + div.p-3:not(#_):not(#__):not(#___) {
+    padding-top: 1.25rem !important;
+  }
+}
+
+/* ───────────── ٣) لوحة المعلم: طلبات استعادة كلمة المرور ─────────────
+   طلبٌ واحد كان يأخذ نصف اللوحة ويترك نصفها فارغاً؛ وشارة العدد تمتد بعرض الشاشة على الهاتف. */
+html body #root .miras-teacher-home-panel .border-amber-100.bg-amber-50\/80 .md\:grid-cols-2 > :only-child:not(#_):not(#__) {
+  grid-column: 1 / -1;
+}
+html body #root .miras-teacher-home-panel .border-amber-100.bg-amber-50\/80 > .flex.flex-col > span.rounded-full:not(#_):not(#__) {
+  align-self: flex-start;
+}
+
+/* ───────────── ٤) الطالب على الشاشة الواسعة: «مسارك الدراسي» بعرض اللوحة ─────────────
+   كانت اللوحة في نصف العمود الأيمن وحده، والنصف الأيسر فارغ بين لوحتين كاملتي العرض. */
+@media (min-width: 768px) {
+  html body #root .miras-student-overview-card .miras-now-available + .miras-study-path:last-child:not(#_):not(#__),
+  html body #root .miras-student-overview-card .miras-now-available + .miras-study-path:has(+ .miras-student-last-submission-wrap):not(#_):not(#__) {
+    grid-column: 1 / -1;
+  }
+}
