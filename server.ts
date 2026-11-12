@@ -9184,6 +9184,8 @@ app.use(
       if (!origin) return callback(null, true);
       return callback(null, mirasCorsOriginAllowed(origin));
     },
+    // مسار Cloud Run المباشر (احتياط سفاري) عابر للأصل: نكشف ترويسة تجديد الجلسة.
+    exposedHeaders: ["X-Miras-Session-Renewed", "X-Miras-Student-Session-Refreshed"],
   }),
 );
 // useTempFiles: الملف المرفوع يتدفق إلى قرص مؤقت بدل الذاكرة. كان ملف ٢١م.ب
@@ -9763,6 +9765,35 @@ function studentSessionInvalidatedAfterIssue(student: any, session: MirasVerifie
   return latestInvalidation > Number(session.issuedAt || 0);
 }
 
+// جلسة الطالب كانت تنتهي بعد ١٤ يوماً من الدخول مهما كان نشطاً، فيُخرج الطالب
+// «فجأة» أثناء الاستخدام. نجدّدها الآن بصمت لكل طالب نشط: بعد أن يجتاز الطلب كل
+// حراس الجهاز والهوية أعلاه، ومرّ يوم على إصدار الجلسة، يصدر الخادم جلسة جديدة
+// بنفس ربط الجهاز ويرسلها في ترويسة تلتقطها الواجهة. جلسات الأجهزة العامة وSEB
+// خارج التجديد عمداً.
+const STUDENT_SESSION_RENEW_AFTER_MS = 24 * 60 * 60 * 1000;
+const MIRAS_RENEWED_SESSION_HEADER = "X-Miras-Session-Renewed";
+function renewActiveStudentSession(
+  req: express.Request,
+  res: express.Response,
+  session: MirasVerifiedSession | null,
+  student: any,
+) {
+  if (!session || session.role !== "student" || session.publicDeviceSession) return;
+  if (!student || (student as any).isAccessBlocked) return;
+  if ((req as any).mirasSebPass || isSebRequest(req)) return;
+  if (Date.now() - Number(session.issuedAt || 0) < STUDENT_SESSION_RENEW_AFTER_MS) return;
+  const currentDeviceToken = getRequestDeviceToken(req);
+  if (session.deviceTokenHash && (!currentDeviceToken || hashMirasValue(currentDeviceToken) !== session.deviceTokenHash)) return;
+  const authToken = createMirasSessionToken({
+    role: "student",
+    userId: session.userId,
+    email: session.email,
+    deviceTokenHash: session.deviceTokenHash,
+  });
+  attachMirasSessionCookie(req, res, authToken);
+  res.setHeader(MIRAS_RENEWED_SESSION_HEADER, authToken);
+}
+
 function pathMatchesStudentOwnedApi(pathname: string) {
   return /^\/api\/students\/[^/]+$/.test(pathname) ||
     /^\/api\/students\/[^/]+\/(session-status|snapshot|log-violation|activate|reset-devices|activate-course)$/.test(pathname) ||
@@ -9919,6 +9950,7 @@ app.use((req, res, next) => {
     if (studentSessionInvalidatedAfterIssue(student, verifiedSession)) {
       res.setHeader("X-Miras-Student-Session-Refreshed", "1");
     }
+    renewActiveStudentSession(req, res, verifiedSession, student);
     return next();
   }
 
@@ -14184,7 +14216,7 @@ app.post("/api/auth/forgot-password", (req, res) => {
   return res.json({
     success: true,
     message:
-      "تم تسجيل طلب استعادة كلمة المرور. سيظهر الطلب في لوحة التحكم مع رابط مؤقت آمن ينتهي خلال ساعة.",
+      "يرجى التواصل مع أستاذ المقرر لإعادة تعيين كلمة المرور؛ وصله طلبك وسيزوّدك برابط مؤقت آمن.",
   });
 });
 
@@ -15698,21 +15730,68 @@ function clearLoginRateLimit(identity: any) {
   }
 }
 
+// نفس تحويل حقل كلمة المرور في شاشة التسجيل (App.tsx: normalizeArabicDigits):
+// أرقام عربية/فارسية/عريضة ← لاتينية، الفواصل ← نقطة، وحذف التطويل وعلامات الاتجاه.
+function signupPasswordTransform(value: any): string {
+  return String(value ?? "")
+    .replace(/[٠-٩]/g, (d) => String("٠١٢٣٤٥٦٧٨٩".indexOf(d)))
+    .replace(/[۰-۹]/g, (d) => String("۰۱۲۳۴۵۶۷۸۹".indexOf(d)))
+    .replace(/[０-９]/g, (d) => String(d.charCodeAt(0) - 0xff10))
+    .replace(/[٫٬،,]/g, ".")
+    .replace(/[ـ\u200e\u200f\u202a-\u202e]/g, "");
+}
+
+// الصيغة المعيارية التي تُحفظ بها كل كلمة مرور جديدة: نفس ما يكتبه الطالب أياً
+// كانت لوحة المفاتيح، بلا مسافات طرفية تضيفها لوحات الجوال تلقائياً.
+function canonicalPassword(value: any): string {
+  return signupPasswordTransform(value).trim();
+}
+
+// سبب «كلمة المرور غير صحيحة» رغم صحتها: كان التسجيل وإعادة التعيين يحفظان
+// كلمة المرور كما هي (بمسافة طرفية أحياناً، وبعد تحويل الأرقام العربية في شاشة
+// التسجيل)، بينما الدخول يقصّ المسافات ولا يحوّل الأرقام. فإذا انتهت جلسة الطالب
+// وطُلب منه إدخالها لأول مرة منذ التفعيل رُفضت. نجرّب الآن كل الصيغ المكافئة لما
+// كتبه، فتعود الحسابات المتأثرة للعمل دون إعادة تعيين.
+function passwordCandidates(submitted: any): string[] {
+  const raw = String(submitted ?? "");
+  const canonical = canonicalPassword(raw);
+  return [...new Set([
+    raw.trim(),
+    raw,
+    canonical,
+    signupPasswordTransform(raw),
+    signupPasswordTransform(raw.trim()),
+    // النص التنبؤي في iOS يضيف مسافة بعد قبول الاقتراح دون أن يراها الطالب، فحُفظت
+    // كلمة مروره بمسافة طرفية لا يعرف بوجودها ولا يكتبها عند الدخول.
+    `${raw.trim()} `,
+    `${canonical} `,
+  ])].filter((value) => value.trim().length > 0);
+}
+
 function hashPasswordSecure(password: string, salt = crypto.randomBytes(16).toString("hex")) {
-  const key = crypto.scryptSync(String(password || ""), salt, 64).toString("hex");
+  const key = crypto.scryptSync(canonicalPassword(password), salt, 64).toString("hex");
   return `scrypt:${salt}:${key}`;
 }
 
-function verifyPasswordFlexible(stored: any, submitted: any) {
-  const clean = String(submitted || "").trim();
-  const saved = String(stored || "");
-  if (saved.startsWith("scrypt:")) {
-    const [, salt, key] = saved.split(":");
-    if (!salt || !key) return false;
-    const candidate = crypto.scryptSync(clean, salt, 64).toString("hex");
-    try { return crypto.timingSafeEqual(Buffer.from(key, "hex"), Buffer.from(candidate, "hex")); }
+function scryptMatches(saved: string, candidates: string[]) {
+  const [, salt, key] = saved.split(":");
+  if (!salt || !key) return false;
+  const expected = Buffer.from(key, "hex");
+  return candidates.some((clean) => {
+    const candidate = Buffer.from(crypto.scryptSync(clean, salt, 64).toString("hex"), "hex");
+    try { return candidate.length === expected.length && crypto.timingSafeEqual(expected, candidate); }
     catch { return false; }
-  }
+  });
+}
+
+function verifyPasswordFlexible(stored: any, submitted: any) {
+  const candidates = passwordCandidates(submitted);
+  if (!candidates.length) return false;
+  const saved = String(stored || "");
+  if (saved.startsWith("scrypt:")) return scryptMatches(saved, candidates);
+  // بصمات sha256 القديمة تبقى على سلوكها الأصلي حرفياً (تمهيد البيئة/بيانات قديمة)؛
+  // كل تسجيل وإعادة تعيين للطالب يُحفظ بـ scrypt حيث يعمل التسامح أعلاه.
+  const clean = String(submitted || "").trim();
   if (saved.startsWith("sha256:")) {
     const candidate = "sha256:" + crypto.createHash("sha256").update(clean).digest("hex");
     return saved === candidate;
@@ -15726,11 +15805,8 @@ function verifyPasswordFlexible(stored: any, submitted: any) {
 function verifyScryptPassword(stored: any, submitted: any) {
   const saved = String(stored || "");
   if (!saved.startsWith("scrypt:")) return false;
-  const [, salt, key] = saved.split(":");
-  if (!salt || !key) return false;
-  const candidate = crypto.scryptSync(String(submitted || "").trim(), salt, 64).toString("hex");
-  try { return crypto.timingSafeEqual(Buffer.from(key, "hex"), Buffer.from(candidate, "hex")); }
-  catch { return false; }
+  const candidates = passwordCandidates(submitted);
+  return candidates.length > 0 && scryptMatches(saved, candidates);
 }
 
 function isWeakDefaultPassword(password: any) {

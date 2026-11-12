@@ -1175,6 +1175,9 @@ const simplifyMirasMessage = (
   if (tone === "success") {
     // رسالة توضيحية كاملة (ليست إشعار نجاح عملية): تُعرض كما هي بدل اختصارها إلى «تم تسليم المشروع».
     if (any("لا حاجة للإرجاع")) return t;
+    // توجيه «نسيت كلمة المرور»: كانت القاعدة العامة أدناه تختصره إلى «تم» فلا يعرف
+    // الطالب ما يفعل. يُعرض كاملاً ليعرف أن عليه التواصل مع أستاذ المقرر.
+    if (any("التواصل مع أستاذ المقرر")) return t;
     if (any("نسخ", "clipboard")) return "تم النسخ";
     if (any("تصدير", "Excel", "PDF", "المطبعة")) return "تم التصدير";
     if (any("استيراد", "قراءة ملف Excel", "رفع كشف")) return "تم الاستيراد";
@@ -3057,6 +3060,29 @@ const readStoredSessionAuthToken = (storageKey: string) => {
   }
 };
 
+// الخادم يجدّد جلسة الطالب النشط بصمت (ترويسة X-Miras-Session-Renewed) حتى لا
+// تنتهي بعد ١٤ يوماً أثناء الاستخدام. نعتمد التوكن الجديد فقط إذا خرج الطلب
+// بالتوكن النشط نفسه، كي لا يطمس رد متأخر من جلسة سابقة دخولاً أحدث.
+const MIRAS_STUDENT_SESSION_RENEWED_EVENT = "miras-student-session-renewed";
+const adoptRenewedStudentSession = (resp: Response, requestAuthToken: string) => {
+  try {
+    const renewed = String(resp.headers.get("X-Miras-Session-Renewed") || "").trim();
+    if (!renewed || !requestAuthToken || renewed === requestAuthToken) return;
+    const raw = localStorage.getItem("miras_student_session");
+    const stored = raw ? JSON.parse(raw) : null;
+    if (!stored || String(stored.authToken || "") !== requestAuthToken) return;
+    localStorage.setItem(
+      "miras_student_session",
+      JSON.stringify({ ...stored, authToken: renewed }),
+    );
+    window.dispatchEvent(
+      new CustomEvent(MIRAS_STUDENT_SESSION_RENEWED_EVENT, {
+        detail: { previous: requestAuthToken, authToken: renewed },
+      }),
+    );
+  } catch {}
+};
+
 const mirasRetryableStatus = (status: number) =>
   status === 408 ||
   status === 425 ||
@@ -3209,6 +3235,7 @@ async function mirasFetch(
       }
     } catch {}
     const resp = await mirasFetchWithRecovery(input, init);
+    adoptRenewedStudentSession(resp, requestAuthToken);
     /* خادمُنا يجيب /api بـJSON دائماً. صفحة 5xx بـHTML هي المنصّة تبدّل الخادم أثناء
        النشر: شريطٌ هادئ واحد ورسالةٌ هادئة بدل «تعذر التنفيذ». (src/shared/updating-notice.ts) */
     if (requestPath.startsWith("/api/") && isPlatformUpdating(resp.status, resp.headers.get("content-type"))) {
@@ -3462,6 +3489,24 @@ export default function App() {
       return null;
     }
   });
+  // تجديد الجلسة الصامت: نحدّث التوكن في الحالة الحية أيضاً حتى تحمل الطلبات
+  // التالية الجلسة الجديدة ولا يُخرج الطالب بعد ١٤ يوماً من الاستخدام.
+  useEffect(() => {
+    const onRenewed = (event: Event) => {
+      const detail = (event as CustomEvent).detail || {};
+      const renewed = String(detail.authToken || "");
+      const previous = String(detail.previous || "");
+      if (!renewed) return;
+      setStudentSession((prev: any) =>
+        prev && String(prev.authToken || "") === previous
+          ? { ...prev, authToken: renewed }
+          : prev,
+      );
+    };
+    window.addEventListener(MIRAS_STUDENT_SESSION_RENEWED_EVENT, onRenewed);
+    return () =>
+      window.removeEventListener(MIRAS_STUDENT_SESSION_RENEWED_EVENT, onRenewed);
+  }, []);
   // بوابة الدخول: تُعرض مرة واحدة فقط مباشرة بعد نجاح تسجيل الدخول (حارس
   // sessionStorage)، وتُتجاوز كلياً عند تفضيل تقليل الحركة. لا تلمس أي منطق.
   const [loginRevealRole, setLoginRevealRole] = useState<
@@ -17922,7 +17967,7 @@ ${rows
         fetchLogs();
         fetchPasswordResetRequests();
         setSuccessMsg(
-          "تم تسجيل طلب استرجاع كلمة المرور. راجع معلمك خلال ساعة.",
+          "يرجى التواصل مع أستاذ المقرر لإعادة تعيين كلمة المرور.",
         );
         return;
       }
