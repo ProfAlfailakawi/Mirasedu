@@ -61,6 +61,8 @@ import './design/miras-polish.css';
 // طبقة المقاس المتجاوب (Duo/كل الشاشات) — آخر الطبقات، عرض فقط.
 import './design/miras-duo-layouts.css';
 import './design/miras-beauty.css';
+// طبقة التهذيب (جولة ١٢ نوفمبر) — آخر الطبقات، عرض فقط.
+import './design/miras-refine.css';
 
 // ───────────────────────────────────────────────────────────────────────────
 // حاجز عرض الواجهة (Render Guard)

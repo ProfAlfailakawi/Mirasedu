@@ -1,0 +1,106 @@
+/*
+ * مِراس — طبقة التهذيب (جولة ١٢ نوفمبر ٢٠٢٦). عرض فقط: لا منطق ولا نصوص ولا بيانات.
+ * تُحمَّل آخر الطبقات. كل قاعدة هنا كُتبت بعد لقطة حقيقية على ٣٩٠ و١٤٤٠px (نهاري وليلي).
+ * الهوية كما هي («الكرّاسة»، النيلي وحده لوناً للهوية)؛ التعديل في التوازن والمحاذاة فقط.
+ */
+
+/* ───────────── ١) شريط تنقّل المعلم: قلم التظليل يلتصق بالكلمة ─────────────
+   كان التظليل ٦٦٪ من عرض الزر (≈١٥٠px) تحت تسمية عرضها ≈٣٥px، فيبدو مستطيلاً
+   منفصلاً عن الكلمة. يبقى أسلوب «قلم التظليل» نفسه، لكن على التسمية وحدها. */
+html body #root .teacher-nav-desktop .miras-dock-item.is-active:not(#_):not(#__):not(#___):not(#____):not(#_____):not(#______):not(#_______) {
+  background: none !important;
+}
+html body #root .teacher-nav-desktop .miras-dock-item.is-active .miras-dock-label:not(#_):not(#__):not(#___):not(#____):not(#_____):not(#______):not(#_______) {
+  padding-inline: 0.3em;
+  border-radius: 2px;
+  background: linear-gradient(transparent 50%, rgba(99, 102, 241, 0.24) 50% 92%, transparent 92%) !important;
+  -webkit-box-decoration-break: clone;
+  box-decoration-break: clone;
+}
+html[data-theme="dark"] body #root .teacher-nav-desktop .miras-dock-item.is-active .miras-dock-label:not(#_):not(#__):not(#___):not(#____):not(#_____):not(#______):not(#_______) {
+  background: linear-gradient(transparent 50%, rgba(129, 140, 248, 0.45) 50% 92%, transparent 92%) !important;
+}
+
+/* ───────────── ٢) لوحة المعلم: الإيقاع العمودي تحت مبدّل المقرر ─────────────
+   على الشاشات الواسعة كانت المسافة بين مبدّل المقرر وأول عنصر ≈٦٠px في كل تبويب. */
+@media (min-width: 1024px) {
+  html body #root .teacher-command-main > .miras-global-course-switcher + div.p-3:not(.pt-0):not(#_):not(#__):not(#___) {
+    padding-top: 1.25rem !important;
+  }
+}
+
+/* ───────────── ٣) لوحة المعلم: طلبات استعادة كلمة المرور ─────────────
+   طلبٌ واحد كان يأخذ نصف اللوحة ويترك نصفها فارغاً؛ وشارة العدد تمتد بعرض الشاشة على الهاتف. */
+html body #root .miras-teacher-home-panel .border-amber-100.bg-amber-50\/80 .md\:grid-cols-2 > :only-child:not(#_):not(#__) {
+  grid-column: 1 / -1;
+}
+html body #root .miras-teacher-home-panel .border-amber-100.bg-amber-50\/80 > .flex.flex-col > span.rounded-full:not(#_):not(#__) {
+  align-self: flex-start;
+}
+
+/* ───────────── ٤) الطالب على الشاشة الواسعة: «مسارك الدراسي» بعرض اللوحة ─────────────
+   كانت اللوحة في نصف العمود الأيمن وحده، والنصف الأيسر فارغ بين لوحتين كاملتي العرض. */
+@media (min-width: 768px) {
+  html body #root .miras-student-overview-card .miras-now-available + .miras-study-path:last-child:not(#_):not(#__),
+  html body #root .miras-student-overview-card .miras-now-available + .miras-study-path:has(+ .miras-student-last-submission-wrap):not(#_):not(#__) {
+    grid-column: 1 / -1;
+  }
+}
+
+/* بطاقة «مسارك الدراسي» بعرض الصف على الشاشات الواسعة: العنوان والمقرر يميناً، والتقدّم يساراً،
+   بدل شريط تقدّم ممتد ≈١١٦٠px تحت شارة صغيرة وحيدة. */
+@media (min-width: 1024px) {
+  html body #root .miras-student-overview-card .miras-now-available + .miras-study-path:last-child:not(#_):not(#__):not(#___),
+  html body #root .miras-student-overview-card .miras-now-available + .miras-study-path:has(+ .miras-student-last-submission-wrap):not(#_):not(#__):not(#___) {
+    display: grid !important;
+    grid-template-columns: minmax(15rem, 19rem) minmax(0, 1fr);
+    align-items: center;
+    column-gap: 1.25rem;
+  }
+  html body #root .miras-student-overview-card .miras-now-available + .miras-study-path:is(:last-child, :has(+ .miras-student-last-submission-wrap)) > :nth-child(2):not(#_):not(#__):not(#___) {
+    margin-top: 0 !important;
+  }
+}
+
+/* ───────────── ٥) شريط القسم: لا لسان لونيّ بلا عنوان ─────────────
+   عنوان التبويب الفرعي يُخفى على الهاتف (يكرّر اسم القسم في الرأس)، فيبقى لسانه النيلي
+   (‎::before‎ بعرض ٥px) معلّقاً بجانب أزرار التبويبات. يُخفى اللسان حين يُخفى العنوان. */
+html body #root .miras-section-hero:has(.miras-section-title-dup):not(#_):not(#__):not(#___):not(#____)::before {
+  display: none !important;
+}
+@media (max-width: 920px) {
+  html body #root .miras-section-hero:has(.miras-section-title-dup-sm):not(#_):not(#__):not(#___):not(#____)::before {
+    display: none !important;
+  }
+}
+
+/* ───────────── ٦) سطر البيانات في بطاقات الطالب: لا خط برمجي على العربية ─────────────
+   «آخر موعد: …» و«تسليم … | إغلاق …» كانت بخط JetBrains Mono، فتتباعد الحروف العربية
+   كأنها مُتتبَّعة. يرث السطر خط الواجهة، وتبقى الأرقام متساوية العرض. */
+html body #root .meras-student-shell .miras-dna-meta .font-mono:not(#_):not(#__) {
+  font-family: inherit !important;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0 !important;
+}
+
+/* ───────────── ٧) بطاقة الاختبار/المشروع على الهاتف: الزرّ تحت المحتوى ─────────────
+   على ٣٩٠px كان زرّ «ابدأ الاختبار» يأخذ نصف البطاقة فيلتفّ العنوان على ثلاثة أسطر. */
+@media (max-width: 479px) {
+  html body #root .meras-student-shell :is(.miras-practice-quizzes, .miras-practice-projects) .group > .relative.z-10.flex.items-start.justify-between:not(#_):not(#__):not(#___),
+  html body #root .meras-student-shell :is(.miras-practice-quizzes, .miras-practice-projects) .group:has(> .flex-1.space-y-3 + button):not(#_):not(#__):not(#___) {
+    flex-direction: column !important;
+    align-items: stretch !important;
+    gap: 0.85rem;
+  }
+  html body #root .meras-student-shell :is(.miras-practice-quizzes, .miras-practice-projects) .group > .relative.z-10.flex.items-start.justify-between > :last-child:not(:first-child):not(#_):not(#__):not(#___),
+  html body #root .meras-student-shell :is(.miras-practice-quizzes, .miras-practice-projects) .group:has(> .flex-1.space-y-3 + button) > :last-child:not(:first-child):not(#_):not(#__):not(#___) {
+    display: flex;
+    justify-content: center;
+    align-self: stretch !important;
+  }
+  html body #root .meras-student-shell :is(.miras-practice-quizzes, .miras-practice-projects) .group > .relative.z-10.flex.items-start.justify-between > :last-child:not(:first-child) > :is(button, a):not(#_):not(#__):not(#___),
+  html body #root .meras-student-shell :is(.miras-practice-quizzes, .miras-practice-projects) .group:has(> .flex-1.space-y-3 + button) > :last-child:not(:first-child) > :is(button, a):not(#_):not(#__):not(#___) {
+    flex: 1 1 auto;
+    justify-content: center;
+  }
+}
