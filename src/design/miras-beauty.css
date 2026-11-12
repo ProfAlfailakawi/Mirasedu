@@ -329,3 +329,17 @@ html[data-theme="dark"] body #root .miras-demo-bar:not(.is-open):not(#_):not(#__
       repeating-radial-gradient(circle at 50% 150%, rgba(165, 180, 252, 0.2) 0 1.5px, transparent 1.5px 38px);
   }
 }
+
+/* ── تجاوب: «من ٢٥» في بطاقة «الطلبة المفعّلون» لا تخرج من البطاقة ────────
+   القيمة كانت `nowrap`، فعلى ٣٢٠–٤٧٩px يضيق العمود فيندفع «من ٢٥» يساراً
+   حتى حافة البطاقة (وتُقصّ أطرافه). يُسمح هنا للسطر بالالتفاف، ويبقى «من ٢٥»
+   كتلة واحدة تنزل تحت الرقم بدل أن تتجاوز. */
+@media (max-width: 479px) {
+  html body .meras-teacher-shell .miras-metric-card .miras-metric-value:not(#_):not(#__) {
+    white-space: normal;
+  }
+  html body .meras-teacher-shell .miras-metric-card .miras-metric-value .miras-metric-of:not(#_):not(#__) {
+    display: inline-block;
+    white-space: nowrap;
+  }
+}
