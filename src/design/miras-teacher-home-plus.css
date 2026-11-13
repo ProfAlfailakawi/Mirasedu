@@ -118,7 +118,10 @@ html body .meras-teacher-shell .miras-metric-card .miras-metric-value .miras-met
 
 /* Teacher mobile header: keep every action (incl. logout) on ONE row. With the alert shield
    showing there are six 2.5rem buttons, wider than the row's 62vw cap, so logout wrapped onto a
-   second line. Never wrap; let the buttons shrink a little on narrow phones instead. */
+   second line. Never wrap; let the buttons shrink a little on narrow phones instead.
+   iPhone Duo pass (Nov 13): the buttons are 2.75rem (44px), not 2.5rem. This rule outranks the
+   44px touch-target rule in miras-duo-layouts.css, so 2.5rem here left every header action at
+   40px on touch screens. Below 360px the title takes its own row, so the wider buttons still fit. */
 @media (max-width: 920px) {
   html body #root .miras-mobile-teacher-zero-header .miras-zero-actions-row:not(#_):not(#_):not(#__):not(#___):not(#____):not(#_____) {
     flex-wrap: nowrap !important;
@@ -126,8 +129,8 @@ html body .meras-teacher-shell .miras-metric-card .miras-metric-value .miras-met
     min-width: 0 !important;
   }
   html body #root .miras-mobile-teacher-zero-header .miras-zero-action-btn:not(#_):not(#_):not(#__):not(#___):not(#____):not(#_____) {
-    width: 2.5rem !important;
-    height: 2.5rem !important;
+    width: 2.75rem !important;
+    height: 2.75rem !important;
     min-width: 0 !important;
     flex: 0 0 auto !important;
   }

@@ -63,10 +63,11 @@ svg.lucide {
     margin: 0 !important;
     width: auto !important;
   }
+  /* 2.75rem = 44px: the open Duo (951px) and iPad get this header on a touch screen. */
   html body .miras-app-teacher-root .teacher-command-header .student-icon-btn:not(#_) {
-    width: 2.6rem !important;
-    height: 2.6rem !important;
-    min-width: 2.6rem !important;
+    width: 2.75rem !important;
+    height: 2.75rem !important;
+    min-width: 2.75rem !important;
     border-radius: 0.9rem !important;
   }
   /* header bell badge: the inner edge stops beside the bell glyph and wide counts ("12", "99+")
@@ -1330,14 +1331,15 @@ html[data-theme="dark"] body .teacher-command-header .student-icon-btn:not(.noti
   min-height: 2.5rem !important;
 }
 @media (max-width: 920px) {
+  /* the name pill opens the connection popover: a 44px touch target, not 40px */
   html body .miras-app-teacher-root.miras-teacher-viewport-v5 .miras-zero-name-pill:not(#_):not(#_):not(#_) {
-    min-height: 2.5rem !important;
+    min-height: 2.75rem !important;
     display: flex !important;
     align-items: center !important;
   }
 }
 @media (max-width: 767px) {
-  html body .miras-student-account-pill:not(#_):not(#_):not(#_) { min-height: 2.5rem !important; display: inline-flex !important; align-items: center !important; }
+  html body .miras-student-account-pill:not(#_):not(#_):not(#_) { min-height: 2.75rem !important; display: inline-flex !important; align-items: center !important; }
 }
 /* رأس الطالب اللاصق على الهاتف: ملء العرض بدقة (كان -1rem فوق حشوة 0.7rem فيتجاوز الحافة بـ5px) */
 @media (max-width: 767px) {
