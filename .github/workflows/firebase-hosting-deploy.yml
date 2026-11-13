@@ -1,6 +1,6 @@
-# ينشر تلقائياً عند كل دفع إلى main.
+# نشر يدوي فقط (workflow_dispatch): لا يعمل تلقائياً عند الدفع إلى main.
 
-name: Deploy to Firebase Hosting on Merge
+name: Deploy to Firebase Hosting
 
 on:
   workflow_dispatch: {}
