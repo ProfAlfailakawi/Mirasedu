@@ -19113,9 +19113,13 @@ html[data-theme="dark"] body .miras-teacher-alert-popover .miras-teacher-alert-d
   transform: none !important;
 }
 @media (max-width: 920px) {
+  /* actions column: minmax(0, max-content), not auto. An auto track always takes the row's full
+     max-content, so seven 44px header actions (demo preview + Radar + fingerprint) on a 360px phone
+     pushed logout past the clipped header edge. Now the buttons shrink only when space runs out,
+     and the title keeps at least its longest word. */
   #root .miras-mobile-teacher-zero-header:not(#_):not(#_) {
     display: grid !important;
-    grid-template-columns: minmax(0, 1fr) auto !important;
+    grid-template-columns: minmax(min-content, 1fr) minmax(0, max-content) !important;
     align-items: center !important;
     gap: .45rem .5rem !important;
   }
