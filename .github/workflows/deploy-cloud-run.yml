@@ -1,4 +1,4 @@
-# ينشر خدمة الـAPI (miras-api) على Cloud Run عند كل دفع إلى main.
+# ينشر خدمة الـAPI (miras-api) على Cloud Run — يدوياً فقط (workflow_dispatch)، لا عند الدفع إلى main.
 #
 # لماذا هذا الملف موجود:
 #   `/api/**` و`/seb/**` في firebase.json تُوجَّه إلى خدمة Cloud Run اسمها

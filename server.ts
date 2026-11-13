@@ -162,7 +162,6 @@ const PUBLIC_DEVICE_ADMIN_SESSION_TTL_MS = 60 * 60 * 1000;
 const MIRAS_PUBLIC_LOGIN_DEFAULT_ORIGINS = new Set([
   "https://mirasedu.web.app",
   "https://mirasedu.firebaseapp.com",
-  "https://meras-320eb.web.app",
   "https://meras-320eb.firebaseapp.com",
 ]);
 
@@ -18190,10 +18189,10 @@ function isMirasSubmissionFileTypeAllowed(fileName: any): boolean {
 // تمرير جسم ٢٠م.ب عبر إعادة كتابة الاستضافة يستغرق ٦٠-٩٠ث (الوسيط يجترّ الجسم
 // ببطء ثم يسلّمه للخادم في ~١ث فتُظهر السجلات "سريع" بينما الطالب يعيش الزحف).
 // الحل: العميل يرفع مباشرة إلى نطاق Cloud Run — يحتاج CORS لهذا المسار فقط.
+// meras-320eb.web.app لا يخدم الموقع (404)؛ الموقع الحيّ هو mirasedu.web.app.
 const MIRAS_UPLOAD_CORS_ORIGINS = new Set([
   "https://mirasedu.web.app",
   "https://mirasedu.firebaseapp.com",
-  "https://meras-320eb.web.app",
   "https://meras-320eb.firebaseapp.com",
 ]);
 function applyMirasUploadCors(req: express.Request, res: express.Response) {
