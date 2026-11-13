@@ -162,7 +162,6 @@ const PUBLIC_DEVICE_ADMIN_SESSION_TTL_MS = 60 * 60 * 1000;
 const MIRAS_PUBLIC_LOGIN_DEFAULT_ORIGINS = new Set([
   "https://mirasedu.web.app",
   "https://mirasedu.firebaseapp.com",
-  "https://meras-320eb.web.app",
   "https://meras-320eb.firebaseapp.com",
 ]);
 
