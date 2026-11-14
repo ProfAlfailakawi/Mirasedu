@@ -276,7 +276,7 @@ async function extraPasses(p, screen) {
           focused = await p.evaluate(() => { const i = [...document.querySelectorAll('input:not([type="checkbox"]):not([type="radio"]), textarea')].find((x) => { const r = x.getBoundingClientRect(); return r.width > 40 && r.height > 10 && !x.disabled; }); if (!i) return false; i.focus(); return true; });
           await p.setViewportSize({ width: w, height: 350 });
         }
-        await settle(p, 450);
+        await settle(p, 900);
         const m = await p.evaluate(measure, [SPINE, INNER]);
         const focusVisible = v.keyboard && focused ? await p.evaluate(() => { const a = document.activeElement; if (!a || a === document.body) return false; a.scrollIntoView({ block: 'nearest' }); const r = a.getBoundingClientRect(); return r.bottom > 0 && r.top < window.innerHeight; }) : null;
         EXTRA_OUT.stress.push({ screen, variant: name, size: `${w}x${v.keyboard ? 350 : h}`, book: m.book, overflowX: m.overflowX, clipped: m.clipped, spineHits: m.spineHits, focusVisible, noInput: v.keyboard ? !focused : undefined });

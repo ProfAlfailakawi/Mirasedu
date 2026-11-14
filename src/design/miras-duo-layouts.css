@@ -840,8 +840,16 @@ summary:not(#_) {
     max-width: calc(var(--duo-page) - 8px) !important;
   }
   html body #root .miras-bulk-grade-content:not(#_):not(#__):not(#___) {
+    display: grid !important;
+    grid-template-columns: minmax(0, 1fr) var(--duo-spine) minmax(0, 1fr) !important;
+    column-gap: 0 !important;
+    row-gap: 0.75rem !important;
+    align-items: center !important;
     max-width: none !important;
   }
+  html body #root .miras-bulk-grade-content > *:not(#_):not(#__):not(#___) { grid-column: 1 / -1 !important; margin: 0 !important; min-width: 0 !important; }
+  html body #root .miras-bulk-grade-content > .max-w-md:not(#_):not(#__):not(#___) { grid-column: 1 !important; width: calc(100% - 16px) !important; justify-self: center !important; }
+  html body #root .miras-bulk-grade-content > .max-w-md:last-child:not(#_):not(#__):not(#___) { grid-column: 3 !important; }
   html body #root .miras-bulk-grade-content > .flex:not(#_):not(#__):not(#___) {
     display: grid !important;
     grid-template-columns: minmax(0, 1fr) var(--duo-spine) minmax(0, 1fr) !important;
@@ -862,6 +870,22 @@ summary:not(#_) {
   /* أزرار ترويسة المعلّم عند 951 (ترويسة سطح المكتب): لا تتجاوز الصفحة اليسرى. */
   html body #root .teacher-command-header div.flex.w-full.shrink-0.flex-wrap:not(#_):not(#__):not(#___) {
     max-width: calc(var(--duo-page) - 8px) !important;
+  }
+
+  /* النص المكبَّر داخل الكتاب: لا زر أعرض من صفحته، وتذييلات البطاقات تلتف. */
+  html body #root .teacher-command-main button:not(.miras-dock-item):not(#_):not(#__):not(#___) {
+    max-width: 100% !important;
+  }
+  html body #root :is(.space-y-2.max-h-\[560px\], .mt-5.rounded-3xl.border-slate-200, .teacher-command-main .rounded-3xl.border-indigo-100) .flex:has(> button):not(#_):not(#__):not(#___) {
+    flex-wrap: wrap !important;
+  }
+  html body #root .miras-student-header-stack > .miras-student-actions-row:not(#_):not(#__):not(#___):not(#____) {
+    max-width: 100% !important;
+    flex-wrap: wrap !important;
+  }
+  html body #root .miras-inner-tabs:not(#_):not(#__):not(#___) {
+    max-width: calc(var(--duo-page) - 8px) !important;
+    flex-wrap: wrap !important;
   }
 }
 
@@ -1007,3 +1031,18 @@ html body #root div.overflow-x-auto:has(> table[class*="min-w-[900px]"]):not(#_)
     width: 100% !important;
   }
 }
+
+/* ───────── ١٢) أزرار أيقونات بحجم ثابت بالبكسل ─────────
+   أزرار ترويسة الطالب والتبويبات الداخلية كانت بوحدة rem، فتتضاعف مع النص 200%
+   وتُدفع خارج الشاشة أو إلى الكعب. هي أيقونات لا نصوص: 44px ثابتة. */
+html body .workspace-calm-shell .meras-topbar .miras-student-actions-row button:not(#_):not(#__):not(#___) {
+  width: 44px !important;
+  height: 44px !important;
+  min-width: 44px !important;
+}
+html body #root .miras-inner-tab:not(#_):not(#__):not(#___) {
+  min-width: 44px !important;
+  min-height: 44px !important;
+  max-width: 64px !important;
+}
+
