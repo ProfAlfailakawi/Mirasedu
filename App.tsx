@@ -1,4 +1,11 @@
 import { isAppleNativeShell } from "./src/shared/apple-native-shell";
+import {
+  lastKnownNativePushPermission,
+  onNativePushOpened,
+  readNativePushPermission,
+  registerNativePushToken,
+  requestNativePushPermission,
+} from "./src/native-push";
 import { groupSecurityNotifications } from "./src/shared/security-notification-groups";
 import { isPlatformUpdating, showUpdatingNotice, updatingJsonResponse } from "./src/shared/updating-notice";
 import { studentSubmissionDisplayText } from "./src/shared/submission-display-text";
@@ -698,6 +705,11 @@ type MirasNotifPermission = "unsupported" | "default" | "granted" | "denied";
 // المصدر الوحيد للحقيقة عن حالة إذن إشعارات المتصفح. لا نخلطها مع التنبيهات
 // الداخلية حتى لا نعرض للمستخدم رسالة مضللة بأن إشعارات الجهاز مفعّلة.
 const readBrowserNotifPermission = (): MirasNotifPermission => {
+  // داخل تطبيق iOS لا يوجد Notification؛ الإذن الحقيقي هو إذن النظام (APNs).
+  if (isAppleNativeShell()) {
+    const native = lastKnownNativePushPermission();
+    if (native !== "unsupported") return native;
+  }
   if (typeof window === "undefined" || !("Notification" in window))
     return "unsupported";
   try {
@@ -711,6 +723,7 @@ const readBrowserNotifPermission = (): MirasNotifPermission => {
 const getMirasNotifUnblockHint = (): string => {
   if (typeof navigator === "undefined")
     return "افتح قفل الموقع واسمح بالإشعارات";
+  if (isAppleNativeShell()) return "الإعدادات ‹ مِراس ‹ الإشعارات ثم فعّلها";
   const ua = navigator.userAgent || "";
   const isIOS =
     /iPad|iPhone|iPod/.test(ua) ||
@@ -9023,6 +9036,37 @@ export default function App() {
     }
   }, [studentSession?.id, teacherSession?.email]);
 
+  // تطبيق iOS: نافذة «السماح بالإشعارات» تظهر تلقائياً عند أول تشغيل (بعد شاشة
+  // البداية)، ثم يُسجَّل توكن APNs لكل حساب عند الدخول. إن رُفض الإذن لا نعيد
+  // السؤال؛ تبقى بوابة الجرس تُرشد إلى إعدادات الجهاز.
+  useEffect(() => {
+    if (!isAppleNativeShell() || showSplash) return;
+    let cancelled = false;
+    void (async () => {
+      const permission = await requestNativePushPermission();
+      if (cancelled) return;
+      setBrowserNotifPermission(permission as MirasNotifPermission);
+      if (permission === "granted" && (studentSession || teacherSession)) {
+        void registerFcmToken(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [showSplash, studentSession?.id, teacherSession?.email]);
+
+  // فتح إشعار النظام يُحدّث الجرس والحالة الحية.
+  useEffect(() => {
+    if (!isAppleNativeShell()) return;
+    let off = () => {};
+    void onNativePushOpened(() => {
+      void fetchInAppNotifications();
+    }).then((fn) => {
+      off = fn;
+    });
+    return () => off();
+  }, []);
+
   // إبقاء حالة إذن المتصفح محدثة (قد يغيّرها المستخدم من إعدادات الموقع)
   // حتى تعرض البوابة الخيار الصحيح فور العودة للصفحة.
   useEffect(() => {
@@ -14265,6 +14309,62 @@ export default function App() {
     const identity = currentNotificationIdentity();
     if (!identity) {
       notificationRegisteringRef.current = false;
+      return;
+    }
+    if (isAppleNativeShell()) {
+      // مسار التطبيق الأصلي: إذن النظام + توكن APNs (لا Service Worker هنا).
+      try {
+        let permission = await readNativePushPermission();
+        if (permission === "default") {
+          permission = await requestNativePushPermission();
+        }
+        setBrowserNotifPermission(permission as MirasNotifPermission);
+        if (permission !== "granted") {
+          activateInAppNotifications("", forcePrompt);
+          await fetchInAppNotifications();
+          return;
+        }
+        const nativeToken = await registerNativePushToken();
+        if (!nativeToken) {
+          activateInAppNotifications("", forcePrompt);
+          await fetchInAppNotifications();
+          return;
+        }
+        const nativeResp = await fetch("/api/notifications/register-token", {
+          method: "POST",
+          headers: jsonHeaders({
+            auth:
+              identity.role === "student"
+                ? "student"
+                : identity.role === "teacher" || identity.role === "admin"
+                  ? "teacher"
+                  : "none",
+          }),
+          body: JSON.stringify({
+            token: nativeToken,
+            ...identity,
+            permission: "granted",
+            platform: "ios",
+            deviceToken: getMirasDeviceId(),
+          }),
+        });
+        if (!nativeResp.ok) throw new Error("native token rejected");
+        setNotificationState({
+          supported: true,
+          permission: "granted",
+          configured: true,
+          token: nativeToken,
+          message: forcePrompt
+            ? getOneTimeNotificationActivationMessage(identity)
+            : "",
+        });
+        await fetchInAppNotifications();
+      } catch {
+        activateInAppNotifications("", forcePrompt);
+        await fetchInAppNotifications();
+      } finally {
+        notificationRegisteringRef.current = false;
+      }
       return;
     }
     if (!("Notification" in window) || !("serviceWorker" in navigator)) {

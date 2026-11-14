@@ -250,6 +250,31 @@ if (manifest.theme_color && themeMetas.length && !themeMetas.includes(manifest.t
   note(`manifest theme_color ${manifest.theme_color} is not among the page's theme-color metas (${themeMetas.join(', ')})`)
 }
 
+/* ---------- 7. iOS shell passkeys ----------
+   WebAuthn inside the Capacitor WKWebView only works when the app's Associated Domains
+   entitlement and the site's apple-app-site-association agree. If either drifts, the
+   app silently reports "fingerprint not supported". */
+{
+  const aasaPath = join(PUBLIC, '.well-known', 'apple-app-site-association')
+  const entPath = join(ROOT, 'apple', 'ios', 'App', 'App', 'App.entitlements')
+  const cfgPath = join(ROOT, 'apple', 'app.config.json')
+  if (existsSync(cfgPath)) {
+    const cfg = JSON.parse(readFileSync(cfgPath, 'utf8'))
+    const host = new URL(cfg.url).hostname
+    if (!existsSync(aasaPath)) fail('public/.well-known/apple-app-site-association is missing — passkeys cannot work in the iOS app')
+    else {
+      const aasa = JSON.parse(readFileSync(aasaPath, 'utf8'))
+      const apps = aasa?.webcredentials?.apps ?? []
+      if (!apps.some((a) => a.endsWith('.' + cfg.appId))) fail(`AASA webcredentials.apps does not list <TeamID>.${cfg.appId}`)
+    }
+    if (!existsSync(entPath)) fail('apple/ios/App/App/App.entitlements is missing')
+    else if (!readFileSync(entPath, 'utf8').includes(`webcredentials:${host}`)) fail(`App.entitlements lacks webcredentials:${host}`)
+    const fb = JSON.parse(readFileSync(join(ROOT, 'firebase.json'), 'utf8'))
+    const ignore = fb?.hosting?.ignore ?? []
+    if (ignore.some((g) => g === '**/.*' || g.includes('.well-known'))) fail('firebase.json hosting.ignore excludes .well-known — AASA would not be deployed')
+  }
+}
+
 /* ---------- report ---------- */
 const label = manifest.short_name || manifest.name || 'app'
 if (notes.length) for (const n of notes) console.log(`  note  ${n}`)

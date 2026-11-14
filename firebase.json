@@ -17,6 +17,19 @@
     ],
     "headers": [
       {
+        "source": "/.well-known/apple-app-site-association",
+        "headers": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "Cache-Control",
+            "value": "public, max-age=3600"
+          }
+        ]
+      },
+      {
         "source": "/",
         "headers": [
           {
@@ -63,7 +76,8 @@
     ],
     "ignore": [
       "firebase.json",
-      "**/.*",
+      "**/.git/**",
+      "**/.DS_Store",
       "**/node_modules/**",
       "server.cjs",
       "server.cjs.map"
