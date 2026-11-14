@@ -106,6 +106,7 @@ run_group tests/flows.login-identify.mjs tests/seed-login-identify.cjs
 run_group tests/flows.password-tolerance.mjs tests/seed-password-tolerance.cjs
 node node_modules/.bin/tsx --test tests/general-code-reset.test.mjs || overall=1
 node node_modules/.bin/tsx tests/flows.arabic-text.mjs || overall=1
+node node_modules/.bin/tsx --test tests/apple-native-shell.test.ts || overall=1
 node node_modules/.bin/tsx --test tests/device-audit.test.ts || overall=1
 node node_modules/.bin/tsx --test tests/device-review-notifications.test.ts || overall=1
 node node_modules/.bin/tsx --test tests/teacher-account-scope.test.ts || overall=1

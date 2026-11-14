@@ -1,3 +1,4 @@
+import { isAppleNativeShell } from "./src/shared/apple-native-shell";
 import { groupSecurityNotifications } from "./src/shared/security-notification-groups";
 import { isPlatformUpdating, showUpdatingNotice, updatingJsonResponse } from "./src/shared/updating-notice";
 import { studentSubmissionDisplayText } from "./src/shared/submission-display-text";
@@ -3770,7 +3771,11 @@ export default function App() {
    * المسارات نفسها فتسقط معها اختبارات الصندوق على النشر، ويحتاج تغييرًا في
    * إعدادات الخدمة لا في المستودع — فيصير رجوعه أصعب مما يجب.
    */
-  const MIRAS_DEMO_ENTRY_VISIBLE = false;
+  /*
+   * داخل تطبيق iOS فقط (يراجعه فريق المتجر بلا حساب)؛ أمّا الموقع فيبقى الزرّ
+   * مخفيًّا كما هو. العرض نفسه معزول بصندوقٍ في الذاكرة ببيانات مصطنعة.
+   */
+  const MIRAS_DEMO_ENTRY_VISIBLE = isAppleNativeShell();
   const [demoEnabled, setDemoEnabled] = useState(false);
   const [demoActive, setDemoActive] = useState(false);
   // على الهاتف تُطوى أدوات البيئة التجريبية خلف زرّ واحد كي لا تغطي رأس الشاشة.
@@ -35507,7 +35512,7 @@ ${rows
                             onClick={() => void enterDemo()}
                             title="استعراض النظام ببيانات تجريبية — بيئة معزولة لا تمسّ بيانات أي جهة"
                             aria-label="استعراض النظام ببيانات تجريبية"
-                            className="mx-auto grid h-11 w-11 place-items-center rounded-2xl border border-amber-300/60 bg-amber-50 text-amber-800 transition hover:bg-amber-100 disabled:opacity-60"
+                            className="mx-auto flex h-11 min-w-11 items-center justify-center gap-2 rounded-2xl border border-amber-300/60 bg-amber-50 px-4 text-xs font-bold text-amber-800 transition hover:bg-amber-100 disabled:opacity-60"
                           >
                             {demoBusy ? (
                               <MirasLoader
@@ -35516,7 +35521,10 @@ ${rows
                                 label="جارٍ فتح البيئة التجريبية…"
                               />
                             ) : (
-                              <FlaskConical className="h-4 w-4" aria-hidden="true" />
+                              <>
+                                <FlaskConical className="h-4 w-4" aria-hidden="true" />
+                                <span>جرّب العرض التجريبي</span>
+                              </>
                             )}
                           </button>
                         )}
@@ -35726,12 +35734,15 @@ ${rows
                           onClick={() => void enterDemo()}
                           title="استعراض النظام ببيانات تجريبية — بيئة معزولة لا تمسّ بيانات أي جهة"
                           aria-label="استعراض النظام ببيانات تجريبية"
-                          className="mx-auto grid h-11 w-11 place-items-center rounded-2xl border border-amber-300/60 bg-amber-50 text-amber-800 transition hover:bg-amber-100 disabled:opacity-60"
+                          className="mx-auto flex h-11 min-w-11 items-center justify-center gap-2 rounded-2xl border border-amber-300/60 bg-amber-50 px-4 text-xs font-bold text-amber-800 transition hover:bg-amber-100 disabled:opacity-60"
                         >
                           {demoBusy ? (
                             <MirasLoader size={16} role="current" label="جارٍ فتح البيئة التجريبية…" />
                           ) : (
-                            <FlaskConical className="h-4 w-4" aria-hidden="true" />
+                            <>
+                              <FlaskConical className="h-4 w-4" aria-hidden="true" />
+                              <span>جرّب العرض التجريبي</span>
+                            </>
                           )}
                         </button>
                       )}
