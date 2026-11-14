@@ -1013,6 +1013,11 @@ html body #root div.overflow-x-auto:has(> table[class*="min-w-[900px]"]):not(#_)
   html body #root div:has(> div.overflow-x-auto > table[class*="min-w-[900px]"]) > .grid[class*="md:hidden"]:not(#_):not(#__):not(#___) {
     display: grid !important;
   }
+  /* صف رصد الدرجة داخل كل بطاقة يحمل md:hidden أيضاً: يظهر معها، وإلا اختفى
+     تعديل الدرجة بين 768 و1179px. عرض فقط؛ الحقل نفسه وسلوكه كما هما. */
+  html body #root div:has(> div.overflow-x-auto > table[class*="min-w-[900px]"]) > .grid[class*="md:hidden"] .flex[class*="md:hidden"]:not(#_):not(#__):not(#___) {
+    display: flex !important;
+  }
 }
 @media (min-width: 640px) and (max-width: 1179px) {
   html body #root div:has(> div.overflow-x-auto > table[class*="min-w-[900px]"]) > .grid[class*="md:hidden"]:not(#_):not(#__):not(#___) {
@@ -1051,9 +1056,13 @@ html body #root div.overflow-x-auto:has(> table[class*="min-w-[900px]"]):not(#_)
 }
 
 /* ───────── ١٢) أزرار أيقونات بحجم ثابت بالبكسل ─────────
+   (أزرار الشريط نفسه فقط: أبناؤه المباشرون و.miras-student-tool، لا أزرار بطاقات
+   لوحة التنبيهات المنسدلة داخله.)
    أزرار ترويسة الطالب والتبويبات الداخلية كانت بوحدة rem، فتتضاعف مع النص 200%
    وتُدفع خارج الشاشة أو إلى الكعب. هي أيقونات لا نصوص: 44px ثابتة. */
-html body #root .meras-topbar .miras-student-actions-row :is(button, .miras-student-tool):not(#_):not(#__):not(#___):not(#____):not(#_____):not(#______) {
+html body #root .meras-topbar .miras-student-actions-row > button:not(.miras-student-alert-popover *):not(#_):not(#__):not(#___):not(#____):not(#_____):not(#______),
+html body #root .meras-topbar .miras-student-actions-row > div > button:not(.miras-student-alert-popover *):not(#_):not(#__):not(#___):not(#____):not(#_____):not(#______),
+html body #root .meras-topbar .miras-student-actions-row .miras-student-tool:not(.miras-student-alert-popover *):not(#_):not(#__):not(#___):not(#____):not(#_____):not(#______) {
   width: 44px !important;
   height: 44px !important;
   min-width: 44px !important;
