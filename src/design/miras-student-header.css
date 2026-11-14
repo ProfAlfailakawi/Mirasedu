@@ -96,8 +96,8 @@
      button group. Never the buttons inside the notifications popover. */
   html body .workspace-calm-shell .meras-topbar .miras-student-actions-row > button:not(#_):not(#_),
   html body .workspace-calm-shell .meras-topbar .miras-student-actions-row > div > button:not(#_):not(#_) {
-    width: 2.75rem !important;
-    height: 2.75rem !important;
+    width: 44px !important;
+    height: 44px !important;
     flex: 0 0 auto !important;
   }
 }
@@ -142,9 +142,9 @@ html body .workspace-calm-shell .meras-topbar .miras-student-toolbar > div:not(#
 html body .workspace-calm-shell .meras-topbar .miras-student-toolbar .miras-student-tool:not(#_):not(#_):not(#_) {
   position: relative !important;
   flex: 0 0 auto !important;
-  width: 2.75rem !important;
-  height: 2.75rem !important;
-  min-width: 2.75rem !important;
+  width: 44px !important;
+  height: 44px !important;
+  min-width: 44px !important;
   border-radius: 999px !important;
   border-color: transparent !important;
   background: transparent !important;

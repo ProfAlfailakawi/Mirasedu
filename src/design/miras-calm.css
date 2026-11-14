@@ -63,11 +63,11 @@ svg.lucide {
     margin: 0 !important;
     width: auto !important;
   }
-  /* 2.75rem = 44px: the open Duo (951px) and iPad get this header on a touch screen. */
+  /* 44px (px, not rem, so 200% text does not push the row off-screen): the open Duo (951px) and iPad get this header on a touch screen. */
   html body .miras-app-teacher-root .teacher-command-header .student-icon-btn:not(#_) {
-    width: 2.75rem !important;
-    height: 2.75rem !important;
-    min-width: 2.75rem !important;
+    width: 44px !important;
+    height: 44px !important;
+    min-width: 44px !important;
     border-radius: 0.9rem !important;
   }
   /* header bell badge: the inner edge stops beside the bell glyph and wide counts ("12", "99+")

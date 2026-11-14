@@ -173,7 +173,14 @@ function measure([spine, inner]) {
     const tag = el.tagName.toLowerCase();
     const inlineLink = tag === 'a' && getComputedStyle(el).display === 'inline';
     const isCheck = tag === 'input' && /checkbox|radio/.test(el.type);
-    if (!inlineLink && !isCheck && (r.width < 43.5 || r.height < 43.5)) out.smallTargets.push(`${label(el)} ${Math.round(r.width)}x${Math.round(r.height)}`);
+    /* منطقة لمس موسَّعة بعنصر ::after مطلق بإزاحات سالبة (نقاط جولة التعريف). */
+    let tw = r.width, th = r.height;
+    const af = getComputedStyle(el, '::after');
+    if (af.content !== 'none' && af.position === 'absolute') {
+      const n = (v) => (v.endsWith('px') ? Math.min(parseFloat(v), 0) : 0);
+      tw = r.width - n(af.left) - n(af.right); th = r.height - n(af.top) - n(af.bottom);
+    }
+    if (!inlineLink && !isCheck && (tw < 43.5 || th < 43.5)) out.smallTargets.push(`${label(el)} ${Math.round(r.width)}x${Math.round(r.height)}`);
     const sp = visibleSpan(r, el);
     if (book && sp && sp[0] < z1 && sp[1] > z0) out.spineHits.push(`${label(el)} [${Math.round(r.left)}..${Math.round(r.right)}]`);
   }
@@ -214,6 +221,79 @@ async function runScreen(p, screen, results, prep) {
   }
   await p.setViewportSize({ width: 669, height: 867 });
   await settle(p, 400);
+  if (EXTRA) await extraPasses(p, screen);
+}
+
+/* I و J لكل شاشة: تُجمع في EXTRA_OUT. */
+const EXTRA = process.env.DUO_NO_EXTRA !== '1';
+const EXTRA_OUT = { live: [], stress: [] };
+const LIVE_SEQ = [[951, 585], [669, 867], [470, 700], [382, 580], [594, 368], [951, 350], [951, 585]];
+const overlayCount = () => document.querySelectorAll('div.fixed.inset-0 [class*="max-w-"], .miras-teacher-alert-popover, [role="dialog"]').length;
+
+async function extraPasses(p, screen) {
+  // ── I: تسلسل حيّ على الصفحة نفسها ──
+  try {
+    await p.setViewportSize({ width: 951, height: 585 }); await settle(p, 400);
+    const before = await p.evaluate((oc) => {
+      window.__duoMarker = window.__duoMarker || Math.random();
+      const oCount = (new Function('return (' + oc + ')()'))();
+      const input = [...document.querySelectorAll('input[type="text"], input[type="search"], input:not([type])')].find((i) => { const r = i.getBoundingClientRect(); return r.width > 40 && r.height > 10 && !i.disabled && !i.readOnly && getComputedStyle(i).visibility !== 'hidden'; });
+      return { marker: window.__duoMarker, overlays: oCount, hasInput: !!input, value: input ? input.value : null, path: location.pathname + location.search };
+    }, overlayCount.toString());
+    let typed = null;
+    if (before.hasInput && !/^(teacher-submissions-empty|teacher-submissions-detail|login-)/.test(screen)) {
+      const loc = p.locator('input[type="text"]:visible, input[type="search"]:visible, input:not([type]):visible').first();
+      typed = (before.value || '') + 'ب';
+      await loc.fill(typed).catch(() => { typed = null; });
+      await settle(p, 300);
+    }
+    const seq = [];
+    let ok = true;
+    for (const [w, h] of LIVE_SEQ) {
+      await p.setViewportSize({ width: w, height: h }); await settle(p, 450);
+      const st = await p.evaluate(([oc, typed]) => {
+        const W = document.documentElement.clientWidth;
+        const oCount = (new Function('return (' + oc + ')()'))();
+        const values = [...document.querySelectorAll('input')].map((i) => i.value);
+        return { marker: window.__duoMarker, overlays: oCount, typedKept: typed == null ? null : values.includes(typed), overflowX: Math.max(document.documentElement.scrollWidth - W, 0), path: location.pathname + location.search };
+      }, [overlayCount.toString(), typed]);
+      const stepOk = st.marker === before.marker && st.overlays === before.overlays && st.overflowX === 0 && st.typedKept !== false && st.path === before.path;
+      if (!stepOk) ok = false;
+      seq.push({ size: `${w}x${h}`, ...st, ok: stepOk });
+    }
+    if (typed != null) { await p.locator('input[type="text"]:visible, input[type="search"]:visible, input:not([type]):visible').first().fill(before.value || '').catch(() => {}); }
+    EXTRA_OUT.live.push({ screen, ok, overlays: before.overlays, typed: typed != null, seq });
+  } catch (e) { EXTRA_OUT.live.push({ screen, ok: false, error: e.message.slice(0, 140) }); }
+
+  // ── J: نص 200%، داكن، حواف أمان غير متماثلة، لوحة مفاتيح ──
+  const variants = {
+    text200: { css: 'html{font-size:200% !important;-webkit-text-size-adjust:200% !important}' },
+    dark: { dark: true },
+    'safe-area': { css: 'body{padding-left:47px !important;padding-right:12px !important}' },
+    keyboard: { keyboard: true },
+  };
+  for (const [name, v] of Object.entries(variants)) {
+    for (const [w, h] of [[669, 867], [951, 585], [382, 580]]) {
+      try {
+        await p.setViewportSize({ width: w, height: h }); await settle(p, 300);
+        let handle = null; let prevTheme = null; let focused = null;
+        if (v.css) handle = await p.addStyleTag({ content: v.css });
+        if (v.dark) { prevTheme = await p.evaluate(() => document.documentElement.getAttribute('data-theme')); await p.emulateMedia({ colorScheme: 'dark' }); await p.evaluate(() => document.documentElement.setAttribute('data-theme', 'dark')); }
+        if (v.keyboard) {
+          focused = await p.evaluate(() => { const i = [...document.querySelectorAll('input:not([type="checkbox"]):not([type="radio"]), textarea')].find((x) => { const r = x.getBoundingClientRect(); return r.width > 40 && r.height > 10 && !x.disabled; }); if (!i) return false; i.focus(); return true; });
+          await p.setViewportSize({ width: w, height: 350 });
+        }
+        await settle(p, 900);
+        const m = await p.evaluate(measure, [SPINE, INNER]);
+        const focusVisible = v.keyboard && focused ? await p.evaluate(() => { const a = document.activeElement; if (!a || a === document.body) return false; a.scrollIntoView({ block: 'nearest' }); const r = a.getBoundingClientRect(); return r.bottom > 0 && r.top < window.innerHeight; }) : null;
+        EXTRA_OUT.stress.push({ screen, variant: name, size: `${w}x${v.keyboard ? 350 : h}`, book: m.book, overflowX: m.overflowX, clipped: m.clipped, spineHits: m.spineHits, focusVisible, noInput: v.keyboard ? !focused : undefined });
+        if (handle) await handle.evaluate((n) => n.remove());
+        if (v.dark) { await p.emulateMedia({ colorScheme: 'light' }); await p.evaluate((t) => { if (t == null) document.documentElement.removeAttribute('data-theme'); else document.documentElement.setAttribute('data-theme', t); }, prevTheme); }
+        if (v.keyboard) await p.evaluate(() => document.activeElement && document.activeElement.blur && document.activeElement.blur());
+      } catch (e) { EXTRA_OUT.stress.push({ screen, variant: name, size: `${w}x${h}`, error: e.message.slice(0, 140) }); }
+    }
+  }
+  await p.setViewportSize({ width: 669, height: 867 }); await settle(p, 400);
 }
 
 (async () => {
@@ -380,6 +460,6 @@ async function runScreen(p, screen, results, prep) {
     summary[k] = summary[k] || { cases: 0, overflowX: 0, clipped: 0, small: 0, spineHits: 0, bookCases: 0 };
     const s = summary[k]; s.cases++; if (r.overflowX) s.overflowX++; s.clipped += r.clipped.length; s.small += r.smallTargets.length; s.spineHits += r.spineHits.length; if (r.book) s.bookCases++;
   }
-  fs.writeFileSync(OUT, JSON.stringify({ label: LABEL, base: BASE, spine: SPINE, generatedAt: new Date().toISOString(), engine: 'Playwright WebKit', summary, live, stress, notes, results }, null, 1));
+  fs.writeFileSync(OUT, JSON.stringify({ label: LABEL, base: BASE, spine: SPINE, generatedAt: new Date().toISOString(), engine: 'Playwright WebKit', summary, live, stress, perScreenLive: EXTRA_OUT.live, perScreenStress: EXTRA_OUT.stress, notes, results }, null, 1));
   console.log(JSON.stringify({ summary, live: { ok: live.ok, dialog: live.dialogSurvives }, stress, notes }, null, 1));
 })();
