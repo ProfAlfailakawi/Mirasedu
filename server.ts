@@ -13,6 +13,7 @@ import os from "os";
 import fileUpload from "express-fileupload";
 import crypto from "crypto";
 import { gzip, gzipSync } from "node:zlib";
+import http2 from "node:http2";
 import dotenv from "dotenv";
 import QRCode from "qrcode";
 import { execFileSync, spawn } from "child_process";
@@ -6644,6 +6645,114 @@ async function sendFcmToToken(
   return { sent: true };
 }
 
+// ═══ APNs مباشر لتطبيق iOS الأصلي ═══════════════════════════════════════════
+// توكن الجهاز القادم من الغلاف الأصلي هو توكن APNs (hex) لا توكن FCM، فيُرسَل له
+// عبر HTTP/2 بمفتاح .p8. متغيرات البيئة:
+//   APNS_KEY_P8 (محتوى المفتاح، يقبل \n)، APNS_KEY_ID، APNS_TEAM_ID،
+//   APNS_BUNDLE_ID (الافتراضي com.dralfailakawi.miras)،
+//   APNS_ENV = production | sandbox (الافتراضي production، وهو ما يستعمله TestFlight/App Store).
+let apnsJwtCache: { jwt: string; issuedAt: number } | null = null;
+function getApnsJwt(): string | null {
+  const key = String(process.env.APNS_KEY_P8 || "").replace(/\\n/g, "\n").trim();
+  const keyId = String(process.env.APNS_KEY_ID || "").trim();
+  const teamId = String(process.env.APNS_TEAM_ID || "").trim();
+  if (!key || !keyId || !teamId) return null;
+  const nowSec = Math.floor(Date.now() / 1000);
+  // Apple تطلب تجديد التوكن كل 20–60 دقيقة.
+  if (apnsJwtCache && nowSec - apnsJwtCache.issuedAt < 40 * 60)
+    return apnsJwtCache.jwt;
+  const header = base64Url(JSON.stringify({ alg: "ES256", kid: keyId }));
+  const claims = base64Url(JSON.stringify({ iss: teamId, iat: nowSec }));
+  const signature = crypto.sign("sha256", Buffer.from(`${header}.${claims}`), {
+    key,
+    dsaEncoding: "ieee-p1363",
+  });
+  const jwt = `${header}.${claims}.${base64Url(signature)}`;
+  apnsJwtCache = { jwt, issuedAt: nowSec };
+  return jwt;
+}
+
+async function sendApnsToToken(
+  deviceToken: string,
+  title: string,
+  body: string,
+  data: Record<string, string> = {},
+): Promise<{ sent: boolean; reason?: string }> {
+  const jwt = getApnsJwt();
+  if (!jwt || !deviceToken) return { sent: false, reason: "APNS_NOT_CONFIGURED" };
+  const topic = process.env.APNS_BUNDLE_ID || "com.dralfailakawi.miras";
+  const host =
+    process.env.APNS_ENV === "sandbox"
+      ? "https://api.sandbox.push.apple.com"
+      : "https://api.push.apple.com";
+  const custom = stringifyFcmData(data, title, body);
+  const payload = JSON.stringify({
+    aps: {
+      alert: { title, body },
+      sound: "default",
+      "thread-id": String(custom.courseCode || custom.type || "miras"),
+    },
+    ...custom,
+  });
+  return new Promise((resolve) => {
+    let settled = false;
+    const finish = (r: { sent: boolean; reason?: string }) => {
+      if (settled) return;
+      settled = true;
+      try {
+        client.close();
+      } catch {}
+      resolve(r);
+    };
+    const client = http2.connect(host);
+    client.on("error", (e) => finish({ sent: false, reason: `APNS_CONN ${e.message}` }));
+    const timer = setTimeout(
+      () => finish({ sent: false, reason: "APNS_TIMEOUT" }),
+      15000,
+    );
+    const req = client.request({
+      ":method": "POST",
+      ":path": `/3/device/${deviceToken}`,
+      authorization: `bearer ${jwt}`,
+      "apns-topic": topic,
+      "apns-push-type": "alert",
+      "apns-priority": "10",
+      "apns-expiration": String(
+        Math.floor(Date.now() / 1000) + MIRAS_PUSH_TTL_SECONDS,
+      ),
+      "content-type": "application/json",
+    });
+    let status = 0;
+    let text = "";
+    req.on("response", (h) => {
+      status = Number(h[":status"] || 0);
+    });
+    req.setEncoding("utf8");
+    req.on("data", (c) => (text += c));
+    req.on("end", () => {
+      clearTimeout(timer);
+      if (status === 200) return finish({ sent: true });
+      // 410 / BadDeviceToken / Unregistered ⇒ توكن ميت (يُصنَّف dead).
+      const apnsReason = (() => {
+        try {
+          return String(JSON.parse(text).reason || "");
+        } catch {
+          return text.slice(0, 120);
+        }
+      })();
+      const dead =
+        status === 410 ||
+        /BadDeviceToken|Unregistered|DeviceTokenNotForTopic/i.test(apnsReason);
+      finish({
+        sent: false,
+        reason: dead ? `UNREGISTERED ${apnsReason}` : `APNS_${status} ${apnsReason}`,
+      });
+    });
+    req.on("error", (e) => finish({ sent: false, reason: `APNS_REQ ${e.message}` }));
+    req.end(payload);
+  });
+}
+
 function normalizeNotificationNoiseText(value: any) {
   return String(value || "")
     .toLowerCase()
@@ -6951,7 +7060,9 @@ function notifyUsers(
     }
     queueNotificationAudit(eventData.notificationId, {}, { queued: 1 });
     try {
-      sendFcmToToken(target.token, safeTitle, safeBody, eventData)
+      (String((target as any).platform || "") === "ios"
+        ? sendApnsToToken(target.token, safeTitle, safeBody, eventData)
+        : sendFcmToToken(target.token, safeTitle, safeBody, eventData))
       .then((result) => {
         if (result.sent) {
           completeNotificationDispatch(dispatchKey);
@@ -10621,7 +10732,12 @@ app.post("/api/notifications/register-token", (req, res) => {
         : req.body?.permission === "default"
           ? "default"
           : "granted",
-    platform: req.body?.platform === "pwa" ? "pwa" : "web",
+    platform:
+      req.body?.platform === "ios"
+        ? "ios"
+        : req.body?.platform === "pwa"
+          ? "pwa"
+          : "web",
     userAgent: String(req.headers["user-agent"] || ""),
     createdAt: now,
     updatedAt: now,

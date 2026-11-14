@@ -788,7 +788,7 @@ export interface NotificationToken {
   teacherEmail?: string;
   deviceToken?: string;
   permission: "granted" | "denied" | "default";
-  platform: "web" | "pwa";
+  platform: "web" | "pwa" | "ios";
   userAgent?: string;
   createdAt: string;
   updatedAt: string;
