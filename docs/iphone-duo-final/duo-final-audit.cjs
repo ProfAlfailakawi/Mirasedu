@@ -22,13 +22,13 @@ const SHOTS = process.argv[4] || '';
 const LABEL = process.argv[5] || 'after';
 const SPINE = 32;
 /* نطاق الشاشة الداخلية (وضع الكتاب) — يطابق الاستعلام في miras-duo-layouts.css. */
-const INNER = '(min-width: 640px) and (max-width: 1000px) and (min-height: 540px) and (max-height: 960px)';
+const INNER = 'screen and (min-width: 640px) and (max-width: 720px) and (min-height: 540px) and (max-height: 960px), screen and (min-width: 721px) and (max-width: 1000px) and (min-height: 540px) and (max-height: 960px) and (orientation: landscape)';
 
 const VIEWPORTS = [
   ['A', 382, 580], ['A', 385, 571], ['A', 320, 568],
   ['B', 594, 368],
-  ['C', 669, 867],
-  ['D', 951, 585],
+  ['C', 669, 867], ['C', 660, 800], ['C', 700, 900], ['C', 720, 900],
+  ['D', 951, 585], ['D', 880, 585], ['D', 1000, 600],
   ['E', 951, 350], ['E', 600, 350],
   ['F', 669, 520], ['F', 600, 480],
   ['G', 768, 1024], ['G', 1024, 768], ['G', 1280, 800], ['G', 1440, 900],
@@ -37,6 +37,8 @@ const VIEWPORTS = [
   ['S', 470, 350], ['S', 470, 600], ['S', 470, 900],
   ['S', 620, 350], ['S', 620, 600], ['S', 620, 900],
 ];
+/* DUO_SIZES=669x867,951x585 يحصر القياس بمقاسات معيّنة (تشغيل سريع). */
+const SIZE_ONLY = (process.env.DUO_SIZES || '').split(',').filter(Boolean);
 const SHOT_AT = new Set(['669x867', '951x585', '382x580', '951x350', '600x350', '594x368']);
 
 async function newContext(browser, extra = {}) {
@@ -209,6 +211,7 @@ function measure([spine, inner]) {
 
 async function runScreen(p, screen, results, prep) {
   for (const [pose, w, h] of VIEWPORTS) {
+    if (SIZE_ONLY.length && !SIZE_ONLY.includes(`${w}x${h}`)) continue;
     await p.setViewportSize({ width: w, height: h });
     await settle(p, 500);
     if (prep) await prep();
