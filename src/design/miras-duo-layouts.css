@@ -286,3 +286,405 @@ summary:not(#_) {
     column-gap: var(--miras-fold-gap) !important;
   }
 }
+
+/* ───────── ٧) الشاشة الداخلية كتابٌ مفتوح (جولة ١٤ نوفمبر ٢٠٢٦) ─────────
+   على الـDuo المفتوح كالكتاب (669×867 طولياً، 951×585 عرضياً) كانت الشاشة
+   صفحة iPad ممدودة: عمود واحد يقطعه خط الطي. Safari لا يعلن المفصل، فنعامل
+   مقاس الشاشة الداخلية نفسه كصفحتين متقابلتين حول كعبٍ هادئ في المنتصف:
+
+     • الصفحة اليمنى (أول ما تقرأه العين في RTL) للمهمة الأساسية،
+       واليسرى للسياق (التنبيهات، الإضافة، المسار، اللوح النيلي).
+     • لا نص ولا حقل ولا زر يعبر منطقة الكعب (المنتصف ± نصف عرضه).
+     • الخلفية متصلة من الحافة إلى الحافة؛ الكعب خط شعري وظل طيّ خفيف.
+
+   النطاق: عرض 640–1000 وارتفاع 540–960. خارج ذلك (iPad 768×1024، الهاتف،
+   المطوي، الارتفاع القصير) لا يتغير شيء. عرض فقط — CSS خالص، لا شيء يُعاد
+   تركيبه عند تغيّر المقاس، فتبقى الحقول والتمرير والنوافذ كما هي.
+
+   أداة القياس: docs/iphone-duo-final/duo-final-audit.cjs (تقرأ --duo-book). */
+@media (min-width: 640px) and (max-width: 1000px) and (min-height: 540px) and (max-height: 960px) {
+  :root {
+    --duo-book: 1;
+    --duo-spine: 32px;
+    /* نصف صفحة: عرض الحاوية ناقص الكعب، مقسوماً على اثنين. */
+    --duo-page: calc((100% - var(--duo-spine)) / 2);
+    --duo-fold-ink: rgba(29, 26, 102, 0.075);
+    --duo-fold-line: rgba(29, 26, 102, 0.14);
+  }
+  html[data-theme="dark"] {
+    --duo-fold-ink: rgba(0, 0, 0, 0.32);
+    --duo-fold-line: rgba(165, 180, 252, 0.16);
+  }
+
+  /* ٧-أ) الكعب: ظل طيّ متدرج وخط شعري. زخرفة فقط، لا يلتقط لمساً. */
+  html body:not(#_):not(#__)::after {
+    content: "";
+    position: fixed;
+    inset-block: 0;
+    left: calc(50% - var(--duo-spine) / 2);
+    width: var(--duo-spine);
+    z-index: 60;
+    pointer-events: none;
+    background:
+      linear-gradient(var(--duo-fold-line), var(--duo-fold-line)) 50% 0 / 1px 100% no-repeat,
+      linear-gradient(90deg, transparent 0%, var(--duo-fold-ink) 46%, var(--duo-fold-ink) 54%, transparent 100%);
+  }
+
+  /* رابط التخطّي يظهر عند التركيز في منتصف الصفحة اليمنى لا على الكعب. */
+  html body .miras-skip:not(#_):not(#__) {
+    inset-inline-start: 25%;
+  }
+
+  /* ٧-ب) النوافذ: تُفتح على الصفحة اليمنى، والستارة تغطي الكتاب كله. */
+  html body #root div.fixed.inset-0.flex.justify-center:not(.text-center):has(> [class*="max-w-"]):not(#_):not(#__):not(#___) {
+    justify-content: flex-start !important;
+    padding-inline-start: max(16px, env(safe-area-inset-right, 0px)) !important;
+    padding-inline-end: calc(50% + var(--duo-spine) / 2 + 16px) !important;
+  }
+  html body #root div.fixed.inset-0.flex.justify-center:not(.text-center):has(> [class*="max-w-"]) > [class*="max-w-"]:not(#_):not(#__):not(#___) {
+    max-width: 100% !important;
+    width: 100% !important;
+  }
+
+  /* ٧-ج) الدخول: النموذج صفحةٌ يمنى، واللوح النيلي بعلامته صفحةٌ يسرى كاملة. */
+  html[data-theme] body #root .meras-auth-shell.miras-calm-auth:not(#_):not(#__):not(#___):not(#____):not(#_____):not(#______):not(#_______) {
+    justify-content: center !important;
+    align-items: stretch !important;
+    padding-top: max(24px, env(safe-area-inset-top, 0px)) !important;
+    padding-bottom: max(24px, env(safe-area-inset-bottom, 0px)) !important;
+    padding-inline-start: max(24px, env(safe-area-inset-right, 0px)) !important;
+    padding-inline-end: calc(50% + var(--duo-spine) / 2 + 24px) !important;
+  }
+  html[data-theme] body #root .meras-auth-shell.miras-calm-auth .meras-auth-card:not(#_):not(#__):not(#___):not(#____):not(#_____):not(#______):not(#_______) {
+    width: 100% !important;
+    max-width: 100% !important;
+    max-height: calc(100dvh - 48px) !important;
+    margin: auto 0 !important;
+  }
+  html[data-theme] body #root .meras-auth-shell.miras-calm-auth:not(#_):not(#__):not(#___):not(#____):not(#_____):not(#______):not(#_______)::before {
+    inset-block: 0 !important;
+    inset-inline-start: auto !important;
+    inset-inline-end: 0 !important;
+    width: calc(50% - var(--duo-spine) / 2) !important;
+    height: auto !important;
+    box-shadow: none !important;
+    background:
+      url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'%3E%3Cg fill='%23a5b4fc' stroke='%23a5b4fc'%3E%3Cpath fill-rule='evenodd' d='M386 178A86 86 0 1 0 214 178A86 86 0 1 0 386 178ZM342 178A42 42 0 1 1 258 178A42 42 0 1 1 342 178Z'/%3E%3Cpath d='M250 219 C 268 308, 244 374, 150 404' stroke-width='44' stroke-linecap='butt' fill='none'/%3E%3C/g%3E%3C/svg%3E") no-repeat 50% 38% / min(46%, 180px) auto,
+      repeating-linear-gradient(0deg, rgba(255, 255, 255, 0.06) 0 1px, transparent 1px 36px),
+      linear-gradient(90deg, transparent calc(100% - 40px), rgba(165, 180, 252, 0.32) calc(100% - 40px) calc(100% - 39px), transparent calc(100% - 39px)),
+      linear-gradient(160deg, var(--mi-ink) 0%, var(--mi-ink-deep) 100%) !important;
+  }
+  html[data-theme] body #root .meras-auth-shell.miras-calm-auth:not(#_):not(#__):not(#___):not(#____):not(#_____):not(#______):not(#_______)::after {
+    content: none !important;
+    display: none !important;
+  }
+
+  /* ٧-د) المعلّم: الترويسة — العنوان والحساب على اليمنى، الأدوات على اليسرى. */
+  /* الترويسة المحمولة (حتى 920px؛ فوقها ترويسة سطح المكتب وهي لا تعبر الكعب). */
+  @media (max-width: 920px) {
+    html body #root .miras-mobile-teacher-zero-header:not(#_):not(#__):not(#___):not(#____) {
+      display: grid !important;
+      grid-template-columns: max-content minmax(0, 1fr) var(--duo-spine) var(--duo-page) !important;
+      padding-inline: 12px !important;
+    }
+    html body #root .miras-mobile-teacher-zero-header .miras-zero-title-block:not(#_):not(#__):not(#___):not(#____) {
+      grid-column: 1 / 3 !important;
+      min-width: 0 !important;
+    }
+    html body #root .miras-mobile-teacher-zero-header .miras-zero-actions-row:not(#_):not(#__):not(#___):not(#____) {
+      grid-column: 4 !important;
+      grid-row: 1 !important;
+      justify-self: center !important;
+    }
+  }
+
+  /* شريط الأقسام (العلوي عند 951، والسفلي عند 669): ثلاثة على اليمنى، واثنان
+     على اليسرى، والكعب بينهما فارغ. ١٢ جزءاً لكل صفحة: ٣×٤ و٢×٦. */
+  html body #root :is(.teacher-nav-desktop, .teacher-nav-mobile) .miras-teacher-nav-track.miras-teacher-five-nav:not(#_):not(#__):not(#___):not(#____) {
+    display: grid !important;
+    grid-template-columns: repeat(3, minmax(0, 4fr)) var(--duo-spine) repeat(2, minmax(0, 6fr)) !important;
+    grid-auto-flow: row !important;
+    column-gap: 0 !important;
+    justify-items: center !important;
+    width: 100% !important;
+  }
+  html body #root :is(.teacher-nav-desktop, .teacher-nav-mobile) .miras-teacher-nav-track.miras-teacher-five-nav > :nth-child(4):not(#_):not(#__):not(#___):not(#____) {
+    grid-column: 5 !important;
+  }
+  html body #root :is(.teacher-nav-desktop, .teacher-nav-mobile) .miras-teacher-nav-track.miras-teacher-five-nav > :nth-child(5):not(#_):not(#__):not(#___):not(#____) {
+    grid-column: 6 !important;
+  }
+  html body #root :is(.teacher-nav-desktop, .teacher-nav-mobile) .miras-teacher-nav-track.miras-teacher-five-nav > :nth-child(n+6):not(#_):not(#__):not(#___):not(#____) {
+    grid-column: auto !important;
+  }
+  html body #root .teacher-nav-desktop .miras-teacher-nav-track.miras-teacher-five-nav > button:not(#_):not(#__):not(#___):not(#____) {
+    width: calc(100% - 8px) !important;
+  }
+  /* الشريط السفلي بعرض الكتاب كله ومتمركز، فيقع كعبه على الكعب. */
+  html body #root .teacher-nav-mobile.teacher-orbit-dock.miras-dock-shell-v2:not(#_):not(#__):not(#___):not(#____) {
+    left: 0 !important;
+    right: 0 !important;
+    margin-inline: auto !important;
+    width: calc(100% - 24px) !important;
+    max-width: none !important;
+    transform: none !important;
+  }
+
+  /* مبدّل المقرر: أداة الصفحة اليمنى، لا شريط يعبر الكعب. */
+  html body #root .miras-global-course-switcher > div:not(#_):not(#__):not(#___) {
+    width: var(--duo-page) !important;
+    margin-inline-start: 0 !important;
+    margin-inline-end: auto !important;
+  }
+
+  /* ٧-هـ) رئيسية المعلّم: الأرقام صفحةٌ يمنى، والتنبيهات ونبض الاختبار صفحةٌ يسرى. */
+  html body #root .miras-teacher-home-panel:not(#_):not(#__):not(#___) {
+    display: grid !important;
+    grid-template-columns: minmax(0, 1fr) var(--duo-spine) minmax(0, 1fr) !important;
+    grid-auto-flow: row dense !important;
+    align-items: start !important;
+    row-gap: 1.25rem !important;
+    column-gap: 0 !important;
+  }
+  html body #root .miras-teacher-home-panel > *:not(#_):not(#__):not(#___) {
+    grid-column: 3 !important;
+    margin-top: 0 !important;
+    min-width: 0 !important;
+  }
+  html body #root .miras-teacher-home-panel > .grid:first-of-type:not(#_):not(#__):not(#___) {
+    grid-column: 1 !important;
+    grid-row: 1 / span 8 !important;
+    grid-template-columns: minmax(0, 1fr) !important;
+  }
+  @media (min-width: 820px) {
+    html body #root .miras-teacher-home-panel > .grid:first-of-type:not(#_):not(#__):not(#___) {
+      grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    }
+  }
+
+  html body #root .miras-teacher-home-panel .miras-teacher-live-pulse-card [class*="md:flex-row"]:not(#_):not(#__):not(#___) {
+    flex-direction: column !important;
+    align-items: stretch !important;
+  }
+
+  /* ٧-و) شبكات البطاقات التي تملأ الكتاب: عمودان، والفاصل بينهما هو الكعب
+     (+٨px هواء على كل جانب). الحاويات متمركزة، فيقع الفاصل على المنتصف. */
+  html body #root :is(
+      .grid:has(> .miras-roster-card),
+      .grid:has(> .miras-join-code-card),
+      .miras-submissions-panel > .grid,
+      .teacher-command-main .grid[class*="md:grid-cols-3"]:has(> [class*="@container"]),
+      .space-y-2.max-h-\[560px\],
+      .miras-practice-quizzes .grid,
+      .miras-practice-projects .grid
+    ):not(#_):not(#__):not(#___) {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    column-gap: calc(var(--duo-spine) + 16px) !important;
+    padding-inline: 0 !important;
+  }
+
+  /* ٧-ز) الطلبة: «رفع من Excel» صفحةٌ يمنى و«إضافة طالب» يسرى، ثم الكشف على
+     الصفحتين؛ البحث في الكشف على الصفحة اليسرى. */
+  html body #root .space-y-4.animate-fade-in:has(> .border-emerald-100):has(.miras-roster-card):not(#_):not(#__):not(#___) {
+    display: grid !important;
+    grid-template-columns: minmax(0, 1fr) var(--duo-spine) minmax(0, 1fr) !important;
+    row-gap: 1rem !important;
+    column-gap: 0 !important;
+    align-items: stretch !important;
+  }
+  html body #root .space-y-4.animate-fade-in:has(> .border-emerald-100):has(.miras-roster-card) > *:not(#_):not(#__):not(#___) {
+    grid-column: 1 / -1 !important;
+    margin-top: 0 !important;
+    min-width: 0 !important;
+  }
+  html body #root .space-y-4.animate-fade-in:has(> .border-emerald-100):has(.miras-roster-card) > :nth-child(1):not(#_):not(#__):not(#___) {
+    grid-column: 1 !important;
+    grid-template-columns: minmax(0, 1fr) auto !important;
+  }
+  html body #root .space-y-4.animate-fade-in:has(> .border-emerald-100):has(.miras-roster-card) > :nth-child(2):not(#_):not(#__):not(#___) {
+    grid-column: 3 !important;
+    display: flex !important;
+    flex-direction: column !important;
+    justify-content: center !important;
+  }
+  html body #root :is(.border-slate-100, .border-slate-200):has(.miras-roster-card) > .flex.flex-wrap.justify-between > .relative.max-w-xs:not(#_):not(#__):not(#___) {
+    max-width: calc(var(--duo-page) - 8px) !important;
+  }
+
+  /* ٧-ح) بنك الأسئلة: «سؤال جديد» أعلى اليسرى، التصنيفات يميناً والبحث يساراً
+     في صف واحد، ثم القائمة على الصفحتين. */
+  html body #root .space-y-4:has(> .space-y-2.max-h-\[560px\]):not(#_):not(#__):not(#___) {
+    display: grid !important;
+    grid-template-columns: minmax(0, 1fr) var(--duo-spine) minmax(0, 1fr) !important;
+    row-gap: 1rem !important;
+    column-gap: 0 !important;
+    align-items: start !important;
+  }
+  html body #root .space-y-4:has(> .space-y-2.max-h-\[560px\]) > *:not(#_):not(#__):not(#___) {
+    grid-column: 1 / -1 !important;
+    margin-top: 0 !important;
+    min-width: 0 !important;
+  }
+  html body #root .space-y-4:has(> .space-y-2.max-h-\[560px\]) > .flex.justify-end:first-child:not(#_):not(#__):not(#___) {
+    grid-row: 1 !important;
+  }
+  html body #root .space-y-4:has(> .space-y-2.max-h-\[560px\]) > .rounded-3xl:not(#_):not(#__):not(#___) {
+    grid-column: 1 !important;
+    grid-row: 2 !important;
+  }
+  html body #root .space-y-4:has(> .space-y-2.max-h-\[560px\]) > .rounded-3xl + .flex.items-center:not(#_):not(#__):not(#___) {
+    grid-column: 3 !important;
+    grid-row: 2 !important;
+  }
+
+  /* ٧-ط) التسليمات: العنوان والبحث على اليمنى، ومبدّل العرض على اليسرى. */
+  html body #root .miras-submissions-panel > div:first-of-type > .flex.flex-col:first-child:not(#_):not(#__):not(#___) {
+    max-width: calc(var(--duo-page) - 8px) !important;
+  }
+
+  /* ٧-ي) الأكواد: التحقق يميناً وزره يساراً؛ الإحصاءات اثنتان يميناً وواحدة
+     يساراً؛ البحث يميناً والتصفية يساراً؛ ثم البطاقات على الصفحتين. */
+  html body #root section.border-indigo-100 > .flex.flex-wrap:has(> label):not(#_):not(#__):not(#___) {
+    display: grid !important;
+    grid-template-columns: minmax(0, 1fr) var(--duo-spine) minmax(0, 1fr) !important;
+    column-gap: 0 !important;
+  }
+  html body #root section.border-indigo-100 > .flex.flex-wrap:has(> label) > label:not(#_):not(#__):not(#___) {
+    grid-column: 1 !important;
+    min-width: 0 !important;
+  }
+  html body #root section.border-indigo-100 > .flex.flex-wrap:has(> label) > button:not(#_):not(#__):not(#___) {
+    grid-column: 3 !important;
+    justify-self: start !important;
+  }
+  html body #root .miras-code-stats:not(#_):not(#__):not(#___) {
+    display: grid !important;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) var(--duo-spine) minmax(0, 1fr) minmax(0, 1fr) !important;
+    column-gap: 0.5rem !important;
+    row-gap: 0.75rem !important;
+    padding-inline: 0 !important;
+  }
+  html body #root .miras-code-stats > h3:not(#_):not(#__):not(#___) {
+    grid-column: 1 / 3 !important;
+  }
+  html body #root .miras-code-stats > .miras-code-stat:not(#_):not(#__):not(#___) {
+    grid-row: 2 !important;
+    min-width: 0 !important;
+    width: auto !important;
+  }
+  html body #root .miras-code-stats > .miras-code-stat:nth-of-type(1):not(#_):not(#__):not(#___) { grid-column: 1 !important; }
+  html body #root .miras-code-stats > .miras-code-stat:nth-of-type(2):not(#_):not(#__):not(#___) { grid-column: 2 !important; }
+  html body #root .miras-code-stats > .miras-code-stat:nth-of-type(3):not(#_):not(#__):not(#___) { grid-column: 4 / 6 !important; }
+  html body #root #join-codes-cards-anchor .grid[class*="lg:grid-cols-12"]:not(#_):not(#__):not(#___) {
+    grid-template-columns: minmax(0, 1fr) var(--duo-spine) minmax(0, 1fr) !important;
+    column-gap: 0 !important;
+  }
+  html body #root #join-codes-cards-anchor .grid[class*="lg:grid-cols-12"] > :first-child:not(#_):not(#__):not(#___) {
+    grid-column: 1 !important;
+  }
+  html body #root #join-codes-cards-anchor .grid[class*="lg:grid-cols-12"] > :nth-child(2):not(#_):not(#__):not(#___) {
+    grid-column: 3 !important;
+  }
+  html body #root .miras-submissions-panel > div:first-of-type > .flex.items-center.justify-end:not(#_):not(#__):not(#___) {
+    margin-inline-start: auto !important;
+  }
+
+  /* ٧-ك) الطالب: الاسم يميناً والأدوات يساراً؛ «المتاح الآن» على الصفحتين،
+     ثم «مسارك الدراسي» صفحةٌ يمنى و«آخر تسليم» صفحةٌ يسرى. */
+  html body #root .miras-student-header-stack:not(#_):not(#__):not(#___):not(#____) {
+    display: grid !important;
+    grid-template-columns: minmax(0, 1fr) var(--duo-spine) minmax(0, 1fr) !important;
+    column-gap: 0 !important;
+  }
+  html body #root .miras-student-header-stack > .miras-student-identity:not(#_):not(#__):not(#___):not(#____) {
+    grid-column: 1 !important;
+    grid-row: 1 !important;
+  }
+  html body #root .miras-student-header-stack > .miras-student-actions-row:not(#_):not(#__):not(#___):not(#____) {
+    grid-column: 3 !important;
+    grid-row: 1 !important;
+    width: auto !important;
+    justify-content: center !important;
+  }
+  html body #root .miras-now-available .grid:not(#_):not(#__):not(#___) {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    column-gap: calc(var(--duo-spine) + 16px) !important;
+  }
+  html body #root .miras-student-overview-card .relative.z-10.space-y-3:has(> .miras-study-path):not(#_):not(#__):not(#___):not(#____) {
+    display: grid !important;
+    grid-template-columns: minmax(0, 1fr) var(--duo-spine) minmax(0, 1fr) !important;
+    column-gap: 0 !important;
+    row-gap: 0.9rem !important;
+    align-items: stretch !important;
+  }
+  html body #root .miras-student-overview-card .relative.z-10.space-y-3:has(> .miras-study-path) > *:not(#_):not(#__):not(#___):not(#____) {
+    grid-column: 1 / -1 !important;
+    margin-top: 0 !important;
+    min-width: 0 !important;
+  }
+  html body #root .miras-student-overview-card .relative.z-10.space-y-3:has(> .miras-study-path) > .miras-study-path:not(#_):not(#__):not(#___):not(#____) {
+    grid-column: 1 !important;
+  }
+  html body #root .miras-student-overview-card .relative.z-10.space-y-3:has(> .miras-study-path) > .miras-student-last-submission-wrap:not(#_):not(#__):not(#___):not(#____) {
+    grid-column: 3 !important;
+  }
+  /* بطاقة وحيدة في قائمة الاختبارات/المشاريع: صفحةٌ يمنى، لا شريطٌ يعبر الكعب. */
+  html body #root :is(.miras-practice-quizzes, .miras-practice-projects) .grid > :only-child:not(#_):not(#__):not(#___):not(#____) {
+    grid-column: 1 / 2 !important;
+  }
+
+  /* ٧-ل) لوحة التنبيهات تنسدل على الصفحة اليسرى تحت الجرس (الأدوات هناك). */
+  html body :is(.miras-teacher-alert-popover, .miras-student-alert-popover):not(#_):not(#__):not(#___):not(#____) {
+    left: max(12px, env(safe-area-inset-left, 0px)) !important;
+    right: auto !important;
+    width: calc(50% - var(--duo-spine) / 2 - 24px) !important;
+    max-width: none !important;
+    min-width: 0 !important;
+    transform: none !important;
+  }
+}
+
+/* ───────── ٨) وضعية الحاسوب المحمول (عريض وقصير: 951×350) ─────────
+   المحتوى أعلى الشاشة والأدوات أسفلها: شريط أقسام المعلّم ينزل من الترويسة
+   (التي تتحرك مع الصفحة منذ ٦-ب) إلى شريطٍ ثابت نحيف أسفل الشاشة، ويُحجز له
+   هامش سفلي فلا يغطي آخر المحتوى. دون 920px يبقى الـrail الجانبي في (٤) لأن
+   المقاس نفسه هو الهاتف/المطوي عرضياً. */
+@media (min-width: 921px) and (max-height: 480px) {
+  html body #root .teacher-command-header:not(#_):not(#__):not(#___) {
+    -webkit-backdrop-filter: none !important;
+    backdrop-filter: none !important;
+    transform: none !important;
+  }
+  html body #root .teacher-command-header .teacher-nav-desktop.teacher-orbit-dock:not(#_):not(#__):not(#___):not(#____) {
+    position: fixed !important;
+    inset: auto max(12px, env(safe-area-inset-right, 0px)) max(8px, env(safe-area-inset-bottom, 0px)) max(12px, env(safe-area-inset-left, 0px)) !important;
+    width: auto !important;
+    max-width: none !important;
+    margin: 0 !important;
+    padding: 4px !important;
+    z-index: 40 !important;
+    border: 1px solid var(--miras-line, rgba(148, 163, 184, 0.35)) !important;
+    border-radius: 18px !important;
+    background: var(--miras-surface, #fff) !important;
+    box-shadow: 0 10px 28px -16px rgba(15, 23, 42, 0.35) !important;
+  }
+  html body #root .teacher-command-header .teacher-nav-desktop .miras-teacher-nav-track:not(#_):not(#__):not(#___):not(#____) {
+    display: grid !important;
+    grid-auto-flow: column !important;
+    grid-auto-columns: minmax(0, 1fr) !important;
+    gap: 4px !important;
+  }
+  html body #root .teacher-command-header .teacher-nav-desktop .miras-teacher-nav-track > button:not(#_):not(#__):not(#___):not(#____) {
+    width: 100% !important;
+    min-height: 44px !important;
+    flex-direction: row !important;
+    gap: 6px !important;
+  }
+  html body #root .teacher-command-main:not(#_):not(#__):not(#___) {
+    padding-bottom: calc(76px + env(safe-area-inset-bottom, 0px)) !important;
+  }
+  /* شارة البيئة التجريبية تجلس أسفل اليسار: لا يغطيها الشريط ولا تغطيه. */
+  html body #root:has(.miras-demo-bar) .teacher-command-header .teacher-nav-desktop.teacher-orbit-dock:not(#_):not(#__):not(#___):not(#____) {
+    left: 64px !important;
+  }
+}
