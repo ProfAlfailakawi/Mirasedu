@@ -7874,7 +7874,7 @@ function buildCodeCaseFile(code: any, attempts: any[]) {
     )[0];
   const fairness = classifyStudentFairness(relatedAttempts, code);
   return {
-    id: `case-${compactJoinCode(normalized) || crypto.createHash("sha1").update(String(normalized)).digest("hex").slice(0, 10)}`,
+    id: `case-${compactJoinCode(normalized) || [...String(normalized)].reduce((h, ch) => (Math.imul(h, 31) + (ch.codePointAt(0) || 0)) >>> 0, 7).toString(16).padStart(8, "0")}`,
     code: normalized,
     batchId: resolveJoinCodeBatchId(code),
     ownerStudentId:
@@ -15678,6 +15678,93 @@ app.post("/api/auth/logout", (req, res) => {
   res.setHeader("Cache-Control", "no-store");
   clearAuthCookies(req, res);
   return res.json({ success: true });
+});
+
+// ================= طلب حذف الحساب (Apple 5.1.1(v)) =================
+// طلب فقط: يُسجَّل سجلٌ معلّق (المعرّف + الدور + الوقت + الحالة) ويخرج المستخدم.
+// لا يحذف ولا يعدّل أي سجل أكاديمي (اختبارات، تسليمات، درجات، مؤقتات)؛ يعالج المالك
+// الطلب يدوياً خلال ٣٠ يوماً (apple-release/review/account-deletion.md). وصندوق
+// العرض التجريبي لا يكتب شيئاً: يردّ نجاحاً ويخرج الزائر فقط.
+const ACCOUNT_DELETION_DONE_MESSAGE =
+  "سنحذف حسابك خلال 30 يومًا، وتُحفَظ السجلات الأكاديمية التي تلتزم المؤسسة بحفظها بصيغة مجهولة الهوية.";
+const accountDeletionRateLimit = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 15,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: "طلبات كثيرة على حذف الحساب. حاول بعد 15 دقيقة." },
+});
+
+app.post("/api/account/deletion-request", accountDeletionRateLimit, (req, res) => {
+  res.setHeader("Cache-Control", "no-store");
+  const session = verifyMirasSessionToken(req);
+  if (!session || !String(session.userId || "").trim()) {
+    return res.status(401).json({ error: "الجلسة غير موثقة." });
+  }
+  const isStudent = session.role === "student";
+  const sessionUserId = isStudent
+    ? normalizeStudentId(session.userId)
+    : String(session.email || session.userId).trim().toLowerCase();
+  const claimedRaw = String(req.body?.userId || "").trim();
+  if (!claimedRaw) return res.status(400).json({ error: "معرّف الحساب مطلوب." });
+  const claimedUserId = isStudent
+    ? normalizeStudentId(claimedRaw)
+    : claimedRaw.toLowerCase();
+  if (!sessionUserId || claimedUserId !== sessionUserId) {
+    return res.status(403).json({ error: "لا يمكن طلب حذف حساب مستخدم آخر." });
+  }
+  // صندوق العرض: لا إعادة مصادقة (حساباته بلا كلمة مرور) ولا كتابة.
+  if (MirasDemo.isDemoRequest()) {
+    clearAuthCookies(req, res);
+    return res.json({ success: true, demo: true, message: ACCOUNT_DELETION_DONE_MESSAGE });
+  }
+  // إعادة المصادقة بكلمة المرور (مسار الدخول نفسه)، ومحاولاتها الفاشلة تخضع لحارس
+  // الدخول لكل (IP + هوية). تحقق scrypt فقط كبقية المسارات الجديدة.
+  const rateIdentity = `account-deletion:${sessionUserId}`;
+  const limit = checkLoginRateLimit(req, rateIdentity);
+  if (limit.limited) {
+    res.setHeader("Retry-After", String(limit.retryAfterSeconds));
+    return res.status(429).json({ error: "محاولات كثيرة. حاول بعد قليل." });
+  }
+  const account: any = isStudent
+    ? dbInstance.getStudents().find((s: any) => normalizeStudentId(s.id) === sessionUserId)
+    : dbInstance
+        .getTeachers()
+        .find((t: any) => String(t.email || "").trim().toLowerCase() === sessionUserId);
+  if (!account) return res.status(404).json({ error: "الحساب غير موجود." });
+  if (!String(account.passwordHash || "").startsWith("scrypt:")) {
+    return res.status(409).json({
+      error: "تعذّر التحقق من كلمة المرور لهذا الحساب. تواصل مع الإدارة لطلب الحذف.",
+    });
+  }
+  const password = String(req.body?.password || "");
+  if (!password || !verifyScryptPassword(account.passwordHash, password)) {
+    recordLoginFailure(req, rateIdentity);
+    return res.status(401).json({ error: "كلمة المرور غير صحيحة." });
+  }
+  recordLoginSuccess(req, rateIdentity);
+  const { request, created } = dbInstance.addAccountDeletionRequest(
+    sessionUserId,
+    session.role,
+  );
+  clearAuthCookies(req, res);
+  return res.json({
+    success: true,
+    created,
+    requestId: request.id,
+    status: request.status,
+    message: ACCOUNT_DELETION_DONE_MESSAGE,
+  });
+});
+
+// قائمة الطلبات المعلّقة للسوبر أدمن فقط (للمتابعة خلال ٣٠ يوماً).
+app.get("/api/monitor/account-deletion-requests", (req, res) => {
+  if (!mirasRadarAdminGate(req, res)) return;
+  const items = dbInstance
+    .getAccountDeletionRequests()
+    .slice()
+    .sort((a, b) => String(a.requested_at).localeCompare(String(b.requested_at)));
+  return res.json({ success: true, items });
 });
 
 // Student Login

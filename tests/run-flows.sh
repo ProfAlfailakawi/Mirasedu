@@ -104,6 +104,7 @@ run_group tests/flows.demo-hosting.mjs
 run_group tests/flows.login-ip-limit.mjs
 run_group tests/flows.login-identify.mjs tests/seed-login-identify.cjs
 run_group tests/flows.password-tolerance.mjs tests/seed-password-tolerance.cjs
+run_group tests/flows.account-deletion.mjs tests/seed-account-deletion.cjs
 node node_modules/.bin/tsx --test tests/general-code-reset.test.mjs || overall=1
 node node_modules/.bin/tsx tests/flows.arabic-text.mjs || overall=1
 node node_modules/.bin/tsx --test tests/apple-native-shell.test.ts || overall=1
