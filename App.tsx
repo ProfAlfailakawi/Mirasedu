@@ -18037,7 +18037,12 @@ ${rows
     }
   };
 
+  const resetPasswordInFlightRef = useRef(false);
+  const [resetPasswordSaving, setResetPasswordSaving] = useState(false);
   const handleResetPasswordWithToken = async () => {
+    // Block double taps: the link is single-use, so a second request would
+    // answer "expired or already used" right after the first one succeeded.
+    if (resetPasswordInFlightRef.current) return;
     if (!passwordResetToken || resetNewPassword.length < 6) {
       setErrorMsg("اكتب كلمة مرور جديدة لا تقل عن 6 خانات.");
       return;
@@ -18046,6 +18051,8 @@ ${rows
       setErrorMsg("كلمة المرور وتأكيدها غير متطابقين.");
       return;
     }
+    resetPasswordInFlightRef.current = true;
+    setResetPasswordSaving(true);
     try {
       const resp = await fetch("/api/auth/reset-password", {
         method: "POST",
@@ -18061,6 +18068,7 @@ ${rows
         setErrorMsg(data.error || "رابط إعادة التعيين غير صالح.");
         return;
       }
+      setErrorMsg("");
       setPasswordResetToken("");
       setResetNewPassword("");
       setResetConfirmPassword("");
@@ -18070,6 +18078,9 @@ ${rows
       setSuccessMsg(data.message || "تم تغيير كلمة المرور بنجاح.");
     } catch {
       setErrorMsg("تعذر تغيير كلمة المرور حالياً.");
+    } finally {
+      resetPasswordInFlightRef.current = false;
+      setResetPasswordSaving(false);
     }
   };
 
@@ -35394,7 +35405,9 @@ ${rows
                   <button
                     type="button"
                     onClick={handleResetPasswordWithToken}
-                    className="meras-main-action w-full bg-slate-950 hover:bg-indigo-700 text-white py-4 rounded-2xl font-bold text-xs transition-all duration-300 btn-spring-active shadow-premium-md flex items-center justify-center gap-2 mt-2"
+                    disabled={resetPasswordSaving}
+                    aria-busy={resetPasswordSaving}
+                    className="meras-main-action disabled:opacity-70 disabled:cursor-wait w-full bg-slate-950 hover:bg-indigo-700 text-white py-4 rounded-2xl font-bold text-xs transition-all duration-300 btn-spring-active shadow-premium-md flex items-center justify-center gap-2 mt-2"
                   >
                     <span>حفظ كلمة المرور الجديدة</span>
                     <Key className="w-4 h-4" />

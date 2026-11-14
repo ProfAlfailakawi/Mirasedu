@@ -14219,7 +14219,17 @@ app.post("/api/auth/forgot-password", (req, res) => {
   });
 });
 
-app.post("/api/auth/reset-password", (req, res) => {
+// الرمز عشوائي طويل لا يُخمَّن، لكن المسار يقارن كلمة مرور ويشغّل scrypt، فيُحدَّد
+// معدّله لكل IP. السقف سخيّ كي لا يتضرر طلاب يشاركون شبكة الجامعة نفسها.
+const resetPasswordRateLimit = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 40,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: "محاولات كثيرة لتغيير كلمة المرور. حاول بعد 15 دقيقة." },
+});
+
+app.post("/api/auth/reset-password", resetPasswordRateLimit, (req, res) => {
   const token = String(req.body?.token || "").trim();
   const newPassword = String(req.body?.newPassword || "");
   if (!token || isWeakDefaultPassword(newPassword))
@@ -14231,6 +14241,25 @@ app.post("/api/auth/reset-password", (req, res) => {
     .find((item: any) => item.resetToken === token);
   if (!requestItem)
     return res.status(404).json({ error: "رابط إعادة التعيين غير موجود." });
+  if (requestItem.status === "handled" && (requestItem as any).usedAt) {
+    // A double tap or a mobile-network replay of the very same submission must
+    // not turn a successful reset into an "expired" error. Only the same
+    // password, sent within a short window right after the reset, is treated
+    // as a replay; any other password still gets the one-time-link error.
+    const usedMs = new Date((requestItem as any).usedAt).getTime();
+    const replayStudent = findStudentByUniversityId(requestItem.studentId);
+    if (
+      Number.isFinite(usedMs) &&
+      Date.now() - usedMs <= 2 * 60 * 1000 &&
+      replayStudent &&
+      verifyScryptPassword((replayStudent as any).passwordHash, newPassword)
+    ) {
+      return res.json({
+        success: true,
+        message: "تم تغيير كلمة المرور بنجاح. يمكنك تسجيل الدخول الآن.",
+      });
+    }
+  }
   if (
     requestItem.status !== "new" ||
     new Date(requestItem.expiresAt).getTime() <= Date.now()
