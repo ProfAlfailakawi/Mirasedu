@@ -215,3 +215,24 @@ html body .workspace-calm-shell .meras-topbar .miras-student-identity .miras-stu
   text-overflow: ellipsis !important;
   white-space: nowrap !important;
 }
+
+/* 320px: the student toolbar now holds seven round buttons. The global
+   `min-width/width: 44px !important` rule in miras-duo-layouts.css beat the
+   40px rule above, so the pill grew to ~319px and the home button was cut by
+   the card edge. Let the buttons shrink (flex-shrink + a lower min-width)
+   inside a pill capped at the header width. Only affects <= 350px. */
+@media (max-width: 350px) {
+  html body #root .meras-topbar .miras-student-toolbar:not(#_):not(#__):not(#___):not(#____):not(#_____):not(#______):not(#_______) {
+    max-width: 100% !important;
+    min-width: 0 !important;
+  }
+  html body #root .meras-topbar .miras-student-toolbar > div:not(#_):not(#__):not(#___):not(#____):not(#_____):not(#______):not(#_______) {
+    flex: 0 1 auto !important;
+    min-width: 0 !important;
+    max-width: 100% !important;
+  }
+  html body #root .meras-topbar .miras-student-toolbar .miras-student-tool:not(.miras-student-alert-popover *):not(#_):not(#__):not(#___):not(#____):not(#_____):not(#______):not(#_______) {
+    flex: 0 1 44px !important;
+    min-width: 38px !important;
+  }
+}
