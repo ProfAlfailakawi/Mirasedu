@@ -310,10 +310,13 @@ summary:not(#_) {
     --duo-page: calc((100% - var(--duo-spine)) / 2);
     --duo-fold-ink: rgba(29, 26, 102, 0.075);
     --duo-fold-line: rgba(29, 26, 102, 0.14);
+    --duo-sheet: var(--miras-surface, #fff);
+    --duo-sheet-line: rgba(148, 163, 184, 0.3);
   }
   html[data-theme="dark"] {
     --duo-fold-ink: rgba(0, 0, 0, 0.32);
     --duo-fold-line: rgba(165, 180, 252, 0.16);
+    --duo-sheet-line: rgba(165, 180, 252, 0.14);
   }
 
   /* ٧-أ) الكعب: ظل طيّ متدرج وخط شعري. زخرفة فقط، لا يلتقط لمساً. */
@@ -731,6 +734,135 @@ summary:not(#_) {
     flex-wrap: wrap !important;
     overflow: visible !important;
   }
+
+  /* ٧-ن) كل صفحة تملك سطحها: الحاويات التي تمتد على الكتاب (الترويسات، شريط
+     الأقسام، «المتاح الآن»، بطاقات اللوحات) تُرسم ورقتين بينهما الكعب، لا لوحاً
+     واحداً يعبره. الحافة الداخلية مستقيمة كحافة ورقة عند التجليد، والخارجية
+     تبقى مستديرة بحدّ الحاوية. سطران لكل ورقة: تعبئة، وتحتها خط شعري بعرض 1px. */
+  html body #root :is(
+      .miras-mobile-teacher-zero-header,
+      .teacher-command-header,
+      .meras-student-shell header.meras-topbar,
+      .teacher-nav-mobile.teacher-orbit-dock,
+      .miras-student-overview-card > .relative.overflow-hidden,
+      .teacher-command-main > div:not(.miras-teacher-home-panel) > div[class*="rounded"][class*="bg-white"],
+      .teacher-command-main > div:not(.miras-teacher-home-panel) > div[class*="rounded"][class*="bg-slate-50"],
+      .miras-submissions-panel,
+      .miras-section-hero,
+      .miras-bulk-grade-card,
+      .miras-manual-activation-card,
+      #join-codes-cards-anchor,
+      section.border-indigo-100,
+      .teacher-command-main .grid[class*="md:grid-cols-12"]:has(> input + input),
+      .teacher-command-main .rounded-3xl.border-slate-100.bg-slate-50:has(.miras-roster-card),
+      .teacher-command-main .flex.w-full.items-center.justify-between.rounded-2xl.bg-slate-50
+    ):not(#_):not(#__):not(#___):not(#____):not(#_____) {
+    background:
+      linear-gradient(var(--duo-sheet), var(--duo-sheet)) right 1px top 1px / calc(50% - var(--duo-spine) / 2 - 2px) calc(100% - 2px) no-repeat,
+      linear-gradient(var(--duo-sheet), var(--duo-sheet)) left 1px top 1px / calc(50% - var(--duo-spine) / 2 - 2px) calc(100% - 2px) no-repeat,
+      linear-gradient(var(--duo-sheet-line), var(--duo-sheet-line)) right top / calc(50% - var(--duo-spine) / 2) 100% no-repeat,
+      linear-gradient(var(--duo-sheet-line), var(--duo-sheet-line)) left top / calc(50% - var(--duo-spine) / 2) 100% no-repeat !important;
+    border-color: transparent !important;
+    box-shadow: none !important;
+    -webkit-backdrop-filter: none !important;
+    backdrop-filter: none !important;
+  }
+  /* مسار الشريط السفلي يفقد كبسولته الممتدة؛ الورقتان تكفيان. */
+  html body #root .teacher-nav-mobile .miras-teacher-nav-track:not(#_):not(#__):not(#___):not(#____):not(#_____) {
+    background: transparent !important;
+    border-color: transparent !important;
+    box-shadow: none !important;
+  }
+  /* رئيسية الطالب: ورقتا البطاقة الداخلية هما الصفحتان؛ الإطار الخارجي و«المتاح
+     الآن» يفقدان سطحيهما فلا يظهر إطار داخل إطار. */
+  html body #root :is(.miras-student-overview-card, .miras-now-available):not(#_):not(#__):not(#___):not(#____):not(#_____) {
+    background: transparent !important;
+    border-color: transparent !important;
+    box-shadow: none !important;
+    -webkit-backdrop-filter: none !important;
+    backdrop-filter: none !important;
+  }
+  html body #root .miras-student-overview-card > .relative.overflow-hidden > .pointer-events-none:not(#_):not(#__):not(#___) {
+    display: none !important;
+  }
+
+  /* ٧-س) رئيسية الطالب الطولية: الصفحتان تمتلئان إلى أسفل الشاشة بدل أن يبقى
+     خُمساها السفليان فارغين؛ محتوى كل بطاقة يتوزع على طولها. */
+  @media (max-width: 819px) {
+    html body #root .miras-student-overview-card .relative.z-10.space-y-3:has(> .miras-study-path):not(#_):not(#__):not(#___):not(#____) {
+      min-height: calc(100dvh - 210px) !important;
+      grid-template-rows: auto 1fr !important;
+    }
+    html body #root .miras-student-overview-card .relative.z-10.space-y-3:has(> .miras-study-path) > :is(.miras-study-path, .miras-student-last-submission-wrap):not(#_):not(#__):not(#___):not(#____) {
+      display: flex !important;
+      flex-direction: column !important;
+      justify-content: flex-start !important;
+      gap: 1rem !important;
+    }
+    html body #root .miras-study-path > :last-child:not(#_):not(#__):not(#___) {
+      flex: 1 1 auto;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      gap: 1.25rem;
+    }
+    html body #root .miras-student-last-submission-wrap > *:not(#_):not(#__):not(#___) {
+      flex: 1 1 auto;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+    }
+    html body #root .miras-student-last-submission-wrap .miras-student-last-submission-card:not(#_):not(#__):not(#___) {
+      flex: 1 1 auto;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+    }
+  }
+
+  /* ٧-ع) مقرر جديد (عند 768+ الشبكة 12 عموداً): الاسم يميناً والفصل يساراً. */
+  html body #root .teacher-command-main .grid[class*="md:grid-cols-12"]:has(> input + input):not(#_):not(#__):not(#___) {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) !important;
+    column-gap: calc(var(--duo-spine) + 16px) !important;
+  }
+  html body #root .teacher-command-main .grid[class*="md:grid-cols-12"]:has(> input + input) > input:not(#_):not(#__):not(#___) {
+    grid-column: auto !important;
+    max-width: none !important;
+  }
+  html body #root .teacher-command-main .grid[class*="md:grid-cols-12"]:has(> input + input) > :nth-child(n+3):not(#_):not(#__):not(#___) {
+    grid-column: 2 !important;
+    justify-self: end !important;
+  }
+
+  /* ٧-ف) التصحيح: «لم يسلّم» أداة الصفحة اليمنى، ورصد الدرجات للمجموعة يتوزع
+     على الصفحتين، وبطاقات الطلبة متقابلة (الجدول العريض يُخفى تحت 1180px، انظر ١٠). */
+  html body #root .miras-submissions-panel > button.flex.w-full:not(#_):not(#__):not(#___) {
+    max-width: calc(var(--duo-page) - 8px) !important;
+  }
+  html body #root .miras-bulk-grade-content:not(#_):not(#__):not(#___) {
+    max-width: none !important;
+  }
+  html body #root .miras-bulk-grade-content > .flex:not(#_):not(#__):not(#___) {
+    display: grid !important;
+    grid-template-columns: minmax(0, 1fr) var(--duo-spine) minmax(0, 1fr) !important;
+    column-gap: 0 !important;
+    align-items: center !important;
+  }
+  html body #root .miras-bulk-grade-content > .flex > :first-child:not(#_):not(#__):not(#___) { grid-column: 1 !important; justify-self: center !important; }
+  html body #root .miras-bulk-grade-content > .flex > :last-child:not(:first-child):not(#_):not(#__):not(#___) { grid-column: 3 !important; justify-self: center !important; }
+  html body #root .miras-submissions-panel .grid.grid-cols-1.gap-2[class*="md:hidden"]:not(#_):not(#__):not(#___) {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    column-gap: calc(var(--duo-spine) + 16px) !important;
+  }
+  /* حاوية التصحيح العامة متمركزة ولها حشوة متماثلة. */
+  html body #root .miras-submissions-panel > div:has(> .grid[class*="md:hidden"]):not(#_):not(#__):not(#___) {
+    padding-inline: 12px !important;
+  }
+
+  /* أزرار ترويسة المعلّم عند 951 (ترويسة سطح المكتب): لا تتجاوز الصفحة اليسرى. */
+  html body #root .teacher-command-header div.flex.w-full.shrink-0.flex-wrap:not(#_):not(#__):not(#___) {
+    max-width: calc(var(--duo-page) - 8px) !important;
+  }
 }
 
 /* ───────── ٨) وضعية الحاسوب المحمول (عريض وقصير: 951×350) ─────────
@@ -798,5 +930,80 @@ summary:not(#_) {
   }
   html body #root .miras-now-available .grid:not(#_):not(#__):not(#___) {
     grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  }
+}
+
+/* ───────── ١٠) أهداف اللمس وجدول التصحيح (كل المقاسات، عرض فقط) ─────────
+   (أ) أزرار الأيقونات h-9/h-10 (إغلاق، رجوع، عرض الحل، إرجاع النشاط، التنبيه قبل
+   الاختبار…) و«مسح البحث» كانت 36–41px: الحد الأدنى 44px. لا يمس الاختبار الجاري.
+   (ب) حقول البحث الشفافة داخل صناديقها كانت 24–26px ارتفاعاً وإن بدا الصندوق 46px:
+   الحقل نفسه يملأ الصندوق فيقع اللمس عليه. وحقول النماذج في لوحات المعلّم 44px.
+   (ج) جدول التصحيح (min-width: 900px) كان أعرض من حاويته فيُدفع عموده الأخير
+   («إرجاع النشاط للطالب») خارج الشاشة حتى عند 768×1024. تحت 1180px تُعرض بطاقات
+   الطلبة نفسها التي يعرضها التطبيق على الهاتف (موجودة في الصفحة، فلا شيء يُعاد
+   تركيبه)، وفوقها لا يتجاوز الجدول حاويته ويتمرر داخلها. */
+html body #root :is(button[class*="h-10"][class*="w-10"], button[class*="h-9"][class*="w-9"], button[aria-label="مسح البحث"], button[aria-label="إغلاق"], button[aria-label="إغلاق الجولة"], button[aria-label="إغلاق التنبيهات"], button[aria-label="تحديد الكل كمقروء"], button[aria-label="تفعيل الإشعارات"]):not(.meras-exam-shell *):not(#_):not(#__):not(#___) {
+  min-width: 44px !important;
+  min-height: 44px !important;
+}
+html body #root .miras-onboarding-overlay button:not(.journey-rail-dot):not(#_):not(#__):not(#___),
+html body #root button[aria-label="وضع يوم الاختبار"]:not(#_):not(#__):not(#___),
+html body #root .miras-pwa-row button:not(#_):not(#__):not(#___) {
+  min-width: 44px !important;
+  min-height: 44px !important;
+}
+html body #root .teacher-command-main :is(div, label):has(> input.bg-transparent) > input.bg-transparent:not(#_):not(#__):not(#___),
+html body #root input.miras-flat-input:not(#_):not(#__):not(#___) {
+  min-height: 44px !important;
+  align-self: stretch !important;
+}
+html body #root .teacher-command-main :is(div, label):has(> input.bg-transparent):not(.grid):not(#_):not(#__):not(#___),
+html body #root :is(div, label):has(> input.miras-flat-input):not(#_):not(#__):not(#___) {
+  padding-block: 0 !important;
+}
+html body #root .teacher-command-main :is(input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="file"]), select):not(#_):not(#__):not(#___) {
+  min-height: 44px !important;
+}
+html body #root div.overflow-x-auto:has(> table[class*="min-w-[900px]"]):not(#_):not(#__):not(#___) {
+  min-width: 0 !important;
+  max-width: 100% !important;
+}
+@media (max-width: 1179px) {
+  html body #root div.overflow-x-auto:has(> table[class*="min-w-[900px]"]):not(#_):not(#__):not(#___) {
+    display: none !important;
+  }
+  html body #root div:has(> div.overflow-x-auto > table[class*="min-w-[900px]"]) > .grid[class*="md:hidden"]:not(#_):not(#__):not(#___) {
+    display: grid !important;
+  }
+}
+@media (min-width: 640px) and (max-width: 1179px) {
+  html body #root div:has(> div.overflow-x-auto > table[class*="min-w-[900px]"]) > .grid[class*="md:hidden"]:not(#_):not(#__):not(#___) {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+
+/* ───────── ١١) النص المكبَّر (200%) في ترويسة المعلّم المحمولة ─────────
+   الترويسة حاوية استعلام؛ وحدة em في الاستعلام تتبع خط الحاوية، فيُطلق الشرط
+   حين يكبر النص لا حين يضيق الهاتف (16em = 256px بالخط العادي، أصغر من أي
+   ترويسة؛ و512px بخط 200%). عندها تنزل الأدوات إلى صفٍّ كامل تحت العنوان بدل
+   أن يُدفع زر «خروج» خارج الشاشة. الترويسة ثابتة الموضع بحافتين، فاحتواء عرضها
+   لا يغيّر شيئاً في تخطيطها. */
+@media (max-width: 920px) {
+  html body #root .miras-mobile-teacher-zero-header:not(#_):not(#__) {
+    container-type: inline-size;
+  }
+}
+@container (max-width: 16em) {
+  html body #root .miras-mobile-teacher-zero-header .miras-zero-title-block:not(#_):not(#__):not(#___):not(#____):not(#_____):not(#______) {
+    grid-column: 1 / -1 !important;
+    grid-row: 1 !important;
+  }
+  html body #root .miras-mobile-teacher-zero-header .miras-zero-actions-row:not(#_):not(#__):not(#___):not(#____):not(#_____):not(#______) {
+    grid-column: 1 / -1 !important;
+    grid-row: 2 !important;
+    justify-self: stretch !important;
+    justify-content: space-between !important;
+    width: 100% !important;
   }
 }
