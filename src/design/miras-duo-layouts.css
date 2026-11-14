@@ -548,6 +548,7 @@ summary:not(#_) {
   /* ٧-ط) التسليمات: العنوان والبحث على اليمنى، ومبدّل العرض على اليسرى. */
   html body #root .miras-submissions-panel > div:first-of-type > .flex.flex-col:first-child:not(#_):not(#__):not(#___) {
     max-width: calc(var(--duo-page) - 8px) !important;
+    flex-wrap: wrap !important;
   }
 
   /* ٧-ي) الأكواد: التحقق يميناً وزره يساراً؛ الإحصاءات اثنتان يميناً وواحدة
@@ -592,6 +593,14 @@ summary:not(#_) {
   }
   html body #root #join-codes-cards-anchor .grid[class*="lg:grid-cols-12"] > :nth-child(2):not(#_):not(#__):not(#___) {
     grid-column: 3 !important;
+  }
+  html body #root .miras-submissions-panel > div:first-of-type > .flex.flex-col:first-child > :first-child:not(#_):not(#__):not(#___) {
+    flex: 0 0 auto !important;
+    white-space: nowrap !important;
+  }
+  html body #root .miras-submissions-panel > div:first-of-type > .flex.flex-col:first-child > :last-child:not(:first-child):not(#_):not(#__):not(#___) {
+    flex: 1 1 12rem !important;
+    min-width: 0 !important;
   }
   html body #root .miras-submissions-panel > div:first-of-type > .flex.items-center.justify-end:not(#_):not(#__):not(#___) {
     margin-inline-start: auto !important;
@@ -747,7 +756,6 @@ summary:not(#_) {
       .miras-student-overview-card > .relative.overflow-hidden,
       .teacher-command-main > div:not(.miras-teacher-home-panel) > div[class*="rounded"][class*="bg-white"],
       .teacher-command-main > div:not(.miras-teacher-home-panel) > div[class*="rounded"][class*="bg-slate-50"],
-      .miras-submissions-panel,
       .miras-section-hero,
       .miras-bulk-grade-card,
       .miras-manual-activation-card,
@@ -769,6 +777,12 @@ summary:not(#_) {
   }
   /* مسار الشريط السفلي يفقد كبسولته الممتدة؛ الورقتان تكفيان. */
   html body #root .teacher-nav-mobile .miras-teacher-nav-track:not(#_):not(#__):not(#___):not(#____):not(#_____) {
+    background: transparent !important;
+    border-color: transparent !important;
+    box-shadow: none !important;
+  }
+  /* لوحة التسليمات حاوية لبطاقات لها أوراقها: بلا سطح خاص بها. */
+  html body #root .miras-submissions-panel:not(#_):not(#__):not(#___):not(#____):not(#_____) {
     background: transparent !important;
     border-color: transparent !important;
     box-shadow: none !important;
@@ -966,7 +980,7 @@ summary:not(#_) {
    («إرجاع النشاط للطالب») خارج الشاشة حتى عند 768×1024. تحت 1180px تُعرض بطاقات
    الطلبة نفسها التي يعرضها التطبيق على الهاتف (موجودة في الصفحة، فلا شيء يُعاد
    تركيبه)، وفوقها لا يتجاوز الجدول حاويته ويتمرر داخلها. */
-html body #root :is(button[class*="h-10"][class*="w-10"], button[class*="h-9"][class*="w-9"], button[aria-label="مسح البحث"], button[aria-label="إغلاق"], button[aria-label="إغلاق النموذج"], button[aria-label="إغلاق الجولة"], button[aria-label="إغلاق التنبيهات"], button[aria-label="تحديد الكل كمقروء"], button[aria-label="تفعيل الإشعارات"]):not(.meras-exam-shell *):not(#_):not(#__):not(#___):not(#____):not(#_____):not(#______) {
+html body :is(button[class*="h-10"][class*="w-10"], button[class*="h-9"][class*="w-9"], button[aria-label="مسح البحث"], button[aria-label="إغلاق"], button[aria-label="إغلاق النموذج"], button[aria-label="إغلاق الجولة"], button[aria-label="إغلاق التنبيهات"], button[aria-label="تحديد الكل كمقروء"], button[aria-label="تفعيل الإشعارات"]):not(.meras-exam-shell *):not(#_):not(#__):not(#___):not(#____):not(#_____):not(#______) {
   min-width: 44px !important;
   min-height: 44px !important;
 }
