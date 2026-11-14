@@ -407,7 +407,7 @@ summary:not(#_) {
      على اليسرى، والكعب بينهما فارغ. ١٢ جزءاً لكل صفحة: ٣×٤ و٢×٦. */
   html body #root :is(.teacher-nav-desktop, .teacher-nav-mobile) .miras-teacher-nav-track.miras-teacher-five-nav:not(#_):not(#__):not(#___):not(#____) {
     display: grid !important;
-    grid-template-columns: repeat(3, minmax(0, 4fr)) var(--duo-spine) repeat(2, minmax(0, 6fr)) !important;
+    grid-template-columns: repeat(3, minmax(0, 4fr)) calc(var(--duo-spine) + 12px) repeat(2, minmax(0, 6fr)) !important;
     grid-auto-flow: row !important;
     column-gap: 0 !important;
     justify-items: center !important;
@@ -670,20 +670,12 @@ summary:not(#_) {
   }
   html body #root .teacher-command-main .grid.grid-cols-1.gap-3:has(> input + input) > :nth-child(n+3):not(#_):not(#__):not(#___) {
     grid-column: 1 / -1 !important;
+    justify-self: end !important;
   }
   /* سؤال جديد: حقول النموذج على الصفحتين. */
   html body #root .teacher-command-main .grid[class*="xl:grid-cols-[220px_1fr_320px_120px_64px]"]:not(#_):not(#__):not(#___) {
     grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
     column-gap: calc(var(--duo-spine) + 16px) !important;
-  }
-  html body #root .teacher-command-main .space-y-3.border-slate-200 > .space-y-2:has(> label.flex-col):not(#_):not(#__):not(#___) {
-    display: grid !important;
-    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
-    column-gap: calc(var(--duo-spine) + 16px) !important;
-    row-gap: 0.5rem !important;
-  }
-  html body #root .teacher-command-main .space-y-3.border-slate-200 > .space-y-2:has(> label.flex-col) > *:not(#_):not(#__):not(#___) {
-    margin-top: 0 !important;
   }
   /* بطاقة «إنشاء اختبار/مشروع»: الشرح يميناً والزر يساراً. */
   html body #root .teacher-command-main .rounded-3xl.border-indigo-100[class*="bg-indigo-50/50"]:has(> button):not(#_):not(#__):not(#___) {
@@ -725,6 +717,20 @@ summary:not(#_) {
   html body #root .miras-manual-activation-card > .miras-manual-activation-toggle:not(#_):not(#__):not(#___) { grid-column: 1 !important; }
   html body #root .miras-manual-activation-card > .relative.mb-3:not(#_):not(#__):not(#___) { grid-column: 3 !important; grid-row: 1 !important; }
   html body #root .miras-manual-activation-card > .border-dashed:not(#_):not(#__):not(#___) { grid-column: 1 !important; }
+
+  /* شبكة أمان للحقول في لوحات المعلّم: لا حقل أعرض من صفحة. الحقل بعرض كامل
+     يقف على الصفحة اليمنى (بداية السطر في RTL)، وما كان في صفٍّ يبقى في صفحته. */
+  html body #root .teacher-command-main :is(select, textarea, input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="file"])):not(#teacher-global-course-dropdown):not(#_):not(#__):not(#___) {
+    max-width: calc(50vw - var(--duo-spine) / 2 - 80px) !important;
+  }
+  html body #root .miras-manual-activation-card > .miras-manual-activation-toggle:not(#_):not(#__):not(#___):not(#____) {
+    flex-direction: column !important;
+    align-items: stretch !important;
+  }
+  html body #root .miras-activation-chips:not(#_):not(#__):not(#___) {
+    flex-wrap: wrap !important;
+    overflow: visible !important;
+  }
 }
 
 /* ───────── ٨) وضعية الحاسوب المحمول (عريض وقصير: 951×350) ─────────
@@ -769,5 +775,28 @@ summary:not(#_) {
   /* شارة البيئة التجريبية تجلس أسفل اليسار: لا يغطيها الشريط ولا تغطيه. */
   html body #root:has(.miras-demo-bar) .teacher-command-header .teacher-nav-desktop.teacher-orbit-dock:not(#_):not(#__):not(#___):not(#____) {
     left: 64px !important;
+  }
+}
+
+/* ───────── ٩) المطوي عرضياً (594×368) والحاسوب المحمول الضيق (600×350): ترويسة الطالب ─────────
+   تحت 600px كانت ترويسة الطالب صفّين (الاسم ثم الأدوات) فتأكل ربع الارتفاع القصير.
+   في الارتفاع القصير تصير صفاً واحداً كما هي من 600px. */
+@media (max-height: 480px) and (min-width: 520px) and (max-width: 599px) {
+  html body #root .miras-student-header-stack:not(#_):not(#__):not(#___) {
+    flex-direction: row !important;
+    align-items: center !important;
+    justify-content: space-between !important;
+    gap: 0.6rem !important;
+  }
+  html body #root .miras-student-header-stack > .miras-student-identity:not(#_):not(#__):not(#___) {
+    flex: 1 1 auto;
+    min-width: 0;
+  }
+  html body #root .miras-student-header-stack > .miras-student-actions-row:not(#_):not(#__):not(#___) {
+    flex: 0 0 auto;
+    width: auto !important;
+  }
+  html body #root .miras-now-available .grid:not(#_):not(#__):not(#___) {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
   }
 }

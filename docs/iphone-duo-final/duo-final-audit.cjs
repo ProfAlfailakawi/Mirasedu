@@ -269,13 +269,13 @@ async function runScreen(p, screen, results, prep) {
     for (const [lab, key] of [['الأكواد', 'health'], ['الأجهزة', 'devices'], ['توليد', 'generate'], ['تفعيل', 'manual']]) {
       await safe(`teacher-codes-${key}`, async () => { await tab('الأكواد'); await p.locator(`.miras-inner-tab[aria-label="${lab}"]:visible`).first().click(); await settle(p, 1000); await runScreen(p, `teacher-codes-${key}`, results); });
     }
+    await safe('teacher-account-status', async () => { await p.locator('button[aria-label="الرئيسية"]:visible').first().click().catch(() => {}); await settle(p, 800); await p.locator('.miras-zero-name-pill:visible, .miras-teacher-account-pill:visible').first().click(); await settle(p, 900); await runScreen(p, 'teacher-account-status', results); await esc(); });
+    await safe('teacher-passkey', async () => { await p.locator('button[aria-label*="البصمة"]:visible').first().click(); await settle(p, 1200); await runScreen(p, 'teacher-passkey', results); await esc(); });
     await safe('teacher-notifications', async () => {
-      await tab('التسليمات');
+      await p.locator('button[aria-label="الرئيسية"]:visible').first().click().catch(() => {}); await settle(p, 1000);
       await p.locator('button[aria-label="التنبيهات المهمة"]:visible').first().click({ timeout: 4000 }); await settle(p, 1200);
       await runScreen(p, 'teacher-notifications', results); await esc();
     });
-    await safe('teacher-account-status', async () => { await p.locator('.miras-zero-name-pill:visible, .miras-teacher-account-pill:visible').first().click(); await settle(p, 900); await runScreen(p, 'teacher-account-status', results); await esc(); });
-    await safe('teacher-passkey', async () => { await p.locator('button[aria-label*="البصمة"]:visible').first().click(); await settle(p, 1200); await runScreen(p, 'teacher-passkey', results); await esc(); });
     await ctx.close();
   }
 
@@ -294,8 +294,8 @@ async function runScreen(p, screen, results, prep) {
       });
     }
     await safe('student-timeline', async () => { await home(); await p.locator('.miras-student-overview-card button:visible:has-text("عرض السجل الكامل"), .miras-student-last-submission-card button').first().click(); await settle(p, 1200); await runScreen(p, 'student-timeline', results); });
-    for (const [lab, key] of [['المواعيد', 'calendar-alerts'], ['تثبيت', 'install'], ['البصمة', 'passkey']]) {
-      await safe(`student-${key}`, async () => { await home(); await p.locator(`.miras-student-actions-row button[aria-label*="${lab}"]:visible`).first().click(); await settle(p, 1200); await runScreen(p, `student-${key}`, results); });
+    for (const [sel, key] of [['.miras-student-actions-row button:nth-last-child(2)', 'calendar-alerts'], ['button[aria-label*="تثبيت"]:visible', 'install'], ['button[aria-label*="البصمة"]:visible', 'passkey']]) {
+      await safe(`student-${key}`, async () => { await home(); await p.locator(sel).first().click(); await settle(p, 1200); await runScreen(p, `student-${key}`, results); });
     }
     // الاختبار الجاري: خارج نطاق التعديل (نزاهة). يُقاس عند مقاس البدء فقط، لأن تغيير المقاس
     // أثناء الاختبار يقفله عمداً (getNormalExamViewportIssue) — وهذا سلوك مقصود.
