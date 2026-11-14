@@ -247,7 +247,7 @@ summary:not(#_) {
 
 /* ٦-أ) أهداف لمس كانت 40px: زر «إغلاق الرسالة» في رسالتي النجاح والخطأ (h-10 w-10)،
    وزرّا «لاحقاً» و«تثبيت الآن» في شريط تثبيت التطبيق السفلي. */
-@media (pointer: coarse) {
+@media screen and (pointer: coarse) {
   html body #root button[aria-label="إغلاق الرسالة"]:not(#_):not(#__):not(#___),
   html body .miras-pwa-row button:not(#_):not(#__):not(#___) {
     min-width: 44px !important;
@@ -260,7 +260,7 @@ summary:not(#_) {
    كانت تأخذ 135 من 350px، أي 39٪ من الشاشة طوال التمرير. في الارتفاع القصير
    تتحرك الترويسة مع الصفحة (كما يخفي iOS أشرطته حين يضيق الارتفاع) وتتقارب
    صفوفها، فيبقى المحتوى هو الشاشة. القاعدة المقابلة لما دون 920px هي الـrail في (٤). */
-@media (min-width: 921px) and (max-height: 480px) {
+@media screen and (min-width: 921px) and (max-width: 1000px) and (max-height: 480px) {
   html body #root .teacher-command-header.sticky:not(#_):not(#__):not(#___) {
     position: relative !important;
   }
@@ -273,7 +273,7 @@ summary:not(#_) {
    (Viewport Segments API، خلف علم في iOS 27.1) يصير فاصل الشبكات ذات العمودين
    بعرض المفصل نفسه، فلا تقطع بطاقةٌ خطَّ الطي. الشبكة متمركزة في الصفحة، وعمودان
    متساويان حول فاصلٍ بعرض المفصل يضعان الفاصل على المفصل. دون الـAPI لا تُطبَّق. */
-@media (horizontal-viewport-segments: 2) {
+@media screen and (horizontal-viewport-segments: 2) {
   :root {
     --miras-fold-gap: calc(env(viewport-segment-left 1 0, 0px) - env(viewport-segment-right 0 0, 0px) + 1.5rem);
   }
@@ -297,12 +297,15 @@ summary:not(#_) {
      • لا نص ولا حقل ولا زر يعبر منطقة الكعب (المنتصف ± نصف عرضه).
      • الخلفية متصلة من الحافة إلى الحافة؛ الكعب خط شعري وظل طيّ خفيف.
 
-   النطاق: عرض 640–1000 وارتفاع 540–960. خارج ذلك (iPad 768×1024، الهاتف،
-   المطوي، الارتفاع القصير) لا يتغير شيء. عرض فقط — CSS خالص، لا شيء يُعاد
+   النطاق (العرض هو الفيصل بين الـDuo وiPad، فأصغر iPad عرضه 744 طولياً و1024 عرضياً):
+   طولياً عرض 640–720، وعرضياً 721–1000، وكلاهما بارتفاع 540–960. خارج ذلك (iPad بكل
+   أوضاعه، الهاتف، المطوي، الارتفاع القصير) لا يتغير شيء. اختبار tests/duo-ipad-scope.test.ts
+   يفشل إن اتّسع أي استعلام من هذا القسم حتى يصل iPad أو فقد نطاق screen. عرض فقط — CSS خالص، لا شيء يُعاد
    تركيبه عند تغيّر المقاس، فتبقى الحقول والتمرير والنوافذ كما هي.
 
    أداة القياس: docs/iphone-duo-final/duo-final-audit.cjs (تقرأ --duo-book). */
-@media (min-width: 640px) and (max-width: 1000px) and (min-height: 540px) and (max-height: 960px) {
+@media screen and (min-width: 640px) and (max-width: 720px) and (min-height: 540px) and (max-height: 960px),
+  screen and (min-width: 721px) and (max-width: 1000px) and (min-height: 540px) and (max-height: 960px) and (orientation: landscape) {
   :root {
     --duo-book: 1;
     --duo-spine: 32px;
@@ -908,7 +911,7 @@ summary:not(#_) {
    (التي تتحرك مع الصفحة منذ ٦-ب) إلى شريطٍ ثابت نحيف أسفل الشاشة، ويُحجز له
    هامش سفلي فلا يغطي آخر المحتوى. دون 920px يبقى الـrail الجانبي في (٤) لأن
    المقاس نفسه هو الهاتف/المطوي عرضياً. */
-@media (min-width: 921px) and (max-height: 480px) {
+@media screen and (min-width: 921px) and (max-width: 1000px) and (max-height: 480px) {
   html body #root .teacher-command-header:not(#_):not(#__):not(#___) {
     -webkit-backdrop-filter: none !important;
     backdrop-filter: none !important;
@@ -951,7 +954,7 @@ summary:not(#_) {
 /* ───────── ٩) المطوي عرضياً (594×368) والحاسوب المحمول الضيق (600×350): ترويسة الطالب ─────────
    تحت 600px كانت ترويسة الطالب صفّين (الاسم ثم الأدوات) فتأكل ربع الارتفاع القصير.
    في الارتفاع القصير تصير صفاً واحداً كما هي من 600px. */
-@media (max-height: 480px) and (min-width: 520px) and (max-width: 599px) {
+@media screen and (max-height: 480px) and (min-width: 520px) and (max-width: 599px) {
   html body #root .miras-student-header-stack:not(#_):not(#__):not(#___) {
     flex-direction: row !important;
     align-items: center !important;
@@ -977,9 +980,10 @@ summary:not(#_) {
    (ب) حقول البحث الشفافة داخل صناديقها كانت 24–26px ارتفاعاً وإن بدا الصندوق 46px:
    الحقل نفسه يملأ الصندوق فيقع اللمس عليه. وحقول النماذج في لوحات المعلّم 44px.
    (ج) جدول التصحيح (min-width: 900px) كان أعرض من حاويته فيُدفع عموده الأخير
-   («إرجاع النشاط للطالب») خارج الشاشة حتى عند 768×1024. تحت 1180px تُعرض بطاقات
+   («إرجاع النشاط للطالب») خارج الشاشة حتى عند 768×1024. في الـDuo العرضي (721–1000px) تُعرض بطاقات
    الطلبة نفسها التي يعرضها التطبيق على الهاتف (موجودة في الصفحة، فلا شيء يُعاد
-   تركيبه)، وفوقها لا يتجاوز الجدول حاويته ويتمرر داخلها. */
+   تركيبه)؛ وiPad يبقى على الجدول من 768px كما كان قبل الـDuo. في كل المقاسات لا يتجاوز
+   الجدول حاويته ويتمرر داخلها. */
 html body :is(button[class*="h-10"][class*="w-10"], button[class*="h-9"][class*="w-9"], button[aria-label="مسح البحث"], button[aria-label="إغلاق"], button[aria-label="إغلاق النموذج"], button[aria-label="إغلاق الجولة"], button[aria-label="إغلاق التنبيهات"], button[aria-label="تحديد الكل كمقروء"], button[aria-label="تفعيل الإشعارات"]):not(.meras-exam-shell *):not(#_):not(#__):not(#___):not(#____):not(#_____):not(#______) {
   min-width: 44px !important;
   min-height: 44px !important;
@@ -1006,7 +1010,7 @@ html body #root div.overflow-x-auto:has(> table[class*="min-w-[900px]"]):not(#_)
   min-width: 0 !important;
   max-width: 100% !important;
 }
-@media (max-width: 1179px) {
+@media screen and (min-width: 721px) and (max-width: 1000px) and (orientation: landscape) {
   html body #root div.overflow-x-auto:has(> table[class*="min-w-[900px]"]):not(#_):not(#__):not(#___) {
     display: none !important;
   }
@@ -1019,7 +1023,7 @@ html body #root div.overflow-x-auto:has(> table[class*="min-w-[900px]"]):not(#_)
     display: flex !important;
   }
 }
-@media (min-width: 640px) and (max-width: 1179px) {
+@media screen and (min-width: 640px) and (max-width: 720px), screen and (min-width: 721px) and (max-width: 1000px) and (orientation: landscape) {
   html body #root div:has(> div.overflow-x-auto > table[class*="min-w-[900px]"]) > .grid[class*="md:hidden"]:not(#_):not(#__):not(#___) {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
@@ -1032,7 +1036,7 @@ html body #root div.overflow-x-auto:has(> table[class*="min-w-[900px]"]):not(#_)
    ترويسة؛ و512px بخط 200%). عندها تنزل الأدوات إلى صفٍّ كامل تحت العنوان بدل
    أن يُدفع زر «خروج» خارج الشاشة. الترويسة ثابتة الموضع بحافتين، فاحتواء عرضها
    لا يغيّر شيئاً في تخطيطها. */
-@media (max-width: 920px) {
+@media screen and (max-width: 920px) {
   html body #root .miras-mobile-teacher-zero-header:not(#_):not(#__) {
     container-type: inline-size;
   }
@@ -1076,7 +1080,7 @@ html body #root .miras-inner-tab:not(#_):not(#__):not(#___) {
 /* الهاتف الضيق (≈360px): خمسة أزرار بـ44px لا تتسع بجانب العنوان، فكانت تنكمش إلى
    40px. حين تضيق الترويسة عن 21em تنزل الأدوات إلى صفٍّ كامل تحته (كما عند 320px)
    وتبقى 44px. خارج الكتاب فقط، فلا يعبر الصف الكعبَ مع النص المكبَّر. */
-@media (max-width: 639px) {
+@media screen and (max-width: 639px) {
   @container (max-width: 21em) {
     html body #root .miras-mobile-teacher-zero-header .miras-zero-title-block:not(#_):not(#__):not(#___):not(#____):not(#_____):not(#______) {
       grid-column: 1 / -1 !important;
