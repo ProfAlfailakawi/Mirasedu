@@ -966,7 +966,7 @@ summary:not(#_) {
    («إرجاع النشاط للطالب») خارج الشاشة حتى عند 768×1024. تحت 1180px تُعرض بطاقات
    الطلبة نفسها التي يعرضها التطبيق على الهاتف (موجودة في الصفحة، فلا شيء يُعاد
    تركيبه)، وفوقها لا يتجاوز الجدول حاويته ويتمرر داخلها. */
-html body #root :is(button[class*="h-10"][class*="w-10"], button[class*="h-9"][class*="w-9"], button[aria-label="مسح البحث"], button[aria-label="إغلاق"], button[aria-label="إغلاق النموذج"], button[aria-label="إغلاق الجولة"], button[aria-label="إغلاق التنبيهات"], button[aria-label="تحديد الكل كمقروء"], button[aria-label="تفعيل الإشعارات"]):not(.meras-exam-shell *):not(#_):not(#__):not(#___) {
+html body #root :is(button[class*="h-10"][class*="w-10"], button[class*="h-9"][class*="w-9"], button[aria-label="مسح البحث"], button[aria-label="إغلاق"], button[aria-label="إغلاق النموذج"], button[aria-label="إغلاق الجولة"], button[aria-label="إغلاق التنبيهات"], button[aria-label="تحديد الكل كمقروء"], button[aria-label="تفعيل الإشعارات"]):not(.meras-exam-shell *):not(#_):not(#__):not(#___):not(#____):not(#_____):not(#______) {
   min-width: 44px !important;
   min-height: 44px !important;
 }
@@ -1030,6 +1030,10 @@ html body #root div.overflow-x-auto:has(> table[class*="min-w-[900px]"]):not(#_)
     justify-content: space-between !important;
     width: 100% !important;
   }
+  html body #root .miras-mobile-teacher-zero-header .miras-zero-name-pill:not(#_):not(#__):not(#___):not(#____):not(#_____):not(#______) {
+    grid-column: 1 / -1 !important;
+    grid-row: 3 !important;
+  }
 }
 
 /* ───────── ١٢) أزرار أيقونات بحجم ثابت بالبكسل ─────────
@@ -1044,5 +1048,28 @@ html body #root .miras-inner-tab:not(#_):not(#__):not(#___) {
   min-width: 44px !important;
   min-height: 44px !important;
   max-width: 64px !important;
+}
+
+/* الهاتف الضيق (≈360px): خمسة أزرار بـ44px لا تتسع بجانب العنوان، فكانت تنكمش إلى
+   40px. حين تضيق الترويسة عن 21em تنزل الأدوات إلى صفٍّ كامل تحته (كما عند 320px)
+   وتبقى 44px. خارج الكتاب فقط، فلا يعبر الصف الكعبَ مع النص المكبَّر. */
+@media (max-width: 639px) {
+  @container (max-width: 21em) {
+    html body #root .miras-mobile-teacher-zero-header .miras-zero-title-block:not(#_):not(#__):not(#___):not(#____):not(#_____):not(#______) {
+      grid-column: 1 / -1 !important;
+      grid-row: 1 !important;
+    }
+    html body #root .miras-mobile-teacher-zero-header .miras-zero-actions-row:not(#_):not(#__):not(#___):not(#____):not(#_____):not(#______) {
+      grid-column: 1 / -1 !important;
+      grid-row: 2 !important;
+      justify-self: stretch !important;
+      justify-content: space-between !important;
+      width: 100% !important;
+    }
+    html body #root .miras-mobile-teacher-zero-header .miras-zero-name-pill:not(#_):not(#__):not(#___):not(#____):not(#_____):not(#______) {
+      grid-column: 1 / -1 !important;
+      grid-row: 3 !important;
+    }
+  }
 }
 
