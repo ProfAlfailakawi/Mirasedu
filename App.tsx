@@ -6,6 +6,8 @@ import {
   registerNativePushToken,
   requestNativePushPermission,
 } from "./src/native-push";
+import { installStoreUrl, shouldShowManualInstallBanner } from "./src/shared/install-banner";
+import { isReviewDemoEntryVisible } from "./src/shared/review-demo-entry";
 import { groupSecurityNotifications } from "./src/shared/security-notification-groups";
 import { isPlatformUpdating, showUpdatingNotice, updatingJsonResponse } from "./src/shared/updating-notice";
 import { studentSubmissionDisplayText } from "./src/shared/submission-display-text";
@@ -3786,10 +3788,10 @@ export default function App() {
    * إعدادات الخدمة لا في المستودع — فيصير رجوعه أصعب مما يجب.
    */
   /*
-   * داخل تطبيق iOS فقط (يراجعه فريق المتجر بلا حساب)؛ أمّا الموقع فيبقى الزرّ
-   * مخفيًّا كما هو. العرض نفسه معزول بصندوقٍ في الذاكرة ببيانات مصطنعة.
+   * أُضيف لمراجعة آبل؛ والتطبيق منشور الآن فهو مخفيّ افتراضياً. يظهر داخل
+   * تطبيق iOS فقط بـ ?review-demo=1 (انظر src/shared/review-demo-entry.ts).
    */
-  const MIRAS_DEMO_ENTRY_VISIBLE = isAppleNativeShell();
+  const MIRAS_DEMO_ENTRY_VISIBLE = isReviewDemoEntryVisible();
   const [demoEnabled, setDemoEnabled] = useState(false);
   const [demoActive, setDemoActive] = useState(false);
   // على الهاتف تُطوى أدوات البيئة التجريبية خلف زرّ واحد كي لا تغطي رأس الشاشة.
@@ -4882,7 +4884,9 @@ export default function App() {
   const isAppStandalone =
     typeof window !== "undefined" &&
     (window.matchMedia("(display-mode: standalone)").matches ||
-      !!(window.navigator as any).standalone);
+      !!(window.navigator as any).standalone ||
+      // داخل تطبيق iOS لا تُعرض أي دعوة للتثبيت.
+      isAppleNativeShell());
   const [showPwaBanner, setShowPwaBanner] = useState(false);
   const [showPwaGuideModal, setShowPwaGuideModal] = useState(false);
   // «ثبّت ثم فعّل»: الحساب يُقفل على المتصفح/الوضع الذي فُعّل منه، فالطالب الذي يفعّل
@@ -22269,6 +22273,7 @@ ${rows
     setPulseExamFilter("all");
 
     const handleBeforeInstallPrompt = (e: Event) => {
+      if (isAppleNativeShell()) return;
       e.preventDefault();
       setPwaInstallPrompt(e);
 
@@ -22290,16 +22295,11 @@ ${rows
 
   // آبل لا تُطلق حدث beforeinstallprompt إطلاقاً، فلافتة التثبيت التلقائية لا
   // تظهر أبداً على iPhone/iPad ويبقى الطالب ينتظر دعوة لن تصل. هنا نعرض اللافتة
-  // نفسها يدوياً على أجهزة آبل غير المثبَّتة؛ زر «تثبيت الآن» فيها يفتح نافذة
-  // الإرشادات (مشاركة ← إضافة إلى الشاشة الرئيسية) وهي المسار الوحيد على iOS.
+  // نفسها يدوياً على أجهزة آبل في المتصفح؛ وزر «تثبيت الآن» فيها يفتح صفحة
+  // التطبيق في App Store (triggerPwaInstallation). ولا تظهر داخل تطبيق iOS.
   useEffect(() => {
     if (typeof window === "undefined") return;
-    const ua = String(navigator.userAgent || "");
-    const isAppleTouchDevice =
-      /iPad|iPhone|iPod/.test(ua) ||
-      // iPadOS يعرّف نفسه كـ Mac، ويميّزه دعم اللمس.
-      (/Macintosh/.test(ua) && (navigator as any).maxTouchPoints > 1);
-    if (!isAppleTouchDevice || isAppStandalone) return;
+    if (!shouldShowManualInstallBanner() || isAppStandalone) return;
     let lastDismissed: string | null = null;
     try {
       lastDismissed = localStorage.getItem("miras_pwa_dismissed_at");
@@ -22316,6 +22316,13 @@ ${rows
   }, [activeCourseCode]);
 
   const triggerPwaInstallation = async () => {
+    // iPhone/iPad (والأندرويد حين يُملأ PLAY_STORE_URL): صفحة المتجر بدل الإرشادات.
+    const storeUrl = installStoreUrl();
+    if (storeUrl) {
+      setShowPwaBanner(false);
+      window.open(storeUrl, "_blank", "noopener,noreferrer");
+      return;
+    }
     if (pwaInstallPrompt) {
       try {
         const q = pwaInstallPrompt as any;

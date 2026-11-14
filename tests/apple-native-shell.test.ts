@@ -24,8 +24,8 @@ test('isAppleNativeShell is true only for native iOS', () => {
   withWindow({ Capacitor: { isNativePlatform: () => true, getPlatform: () => 'ios' } }, () => assert.equal(isAppleNativeShell(), true));
 });
 
-test('the demo entry button is gated on the iOS shell, not a constant', () => {
+test('the demo entry button is gated on the review helper (iOS shell only), not a constant', () => {
   const src = fs.readFileSync('App.tsx', 'utf8');
-  assert.match(src, /const MIRAS_DEMO_ENTRY_VISIBLE = isAppleNativeShell\(\);/);
+  assert.match(src, /const MIRAS_DEMO_ENTRY_VISIBLE = isReviewDemoEntryVisible\(\);/);
   assert.doesNotMatch(src, /const MIRAS_DEMO_ENTRY_VISIBLE = (true|false);/);
 });
