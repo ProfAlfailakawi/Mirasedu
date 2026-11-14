@@ -173,7 +173,14 @@ function measure([spine, inner]) {
     const tag = el.tagName.toLowerCase();
     const inlineLink = tag === 'a' && getComputedStyle(el).display === 'inline';
     const isCheck = tag === 'input' && /checkbox|radio/.test(el.type);
-    if (!inlineLink && !isCheck && (r.width < 43.5 || r.height < 43.5)) out.smallTargets.push(`${label(el)} ${Math.round(r.width)}x${Math.round(r.height)}`);
+    /* منطقة لمس موسَّعة بعنصر ::after مطلق بإزاحات سالبة (نقاط جولة التعريف). */
+    let tw = r.width, th = r.height;
+    const af = getComputedStyle(el, '::after');
+    if (af.content !== 'none' && af.position === 'absolute') {
+      const n = (v) => (v.endsWith('px') ? Math.min(parseFloat(v), 0) : 0);
+      tw = r.width - n(af.left) - n(af.right); th = r.height - n(af.top) - n(af.bottom);
+    }
+    if (!inlineLink && !isCheck && (tw < 43.5 || th < 43.5)) out.smallTargets.push(`${label(el)} ${Math.round(r.width)}x${Math.round(r.height)}`);
     const sp = visibleSpan(r, el);
     if (book && sp && sp[0] < z1 && sp[1] > z0) out.spineHits.push(`${label(el)} [${Math.round(r.left)}..${Math.round(r.right)}]`);
   }
