@@ -55,27 +55,49 @@ const DUO_PORTRAIT = 'screen and (min-width: 640px) and (max-width: 720px) and (
 test('duo css: the book (two pages + spine) is landscape-only and uses the shared BOOK condition', () => {
   const book = queries.filter((q) => q === BOOK);
   assert.ok(book.length >= 2, `book queries found: ${book.length}`);
-  /* no query in the Duo section may turn the book on for portrait */
+  /* no query in the Duo section may turn the book on for portrait: portrait is only the keep-out */
   for (const q of queries) {
     if (q.includes('(orientation: portrait)')) {
-      assert.ok(q.includes('(display-mode: standalone)'), `portrait query that is not the standalone keep-out: "${q}"`);
+      for (const alt of q.split(',').map((a) => a.trim())) {
+        if (alt.includes('(orientation: portrait)')) assert.equal(alt, DUO_PORTRAIT, `portrait query that is not the keep-out: "${alt}"`);
+      }
     }
     assert.doesNotMatch(q, /min-height: 540px/, `old 540px book height: "${q}"`);
   }
   assert.ok(!queries.some((q) => /min-width: 640px\) and \(max-width: 720px\)(?!.*orientation)/.test(q)), 'a 640-720 branch without orientation would split portrait');
 });
 
-test('duo css: the widget keep-out only applies to the Duo inner screen in standalone mode', () => {
-  const cut = queries.filter((q) => q.includes('(display-mode: standalone)'));
-  assert.ok(cut.length >= 3, 'keep-out queries must exist');
-  const allowed = [`${BOOK} and (display-mode: standalone)`, `${DUO_PORTRAIT} and (display-mode: standalone)`];
-  for (const q of cut) {
-    for (const alt of q.split(',').map((a) => a.trim())) assert.ok(allowed.includes(alt), `keep-out query outside the Duo inner screen: "${alt}"`);
+/* evaluates a single media-query alternative (screen + min/max width/height + orientation) at a viewport */
+function matches(alt: string, w: number, h: number) {
+  if (/display-mode/.test(alt)) return false;
+  for (const m of alt.matchAll(/\((min|max)-(width|height): ?(\d+)px\)/g)) {
+    const v = m[2] === 'width' ? w : h;
+    if (m[1] === 'min' ? v < Number(m[3]) : v > Number(m[3])) return false;
   }
-  assert.match(css, /--duo-cutout-w: 116px;/);
+  const o = alt.match(/\(orientation: (landscape|portrait)\)/);
+  if (o && (o[1] === 'landscape') !== (w >= h)) return false;
+  return true;
+}
+
+test('duo css: the widget keep-out applies to the Duo inner screen in a browser tab AND an installed app', () => {
+  const cutBlocks = queries.filter((q) => q.split(',').some((a) => [BOOK, DUO_PORTRAIT].includes(a.trim())));
+  assert.ok(cutBlocks.length >= 3, 'keep-out queries must exist');
+  /* the :root variables block is the first one declaring the cutout size */
+  const decl = css.indexOf('--duo-cutout-w: 116px;');
+  assert.ok(decl > 0);
+  const head = css.slice(css.lastIndexOf('@media', decl), decl);
+  const alts = head.slice(6, head.indexOf('{')).replace(/\s+/g, ' ').split(',').map((a) => a.trim());
+  assert.deepEqual(alts, [BOOK, DUO_PORTRAIT]);
   assert.match(css, /--duo-cutout-h: 116px;/);
-  /* never leave a test-only replacement of the standalone condition in the shipped file */
+  /* the keep-out must not depend on display-mode: it is needed in a Safari tab too */
+  for (const q of cutBlocks) assert.doesNotMatch(q, /display-mode/, `keep-out gated by display-mode: "${q}"`);
+  assert.doesNotMatch(css, /display-mode/, 'no display-mode condition may remain in the Duo stylesheet');
   assert.doesNotMatch(css, /orientation: (landscape|portrait)\) and \(min-width: 0px\)/);
+
+  const on = [[951, 669], [951, 585], [721, 520], [1000, 960], [669, 867], [720, 900], [640, 700]];
+  const off = [[390, 844], [844, 390], [932, 430], [430, 932], [744, 1024], [820, 1180], [1024, 768], [1180, 820], [1280, 800], [1440, 900], [367, 740], [951, 350], [1366, 1024]];
+  for (const [w, h] of on) assert.ok(alts.some((a) => matches(a, w, h)), `keep-out must apply at ${w}x${h}`);
+  for (const [w, h] of off) assert.ok(!alts.some((a) => matches(a, w, h)), `keep-out must NOT apply at ${w}x${h}`);
 });
 
 test('duo css: the grading cards (instead of the 900px table) are Duo-only; iPads keep the table from md', () => {
