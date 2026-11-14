@@ -14219,7 +14219,17 @@ app.post("/api/auth/forgot-password", (req, res) => {
   });
 });
 
-app.post("/api/auth/reset-password", (req, res) => {
+// الرمز عشوائي طويل لا يُخمَّن، لكن المسار يقارن كلمة مرور ويشغّل scrypt، فيُحدَّد
+// معدّله لكل IP. السقف سخيّ كي لا يتضرر طلاب يشاركون شبكة الجامعة نفسها.
+const resetPasswordRateLimit = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 40,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: "محاولات كثيرة لتغيير كلمة المرور. حاول بعد 15 دقيقة." },
+});
+
+app.post("/api/auth/reset-password", resetPasswordRateLimit, (req, res) => {
   const token = String(req.body?.token || "").trim();
   const newPassword = String(req.body?.newPassword || "");
   if (!token || isWeakDefaultPassword(newPassword))
