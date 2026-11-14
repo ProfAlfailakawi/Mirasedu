@@ -49,13 +49,33 @@ test('duo css: ranged postures never reach an iPad (portrait book <= 720px, land
   }
 });
 
-test('duo css: the 640-1000 book range is split into a portrait <= 720 part and an orientation-gated landscape part', () => {
-  const book = parts.filter((p) => px(p, 'min-height') === 540);
-  assert.equal(book.length, 2);
-  const [portrait, landscape] = book;
-  assert.equal(px(portrait, 'max-width'), 720);
-  assert.equal(px(landscape, 'max-width'), 1000);
-  assert.match(landscape, /\(orientation: landscape\)/);
+const BOOK = 'screen and (min-width: 721px) and (max-width: 1000px) and (min-height: 520px) and (max-height: 960px) and (orientation: landscape)';
+const DUO_PORTRAIT = 'screen and (min-width: 640px) and (max-width: 720px) and (min-height: 520px) and (max-height: 960px) and (orientation: portrait)';
+
+test('duo css: the book (two pages + spine) is landscape-only and uses the shared BOOK condition', () => {
+  const book = queries.filter((q) => q === BOOK);
+  assert.ok(book.length >= 2, `book queries found: ${book.length}`);
+  /* no query in the Duo section may turn the book on for portrait */
+  for (const q of queries) {
+    if (q.includes('(orientation: portrait)')) {
+      assert.ok(q.includes('(display-mode: standalone)'), `portrait query that is not the standalone keep-out: "${q}"`);
+    }
+    assert.doesNotMatch(q, /min-height: 540px/, `old 540px book height: "${q}"`);
+  }
+  assert.ok(!queries.some((q) => /min-width: 640px\) and \(max-width: 720px\)(?!.*orientation)/.test(q)), 'a 640-720 branch without orientation would split portrait');
+});
+
+test('duo css: the widget keep-out only applies to the Duo inner screen in standalone mode', () => {
+  const cut = queries.filter((q) => q.includes('(display-mode: standalone)'));
+  assert.ok(cut.length >= 3, 'keep-out queries must exist');
+  const allowed = [`${BOOK} and (display-mode: standalone)`, `${DUO_PORTRAIT} and (display-mode: standalone)`];
+  for (const q of cut) {
+    for (const alt of q.split(',').map((a) => a.trim())) assert.ok(allowed.includes(alt), `keep-out query outside the Duo inner screen: "${alt}"`);
+  }
+  assert.match(css, /--duo-cutout-w: 116px;/);
+  assert.match(css, /--duo-cutout-h: 116px;/);
+  /* never leave a test-only replacement of the standalone condition in the shipped file */
+  assert.doesNotMatch(css, /orientation: (landscape|portrait)\) and \(min-width: 0px\)/);
 });
 
 test('duo css: the grading cards (instead of the 900px table) are Duo-only; iPads keep the table from md', () => {
