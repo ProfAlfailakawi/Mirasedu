@@ -42,6 +42,11 @@ if(portableRequest){
  check('teacher issues a fresh any-device recovery link',approved.ok&&portableRequest?.resetLink&&portableRequest.resetLink!==priorLink&&portableRequest.teacherApprovedAnyDeviceAt,JSON.stringify(approved.data));
  const crossDeviceReset=await api('POST','/api/auth/reset-password',{token:new URL(portableRequest.resetLink).searchParams.get('resetToken'),newPassword:'PortablePass998'},{deviceToken:'untrusted-reset-device'});
  check('teacher-approved link resets password from another device',crossDeviceReset.ok,JSON.stringify(crossDeviceReset.data));
+ const replayToken=new URL(portableRequest.resetLink).searchParams.get('resetToken');
+ const replayReset=await api('POST','/api/auth/reset-password',{token:replayToken,newPassword:'PortablePass998'},{deviceToken:'untrusted-reset-device'});
+ check('double submit of the same reset stays successful',replayReset.ok,JSON.stringify(replayReset.data));
+ const otherPasswordReplay=await api('POST','/api/auth/reset-password',{token:replayToken,newPassword:'AnotherPass998'},{deviceToken:'untrusted-reset-device'});
+ check('used link still rejects a different password',!otherPasswordReplay.ok&&otherPasswordReplay.status===410,JSON.stringify(otherPasswordReplay.data));
  const originalDeviceLogin=await api('POST','/api/auth/login',{idNumber:'1001',password:'PortablePass998'},{deviceToken:'tok-1001'});
  check('password reset keeps the original device authorized',originalDeviceLogin.ok,JSON.stringify(originalDeviceLogin.data).slice(0,200));
  const newDeviceLogin=await api('POST','/api/auth/login',{idNumber:'1001',password:'PortablePass998'},{deviceToken:'untrusted-reset-device'});
