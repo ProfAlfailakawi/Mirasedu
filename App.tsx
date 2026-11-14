@@ -49,6 +49,7 @@ import logoImg from "./src/assets/images/meras_logo_1781178543060.png";
 import LearningIntelligencePanel from "./src/features/learning-intelligence/LearningIntelligencePanel";
 import LoginRevealOverlay from "./src/components/LoginRevealOverlay";
 import MirasLoader from "./src/components/MirasLoader";
+import AccountDeletionRequestsAdmin from "./src/components/AccountDeletionRequests";
 import { normalizeArabicIndicDigits, westernizeInputDigits } from "./src/shared/arabic-text";
 
 // Rewrites a field's text the way typing does. React wraps each controlled
@@ -10985,6 +10986,60 @@ export default function App() {
     setPasswordResetRequestsState([]);
     clearTransientUploadedData();
     setCurrentView("signup");
+  };
+
+  // طلب حذف الحساب (Apple 5.1.1(v)): تأكيد ثم إعادة مصادقة بكلمة المرور، ثم يسجَّل
+  // الطلب على الخادم ويخرج المستخدم. لا يحذف شيئاً ولا يمسّ أي سجل أكاديمي.
+  const requestAccountDeletion = async () => {
+    const isStudentUser = !!studentSession && currentView === "student_workspace";
+    const userId = String(
+      (isStudentUser ? studentSession?.id : teacherSession?.email) || "",
+    ).trim();
+    if (!userId) return;
+    const proceed = await confirmAction(
+      "سيُسجَّل طلب حذف حسابك ثم تخرج من مِراس. سنحذف الحساب خلال 30 يومًا، وتُحفَظ السجلات الأكاديمية التي تلتزم المؤسسة بحفظها بصيغة مجهولة الهوية. لا يُحذف شيء الآن.",
+      {
+        title: "طلب حذف الحساب",
+        confirmLabel: "متابعة",
+        preserveMessage: true,
+      },
+    );
+    if (!proceed) return;
+    const password = await promptActionWithOptions(
+      "اكتب كلمة مرور حسابك لتأكيد طلب الحذف.",
+      {
+        title: "تأكيد الهوية",
+        inputType: "password",
+        confirmLabel: "تأكيد طلب الحذف",
+      },
+    );
+    if (!password) return;
+    try {
+      const resp = await fetch("/api/account/deletion-request", {
+        method: "POST",
+        cache: "no-store",
+        headers: jsonHeaders({
+          auth: isStudentUser ? "student" : "teacher",
+          session: isStudentUser ? studentSession : teacherSession,
+        }),
+        body: JSON.stringify({ userId, password }),
+      });
+      const data = await resp.json().catch(() => ({}));
+      if (!resp.ok || !data?.success) {
+        setErrorMsg(data?.error || "تعذر تسجيل طلب الحذف حالياً.");
+        return;
+      }
+      await secureLogout();
+      await confirmAction(
+        String(
+          data.message ||
+            "سنحذف حسابك خلال 30 يومًا، وتُحفَظ السجلات الأكاديمية التي تلتزم المؤسسة بحفظها بصيغة مجهولة الهوية.",
+        ),
+        { title: "تم استلام طلبك", confirmLabel: "حسنًا", preserveMessage: true },
+      );
+    } catch {
+      setErrorMsg("تعذر الاتصال بالخادم. حاول مرة أخرى.");
+    }
   };
 
   const syncTeacherStudentBridgeRef = useRef(syncTeacherStudentBridge);
@@ -37191,6 +37246,20 @@ ${rows
                           </div>
                         )}
                       </div>
+                      {!isSafeExamBrowserSession() && (
+                        <button
+                          type="button"
+                          title="طلب حذف الحساب"
+                          aria-label="طلب حذف الحساب"
+                          onClick={() => {
+                            closeStudentPanels();
+                            void requestAccountDeletion();
+                          }}
+                          className="miras-student-tool inline-flex h-12 w-12 items-center justify-center rounded-2xl border border-slate-200 bg-white text-slate-500 shadow-sm hover:bg-rose-50 hover:text-rose-700"
+                        >
+                          <UserX className="h-4 w-4" />
+                        </button>
+                      )}
                       <button
                         title="خروج"
                         onClick={() => {
@@ -46465,6 +46534,29 @@ ${rows
                         {myPwLoading ? "جاري الحفظ..." : "حفظ كلمة المرور"}
                       </button>
                     </div>
+                  )}
+
+                  {teacherSession && analyticsSubTab === "accounts" && (
+                    <div className="rounded-[var(--miras-r-xl)] border border-rose-100 bg-white p-6 text-right shadow-sm space-y-3">
+                      <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">
+                        <UserX className="h-4 w-4 text-rose-600" strokeWidth={1.75} />
+                        حذف الحساب
+                      </h3>
+                      <p className="text-[11px] font-bold leading-5 text-slate-500">
+                        سنحذف حسابك خلال 30 يومًا، وتُحفَظ السجلات الأكاديمية التي
+                        تلتزم المؤسسة بحفظها بصيغة مجهولة الهوية.
+                      </p>
+                      <button
+                        type="button"
+                        onClick={() => void requestAccountDeletion()}
+                        className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-2 text-xs font-bold text-rose-700 transition-all hover:bg-rose-100"
+                      >
+                        طلب حذف الحساب
+                      </button>
+                    </div>
+                  )}
+                  {isAdminTeacher && analyticsSubTab === "accounts" && (
+                    <AccountDeletionRequestsAdmin headers={teacherHeaders} />
                   )}
 
                   {(analyticsSubTab === "accounts" ||

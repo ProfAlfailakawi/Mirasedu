@@ -239,6 +239,7 @@ const MIRAS_CLOUD_ENTITY_KEYS: (keyof DatabaseState)[] = [
   "notificationDispatches",
   "notificationAudit",
   "errorReports",
+  "accountDeletionRequests",
 ];
 
 // ⚡ مفاتيح "وثيقة لكل كيان" (perDoc): المصفوفات الساخنة التي كان كل تعديل صغير
@@ -768,6 +769,16 @@ export interface PasswordResetRequest {
   teacherApprovedBy?: string;
 }
 
+// طلب حذف حساب (Apple 5.1.1(v)): سجل مضاف فقط بلا بيانات شخصية إضافية. لا يغيّر
+// أي سجل أكاديمي؛ يعالجه المالك يدوياً خلال ٣٠ يوماً.
+export interface AccountDeletionRequest {
+  id: string;
+  userId: string;
+  role: "student" | "teacher" | "admin";
+  requested_at: string;
+  status: "pending";
+}
+
 export interface NotificationToken {
   token: string;
   userId: string;
@@ -830,6 +841,8 @@ export interface DatabaseState {
   notificationSeenKeys?: Record<string, { keys: string[]; updatedAt: string }>;
   // رادار مِراس: تقارير الأخطاء المجمّعة (على غرار Sentry) — للسوبر أدمن فقط.
   errorReports?: any[];
+  // طلبات حذف الحساب (إضافة فقط؛ لا تُحذف ولا تلمس أي سجل أكاديمي).
+  accountDeletionRequests?: AccountDeletionRequest[];
   // تنبيهات داخل التطبيق (الجرس) — محفوظة في قاعدة البيانات حتى لا تضيع عند إعادة تشغيل الخادم.
   inAppNotifications?: any[];
   // حارس إرسال FCM دائم: event + target لا يُرسل مرتين بعد إعادة تشغيل الحاوية.
@@ -1833,6 +1846,7 @@ export class LocalDatabase {
       // كانت مفقودة من المزامنة السحابية كلياً — فحالة "مقروء" تضيع مع كل تدوير حاوية.
       notificationSeenKeys: (cloudData as any).notificationSeenKeys || {},
       errorReports: (cloudData as any).errorReports || [],
+      accountDeletionRequests: (cloudData as any).accountDeletionRequests || [],
     };
   }
 
@@ -1969,7 +1983,8 @@ export class LocalDatabase {
           passkeyCredentials: parsed.passkeyCredentials || [],
           bookMetadata: parsed.bookMetadata,
           notificationSeenKeys: parsed.notificationSeenKeys || {},
-          errorReports: parsed.errorReports || []
+          errorReports: parsed.errorReports || [],
+          accountDeletionRequests: parsed.accountDeletionRequests || []
         };
       } catch (e) {
         this.loadedEmptyOrInvalidLocalDb = true;
@@ -3413,6 +3428,33 @@ export class LocalDatabase {
     const removed = before - this.data.errorReports.length;
     if (removed > 0) this.persist(false);
     return removed;
+  }
+
+  // ── طلبات حذف الحساب ───────────────────────────────────────────────────────
+  public getAccountDeletionRequests(): AccountDeletionRequest[] {
+    if (!this.data.accountDeletionRequests) this.data.accountDeletionRequests = [];
+    return this.data.accountDeletionRequests;
+  }
+  // يُنشئ سجلاً واحداً معلّقاً لكل مستخدم: تكرار الطلب يعيد السجل القائم.
+  public addAccountDeletionRequest(
+    userId: string,
+    role: AccountDeletionRequest["role"],
+  ): { request: AccountDeletionRequest; created: boolean } {
+    const list = this.getAccountDeletionRequests();
+    const existing = list.find(
+      (item) => item.userId === userId && item.role === role && item.status === "pending",
+    );
+    if (existing) return { request: existing, created: false };
+    const request: AccountDeletionRequest = {
+      id: `adr_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 10)}`,
+      userId,
+      role,
+      requested_at: new Date().toISOString(),
+      status: "pending",
+    };
+    list.push(request);
+    this.persist();
+    return { request, created: true };
   }
 
   // Setters/Prunes
