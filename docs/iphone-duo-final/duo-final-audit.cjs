@@ -37,7 +37,7 @@ const VIEWPORTS = [
   ['S', 470, 350], ['S', 470, 600], ['S', 470, 900],
   ['S', 620, 350], ['S', 620, 600], ['S', 620, 900],
 ];
-const SHOT_AT = new Set(['669x867', '951x585', '382x580', '951x350']);
+const SHOT_AT = new Set(['669x867', '951x585', '382x580', '951x350', '600x350', '594x368']);
 
 async function newContext(browser, extra = {}) {
   const ctx = await browser.newContext({
@@ -95,6 +95,19 @@ async function enterDemo(p, role) {
   await waitApp(p);
   await settle(p, 2000);
   await skipTour(p);
+}
+
+async function enterDemoNoTour(p, role) {
+  await p.evaluate(async (role) => {
+    const r = await fetch('/api/demo/enter', { method: 'POST' });
+    const d = await r.json();
+    sessionStorage.setItem('miras_demo_session', d.sessionId);
+    localStorage.removeItem('miras_student_session');
+    localStorage.setItem('miras_teacher_session', JSON.stringify(d.teacher));
+  }, role);
+  await p.reload();
+  await waitApp(p);
+  await settle(p, 2500);
 }
 
 async function teacherTab(p, name) {
@@ -209,41 +222,60 @@ async function runScreen(p, screen, results, prep) {
   const notes = [];
   if (SHOTS) fs.mkdirSync(SHOTS, { recursive: true });
 
-  // ── الدخول ──
+  const only = (process.env.DUO_ONLY || '').split(',').filter(Boolean);
+  const want = (k) => !only.length || only.some((o) => k.startsWith(o));
+  const safe = async (key, fn) => { if (!want(key)) return; try { await fn(); } catch (e) { notes.push(`${key}: ${e.message.slice(0, 140)}`); } };
+
+  // ── الدخول وفروعه (قاعدة محلية مبذورة: tests/seed.cjs) ──
   {
     const ctx = await newContext(browser); const p = await ctx.newPage();
-    await p.goto(BASE + '/'); await waitApp(p); await settle(p, 2500);
-    await runScreen(p, 'login', results);
-    await p.fill('#miras-login-identity', '99999999').catch(() => notes.push('login: no identity input'));
-    await p.locator('.miras-login-primary').first().click().catch(() => {});
-    await settle(p, 2000);
-    await runScreen(p, 'login-next-or-error', results);
+    const fresh = async () => { await p.setViewportSize({ width: 669, height: 867 }); await p.goto(BASE + '/'); await waitApp(p); await settle(p, 2500); };
+    const identify = async (id) => { await fresh(); await p.fill('#miras-login-identity', id); await p.locator('.miras-login-primary').first().click(); await settle(p, 2500); };
+    await safe('login-identify', async () => { await fresh(); await runScreen(p, 'login-identify', results); });
+    await safe('login-student-password', async () => { await identify('1001'); await runScreen(p, 'login-student-password', results); });
+    await safe('login-student-signup', async () => { await identify('1100'); await runScreen(p, 'login-student-signup', results); });
+    await safe('login-error-not-in-roster', async () => { await identify('9999'); await runScreen(p, 'login-error-not-in-roster', results); });
+    await safe('login-teacher-password', async () => { await identify('aa@test.kw'); await runScreen(p, 'login-teacher-password', results); });
     await ctx.close();
   }
 
   // ── المعلّم ──
   {
     const ctx = await newContext(browser); const p = await ctx.newPage();
-    await enterDemo(p, 'teacher');
-    await runScreen(p, 'teacher-home', results);
-    for (const [tab, key] of [['المقررات', 'courses'], ['الطلبة', 'students'], ['الأسئلة', 'questions'], ['التسليمات', 'submissions'], ['الأكواد', 'codes']]) {
-      try { await teacherTab(p, tab); await runScreen(p, `teacher-${key}`, results); } catch (e) { notes.push(`teacher ${key}: ${e.message.slice(0, 120)}`); }
-    }
-    // حالة فارغة: بحث لا نتيجة له في التسليمات.
-    try {
-      await teacherTab(p, 'التسليمات');
+    const tab = (t) => teacherTab(p, t);
+    const esc = async () => { await p.keyboard.press('Escape'); await settle(p, 500); };
+    await p.goto(BASE + '/');
+    await enterDemoNoTour(p, 'teacher');
+    await safe('teacher-tour', async () => { await runScreen(p, 'teacher-tour', results); });
+    await skipTour(p);
+    await safe('teacher-home', async () => { await runScreen(p, 'teacher-home', results); });
+    await safe('teacher-courses', async () => { await tab('المقررات'); await runScreen(p, 'teacher-courses', results); });
+    await safe('teacher-courses-new-form', async () => { await tab('المقررات'); await p.locator('button:visible:has-text("مقرر جديد")').first().click(); await settle(p, 900); await runScreen(p, 'teacher-courses-new-form', results); await esc(); });
+    await safe('teacher-students', async () => { await tab('الطلبة'); await runScreen(p, 'teacher-students', results); });
+    await safe('teacher-students-edit', async () => { await tab('الطلبة'); await p.locator('.miras-roster-card button:visible').first().click(); await settle(p, 900); await runScreen(p, 'teacher-students-edit', results); await esc(); });
+    await safe('teacher-questions', async () => { await tab('الأسئلة'); await p.locator('button[aria-label="بنك الأسئلة"]:visible').first().click().catch(() => {}); await settle(p, 800); await runScreen(p, 'teacher-questions', results); });
+    await safe('teacher-questions-new-form', async () => { await tab('الأسئلة'); await p.locator('button:visible:has-text("سؤال جديد")').first().click(); await settle(p, 900); await runScreen(p, 'teacher-questions-new-form', results); await esc(); });
+    await safe('teacher-questions-exams', async () => { await tab('الأسئلة'); await p.locator('button[aria-label="الاختبارات"]:visible').first().click(); await settle(p, 900); await runScreen(p, 'teacher-questions-exams', results); });
+    await safe('teacher-questions-projects', async () => { await tab('الأسئلة'); await p.locator('button[aria-label="المشاريع"]:visible').first().click(); await settle(p, 900); await runScreen(p, 'teacher-questions-projects', results); });
+    await safe('teacher-submissions', async () => { await tab('التسليمات'); await runScreen(p, 'teacher-submissions', results); });
+    await safe('teacher-submissions-empty', async () => {
+      await tab('التسليمات');
       const s = p.locator('.miras-submissions-panel input:visible').first();
       await s.fill('zzzz-لا-يوجد'); await settle(p, 800);
       await runScreen(p, 'teacher-submissions-empty', results);
-      await s.fill('');
-    } catch (e) { notes.push(`teacher empty: ${e.message.slice(0, 120)}`); }
-    // نافذة: التنبيهات.
-    try {
-      const bell = p.locator('button[aria-label*="التنبيهات"]:visible, button.miras-zero-action-notifications:visible').first();
-      await bell.click({ timeout: 4000 }); await settle(p, 1200);
-      await runScreen(p, 'teacher-notifications', results);
-      await p.keyboard.press('Escape'); await settle(p, 600);
-    } catch (e) { notes.push(`teacher notifications: ${e.message.slice(0, 120)}`); }
+      await s.fill(''); await settle(p, 500);
+    });
+    await safe('teacher-submissions-detail', async () => { await tab('التسليمات'); await p.locator('.miras-submissions-panel > .grid > button').first().click(); await settle(p, 1200); await runScreen(p, 'teacher-submissions-detail', results); });
+    for (const [lab, key] of [['الأكواد', 'health'], ['الأجهزة', 'devices'], ['توليد', 'generate'], ['تفعيل', 'manual']]) {
+      await safe(`teacher-codes-${key}`, async () => { await tab('الأكواد'); await p.locator(`.miras-inner-tab[aria-label="${lab}"]:visible`).first().click(); await settle(p, 1000); await runScreen(p, `teacher-codes-${key}`, results); });
+    }
+    await safe('teacher-notifications', async () => {
+      await tab('التسليمات');
+      await p.locator('button[aria-label="التنبيهات المهمة"]:visible').first().click({ timeout: 4000 }); await settle(p, 1200);
+      await runScreen(p, 'teacher-notifications', results); await esc();
+    });
+    await safe('teacher-account-status', async () => { await p.locator('.miras-zero-name-pill:visible, .miras-teacher-account-pill:visible').first().click(); await settle(p, 900); await runScreen(p, 'teacher-account-status', results); await esc(); });
+    await safe('teacher-passkey', async () => { await p.locator('button[aria-label*="البصمة"]:visible').first().click(); await settle(p, 1200); await runScreen(p, 'teacher-passkey', results); await esc(); });
     await ctx.close();
   }
 
@@ -251,19 +283,30 @@ async function runScreen(p, screen, results, prep) {
   {
     const ctx = await newContext(browser); const p = await ctx.newPage();
     await enterDemo(p, 'student');
-    await runScreen(p, 'student-alert-dialog', results);
-    await closeOverlays(p);
-    await runScreen(p, 'student-home', results);
+    const home = async () => { await p.setViewportSize({ width: 669, height: 867 }); await p.reload(); await waitApp(p); await settle(p, 1500); await closeOverlays(p); };
+    await safe('student-alert-dialog', async () => { await runScreen(p, 'student-alert-dialog', results); await closeOverlays(p); });
+    await safe('student-home', async () => { await runScreen(p, 'student-home', results); });
     for (const [txt, key] of [['الاختبارات', 'exams'], ['المشاريع', 'projects']]) {
-      try {
-        await p.setViewportSize({ width: 669, height: 867 }); await settle(p, 300);
-        const b = p.locator(`.miras-now-available button:visible:has-text("${txt}")`).first();
-        await b.click({ timeout: 4000 }); await settle(p, 1500); await closeOverlays(p);
+      await safe(`student-${key}`, async () => {
+        await home();
+        await p.locator(`.miras-now-available button:visible:has-text("${txt}")`).first().click({ timeout: 4000 }); await settle(p, 1500); await closeOverlays(p);
         await runScreen(p, `student-${key}`, results);
-        // العودة إلى الرئيسية بإعادة تحميل (الجلسة التجريبية محفوظة في التخزين).
-        await p.reload(); await waitApp(p); await settle(p, 1500); await closeOverlays(p);
-      } catch (e) { notes.push(`student ${key}: ${e.message.slice(0, 120)}`); }
+      });
     }
+    await safe('student-timeline', async () => { await home(); await p.locator('.miras-student-overview-card button:visible:has-text("عرض السجل الكامل"), .miras-student-last-submission-card button').first().click(); await settle(p, 1200); await runScreen(p, 'student-timeline', results); });
+    for (const [lab, key] of [['المواعيد', 'calendar-alerts'], ['تثبيت', 'install'], ['البصمة', 'passkey']]) {
+      await safe(`student-${key}`, async () => { await home(); await p.locator(`.miras-student-actions-row button[aria-label*="${lab}"]:visible`).first().click(); await settle(p, 1200); await runScreen(p, `student-${key}`, results); });
+    }
+    // الاختبار الجاري: خارج نطاق التعديل (نزاهة). يُقاس عند مقاس البدء فقط، لأن تغيير المقاس
+    // أثناء الاختبار يقفله عمداً (getNormalExamViewportIssue) — وهذا سلوك مقصود.
+    await safe('student-exam-running', async () => {
+      await home();
+      await p.locator('.miras-now-available button:visible:has-text("الاختبارات")').first().click(); await settle(p, 1500); await closeOverlays(p);
+      await p.locator('button:visible:has-text("ابدأ الاختبار")').first().click(); await settle(p, 6000);
+      const m = await p.evaluate(measure, [SPINE, INNER]);
+      results.push({ screen: 'student-exam-running', pose: 'C', size: '669x867', note: 'boundary: exam screen not restyled; measured at start size only', ...m });
+      if (SHOTS) await p.screenshot({ path: path.join(SHOTS, `${LABEL}-student-exam-running-669x867.png`) });
+    });
     await ctx.close();
   }
 

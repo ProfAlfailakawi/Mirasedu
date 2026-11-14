@@ -330,6 +330,11 @@ summary:not(#_) {
       linear-gradient(90deg, transparent 0%, var(--duo-fold-ink) 46%, var(--duo-fold-ink) 54%, transparent 100%);
   }
 
+  /* الاختبار الجاري خارج نطاق هذه الطبقة (نزاهة الاختبار): لا كعب فوقه. */
+  html body:has(.meras-exam-shell):not(#_):not(#__)::after {
+    content: none;
+  }
+
   /* رابط التخطّي يظهر عند التركيز في منتصف الصفحة اليمنى لا على الكعب. */
   html body .miras-skip:not(#_):not(#__) {
     inset-inline-start: 25%;
@@ -642,6 +647,84 @@ summary:not(#_) {
     min-width: 0 !important;
     transform: none !important;
   }
+
+  /* ٧-م) الصفحات الفرعية. */
+  /* الدخول: البطاقة أضيق عند 669، فتنزل الرأسية تحت زرّي الوضع والتثبيت. */
+  @media (max-width: 819px) {
+    html body #root .meras-auth-card > div.text-center:not(#_):not(#__):not(#___) {
+      padding-top: 3.4rem !important;
+    }
+  }
+  /* الرسائل العائمة (خطأ/نجاح) على الصفحة اليمنى. */
+  html body #root .miras-floating-toast:not(#_):not(#__):not(#___) {
+    left: auto !important;
+    right: max(12px, env(safe-area-inset-right, 0px)) !important;
+    width: calc(50% - var(--duo-spine) / 2 - 24px) !important;
+    max-width: none !important;
+    margin: 0 !important;
+  }
+  /* مقرر جديد: الاسم يميناً والفصل يساراً، ثم الأزرار. */
+  html body #root .teacher-command-main .grid.grid-cols-1.gap-3:has(> input + input):not(#_):not(#__):not(#___) {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) !important;
+    column-gap: calc(var(--duo-spine) + 16px) !important;
+  }
+  html body #root .teacher-command-main .grid.grid-cols-1.gap-3:has(> input + input) > :nth-child(n+3):not(#_):not(#__):not(#___) {
+    grid-column: 1 / -1 !important;
+  }
+  /* سؤال جديد: حقول النموذج على الصفحتين. */
+  html body #root .teacher-command-main .grid[class*="xl:grid-cols-[220px_1fr_320px_120px_64px]"]:not(#_):not(#__):not(#___) {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    column-gap: calc(var(--duo-spine) + 16px) !important;
+  }
+  html body #root .teacher-command-main .space-y-3.border-slate-200 > .space-y-2:has(> label.flex-col):not(#_):not(#__):not(#___) {
+    display: grid !important;
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    column-gap: calc(var(--duo-spine) + 16px) !important;
+    row-gap: 0.5rem !important;
+  }
+  html body #root .teacher-command-main .space-y-3.border-slate-200 > .space-y-2:has(> label.flex-col) > *:not(#_):not(#__):not(#___) {
+    margin-top: 0 !important;
+  }
+  /* بطاقة «إنشاء اختبار/مشروع»: الشرح يميناً والزر يساراً. */
+  html body #root .teacher-command-main .rounded-3xl.border-indigo-100[class*="bg-indigo-50/50"]:has(> button):not(#_):not(#__):not(#___) {
+    display: grid !important;
+    grid-template-columns: minmax(0, 1fr) var(--duo-spine) minmax(0, 1fr) !important;
+    column-gap: 0 !important;
+    align-items: center !important;
+  }
+  html body #root .teacher-command-main .rounded-3xl.border-indigo-100[class*="bg-indigo-50/50"]:has(> button) > :first-child:not(#_):not(#__):not(#___) { grid-column: 1 !important; }
+  html body #root .teacher-command-main .rounded-3xl.border-indigo-100[class*="bg-indigo-50/50"]:has(> button) > button:not(#_):not(#__):not(#___) { grid-column: 3 !important; justify-self: start !important; }
+  /* قائمة المشاريع: بطاقتان متقابلتان. */
+  html body #root .teacher-command-main .mt-5.rounded-3xl.border-slate-200:has(> .border-emerald-100):not(#_):not(#__):not(#___) {
+    display: grid !important;
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    column-gap: calc(var(--duo-spine) + 16px) !important;
+    row-gap: 0.75rem !important;
+    align-items: start !important;
+  }
+  html body #root .teacher-command-main .mt-5.rounded-3xl.border-slate-200:has(> .border-emerald-100) > *:not(#_):not(#__):not(#___) { margin-top: 0 !important; min-width: 0 !important; }
+  html body #root .teacher-command-main .mt-5.rounded-3xl.border-slate-200:has(> .border-emerald-100) > :not(.border-emerald-100):not(#_):not(#__):not(#___) { grid-column: 1 / -1 !important; }
+  /* الأكواد ← الأجهزة: نموذج كلمة المرور صفحةٌ يمنى، والحسابات والأجهزة يسرى. */
+  html body #root .teacher-command-main .space-y-5:has(> .miras-calm-form):not(#_):not(#__):not(#___) {
+    display: grid !important;
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    column-gap: calc(var(--duo-spine) + 16px) !important;
+    row-gap: 1.25rem !important;
+    align-items: start !important;
+  }
+  html body #root .teacher-command-main .space-y-5:has(> .miras-calm-form) > *:not(#_):not(#__):not(#___) { margin-top: 0 !important; min-width: 0 !important; }
+  html body #root .teacher-command-main .miras-calm-form .grid[class*="md:grid-cols-2"]:not(#_):not(#__):not(#___) { grid-template-columns: minmax(0, 1fr) !important; }
+  /* الأكواد ← تفعيل: العنوان يميناً والبحث يساراً، والقائمة على الصفحتين. */
+  html body #root .miras-manual-activation-card:not(#_):not(#__):not(#___) {
+    display: grid !important;
+    grid-template-columns: minmax(0, 1fr) var(--duo-spine) minmax(0, 1fr) !important;
+    column-gap: 0 !important;
+    align-items: start !important;
+  }
+  html body #root .miras-manual-activation-card > *:not(#_):not(#__):not(#___) { grid-column: 1 / -1 !important; min-width: 0 !important; }
+  html body #root .miras-manual-activation-card > .miras-manual-activation-toggle:not(#_):not(#__):not(#___) { grid-column: 1 !important; }
+  html body #root .miras-manual-activation-card > .relative.mb-3:not(#_):not(#__):not(#___) { grid-column: 3 !important; grid-row: 1 !important; }
+  html body #root .miras-manual-activation-card > .border-dashed:not(#_):not(#__):not(#___) { grid-column: 1 !important; }
 }
 
 /* ───────── ٨) وضعية الحاسوب المحمول (عريض وقصير: 951×350) ─────────
