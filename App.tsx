@@ -50143,6 +50143,7 @@ ${rows
       {/* بعد التفعيل من المتصفح لا ندعو للتثبيت: التطبيق المثبّت سيُمنع بقفل الجهاز. */}
       {showPwaBanner &&
         !isAppStandalone &&
+        !isAppleNativeShell() &&
         !studentSession &&
         currentView !== "signup" &&
         currentView !== "payment" &&
