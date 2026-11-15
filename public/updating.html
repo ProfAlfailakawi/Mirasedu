@@ -123,6 +123,10 @@ button:focus-visible{outline:2px solid var(--brand);outline-offset:3px}
   .clock .fill{stroke-dashoffset:42}
   button{transition:none}
 }
+/* ركن الودجت (iPhone Duo): المحتوى يبدأ تحت الزاوية العليا اليمنى (قسم ١٣ في miras-duo-layouts.css). */
+@media screen and (orientation: portrait) and (min-width: 360px) and (max-width: 720px) and (min-height: 360px) and (min-aspect-ratio: 47/100),
+    screen and (orientation: landscape) and (min-width: 540px) and (max-width: 1000px) and (min-height: 300px) and (max-height: 960px) and (max-aspect-ratio: 5/3),
+    screen and (horizontal-viewport-segments: 2){body{padding-top:calc(clamp(64px,31vh,270px) + 8px)}}
 </style>
 </head>
 <body>

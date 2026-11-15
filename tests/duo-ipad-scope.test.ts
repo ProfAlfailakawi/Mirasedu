@@ -50,7 +50,12 @@ test('duo css: ranged postures never reach an iPad (portrait book <= 720px, land
 });
 
 const BOOK = 'screen and (min-width: 721px) and (max-width: 1000px) and (min-height: 520px) and (max-height: 960px) and (orientation: landscape)';
-const DUO_PORTRAIT = 'screen and (min-width: 640px) and (max-width: 720px) and (min-height: 520px) and (max-height: 960px) and (orientation: portrait)';
+/* ركن الودجت (قسم ١٣): الاستعلامان الطوليان الوحيدان المسموحان في قسم الـDuo. */
+const WIDGET_PORTRAIT = [
+  'screen and (orientation: portrait) and (min-width: 360px) and (max-width: 720px) and (min-height: 360px) and (min-aspect-ratio: 47/100)',
+];
+const WIDGET_LANDSCAPE = 'screen and (orientation: landscape) and (min-width: 540px) and (max-width: 1000px) and (min-height: 300px) and (max-height: 960px) and (max-aspect-ratio: 5/3)';
+const WIDGET_SEGMENTS = 'screen and (horizontal-viewport-segments: 2)';
 
 test('duo css: the book (two pages + spine) is landscape-only and uses the shared BOOK condition', () => {
   const book = queries.filter((q) => q === BOOK);
@@ -59,7 +64,7 @@ test('duo css: the book (two pages + spine) is landscape-only and uses the share
   for (const q of queries) {
     if (q.includes('(orientation: portrait)')) {
       for (const alt of q.split(',').map((a) => a.trim())) {
-        if (alt.includes('(orientation: portrait)')) assert.equal(alt, DUO_PORTRAIT, `portrait query that is not the keep-out: "${alt}"`);
+        if (alt.includes('(orientation: portrait)')) assert.ok(WIDGET_PORTRAIT.includes(alt), `portrait query that is not the widget keep-out: "${alt}"`);
       }
     }
     assert.doesNotMatch(q, /min-height: 540px/, `old 540px book height: "${q}"`);
@@ -67,37 +72,46 @@ test('duo css: the book (two pages + spine) is landscape-only and uses the share
   assert.ok(!queries.some((q) => /min-width: 640px\) and \(max-width: 720px\)(?!.*orientation)/.test(q)), 'a 640-720 branch without orientation would split portrait');
 });
 
-/* evaluates a single media-query alternative (screen + min/max width/height + orientation) at a viewport */
+/* evaluates a single media-query alternative (screen + min/max width/height + orientation + aspect-ratio) at a viewport */
 function matches(alt: string, w: number, h: number) {
-  if (/display-mode/.test(alt)) return false;
+  if (/display-mode|viewport-segments/.test(alt)) return false;
   for (const m of alt.matchAll(/\((min|max)-(width|height): ?(\d+)px\)/g)) {
     const v = m[2] === 'width' ? w : h;
     if (m[1] === 'min' ? v < Number(m[3]) : v > Number(m[3])) return false;
+  }
+  for (const m of alt.matchAll(/\((min|max)-aspect-ratio: ?(\d+)\/(\d+)\)/g)) {
+    const r = w / h; const t = Number(m[2]) / Number(m[3]);
+    if (m[1] === 'min' ? r < t : r > t) return false;
   }
   const o = alt.match(/\(orientation: (landscape|portrait)\)/);
   if (o && (o[1] === 'landscape') !== (w >= h)) return false;
   return true;
 }
 
-test('duo css: the widget keep-out applies to the Duo inner screen in a browser tab AND an installed app', () => {
-  const cutBlocks = queries.filter((q) => q.split(',').some((a) => [BOOK, DUO_PORTRAIT].includes(a.trim())));
-  assert.ok(cutBlocks.length >= 3, 'keep-out queries must exist');
-  /* the :root variables block is the first one declaring the cutout size */
-  const decl = css.indexOf('--duo-cutout-w: 116px;');
-  assert.ok(decl > 0);
-  const head = css.slice(css.lastIndexOf('@media', decl), decl);
-  const alts = head.slice(6, head.indexOf('{')).replace(/\s+/g, ' ').split(',').map((a) => a.trim());
-  assert.deepEqual(alts, [BOOK, DUO_PORTRAIT]);
-  assert.match(css, /--duo-cutout-h: 116px;/);
-  /* the keep-out must not depend on display-mode: it is needed in a Safari tab too */
-  for (const q of cutBlocks) assert.doesNotMatch(q, /display-mode/, `keep-out gated by display-mode: "${q}"`);
+test('duo css: the widget corner (قسم ١٣) is one :root block, zero outside the Duo, with no display-mode / UA dependence', () => {
+  const sec = css.slice(css.indexOf('١٣) ركن الودجت'), css.indexOf('١٤) شريط التثبيت'));
+  assert.ok(sec.length > 500, 'section 13 must exist');
+  /* خارج الـDuo: كل المتغيرات 0 */
+  for (const v of ['w', 'gap', 'h', 'inset', 'clear']) assert.match(sec.slice(0, sec.indexOf('@media')), new RegExp(`--duo-widget-${v}: 0px;`), `--duo-widget-${v} must default to 0px`);
+  const head = sec.slice(sec.indexOf('@media'), sec.indexOf('{', sec.indexOf('@media')));
+  const alts = head.slice(6).replace(/\s+/g, ' ').split(',').map((a) => a.trim());
+  assert.deepEqual(alts, [...WIDGET_PORTRAIT, WIDGET_LANDSCAPE, WIDGET_SEGMENTS]);
+  assert.match(sec, /--duo-widget-w: 96px;/);
+  assert.match(sec, /--duo-widget-gap: 8px;/);
+  assert.match(sec, /--duo-widget-h: clamp\(64px, 31vh, 270px\);/);
+  /* لا يعتمد على display-mode (يلزم في تبويب Safari وفي التطبيق) ولا على UA/Capacitor */
   assert.doesNotMatch(css, /display-mode/, 'no display-mode condition may remain in the Duo stylesheet');
-  assert.doesNotMatch(css, /orientation: (landscape|portrait)\) and \(min-width: 0px\)/);
+  /* لا تكديس للتخصيص ولا !important خارج الطبقة: القسم كله داخل @layer duo-widget */
+  assert.doesNotMatch(sec, /:not\(#_\)/, 'section 13 must not stack :not(#_) specificity');
+  const outsideLayer = sec.replace(/@layer duo-widget \{[\s\S]*\n  \}\n\}/, '');
+  assert.doesNotMatch(outsideLayer, /!important/, '!important in section 13 must live inside @layer duo-widget');
+  assert.match(sec, /@layer duo-widget \{/);
 
-  const on = [[951, 669], [951, 585], [721, 520], [1000, 960], [669, 867], [720, 900], [640, 700]];
-  const off = [[390, 844], [844, 390], [932, 430], [430, 932], [744, 1024], [820, 1180], [1024, 768], [1180, 820], [1280, 800], [1440, 900], [367, 740], [951, 350], [1366, 1024]];
-  for (const [w, h] of on) assert.ok(alts.some((a) => matches(a, w, h)), `keep-out must apply at ${w}x${h}`);
-  for (const [w, h] of off) assert.ok(!alts.some((a) => matches(a, w, h)), `keep-out must NOT apply at ${w}x${h}`);
+  const on = [[382, 580], [382, 780], [385, 571], [457, 678], [457, 700], [457, 760], [457, 860], [440, 660], [480, 720], [470, 780], [470, 900], [594, 368], [580, 382], [669, 867], [669, 1000], [720, 900], [951, 669], [951, 800], [1000, 960], [540, 360], [780, 470], [951, 585], [867, 669], [678, 457], [585, 951]];
+  const off = [[390, 844], [393, 852], [402, 874], [430, 932], [440, 956], [844, 390], [932, 430], [667, 375], [951, 350], [744, 1133], [820, 1180], [1024, 768], [1180, 820], [1280, 800], [1366, 1024]];
+  const area = alts.filter((a) => !/viewport-segments/.test(a));
+  for (const [w, h] of on) assert.ok(area.some((a) => matches(a, w, h)), `widget corner must be active at ${w}x${h}`);
+  for (const [w, h] of off) assert.ok(!area.some((a) => matches(a, w, h)), `widget corner must NOT be active at ${w}x${h}`);
 });
 
 test('duo css: the grading cards (instead of the 900px table) are Duo-only; iPads keep the table from md', () => {

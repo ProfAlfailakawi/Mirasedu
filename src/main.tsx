@@ -14,6 +14,10 @@ installDemoTransport();
 discardOrphanedDemoSession();
 // سحب الملفات وإفلاتها على مناطق الرفع القائمة — التفصيل في `shared/file-drop.ts`.
 installFileDrop();
+// تشخيص ركن الودجت (iPhone Duo): لا يُحمَّل إلا مع ?duo-debug=1 — التفصيل في `shared/duo-debug.ts`.
+if (typeof location !== 'undefined' && new URLSearchParams(location.search).has('duo-debug')) {
+  void import('./shared/duo-debug').then(m => m.installDuoDebug()).catch(() => undefined);
+}
 // Google AI Studio edits the root App.tsx/index.css files. Keep those files as
 // the single production source so preview, build, and Firebase Hosting cannot
 // silently drift onto different copies of the interface.
