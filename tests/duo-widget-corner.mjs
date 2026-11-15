@@ -238,7 +238,7 @@ const scenarios = [];
 const add = (name, group, run) => scenarios.push({ name, group, run });
 
 add('login-identify', 'login', async (p) => { await p.setViewportSize({ width: 669, height: 867 }); await p.goto(BASE + '/'); await waitApp(p); await settle(p, 1500); });
-for (const [key, id] of [['login-student-step2', '1001'], ['login-student-signup', '1100'], ['login-error-not-in-roster', '9999'], ['login-teacher-step2', 'aa@test.kw']]) {
+for (const [key, id] of [['login-student-step2', '1001'], ['login-student-signup', '1100'], ['login-error-not-in-roster', '9999'], ['login-teacher-step2', 'teacher-test-identity']]) {
   add(key, 'login', async (p) => {
     await p.setViewportSize({ width: 669, height: 867 });
     await p.goto(BASE + '/'); await waitApp(p); await settle(p, 1500);
