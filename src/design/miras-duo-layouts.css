@@ -1101,71 +1101,177 @@ html body #root .miras-inner-tab:not(#_):not(#__):not(#___) {
 }
 
 
-/* ───────── ١٣) ودجة النظام أعلى اليمين على الـDuo (جولة ١٤ نوفمبر ٢٠٢٦، الجولة الثانية) ─────────
-   في التطبيق المثبَّت على الشاشة الداخلية يطفو فوق الزاوية العليا اليمنى (الفيزيائية)
-   عنصر نظام (سهم الموقع، الساعة، حلقة الواي فاي، النقاط) بعرض ≈55–80px يبعد 20–110px عن
-   الحافة اليمنى وينزل ≈110–125px من الأعلى. لا نعرف صندوقه بدقة ولا نستطيع إزاحته، فنحجز
-   زاوية سخية ونُبعد عنها المحتوى فقط؛ الخلفية والبطاقات تبقى ممتدة خلفه.
+/* ───────── ١٣) ركن الودجت على الـDuo (جولة ١٤ نوفمبر ٢٠٢٦، الجولة الرابعة) ─────────
+   فوق الزاوية العليا اليمنى (الفيزيائية) من الشاشة يطفو عنصر نظام ثابت (كبسولة المصباح +
+   الحساب/الموقع + الوقت + البطارية/الواي فاي) ليس جزءاً من safe-area. كل ما هو مهم (نص، زر، حقل،
+   أيقونة) يبقى خارج المستطيل  x ≥ vw − widget-w  و  y ≤ widget-h ؛ الخلفيات والزجاج تكمل تحته.
+   «right» هنا فيزيائي لا منطقي: في العربية هذه الزاوية هي جهة البداية.
 
-   الشرط: الشاشة الداخلية (الكتاب عرضياً أو الطولي 640–720) في تبويب المتصفح وفي التطبيق
-   المثبَّت معاً (الجولة الثالثة: الودجة تغطي المحتوى في التبويب أيضاً). لا يُطبَّق على الهواتف العادية ولا على
-   الشاشة الخارجية المطوية (367×740) لأنها لا تتميز عن iPhone، وللـiPhone الأخرى النتوء الخاص.
-   «right» هنا فيزيائي لا منطقي: في العربية هذه الزاوية هي جهة البداية. في الكتاب هي للصفحة
-   اليمنى وحدها؛ الصفحة اليسرى لا تتأثر. */
-@media screen and (min-width: 721px) and (max-width: 1000px) and (min-height: 520px) and (max-height: 960px) and (orientation: landscape),
-  screen and (min-width: 640px) and (max-width: 720px) and (min-height: 520px) and (max-height: 960px) and (orientation: portrait) {
+   المقاس تقدير من لقطات المالك (لا قياس على جهاز): في لقطات التطبيق (1348px عرضاً) أزرار الـ44pt
+   الدائرية تقيس ≈130px، أي ≈2.95px/pt، فمنفذ التطبيق ≈ 457×678 (ليس من المقاسات المعروفة). على هذا
+   السلّم: عرض العمود ≈54pt يبدأ ≈20pt من الحافة اليمنى (حافته اليسرى ≈75pt من اليمين)، وارتفاعه من
+   ≈20pt حتى ≈166pt (حلقة البطارية والنقاط). قياسات أخرى (Dr.Ahmad #247) تقول ≈80px عرضاً بين 30 و110px
+   من الحافة وحتى y≈268. فالمدى غير المؤكد 84–112px عرضاً و174–270px ارتفاعاً؛ اخترنا 96px و31vh بحد 270px.
+   للمعايرة على الجهاز: ?duo-debug=1&duo-w=110&duo-h=270 (انظر src/shared/duo-debug.ts).
+
+   سبب فشل الجولات السابقة (من الكود، لا تخمين):
+     ١) النطاق كان الشاشة الداخلية وحدها (640–720 طولياً أو 721–1000 عرضياً)، فلا أثر على
+        382×580 و470×780 و594×368 ولا على منفذ التطبيق ≈457×678؛
+     ٢) المتغير الوحيد كان مربعاً 116×116، والودجت الفعلي أطول (≈174–270px)، فبدأ مبدّل المقرر
+        (y≈133–180) تحته وبعرض الشاشة كلها؛
+     ٣) طُبِّق على ثلاث ترويسات فقط، لا على مبدّل المقرر ولا الرسائل العائمة ولا شريط التجربة ولا
+        الصفحات الثابتة (apple/www وupdating).
+   الحل: متغيرات في :root تساوي 0 خارج الـDuo، وقواعد الركن كلها في طبقة واحدة `duo-widget`.
+   قواعد المصمّم الأخرى تستعمل الأولوية القصوى (important) وتخصيصات مكدّسة بمحدِّدات هوية وهمية؛ وفي الترتيب العكسي
+   للطبقات يغلب ما في طبقة مسمّاة كلّ أولوية قصوى غير مطبَّقة في طبقة، مهما كان تخصيصه، فلا حاجة
+   لمزيد من التكديس. لا تضف هنا قاعدة خارج الطبقة.
+
+   المتغيرات (كلها 0 خارج الـDuo):
+     --duo-widget-w      96px   عرض المنطقة من الحافة اليمنى الفيزيائية
+     --duo-widget-gap    8px    هامش تنفس
+     --duo-widget-h      clamp(64px, 31vh, 270px)
+     --duo-widget-inset  w + gap     (حشوة المحتوى من اليمين)
+     --duo-widget-clear  h + gap     (أول y خالٍ تحت الودجت)
+
+   متى (عام، بلا عروض دقيقة ولا UA ولا navigator.standalone ولا استعلام وضع التثبيت ولا window.Capacitor،
+   فيعمل في تبويب Safari وPWA والتطبيق المثبَّت، وبارتفاع التطبيق الأطول من Safari):
+     طولي: عرض 360–720 وارتفاع ≥ 360 ونسبة عرض/ارتفاع ≥ 0.47. يستثني iPhone الطويلة العادية
+           (390×844 وهي 0.462 و393×852 و430×932) ويشمل 382×580/780 و457×678/860 و470×780 و669×867.
+     عرضي: عرض 540–1000 وارتفاع 300–960 ونسبة عرض/ارتفاع ≤ 5/3 (يستثني الهواتف العرضية 844×390 و932×430
+            وiPad ≥ 1024 ولوحة المفاتيح 951×350).
+     مقطعان أفقيان (Safari يعلن مفصل الـDuo): تحسين تدريجي.
+     تنبيه صريح: iPhone SE (375×667) وهواتف أندرويد الطولية بعرض ≥ 360 ونسبة ≥ 0.47 تطابق الشرط
+     (لا يمكن تمييزها بالـCSS)؛ يخسر المحتوى فيها عموداً ضيقاً من الأعلى فقط.
+   هندسة الودجت في الوضع العرضي والكتاب المفتوح لم تُتحقَّق على جهاز حقيقي؛ الركن نفسه (يمين/أعلى فيزيائياً)
+   افتراض من الوضع الطولي. اختبار tests/duo-widget-corner.mjs يتحقق من صفر تقاطع في WebKit. */
+:root {
+  --duo-widget-w: 0px;
+  --duo-widget-gap: 0px;
+  --duo-widget-h: 0px;
+  --duo-widget-inset: 0px;
+  --duo-widget-clear: 0px;
+}
+
+@media screen and (orientation: portrait) and (min-width: 360px) and (max-width: 720px) and (min-height: 360px) and (min-aspect-ratio: 47/100),
+  screen and (orientation: landscape) and (min-width: 540px) and (max-width: 1000px) and (min-height: 300px) and (max-height: 960px) and (max-aspect-ratio: 5/3),
+  screen and (horizontal-viewport-segments: 2) {
   :root {
-    --duo-cutout-w: 116px;
-    --duo-cutout-h: 116px;
+    --duo-widget-w: 96px;
+    --duo-widget-gap: 8px;
+    --duo-widget-h: clamp(64px, 31vh, 270px);
+    --duo-widget-inset: calc(var(--duo-widget-w) + var(--duo-widget-gap));
+    --duo-widget-clear: calc(var(--duo-widget-h) + var(--duo-widget-gap));
   }
-}
 
-/* الكتاب: الحاوية الممتدة على الصفحتين لا تُحشى (وإلا انزاح الكعب عن المنتصف)؛ كتلة
-   العنوان والاسم على الصفحة اليمنى هي التي تبتعد عن الزاوية. صف الأقسام في الترويسة
-   المكتبية (951px) يبدأ على ٧٨px فيتقلص متماثلاً من الجهتين، فيبقى فاصله على الكعب. */
-@media screen and (min-width: 721px) and (max-width: 1000px) and (min-height: 520px) and (max-height: 960px) and (orientation: landscape) {
-  html body #root :is(.teacher-command-header .miras-teacher-heading-block, .miras-mobile-teacher-zero-header .miras-zero-title-block, .meras-student-shell header.meras-topbar .miras-student-identity):not(#_):not(#__):not(#___):not(#____) {
-    margin-right: var(--duo-cutout-w) !important;
+  @layer duo-widget {
+    /* ١٣-أ) ترويسات الصفحات (المعلّم المحمولة والمكتبية، الطالب): العمود الأول (يمين) محجوز،
+       وتحته تبدأ الأدوات والأقسام. الحاوية نفسها تبقى بعرض الشاشة فتكمل الخلفية تحت الودجت. */
+    :is(.miras-mobile-teacher-zero-header, .teacher-command-header, .meras-student-shell header.meras-topbar) {
+      padding-right: var(--duo-widget-inset) !important;
+      min-height: var(--duo-widget-clear) !important;
+      box-sizing: border-box !important;
+    }
+    /* ترويسة الطالب: الاسم يأخذ سطراً عريضاً (كان ٩٥px فيُقطع) ثم الأدوات تحته. */
+    .meras-student-shell header.meras-topbar .miras-student-header-stack {
+      flex-direction: column !important;
+      align-items: stretch !important;
+      gap: 6px !important;
+    }
+    .meras-student-shell header.meras-topbar .miras-student-header-stack > :is(.miras-student-identity, .miras-student-actions-row) {
+      width: 100% !important;
+      max-width: 100% !important;
+    }
+    /* ١٣-أ-٢) ترويسة المعلّم المحمولة ثابتة (fixed) خارج التدفق، والمحتوى يبدأ تحت --miras-teacher-header-space؛
+       فيجب أن يبلغ هذا المتغير أول y خالٍ تحت الودجت وإلا غطّت الترويسة الأطول أول البطاقات. */
+    :root,
+    .miras-app-teacher-root,
+    .miras-app-teacher-root.miras-teacher-viewport-v5 {
+      --miras-teacher-header-space: max(5.35rem, var(--duo-widget-clear)) !important;
+    }
+    /* ١٣-أ-٣) صفحات الدخول: المحتوى (المتوسَّط) يبدأ تحت الودجت. */
+    .meras-auth-shell {
+      padding-top: var(--duo-widget-clear) !important;
+    }
+    /* ١٣-ب) صف مبدّل المقرر (معلّم) وبطاقة اختيار المقرر (طالب): بجانب الودجت لا تحته. */
+    :is(.miras-global-course-switcher, .miras-student-course-picker) {
+      margin-right: var(--duo-widget-inset) !important;
+      margin-left: 0 !important;
+      align-self: stretch !important;
+      width: auto !important;
+      max-width: none !important;
+    }
+    /* ١٣-د) الرسائل العائمة (نجاح/خطأ) وتنبيهات الأعلى: بجانب الودجت. */
+    :is(.miras-floating-toast, .fixed.top-4.right-4) {
+      right: var(--duo-widget-inset) !important;
+      left: 0.75rem !important;
+      max-width: none !important;
+    }
+    /* ١٣-د-٢) النوافذ المتوسطة (ستارة كاملة الشاشة، بطاقة في الوسط أو الأعلى): البطاقة بجانب الودجت لا تحته،
+       فلا يقع شيء منها في الركن مهما كان ارتفاعها. الأوراق السفلية (items-end) والشاشة الافتتاحية خارج هذا. */
+    div.fixed.inset-0:is([class*="items-center"], [class*="items-start"]):not(.miras-splash) {
+      padding-right: var(--duo-widget-inset) !important;
+    }
+    /* الورقة السفلية (items-end، وفي ≥640 تتوسّط): لا يعلو رأسها فوق أول y خالٍ؛ ما زاد يُمرَّر داخلها. */
+    div.fixed.inset-0[class*="items-end"] > * {
+      max-height: calc(100dvh - var(--duo-widget-clear) - 1rem) !important;
+      overflow-y: auto !important;
+    }
+    /* ١٣-هـ) شريط التجربة (بيئة العرض فقط): لا يقع تحت الودجت. */
+    .miras-demo-bar {
+      top: auto !important;
+      bottom: calc(5.5rem + env(safe-area-inset-bottom, 0px)) !important;
+      justify-content: flex-end !important;
+      padding-left: 10px !important;
+    }
+    .miras-demo-bar > div {
+      margin-top: 0 !important;
+      top: auto !important;
+      left: 10px !important;
+    }
   }
-  /* ترويسة الطالب بطول الزاوية على الأقل (فلا يلتصق العنوان التالي بها)، ومحتواها في وسطها. */
-  html body #root .meras-student-shell header.meras-topbar:not(#_):not(#__):not(#___):not(#____) {
-    min-height: var(--duo-cutout-h) !important;
-    box-sizing: border-box !important;
-    display: flex !important;
-    align-items: center !important;
-  }
-  html body #root .meras-student-shell header.meras-topbar > .miras-student-header-stack:not(#_):not(#__):not(#___):not(#____) {
-    flex: 1 1 auto !important;
-  }
-  html body #root .teacher-command-header .miras-teacher-heading-block:not(#_):not(#__):not(#___):not(#____) {
-    max-width: calc(50vw - var(--duo-spine) / 2 - var(--duo-cutout-w) - 44px) !important;
-  }
-  html body #root .teacher-command-header .teacher-nav-desktop:not(#_):not(#__):not(#___):not(#____) {
-    padding-inline: var(--duo-cutout-w) !important;
-  }
-}
 
-/* الطولي على الشاشة الداخلية: صفحة واحدة عريضة؛ الترويسة بطول الزاوية على الأقل
-   فيبدأ مبدّل المقرر تحتها، ويُحشى جانبها الأيمن فقط. */
-@media screen and (min-width: 640px) and (max-width: 720px) and (min-height: 520px) and (max-height: 960px) and (orientation: portrait) {
-  html body #root :is(.miras-mobile-teacher-zero-header, .meras-student-shell header.meras-topbar):not(#_):not(#__):not(#___):not(#____) {
-    padding-right: var(--duo-cutout-w) !important;
-    min-height: var(--duo-cutout-h) !important;
-    box-sizing: border-box !important;
-    align-items: center !important;
+  /* ١٣-ج) rail المعلّم العمودي (عرضي قصير، قسم ٤): يبدأ تحت الودجت لا تحت الترويسة وحدها. */
+  @media (max-height: 480px) and (min-width: 520px) and (max-width: 920px) {
+    @layer duo-widget {
+      .teacher-nav-mobile.teacher-orbit-dock.miras-dock-shell-v2 {
+        top: var(--duo-widget-clear) !important;
+      }
+    }
   }
-  html body #root .miras-mobile-teacher-zero-header :is(.miras-zero-name-pill, h1, .miras-zero-actions-row):not(#_):not(#__):not(#___):not(#____) {
-    align-self: center !important;
-  }
-  /* الطالب: الاسم يأخذ سطراً عريضاً (كان ٩٥px فيُقطع «دانة الرشي…») ثم الأدوات تحته. */
-  html body #root .meras-student-shell header.meras-topbar .miras-student-header-stack:not(#_):not(#__):not(#___):not(#____) {
-    flex-direction: column !important;
-    align-items: stretch !important;
-    gap: 6px !important;
-  }
-  html body #root .meras-student-shell header.meras-topbar .miras-student-header-stack > :is(.miras-student-identity, .miras-student-actions-row):not(#_):not(#__):not(#___):not(#____) {
-    width: 100% !important;
-    max-width: 100% !important;
+
+  /* الكتاب (عرضي 721–1000): الحاوية الممتدة على الصفحتين لا تُحشى (وإلا انزاح الكعب عن المنتصف)؛
+     كتلة العنوان والاسم على الصفحة اليمنى هي التي تبتعد عن الزاوية، وصف الأقسام يتماثل من الجهتين. */
+  @media screen and (min-width: 721px) and (max-width: 1000px) and (min-height: 520px) and (max-height: 960px) and (orientation: landscape) {
+    @layer duo-widget {
+      :is(.miras-mobile-teacher-zero-header, .teacher-command-header, .meras-student-shell header.meras-topbar) {
+        padding-right: 16px !important;
+        min-height: 0 !important;
+      }
+      :is(.teacher-command-header .miras-teacher-heading-block, .miras-mobile-teacher-zero-header .miras-zero-title-block, .meras-student-shell header.meras-topbar .miras-student-identity) {
+        margin-right: var(--duo-widget-inset) !important;
+      }
+      /* ترويسة الطالب بطول الزاوية على الأقل، ومحتواها في وسطها، والهوية والأدوات في صف. */
+      .meras-student-shell header.meras-topbar {
+        min-height: var(--duo-widget-clear) !important;
+        display: flex !important;
+        align-items: center !important;
+      }
+      .meras-student-shell header.meras-topbar > .miras-student-header-stack {
+        flex: 1 1 auto !important;
+        flex-direction: row !important;
+        align-items: center !important;
+        gap: 0.75rem !important;
+      }
+      .meras-student-shell header.meras-topbar .miras-student-header-stack > :is(.miras-student-identity, .miras-student-actions-row) {
+        width: auto !important;
+      }
+      .teacher-command-header .miras-teacher-heading-block {
+        max-width: calc(50vw - var(--duo-spine) / 2 - var(--duo-widget-inset) - 44px) !important;
+      }
+      .teacher-command-header .teacher-nav-desktop {
+        padding-inline: var(--duo-widget-inset) !important;
+      }
+    }
   }
 }
 
