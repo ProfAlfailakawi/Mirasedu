@@ -8258,7 +8258,9 @@ export default function App() {
       window.removeEventListener("online", onOnline);
     };
   }, [loginCloudGateWanted]);
-  const loginCloudGateActive = loginCloudGateWanted && !loginCloudReady;
+  // بريد الأستاذ لا يحتاج كشف الطالب، فافتح له خطوة كلمة المرور فوراً.
+  const teacherEmailLogin = /[A-Za-z@.]/.test(String(loginForm.idNumber || "").trim());
+  const loginCloudGateActive = loginCloudGateWanted && !loginCloudReady && !teacherEmailLogin;
   useEffect(() => {
     if (typeof window === "undefined") return;
     const goOnline = () => {
