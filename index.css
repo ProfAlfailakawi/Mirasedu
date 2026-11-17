@@ -12441,7 +12441,9 @@ body:has(.meras-auth-shell),
   overflow: hidden !important;
 }
 .meras-auth-card {
-  overflow: hidden !important;
+  overflow-x: hidden !important;
+  overflow-y: auto !important;
+  overscroll-behavior-y: contain;
   max-height: min(92dvh, 43rem) !important;
 }
 .meras-auth-card input {
