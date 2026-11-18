@@ -241,6 +241,7 @@ test('optional login readers wait for an interactive teacher workspace and rejec
    cloudSessionKey, cloudSessionGenRef: { current: 1 }, teacherSubmissionInitialReadRef: { current: null },
    teacherTabRef: { current: scenario === 'audit' ? 'codes' : 'home' }, localStorage: { getItem: () => null },
    setAvailableChapters: () => {}, setTeacherQuestions: () => {}, setMirasRadarAllowed: () => {},
+   setTeacherSubmissionsReady: () => {},
    useEffect: fn => fn() };
   for (const name of ['fetchTeacherSubmissions', 'fetchQuestionBank', 'fetchTeacherExams', 'fetchTeacherProjects', 'fetchJoinCodes', 'fetchCodeIntegrity', 'fetchMirasRadar', 'loadTeacherAccounts', 'fetchTrustedPasskeyDevices']) {
    context[name] = async () => calls.push(name);
