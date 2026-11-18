@@ -36,6 +36,7 @@ import { shouldApplySubmissionCourseResponse } from "./src/shared/submission-fet
 import { dateInputValueInTimeZone } from "./src/shared/date-input";
 import { deviceAuditForDisplay } from "./src/shared/device-audit";
 import { sameTeacherIdentity } from "./src/shared/teacher-account-scope";
+import { dispatchBridgeUpdated } from "./src/shared/bridge-updated-event";
 import {
   isFreshSubmissionNews,
   teacherOwnsProjectSubmission,
@@ -20130,7 +20131,7 @@ ${rows
           );
           try {
             localStorage.setItem("academicLabJoinCodes", JSON.stringify(next));
-            window.dispatchEvent(new Event("academicLabBridgeUpdated"));
+            dispatchBridgeUpdated();
           } catch {}
           return next;
         });
@@ -23893,7 +23894,7 @@ ${rows
     });
     mergeLocalNotifications([item]);
     try {
-      window.dispatchEvent(new Event("academicLabBridgeUpdated"));
+      dispatchBridgeUpdated();
     } catch {}
     if (sendToServer) {
       fetch("/api/notifications/course", {
@@ -24200,7 +24201,7 @@ ${rows
             "academicLabTeacherSubmissions",
             JSON.stringify(next),
           );
-          window.dispatchEvent(new Event("academicLabBridgeUpdated"));
+          dispatchBridgeUpdated();
         } catch {}
         return next;
       });
@@ -24400,7 +24401,7 @@ ${rows
           "academicLabTeacherSubmissions",
           JSON.stringify(next),
         );
-        window.dispatchEvent(new Event("academicLabBridgeUpdated"));
+        dispatchBridgeUpdated();
       } catch {}
       return next;
     };
@@ -24643,7 +24644,7 @@ ${rows
             "academicLabTeacherSubmissions",
             JSON.stringify(next),
           );
-          window.dispatchEvent(new Event("academicLabBridgeUpdated"));
+          dispatchBridgeUpdated();
         } catch {}
         return next;
       });
@@ -24745,7 +24746,7 @@ ${rows
       const data = await resp.json().catch(() => ({}));
       publishCourseNotification();
       try {
-        window.dispatchEvent(new Event("academicLabBridgeUpdated"));
+        dispatchBridgeUpdated();
       } catch {}
       if (!resp.ok) {
         setErrorMsg(data.error || "تعذر إرسال تنبيه الاختبار.");
