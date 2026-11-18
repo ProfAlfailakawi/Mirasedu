@@ -13,7 +13,7 @@
   },
   "ios": {
     "contentInset": "never",
-    "backgroundColor": "#FFFFFF",
+    "backgroundColor": "#433EAF",
     "scheme": "Miras",
     "limitsNavigationsToAppBoundDomains": false,
     "preferredContentMode": "mobile"
@@ -22,7 +22,7 @@
     "SplashScreen": {
       "launchShowDuration": 600,
       "launchAutoHide": true,
-      "backgroundColor": "#FFFFFF",
+      "backgroundColor": "#433EAF",
       "showSpinner": false
     },
     "PushNotifications": {
