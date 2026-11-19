@@ -76,9 +76,19 @@ import './design/miras-duo-pattern.css';
 {
   const root = document.documentElement;
   const w = globalThis as any;
+  /* على الجهاز الحقيقي نسبة الشاشة الخارجية ≈1.484، فحدّ 1.48 المقيس على المحاكي أسقطها.
+     القرار الآن على iPhone أو غلاف iOS وحدهما، بأيّ قرينةٍ من ثلاث: شاشةٌ شبه مربّعة (الضلع القصير 400–720
+     والنسبة ≤ 1.62؛ كل iPhone ≥ 1.78 وكل iPad أعرض من 720)، أو الشيء نفسه بأبعاد screen.avail*،
+     أو ضلع النافذة القصير بين 500 و720 (لا iPhone يبلغ 500). وغلاف iOS يُبلغ «ios» على iPad أيضاً، فكل فرعٍ يشترط ضلع الشاشة القصير ≤ 720 (كل iPad ≥ 744) فيبقى iPad «other». */
+  const isAppleHandheld = () => /iPhone|iPod/.test(navigator.userAgent) || w.Capacitor?.getPlatform?.() === "ios";
+  const nearSquare = (a: number, b: number) => { const lo = Math.min(a, b), hi = Math.max(a, b); return lo >= 400 && lo <= 720 && hi / lo <= 1.62; };
   const markDevice = () => {
-    const lo = Math.min(screen.width, screen.height), hi = Math.max(screen.width, screen.height);
-    root.dataset.device = lo >= 440 && lo <= 700 && hi / lo <= 1.48 ? "duo" : "other";
+    const duo = isAppleHandheld() && (
+      nearSquare(screen.width, screen.height) ||
+      nearSquare(screen.availWidth, screen.availHeight) ||
+      (Math.min(innerWidth, innerHeight) > 500 && Math.min(innerWidth, innerHeight) <= 720 && Math.min(screen.width, screen.height) <= 720)
+    );
+    root.dataset.device = duo ? "duo" : "other";
   };
   root.dataset.shell = w.Capacitor?.isNativePlatform?.() || matchMedia("(display-mode: standalone)").matches || (navigator as any).standalone === true ? "app" : "browser";
   const probe = document.createElement("div");
@@ -91,6 +101,7 @@ import './design/miras-duo-pattern.css';
   markDevice(); markSide();
   if (typeof ResizeObserver !== "undefined") new ResizeObserver(markSide).observe(probe);
   addEventListener("resize", () => { markDevice(); requestAnimationFrame(markSide); setTimeout(markSide, 400); });
+  addEventListener("orientationchange", () => setTimeout(() => { markDevice(); markSide(); }, 300));
 }
 
 // ───────────────────────────────────────────────────────────────────────────
