@@ -67,6 +67,31 @@ import './design/miras-duo-layouts.css';
 import './design/miras-beauty.css';
 // طبقة التهذيب (جولة ١٢ نوفمبر) — آخر الطبقات، عرض فقط.
 import './design/miras-refine.css';
+// نمط iPhone Duo المعتمد (2026-11-19) — آخر الطبقات، عرض فقط، على الدوو وحده.
+import './design/miras-duo-pattern.css';
+
+/* علامات الدوو (عرض فقط): «duo» لشاشةٍ شبه مربّعة (الخارجية 466×678 والداخلية 669×951)،
+   فكل iPhone (نسبته ≥1.7) وكل iPad (أعرض من 700) «other» ولا يتغيّر. «shell» تطبيقٌ أو متصفّح.
+   «widgetSide» جهة ودجت الساعة كما يبلغها iOS عبر safe-area (صفرٌ في Safari). */
+{
+  const root = document.documentElement;
+  const w = globalThis as any;
+  const markDevice = () => {
+    const lo = Math.min(screen.width, screen.height), hi = Math.max(screen.width, screen.height);
+    root.dataset.device = lo >= 440 && lo <= 700 && hi / lo <= 1.48 ? "duo" : "other";
+  };
+  root.dataset.shell = w.Capacitor?.isNativePlatform?.() || matchMedia("(display-mode: standalone)").matches || (navigator as any).standalone === true ? "app" : "browser";
+  const probe = document.createElement("div");
+  probe.style.cssText = "position:fixed;top:0;left:0;width:0;height:0;visibility:hidden;pointer-events:none;padding-left:env(safe-area-inset-left);padding-right:env(safe-area-inset-right)";
+  root.appendChild(probe);
+  const markSide = () => {
+    const cs = getComputedStyle(probe), l = parseFloat(cs.paddingLeft) || 0, r = parseFloat(cs.paddingRight) || 0;
+    root.dataset.widgetSide = l > 20 && l > r ? "left" : r > 20 ? "right" : "none";
+  };
+  markDevice(); markSide();
+  if (typeof ResizeObserver !== "undefined") new ResizeObserver(markSide).observe(probe);
+  addEventListener("resize", () => { markDevice(); requestAnimationFrame(markSide); setTimeout(markSide, 400); });
+}
 
 // ───────────────────────────────────────────────────────────────────────────
 // حاجز عرض الواجهة (Render Guard)
