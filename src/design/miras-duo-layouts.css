@@ -1166,34 +1166,34 @@ html body #root .miras-inner-tab:not(#_):not(#__):not(#___) {
   @layer duo-widget {
     /* ١٣-أ) ترويسات الصفحات (المعلّم المحمولة والمكتبية، الطالب): العمود الأول (يمين) محجوز،
        وتحته تبدأ الأدوات والأقسام. الحاوية نفسها تبقى بعرض الشاشة فتكمل الخلفية تحت الودجت. */
-    :is(.miras-mobile-teacher-zero-header, .teacher-command-header, .meras-student-shell header.meras-topbar) {
+    :where(html[data-device="duo"]) :is(.miras-mobile-teacher-zero-header, .teacher-command-header, .meras-student-shell header.meras-topbar) {
       padding-right: var(--duo-widget-inset) !important;
       min-height: var(--duo-widget-clear) !important;
       box-sizing: border-box !important;
     }
     /* ترويسة الطالب: الاسم يأخذ سطراً عريضاً (كان ٩٥px فيُقطع) ثم الأدوات تحته. */
-    .meras-student-shell header.meras-topbar .miras-student-header-stack {
+    :where(html[data-device="duo"]) .meras-student-shell header.meras-topbar .miras-student-header-stack {
       flex-direction: column !important;
       align-items: stretch !important;
       gap: 6px !important;
     }
-    .meras-student-shell header.meras-topbar .miras-student-header-stack > :is(.miras-student-identity, .miras-student-actions-row) {
+    :where(html[data-device="duo"]) .meras-student-shell header.meras-topbar .miras-student-header-stack > :is(.miras-student-identity, .miras-student-actions-row) {
       width: 100% !important;
       max-width: 100% !important;
     }
     /* ١٣-أ-٢) ترويسة المعلّم المحمولة ثابتة (fixed) خارج التدفق، والمحتوى يبدأ تحت --miras-teacher-header-space؛
        فيجب أن يبلغ هذا المتغير أول y خالٍ تحت الودجت وإلا غطّت الترويسة الأطول أول البطاقات. */
-    :root,
-    .miras-app-teacher-root,
-    .miras-app-teacher-root.miras-teacher-viewport-v5 {
+    :root:where([data-device="duo"]),
+    :where(html[data-device="duo"]) .miras-app-teacher-root,
+    :where(html[data-device="duo"]) .miras-app-teacher-root.miras-teacher-viewport-v5 {
       --miras-teacher-header-space: max(5.35rem, var(--duo-widget-clear)) !important;
     }
     /* ١٣-أ-٣) صفحات الدخول: المحتوى (المتوسَّط) يبدأ تحت الودجت. */
-    .meras-auth-shell {
+    :where(html[data-device="duo"]) .meras-auth-shell {
       padding-top: var(--duo-widget-clear) !important;
     }
     /* ١٣-ب) صف مبدّل المقرر (معلّم) وبطاقة اختيار المقرر (طالب): بجانب الودجت لا تحته. */
-    :is(.miras-global-course-switcher, .miras-student-course-picker) {
+    :where(html[data-device="duo"]) :is(.miras-global-course-switcher, .miras-student-course-picker) {
       margin-right: var(--duo-widget-inset) !important;
       margin-left: 0 !important;
       align-self: stretch !important;
@@ -1201,29 +1201,29 @@ html body #root .miras-inner-tab:not(#_):not(#__):not(#___) {
       max-width: none !important;
     }
     /* ١٣-د) الرسائل العائمة (نجاح/خطأ) وتنبيهات الأعلى: بجانب الودجت. */
-    :is(.miras-floating-toast, .fixed.top-4.right-4) {
+    :where(html[data-device="duo"]) :is(.miras-floating-toast, .fixed.top-4.right-4) {
       right: var(--duo-widget-inset) !important;
       left: 0.75rem !important;
       max-width: none !important;
     }
     /* ١٣-د-٢) النوافذ المتوسطة (ستارة كاملة الشاشة، بطاقة في الوسط أو الأعلى): البطاقة بجانب الودجت لا تحته،
        فلا يقع شيء منها في الركن مهما كان ارتفاعها. الأوراق السفلية (items-end) والشاشة الافتتاحية خارج هذا. */
-    div.fixed.inset-0:is([class*="items-center"], [class*="items-start"]):not(.miras-splash) {
+    :where(html[data-device="duo"]) div.fixed.inset-0:is([class*="items-center"], [class*="items-start"]):not(.miras-splash) {
       padding-right: var(--duo-widget-inset) !important;
     }
     /* الورقة السفلية (items-end، وفي ≥640 تتوسّط): لا يعلو رأسها فوق أول y خالٍ؛ ما زاد يُمرَّر داخلها. */
-    div.fixed.inset-0[class*="items-end"] > * {
+    :where(html[data-device="duo"]) div.fixed.inset-0[class*="items-end"] > * {
       max-height: calc(100dvh - var(--duo-widget-clear) - 1rem) !important;
       overflow-y: auto !important;
     }
     /* ١٣-هـ) شريط التجربة (بيئة العرض فقط): لا يقع تحت الودجت. */
-    .miras-demo-bar {
+    :where(html[data-device="duo"]) .miras-demo-bar {
       top: auto !important;
       bottom: calc(5.5rem + env(safe-area-inset-bottom, 0px)) !important;
       justify-content: flex-end !important;
       padding-left: 10px !important;
     }
-    .miras-demo-bar > div {
+    :where(html[data-device="duo"]) .miras-demo-bar > div {
       margin-top: 0 !important;
       top: auto !important;
       left: 10px !important;
@@ -1233,7 +1233,7 @@ html body #root .miras-inner-tab:not(#_):not(#__):not(#___) {
   /* ١٣-ج) rail المعلّم العمودي (عرضي قصير، قسم ٤): يبدأ تحت الودجت لا تحت الترويسة وحدها. */
   @media (max-height: 480px) and (min-width: 520px) and (max-width: 920px) {
     @layer duo-widget {
-      .teacher-nav-mobile.teacher-orbit-dock.miras-dock-shell-v2 {
+      :where(html[data-device="duo"]) .teacher-nav-mobile.teacher-orbit-dock.miras-dock-shell-v2 {
         top: var(--duo-widget-clear) !important;
       }
     }
@@ -1243,36 +1243,48 @@ html body #root .miras-inner-tab:not(#_):not(#__):not(#___) {
      كتلة العنوان والاسم على الصفحة اليمنى هي التي تبتعد عن الزاوية، وصف الأقسام يتماثل من الجهتين. */
   @media screen and (min-width: 721px) and (max-width: 1000px) and (min-height: 520px) and (max-height: 960px) and (orientation: landscape) {
     @layer duo-widget {
-      :is(.miras-mobile-teacher-zero-header, .teacher-command-header, .meras-student-shell header.meras-topbar) {
+      :where(html[data-device="duo"]) :is(.miras-mobile-teacher-zero-header, .teacher-command-header, .meras-student-shell header.meras-topbar) {
         padding-right: 16px !important;
         min-height: 0 !important;
       }
-      :is(.teacher-command-header .miras-teacher-heading-block, .miras-mobile-teacher-zero-header .miras-zero-title-block, .meras-student-shell header.meras-topbar .miras-student-identity) {
+      :where(html[data-device="duo"]) :is(.teacher-command-header .miras-teacher-heading-block, .miras-mobile-teacher-zero-header .miras-zero-title-block, .meras-student-shell header.meras-topbar .miras-student-identity) {
         margin-right: var(--duo-widget-inset) !important;
       }
       /* ترويسة الطالب بطول الزاوية على الأقل، ومحتواها في وسطها، والهوية والأدوات في صف. */
-      .meras-student-shell header.meras-topbar {
+      :where(html[data-device="duo"]) .meras-student-shell header.meras-topbar {
         min-height: var(--duo-widget-clear) !important;
         display: flex !important;
         align-items: center !important;
       }
-      .meras-student-shell header.meras-topbar > .miras-student-header-stack {
+      :where(html[data-device="duo"]) .meras-student-shell header.meras-topbar > .miras-student-header-stack {
         flex: 1 1 auto !important;
         flex-direction: row !important;
         align-items: center !important;
         gap: 0.75rem !important;
       }
-      .meras-student-shell header.meras-topbar .miras-student-header-stack > :is(.miras-student-identity, .miras-student-actions-row) {
+      :where(html[data-device="duo"]) .meras-student-shell header.meras-topbar .miras-student-header-stack > :is(.miras-student-identity, .miras-student-actions-row) {
         width: auto !important;
       }
-      .teacher-command-header .miras-teacher-heading-block {
+      :where(html[data-device="duo"]) .teacher-command-header .miras-teacher-heading-block {
         max-width: calc(50vw - var(--duo-spine) / 2 - var(--duo-widget-inset) - 44px) !important;
       }
-      .teacher-command-header .teacher-nav-desktop {
+      :where(html[data-device="duo"]) .teacher-command-header .teacher-nav-desktop {
         padding-inline: var(--duo-widget-inset) !important;
       }
     }
   }
+}
+
+/* الاستعلام أعلاه بحجم النافذة ونسبتها وحدهما، فكان يطابق iPhone العادي في Safari (390×664 بأشرطته) ونافذة الحاسوب
+   أو iPad الضيقة، فيترك عموداً فارغاً بنحو 104px يمين الترويسة. الركن حقيقي على iPhone Duo وحده (html[data-device="duo"]
+   من src/lib/duo-markers.ts، وهناك تتبع المتغيرات حدود النظام في miras-duo-pattern.css): قواعد الطبقة أعلاه مقيّدة به بـ
+   :where (تخصيص صفر، فلا يتغيّر شيء على Duo)، وفي غيره تعود المتغيرات صفراً. */
+html:not([data-device="duo"]) {
+  --duo-widget-w: 0px;
+  --duo-widget-gap: 0px;
+  --duo-widget-h: 0px;
+  --duo-widget-inset: 0px;
+  --duo-widget-clear: 0px;
 }
 
 /* ───────── ١٤) شريط التثبيت في الكتاب ─────────
