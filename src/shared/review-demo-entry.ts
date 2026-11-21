@@ -1,12 +1,13 @@
 /**
- * The "try the demo" login button was added for Apple App Review. The app is
- * live, so it is hidden by default. It can be re-enabled for a reviewer, inside
- * the iOS shell only, with `?review-demo=1` (remembered for the session), or
- * for everyone in the shell by flipping the flag below.
+ * The "try the demo" login button was added for Apple App Review. Normally it
+ * is hidden once the app is live; it can then be re-enabled for a reviewer,
+ * inside the iOS shell only, with `?review-demo=1` (remembered for the session).
+ * Visible by default (inside the shell only) while an update is in review.
  */
 import { isAppleNativeShell } from "./apple-native-shell";
 
-export const REVIEW_DEMO_ENTRY_DEFAULT = false;
+// TEMPORARY while 1.0.2 is in review — set back to false after approval.
+export const REVIEW_DEMO_ENTRY_DEFAULT = true;
 export const REVIEW_DEMO_PARAM = "review-demo";
 const SESSION_KEY = "miras_review_demo";
 
