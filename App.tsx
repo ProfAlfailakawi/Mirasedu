@@ -1,4 +1,5 @@
 import { isAppleNativeShell } from "./src/shared/apple-native-shell";
+import { returnedProjectDraft } from "./src/shared/returned-project-restore";
 import {
   lastKnownNativePushPermission,
   onNativePushOpened,
@@ -25371,6 +25372,27 @@ ${rows
   const studentSelectedProjectId =
     studentOpenProjects.find((project: any) => String(project.id) === String(studentActiveProjectId))?.id ??
     studentOpenProjects[0]?.id;
+  // عند إرجاع المشروع يعود للطالب تسليمه السابق (النص + المرفقات) ليعدّله،
+  // لا نموذج فارغ. تُستعاد المسودة مرة واحدة لكل إرجاع، ولا تُستبدل أبداً إن
+  // كان الطالب قد بدأ الكتابة أو أرفق ملفاً بنفسه.
+  const restoredReturnedProjectKeyRef = useRef("");
+  const returnedProjectRestore = returnedProjectDraft(
+    studentSelectedProjectId,
+    studentSelectedProjectId !== undefined
+      ? latestStudentSubmissionForActivity("project", studentSelectedProjectId)
+      : undefined,
+  );
+  useEffect(() => {
+    if (!returnedProjectRestore) return;
+    if (restoredReturnedProjectKeyRef.current === returnedProjectRestore.key) return;
+    restoredReturnedProjectKeyRef.current = returnedProjectRestore.key;
+    if (!uploadText.trim() && returnedProjectRestore.text) {
+      setUploadText(returnedProjectRestore.text);
+    }
+    if (currentAttachments.length === 0 && returnedProjectRestore.attachments.length) {
+      setCurrentAttachments(returnedProjectRestore.attachments);
+    }
+  }, [returnedProjectRestore?.key]);
   const studentActivityCards = [
     ...studentCourseExams.map((exam: any) => {
       // نأخذ أحدث سجل فعلي لنفس الطالب/الاختبار، لأن الإرجاع قد يصل كسجل/تحديث
