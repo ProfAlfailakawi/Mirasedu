@@ -14,4 +14,4 @@
 3. في مجلد `apple/`: `npm install && npx cap sync ios` ثم أرشِف وارفع بناءً جديداً.
 4. انشر الموقع (`firebase deploy --only hosting`) كي يُخدَم ملف AASA، وتحقق: `curl -i https://mirasedu.web.app/.well-known/apple-app-site-association` (يجب 200 وJSON).
 
-- زر «جرّب العرض التجريبي»: مخفيّ افتراضياً بعد النشر. لإظهاره لمراجع آبل داخل التطبيق فقط افتح الرابط بالمعامل `?review-demo=1` (يُحفظ للجلسة؛ `?review-demo=0` يلغيه) أو اجعل `REVIEW_DEMO_ENTRY_DEFAULT = true` في `src/shared/review-demo-entry.ts`.
+- زر «جرّب العرض التجريبي»: ظاهر داخل التطبيق افتراضياً مؤقتاً أثناء مراجعة 1.0.2 (`REVIEW_DEMO_ENTRY_DEFAULT = true` في `src/shared/review-demo-entry.ts`)؛ يُعاد إلى `false` بعد القبول، ويبقى `?review-demo=1` طريقاً للمراجع.
