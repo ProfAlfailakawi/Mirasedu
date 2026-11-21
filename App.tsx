@@ -36,6 +36,7 @@ import { shouldApplySubmissionCourseResponse } from "./src/shared/submission-fet
 import { dateInputValueInTimeZone } from "./src/shared/date-input";
 import { deviceAuditForDisplay } from "./src/shared/device-audit";
 import { sameTeacherIdentity } from "./src/shared/teacher-account-scope";
+import { dispatchBridgeUpdated } from "./src/shared/bridge-updated-event";
 import {
   isFreshSubmissionNews,
   teacherOwnsProjectSubmission,
@@ -8696,6 +8697,11 @@ export default function App() {
   const teacherSubmissionInitialReadRef = useRef<{ key: string; promise: Promise<unknown> } | null>(null);
   const [teacherCloudReady, setTeacherCloudReady] = useState<Record<string, true>>({});
   const [studentCloudReady, setStudentCloudReady] = useState<Record<string, true>>({});
+  // التسليمات (كل المقررات) تُجلب بعد ظهور اللوحة لا قبله (أداء أول رسم)، فتبقى
+  // بطاقات/قوائم تبويب "التسليمات" صفراً فعلياً للحظة — لا بسبب عدم وجود تسليمات،
+  // بل لأنها لم تصل بعد. هذا العلم يميّز الحالتين بدل انتظار الشاشة الافتتاحية
+  // لهذه القراءة الثانوية (الذي كان سيبطئ فتح اللوحة لكل الحسابات من أجل تبويبٍ واحد).
+  const [teacherSubmissionsReady, setTeacherSubmissionsReady] = useState<Record<string, true>>({});
   const [studentLoadRetry, setStudentLoadRetry] = useState(0);
   // جيل الجلسة: يزداد عند الخروج حتى لا يكتب تحميلٌ قديم جاهزيةً لجلسة جديدة.
   const cloudSessionGenRef = useRef(0);
@@ -9421,6 +9427,7 @@ export default function App() {
     } catch {}
     setTeacherCloudReady({});
     setStudentCloudReady({});
+    setTeacherSubmissionsReady({});
   }, [teacherSession, studentSession]);
   // شاشة الدخول الافتتاحية تبقى حتى تكتمل بيانات الحساب فعلاً.
   const loginRevealDataReady =
@@ -9520,6 +9527,15 @@ export default function App() {
       teacherSubmissionInitialReadRef.current = {
         key: cloudSessionKey(email, session.token, cloudSessionGenRef.current), promise: submissions,
       };
+      // الواجهة (تبويب التسليمات) تنتظر هذا العلم بدل عرض بطاقات/حلقات صفرية
+      // ليست حقيقية فعلاً — راجع تعريف الحالة أعلاه لسبب عدم انتظار هذا ضمن
+      // بوابة الشاشة الافتتاحية نفسها.
+      // يُرفع العلم عند انتهاء القراءة نجحت أم فشلت (انقطاع الشبكة مثلاً): الفشل لا يجوز أن يترك
+      // الهيكل المتحرّك للأبد ويُخفي ما في الذاكرة المحلية؛ حالُه عندئذٍ كما كان قبل هذا التعديل.
+      const markSubmissionsSettled = () => {
+        if (session.isCurrent()) setTeacherSubmissionsReady((m) => ({ ...m, [email]: true }));
+      };
+      submissions.then(markSubmissionsSettled, markSubmissionsSettled);
       void Promise.allSettled([
         submissions,
         fetchQuestionBank(email),
@@ -16483,8 +16499,12 @@ ${rows
           );
           return applyReturnedSubmissionOverrides(Array.from(map.values()));
         });
+        return true;
       }
-    } catch {}
+      return false;
+    } catch {
+      return false;
+    }
   };
 
   const performStudentLiveStateRefresh = async (activeStudentSession: any, isCurrent: () => boolean) => {
@@ -18239,6 +18259,7 @@ ${rows
       }
       cloudSessionGenRef.current += 1;
       setTeacherCloudReady((prev) => { const next = { ...prev }; delete next[teacherEmail]; return next; });
+      setTeacherSubmissionsReady((prev) => { const next = { ...prev }; delete next[teacherEmail]; return next; });
       setTeacherSession(teacherWithAuth);
       if (method === "passkey") {
         rememberPasskeyForSession(
@@ -20130,7 +20151,7 @@ ${rows
           );
           try {
             localStorage.setItem("academicLabJoinCodes", JSON.stringify(next));
-            window.dispatchEvent(new Event("academicLabBridgeUpdated"));
+            dispatchBridgeUpdated();
           } catch {}
           return next;
         });
@@ -23893,7 +23914,7 @@ ${rows
     });
     mergeLocalNotifications([item]);
     try {
-      window.dispatchEvent(new Event("academicLabBridgeUpdated"));
+      dispatchBridgeUpdated();
     } catch {}
     if (sendToServer) {
       fetch("/api/notifications/course", {
@@ -24200,7 +24221,7 @@ ${rows
             "academicLabTeacherSubmissions",
             JSON.stringify(next),
           );
-          window.dispatchEvent(new Event("academicLabBridgeUpdated"));
+          dispatchBridgeUpdated();
         } catch {}
         return next;
       });
@@ -24400,7 +24421,7 @@ ${rows
           "academicLabTeacherSubmissions",
           JSON.stringify(next),
         );
-        window.dispatchEvent(new Event("academicLabBridgeUpdated"));
+        dispatchBridgeUpdated();
       } catch {}
       return next;
     };
@@ -24643,7 +24664,7 @@ ${rows
             "academicLabTeacherSubmissions",
             JSON.stringify(next),
           );
-          window.dispatchEvent(new Event("academicLabBridgeUpdated"));
+          dispatchBridgeUpdated();
         } catch {}
         return next;
       });
@@ -24745,7 +24766,7 @@ ${rows
       const data = await resp.json().catch(() => ({}));
       publishCourseNotification();
       try {
-        window.dispatchEvent(new Event("academicLabBridgeUpdated"));
+        dispatchBridgeUpdated();
       } catch {}
       if (!resp.ok) {
         setErrorMsg(data.error || "تعذر إرسال تنبيه الاختبار.");
@@ -40379,7 +40400,7 @@ ${rows
                       </div>
                     </div>
                   </div>
-                  {isAdminTeacher && !selectedSubmissionActivityId && (
+                  {isAdminTeacher && !selectedSubmissionActivityId && teacherSubmissionsReady[String(teacherSession?.email || "").trim().toLowerCase()] && (
                     <div className="mb-3 flex justify-end" dir="rtl">
                       <button
                         type="button"
@@ -40393,7 +40414,22 @@ ${rows
                       </button>
                     </div>
                   )}
-                  {!selectedSubmissionActivityId ? (
+                  {!teacherSubmissionsReady[String(teacherSession?.email || "").trim().toLowerCase()] ? (
+                    // بطاقات/حلقات التسليمات لم تصل بعد (قراءة ثانوية بعد فتح اللوحة، راجع
+                    // teacherSubmissionsReady أعلاه) — هيكل تحميل بدل عرضها "صفراً" مضلِّلاً.
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3" aria-busy="true" aria-live="polite">
+                      {[0, 1].map((i) => (
+                        <div
+                          key={i}
+                          className="animate-pulse rounded-[var(--miras-r-lg)] border border-slate-100 bg-white p-5"
+                        >
+                          <div className="h-4 w-2/3 rounded-full bg-slate-100" />
+                          <div className="mx-auto mt-4 h-14 w-14 rounded-full bg-slate-100" />
+                          <div className="mt-4 h-2 w-full rounded-full bg-slate-100" />
+                        </div>
+                      ))}
+                    </div>
+                  ) : !selectedSubmissionActivityId ? (
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                       {submissionActivityCards.length === 0 && (
                         <DnaEmpty
