@@ -2,7 +2,7 @@
 
 **ملاحظة للمراجع (EN):** Miras is a native shell around our production service at https://mirasedu.web.app. Native features: offline detection and banner with automatic recovery, pull-to-refresh, swipe navigation, resume-last-page, iPad multitasking and Mac (Apple silicon) support.
 
-- حساب التجربة: OWNER-TODO: حساب تجربة (طالب + معلم) ببيانات وهمية.
+- حساب التجربة (للمراجع): في شاشة الدخول اكتب في خانة «الرقم الجامعي» الرقم المحجوز `9999999999` ثم اضغط «متابعة» فيفتح العرض التجريبي ببيانات وهمية في بيئة معزولة، بلا حساب ولا بيانات حقيقية. هذا الرقم يُكرَّر في ملاحظات كل إصدار (App Review Information ← Notes).
 - المدفوعات: لا مشتريات داخل التطبيق.
 - مخاطر المراجعة: الكاميرا لمسح QR ورفع الصور فقط؛ WebAuthn/Passkeys في WKWebView تتطلب Associated Domains (webcredentials) — مضاف في `App.entitlements` مع `/.well-known/apple-app-site-association`؛ يلزم تفعيل القدرة على App ID من بوابة المطورين.
 
@@ -14,4 +14,4 @@
 3. في مجلد `apple/`: `npm install && npx cap sync ios` ثم أرشِف وارفع بناءً جديداً.
 4. انشر الموقع (`firebase deploy --only hosting`) كي يُخدَم ملف AASA، وتحقق: `curl -i https://mirasedu.web.app/.well-known/apple-app-site-association` (يجب 200 وJSON).
 
-- زر «جرّب العرض التجريبي»: ظاهر داخل التطبيق افتراضياً مؤقتاً أثناء مراجعة 1.0.2 (`REVIEW_DEMO_ENTRY_DEFAULT = true` في `src/shared/review-demo-entry.ts`)؛ يُعاد إلى `false` بعد القبول، ويبقى `?review-demo=1` طريقاً للمراجع.
+- لا يوجد زرّ ظاهر للعرض التجريبي. الدخول للمراجع بالرقم المحجوز `9999999999` (انظر `src/shared/review-demo-entry.ts`)؛ والخادم يرفض تسجيله لأي طالب حقيقي.

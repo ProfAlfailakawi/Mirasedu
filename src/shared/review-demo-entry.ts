@@ -1,33 +1,29 @@
 /**
- * The "try the demo" login button was added for Apple App Review. Normally it
- * is hidden once the app is live; it can then be re-enabled for a reviewer,
- * inside the iOS shell only, with `?review-demo=1` (remembered for the session).
- * Visible by default (inside the shell only) while an update is in review.
+ * Reviewer demo access for Apple App Review.
+ *
+ * There is NO visible demo button in the app. A reviewer opens the demo by
+ * typing this reserved university number in the login field and tapping
+ * «متابعة»; the number is documented in the App Review notes of every release.
+ *
+ * The number is not a secret: it opens the isolated demo sandbox (synthetic
+ * data, no real account, no real data). The server refuses to ever register it
+ * as a real student (see `src/server/db.ts` `addAllowedStudent`, `/api/auth/register`
+ * and `/api/auth/identify`), so it can never collide with a real student.
  */
-import { isAppleNativeShell } from "./apple-native-shell";
+export const REVIEW_DEMO_STUDENT_ID = "9999999999";
 
-// TEMPORARY while 1.0.2 is in review — set back to false after approval.
-export const REVIEW_DEMO_ENTRY_DEFAULT = true;
-export const REVIEW_DEMO_PARAM = "review-demo";
-const SESSION_KEY = "miras_review_demo";
+const ARABIC_INDIC = "٠١٢٣٤٥٦٧٨٩";
+const EXT_ARABIC_INDIC = "۰۱۲۳۴۵۶۷۸۹";
 
-export function isReviewDemoEntryVisible(
-  opts: { nativeShell?: boolean; search?: string; flag?: boolean } = {},
-): boolean {
-  const nativeShell = opts.nativeShell ?? isAppleNativeShell();
-  if (!nativeShell) return false;
-  if (opts.flag ?? REVIEW_DEMO_ENTRY_DEFAULT) return true;
-  const hasWindow = typeof window !== "undefined";
-  const search = opts.search ?? (hasWindow ? window.location.search : "");
-  let param: string | null = null;
-  try { param = new URLSearchParams(search).get(REVIEW_DEMO_PARAM); } catch {}
-  if (param === "1") {
-    try { if (hasWindow) window.sessionStorage.setItem(SESSION_KEY, "1"); } catch {}
-    return true;
-  }
-  if (param === "0") {
-    try { if (hasWindow) window.sessionStorage.removeItem(SESSION_KEY); } catch {}
-    return false;
-  }
-  try { return hasWindow && window.sessionStorage.getItem(SESSION_KEY) === "1"; } catch { return false; }
+/** Digits-only normalisation (Arabic-Indic / Persian digits, whitespace stripped). */
+export function normalizeReviewDemoCandidate(value: unknown): string {
+  return String(value ?? "")
+    .replace(/[٠-٩]/g, (d) => String(ARABIC_INDIC.indexOf(d)))
+    .replace(/[۰-۹]/g, (d) => String(EXT_ARABIC_INDIC.indexOf(d)))
+    .replace(/\s+/g, "");
+}
+
+/** True only for exactly the reserved reviewer number. */
+export function isReviewDemoEntryNumber(value: unknown): boolean {
+  return normalizeReviewDemoCandidate(value) === REVIEW_DEMO_STUDENT_ID;
 }

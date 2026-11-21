@@ -8,7 +8,7 @@ import {
   requestNativePushPermission,
 } from "./src/native-push";
 import { installStoreUrl, shouldShowManualInstallBanner } from "./src/shared/install-banner";
-import { isReviewDemoEntryVisible } from "./src/shared/review-demo-entry";
+import { isReviewDemoEntryNumber } from "./src/shared/review-demo-entry";
 import { groupSecurityNotifications } from "./src/shared/security-notification-groups";
 import { isPlatformUpdating, showUpdatingNotice, updatingJsonResponse } from "./src/shared/updating-notice";
 import { studentSubmissionDisplayText } from "./src/shared/submission-display-text";
@@ -3790,10 +3790,9 @@ export default function App() {
    * إعدادات الخدمة لا في المستودع — فيصير رجوعه أصعب مما يجب.
    */
   /*
-   * أُضيف لمراجعة آبل؛ والتطبيق منشور الآن فهو مخفيّ افتراضياً. يظهر داخل
-   * تطبيق iOS فقط بـ ?review-demo=1 (انظر src/shared/review-demo-entry.ts).
+   * لا زرّ ظاهر لمدخل العرض. مراجع آبل يكتب رقماً جامعياً محجوزاً في خانة الدخول
+   * (انظر src/shared/review-demo-entry.ts وhandleLoginIdentify) فيفتح الصندوق المعزول.
    */
-  const MIRAS_DEMO_ENTRY_VISIBLE = isReviewDemoEntryVisible();
   const [demoEnabled, setDemoEnabled] = useState(false);
   const [demoActive, setDemoActive] = useState(false);
   // على الهاتف تُطوى أدوات البيئة التجريبية خلف زرّ واحد كي لا تغطي رأس الشاشة.
@@ -18383,6 +18382,12 @@ ${rows
     const identity = String(loginForm.idNumber || "").trim();
     if (!identity) {
       setErrorMsg("اكتب رقمك الجامعي أولاً.");
+      return;
+    }
+    // رقم مراجع آبل المحجوز: يفتح الصندوق التجريبي المعزول مباشرةً بلا حساب ولا
+    // استعلام عن كشف حقيقي (الخادم يرفض تسجيل هذا الرقم لأي طالب أصلاً).
+    if (isReviewDemoEntryNumber(identity)) {
+      if (!demoBusy) void enterDemo();
       return;
     }
     // بريد الأستاذ لا يمر بكشف ولا تسجيل: كلمة المرور مباشرة.
@@ -35721,33 +35726,6 @@ ${rows
                             </p>
                           )}
                         </div>
-                        {/* نفس مدخل العرض الذي في نموذج الدخول الكامل، مكرّراً هنا
-                            عن قصد: الجهاز الذي سجّل بصمةً يرى هذه البطاقة المختصرة
-                            وحدها ولا يرى النموذج إطلاقاً — وهو حال أي جهاز عرضٍ
-                            معتاد، فلولا تكراره لاختفى المدخل عمّن يحتاجه أكثر. */}
-                        {MIRAS_DEMO_ENTRY_VISIBLE && demoEnabled && !demoActive && (
-                          <button
-                            type="button"
-                            disabled={demoBusy}
-                            onClick={() => void enterDemo()}
-                            title="استعراض النظام ببيانات تجريبية — بيئة معزولة لا تمسّ بيانات أي جهة"
-                            aria-label="استعراض النظام ببيانات تجريبية"
-                            className="mx-auto flex h-11 min-w-11 items-center justify-center gap-2 rounded-2xl border border-amber-300/60 bg-amber-50 px-4 text-xs font-bold text-amber-800 transition hover:bg-amber-100 disabled:opacity-60"
-                          >
-                            {demoBusy ? (
-                              <MirasLoader
-                                size={16}
-                                role="current"
-                                label="جارٍ فتح البيئة التجريبية…"
-                              />
-                            ) : (
-                              <>
-                                <FlaskConical className="h-4 w-4" aria-hidden="true" />
-                                <span>جرّب العرض التجريبي</span>
-                              </>
-                            )}
-                          </button>
-                        )}
                       </div>
                     </div>
                   ) : (
@@ -35945,27 +35923,6 @@ ${rows
                         </div>
                       )}
 
-                      {/* مدخل العرض: بيئة معزولة ببيانات مصطنعة، بلا حساب.
-                          تُفتح بضغطة صريحة فقط، ولا تلمس بيانات أي جهة حقيقية. */}
-                      {MIRAS_DEMO_ENTRY_VISIBLE && demoEnabled && !demoActive && (
-                        <button
-                          type="button"
-                          disabled={demoBusy}
-                          onClick={() => void enterDemo()}
-                          title="استعراض النظام ببيانات تجريبية — بيئة معزولة لا تمسّ بيانات أي جهة"
-                          aria-label="استعراض النظام ببيانات تجريبية"
-                          className="mx-auto flex h-11 min-w-11 items-center justify-center gap-2 rounded-2xl border border-amber-300/60 bg-amber-50 px-4 text-xs font-bold text-amber-800 transition hover:bg-amber-100 disabled:opacity-60"
-                        >
-                          {demoBusy ? (
-                            <MirasLoader size={16} role="current" label="جارٍ فتح البيئة التجريبية…" />
-                          ) : (
-                            <>
-                              <FlaskConical className="h-4 w-4" aria-hidden="true" />
-                              <span>جرّب العرض التجريبي</span>
-                            </>
-                          )}
-                        </button>
-                      )}
                     </>
                   )}
                 </div>
