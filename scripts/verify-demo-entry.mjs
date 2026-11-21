@@ -25,20 +25,20 @@ const identifyBody = text.slice(identifyAt, identifyAt + 2500);
 const guardAt = identifyBody.indexOf('isReviewDemoEntryNumber(identity)');
 const fetchAt = identifyBody.indexOf('/api/auth/identify/');
 if (guardAt === -1 || !identifyBody.includes('enterDemo()')) {
-  fail('handleLoginIdentify لا يفتح الصندوق التجريبي عند الرقم المحجوز — لن يستطيع مراجع آبل الدخول.');
+  fail('handleLoginIdentify لا يفتح الصندوق التجريبي عند الرمز المحجوز — لن يستطيع مراجع آبل الدخول.');
 }
 if (fetchAt !== -1 && guardAt > fetchAt) {
-  fail('فحص الرقم المحجوز يأتي بعد استعلام الكشف الحقيقي — يجب أن يسبقه.');
+  fail('فحص الرمز المحجوز يأتي بعد استعلام الكشف الحقيقي — يجب أن يسبقه.');
 }
 if (text.includes('جرّب العرض التجريبي')) {
   fail('عاد زرّ «جرّب العرض التجريبي» إلى الواجهة — قرار المالك ألا يظهر أي زر للعرض.');
 }
 
-/* الخادم يرفض تسجيل الرقم المحجوز طالباً حقيقياً. */
+/* الخادم يرفض تسجيل الرمز المحجوز طالباً حقيقياً. */
 const server = fs.readFileSync('server.ts', 'utf8');
 const db = fs.readFileSync('src/server/db.ts', 'utf8');
-if (!server.includes('REVIEW_DEMO_STUDENT_ID') || !db.includes('REVIEW_DEMO_STUDENT_ID')) {
-  fail('حارس الرقم المحجوز غائب عن الخادم أو عن db.addAllowedStudent — قد يُسجَّل طالبٌ حقيقي بهذا الرقم.');
+if (!server.includes('isReviewDemoEntryNumber') || !db.includes('isReviewDemoEntryNumber')) {
+  fail('حارس الرمز المحجوز غائب عن الخادم أو عن db.addAllowedStudent — قد يُسجَّل طالبٌ حقيقي بهذا الرمز.');
 }
 
 /*
@@ -94,4 +94,4 @@ for (const label of ['عرض شاشة المعلّم', 'عرض شاشة الطا
   }
 }
 
-console.log('فحص مدخل العرض: الرقم المحجوز يفتح الصندوق ولا زرّ ظاهر، والخادم يحميه، والناقل يركّب نفسه، والدوران معروضان.');
+console.log('فحص مدخل العرض: الرمز المحجوز يفتح الصندوق ولا زرّ ظاهر، والخادم يحميه، والناقل يركّب نفسه، والدوران معروضان.');

@@ -2,28 +2,31 @@
  * Reviewer demo access for Apple App Review.
  *
  * There is NO visible demo button in the app. A reviewer opens the demo by
- * typing this reserved university number in the login field and tapping
- * «متابعة»; the number is documented in the App Review notes of every release.
+ * typing this reserved access code in the login field «الرقم الجامعي» and
+ * tapping «متابعة»; the code is documented only in the App Review notes.
  *
- * The number is not a secret: it opens the isolated demo sandbox (synthetic
- * data, no real account, no real data). The server refuses to ever register it
- * as a real student (see `src/server/db.ts` `addAllowedStudent`, `/api/auth/register`
- * and `/api/auth/identify`), so it can never collide with a real student.
+ * It is a long random alphanumeric code, so it can never equal a numeric
+ * student number and cannot be guessed by a student. It opens the isolated demo
+ * sandbox (synthetic data, no real account, no real data). The server also
+ * refuses it as a real student id (see `/api/auth/identify`, `/api/auth/register`
+ * and `addAllowedStudent`). Matching is case-insensitive (iOS auto-capitalises).
+ * To rotate: change this constant, the review notes, and redeploy.
  */
-export const REVIEW_DEMO_STUDENT_ID = "9999999999";
+export const REVIEW_DEMO_ACCESS_CODE = "z5n633tefeuts4";
 
 const ARABIC_INDIC = "٠١٢٣٤٥٦٧٨٩";
 const EXT_ARABIC_INDIC = "۰۱۲۳۴۵۶۷۸۹";
 
-/** Digits-only normalisation (Arabic-Indic / Persian digits, whitespace stripped). */
+/** Normalisation: Arabic-Indic / Persian digits to ASCII, whitespace stripped, lower-cased. */
 export function normalizeReviewDemoCandidate(value: unknown): string {
   return String(value ?? "")
     .replace(/[٠-٩]/g, (d) => String(ARABIC_INDIC.indexOf(d)))
     .replace(/[۰-۹]/g, (d) => String(EXT_ARABIC_INDIC.indexOf(d)))
-    .replace(/\s+/g, "");
+    .replace(/\s+/g, "")
+    .toLowerCase();
 }
 
-/** True only for exactly the reserved reviewer number. */
+/** True only for exactly the reserved reviewer access code (case-insensitive). */
 export function isReviewDemoEntryNumber(value: unknown): boolean {
-  return normalizeReviewDemoCandidate(value) === REVIEW_DEMO_STUDENT_ID;
+  return normalizeReviewDemoCandidate(value) === REVIEW_DEMO_ACCESS_CODE;
 }
