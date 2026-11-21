@@ -122,3 +122,31 @@ test('duo css: the grading cards (instead of the 900px table) are Duo-only; iPad
   assert.match(q, /orientation: landscape/);
   assert.doesNotMatch(q, /1179/);
 });
+
+/* ركن الودجت على iPhone Duo وحده: استعلام القسم ١٣ بحجم النافذة ونسبتها، فيطابق iPhone العادي في Safari (390×664 بأشرطته)
+   ونافذة الحاسوب أو iPad الضيقة. خارج Duo يجب أن تعود المتغيرات صفراً، وألا تمسّ قواعدُ الطبقة شيئاً. */
+test('duo css: off the iPhone Duo the widget corner is 0 and none of its rules apply (html:not([data-device="duo"]) + :where scoping)', () => {
+  const sec = css.slice(css.indexOf('١٣) ركن الودجت'), css.indexOf('١٤) شريط التثبيت')).replace(/\/\*[\s\S]*?\*\//g, '');
+  const reset = sec.match(/html:not\(\[data-device="duo"\]\) \{([^}]*)\}/);
+  assert.ok(reset, 'the reset html:not([data-device="duo"]) is missing: the corner would return on ordinary iPhones in Safari, narrow iPads and desktops');
+  for (const v of ['w', 'gap', 'h', 'inset', 'clear']) assert.match(reset![1], new RegExp(`--duo-widget-${v}: 0px;`), `--duo-widget-${v} must be 0px off the Duo`);
+  // every rule of the corner block (except the :root tokens) is scoped to the Duo, with zero added specificity
+  const block = sec.slice(sec.indexOf('@media'), sec.indexOf('html:not([data-device="duo"])'));
+  const selectors = [...block.matchAll(/(?:^|[;{}])\s*([^;{}@]+?)\s*\{/g)].map((m) => m[1].trim()).filter((s) => s && s !== ':root');
+  assert.ok(selectors.length >= 15, `found ${selectors.length} rules`);
+  for (const sel of selectors) {
+    for (const part of sel.split(/,(?![^(]*\))/)) {
+      const p = part.trim();
+      assert.ok(p.startsWith(':where(html[data-device="duo"]) ') || p.startsWith(':root:where([data-device="duo"])'), `rule reaches non-Duo screens: ${p}`);
+    }
+  }
+  // a non-zero corner value lives only on :root inside the size query or under [data-device="duo"]
+  for (const m of css.replace(/\/\*[\s\S]*?\*\//g, '').matchAll(/([^{};]+)\{([^{}]*--duo-widget-(?:w|gap|h)\s*:[^{}]*)\}/g)) {
+    for (const d of m[2].matchAll(/--duo-widget-(?:w|gap|h)\s*:\s*([^;]+)/g)) {
+      if (d[1].trim() === '0px') continue;
+      const sel = m[1].trim();
+      assert.ok(sel === ':root' || (/\[data-device="duo"\]/.test(sel) && !/:not\(/.test(sel)), `non-zero corner via ${sel}`);
+      assert.doesNotMatch(d[1], /!important/);
+    }
+  }
+});
