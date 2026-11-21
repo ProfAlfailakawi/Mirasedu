@@ -173,3 +173,94 @@ html[data-device="duo"] body #root .miras-demo-bar .miras-demo-toggle:not(#_):no
   }
   html[data-device="duo"] body .miras-onboarding-overlay .miras-tour-stage:not(#_):not(#__):not(#___):not(#____):not(#_____):not(#______):not(#_______) { background-color: transparent; }
 }
+
+/* ── ٧) مساحة العمل المتكاملة: الداخلية طولاً والمفصل أفقي.
+        الشاشتان عملٌ واحد: العليا تعرض ما يُعمل عليه، والسفلى أدوات التحكّم المرتبطة به، وما يُرصد في السفلى
+        يُقرأ مع ما في العليا. Safari لا يعلن موضع المفصل، فيُقدَّر من نسبة الشاشة: بعد شريط Safari ≈ 42٪ من
+        نافذة العرض، وفي التطبيق 50٪. حزامٌ هادئ بعرض --duo-hinge-band حول المفصل لا يعبره شيء. عرضٌ فقط. ── */
+@media screen and (orientation: portrait) and (min-width: 600px) and (max-width: 820px) and (min-height: 700px) {
+  html[data-device="duo"] { --duo-hinge-y: 42dvh; --duo-hinge-band: 28px; }
+  html[data-device="duo"][data-shell="app"] { --duo-hinge-y: 50dvh; }
+
+  /* «حل الطالب» (التصحيح): الطالب وتسليمه — التاريخ والإجابة والمرفقات وسجلّ الرصد — في العليا حتى المفصل، ويُمرَّر
+     داخلها؛ والدرجة وزرّ «إرجاع للطالب» في السفلى بحجمٍ يناسب الإبهام. حشوات النافذة السفلية مثبّتة هنا (6 + 10 + 16)،
+     فأسفل بطاقة التسليم معروف، ومنه ارتفاع شريط الرصد، فتنتهي منطقة التسليم عند حزام المفصل بالضبط. */
+  html[data-device="duo"] body .miras-submission-detail-overlay:not(#_):not(#__):not(#___):not(#____) { padding-bottom: 6px !important; }
+  /* العليا ضيّقة في Safari (≈ 330px): شريط أسماء الطلبة السريع يغيب عن العين هنا، والتنقّل بين الطلبة باقٍ بزرّي
+     «السابق/التالي» وزرّ «فتح قائمة الطلبة» في الشريط نفسه؛ فيبقى للتسليم ما يُقرأ فوق المفصل. */
+  html[data-device="duo"] body .miras-student-solution-toolbar div.max-h-12.overflow-x-auto:not(#_):not(#__):not(#___):not(#____) { display: none !important; }
+  html[data-device="duo"] body .miras-submission-detail-overlay .miras-submission-detail-panel:not(#_):not(#__):not(#___):not(#____) { padding-bottom: 10px !important; }
+  html[data-device="duo"] body .miras-submission-detail-panel .miras-quick-grading-grid:not(#_):not(#__):not(#___):not(#____) {
+    padding-bottom: 16px !important; display: flex !important; flex-direction: column !important;
+  }
+  html[data-device="duo"] body .miras-submission-detail-panel .miras-quick-grading-grid > :has(> .miras-submission-detail-scroll):not(#_):not(#__):not(#___):not(#____) {
+    flex: 1 1 0 !important; min-height: 0 !important;
+  }
+  html[data-device="duo"] body .miras-submission-detail-panel .miras-quick-grading-grid > :has(> .miras-submission-detail-scroll) > .miras-submission-detail-scroll:not(#_):not(#__):not(#___) {
+    flex: 1 1 0 !important; min-height: 0 !important; max-height: none !important; height: auto !important; padding-bottom: 12px !important;
+  }
+  html[data-device="duo"] body .miras-submission-detail-panel .miras-quick-grading-grid > :has(> .miras-submission-detail-scroll) > .miras-submission-detail-scroll + div:not(#_):not(#__):not(#___) {
+    box-sizing: border-box !important; flex: 0 0 auto !important;
+    height: calc(100dvh - 32px - var(--duo-hinge-y) - var(--duo-hinge-band) / 2) !important;
+    margin-top: var(--duo-hinge-band) !important;
+    flex-direction: column !important; align-items: center !important; justify-content: center !important; gap: 22px !important;
+    /* الحزام بلون الصفحة: البطاقة تبدو بطاقتين، المعاينة فوق والرصد تحت، ولا يمرّ شيءٌ فوق المفصل. */
+    box-shadow: 0 calc(-1 * var(--duo-hinge-band) - 1px) 0 rgb(248 250 252) !important;
+    border-top: 1px solid rgb(241 245 249) !important; border-radius: 0 0 1.5rem 1.5rem !important;
+  }
+  html[data-device="duo"] body .miras-submission-detail-panel .miras-quick-grading-grid > :has(> .miras-submission-detail-scroll) > .miras-submission-detail-scroll + div > div:first-child:not(#_):not(#__):not(#___) { gap: 12px !important; }
+  html[data-device="duo"] body .miras-submission-detail-panel .miras-quick-grading-grid > :has(> .miras-submission-detail-scroll) > .miras-submission-detail-scroll + div input:not(#_):not(#__):not(#___) {
+    height: 64px !important; width: 9rem !important; font-size: 28px !important; border-radius: 1.25rem !important;
+  }
+  html[data-device="duo"] body .miras-submission-detail-panel .miras-quick-grading-grid > :has(> .miras-submission-detail-scroll) > .miras-submission-detail-scroll + div > button:not(#_):not(#__):not(#___) {
+    width: 56px !important; height: 56px !important; border-radius: 1.25rem !important;
+  }
+}
+
+/* ── ٨) التسليمات: عنوان البطاقة «التسليمات» كان يكرّر عنوان الصفحة فوقه مباشرة؛ يبقى للقارئ الآلي ويغيب عن العين،
+        كما في الهاتف. ── */
+@media screen and (min-width: 600px) {
+  html[data-device="duo"] body #root .miras-submissions-panel > div:first-of-type > .flex.flex-col:first-child > .sm\:not-sr-only:not(#_):not(#__):not(#___):not(#____) {
+    position: absolute !important; width: 1px !important; height: 1px !important; padding: 0 !important; margin: -1px !important;
+    overflow: hidden !important; clip: rect(0, 0, 0, 0) !important; white-space: nowrap !important; border-width: 0 !important;
+  }
+}
+
+/* ── ٩) الداخلية عرضاً: بطاقة البحث ومبدّل العرض كانت تعبر المفصل فيبقى على اليسرى جزءٌ شبه فارغ فيه المبدّل وحده؛
+        صارت بطاقةً واحدة على الصفحة اليمنى، البحث والمبدّل في صفّ. وزرّ الصفحة الحالية في الشريط العائم يُبرَز
+        (كانت قاعدة الأزرار العامة تمحو خلفيته). وزرّ أدوات البيئة التجريبية ينزل إلى ركن الشريط العائم فلا يقع على
+        البطاقات. ── */
+@media screen and (orientation: landscape) and (min-width: 860px) and (max-width: 1000px) and (min-height: 500px) and (max-height: 760px) {
+  html[data-device="duo"] body #root .miras-submissions-panel > div:first-of-type:not(#_):not(#__):not(#___):not(#____) {
+    width: var(--duo-page, calc((100% - 32px) / 2)) !important; max-width: none !important; margin-inline-start: 0 !important; margin-inline-end: auto !important;
+    flex-wrap: nowrap !important;
+  }
+  /* البطاقات الممتدّة على الكتاب تُرسم ورقتين بينهما الكعب (miras-duo-layouts.css ٧-ن)؛ وهذه صارت على ورقةٍ واحدة،
+     فتُرسم سطحًا واحدًا بخطّه الشعري، لا ورقتين يفصلهما فراغٌ في وسطها. */
+  html[data-device="duo"] body #root .teacher-command-main .miras-submissions-panel > div:first-of-type:not(#_):not(#__):not(#___):not(#____):not(#_____):not(#______) {
+    background: var(--duo-sheet, #fff) !important; border: 1px solid var(--duo-sheet-line, rgba(148, 163, 184, .3)) !important;
+  }
+  html[data-device="duo"] body #root .miras-submissions-panel > div:first-of-type > .flex.flex-col:first-child:not(#_):not(#__):not(#___):not(#____) {
+    max-width: none !important; flex: 1 1 auto !important;
+  }
+  html[data-device="duo"] body #root .miras-submissions-panel > div:first-of-type > .flex.items-center.justify-end:not(#_):not(#__):not(#___):not(#____) {
+    margin-inline-start: 0 !important; flex: 0 0 auto !important;
+  }
+  html[data-device="duo"] body #root .teacher-command-header .miras-teacher-nav-track > :is(a, button):is([aria-current="page"], .is-active):not(#_):not(#__):not(#___):not(#____):not(#_____):not(#______):not(#_______):not(#________) {
+    background: rgb(255 255 255 / .18) !important; color: #fff !important; box-shadow: inset 0 0 0 1px rgb(255 255 255 / .14) !important;
+  }
+  html[data-device="duo"] body #root .miras-demo-bar:not(#_):not(#__):not(#___):not(#____) {
+    /* ارتفاعه من الأسفل (5.5rem) تفرضه طبقةٌ أسبق لا تغلبها قاعدةٌ خارج الطبقات، فيُنزَل بالإزاحة إلى صفّ الشريط. */
+    top: auto !important; transform: translateY(calc(5.5rem - 24px)) !important;
+    left: max(14px, env(safe-area-inset-left)) !important;
+  }
+}
+
+/* الداخلية طولاً: زرّ أدوات البيئة التجريبية في ركن صفّ التنقّل السفلي، لا على حافة البطاقات في منتصف الشاشة. */
+@media screen and (orientation: portrait) and (min-width: 600px) and (max-width: 820px) and (min-height: 700px) {
+  html[data-device="duo"] body #root .miras-demo-bar:not(#_):not(#__):not(#___):not(#____) {
+    /* ارتفاعه من الأسفل (5.5rem) تفرضه طبقةٌ أسبق لا تغلبها قاعدةٌ خارج الطبقات، فيُنزَل بالإزاحة إلى صفّ الشريط. */
+    top: auto !important; transform: translateY(calc(5.5rem - 24px)) !important;
+    left: max(14px, env(safe-area-inset-left)) !important;
+  }
+}
