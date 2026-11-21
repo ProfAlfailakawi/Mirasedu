@@ -3,7 +3,7 @@ import { teacherOwnsNotification, currentPasswordResetNotification } from "./src
 import { notificationRole, notificationSignature, notificationEventIdentity } from "./src/shared/notification-identity";
 import { recordLateAttempt } from "./src/shared/late-attempts";
 import { resolvePasswordResetRoute, passwordResetDeletionIds } from "./src/shared/password-reset-routing";
-import { REVIEW_DEMO_STUDENT_ID } from "./src/shared/review-demo-entry";
+import { isReviewDemoEntryNumber } from "./src/shared/review-demo-entry";
 import { recoverResetGeneralCode } from "./src/server/generalJoinCodes";
 import express from "express";
 import rateLimit from "express-rate-limit";
@@ -14639,17 +14639,18 @@ app.get("/api/teacher/allowed-students", (req, res) => {
 // الأول فقط للترحيب؛ الاسم الكامل يكشفه lookup-student لمن في الكشف أصلاً.
 app.get("/api/auth/identify/:id", (req, res) => {
   setNoCache(res);
-  const normalizedIdNumber = normalizeStudentId(String(req.params.id || ""));
-  if (!/^\d{4,}$/.test(normalizedIdNumber)) {
-    return res.status(400).json({ success: false, error: "اكتب رقمك الجامعي بالأرقام." });
-  }
-  // رقم مراجع آبل المحجوز يُعالَج في الواجهة (يفتح الصندوق التجريبي) ولا يوجد كطالب حقيقي.
-  if (normalizedIdNumber === REVIEW_DEMO_STUDENT_ID) {
+  // رمز مراجع آبل المحجوز يُعالَج في الواجهة (يفتح الصندوق التجريبي) ولا يوجد كطالب حقيقي.
+  // يُفحص الرمز الخام قبل التطبيع لأن التطبيع يُسقط الحروف.
+  if (isReviewDemoEntryNumber(req.params.id)) {
     return res.status(404).json({
       success: false,
       status: "missing",
-      error: "هذا الرقم مخصّص للعرض التجريبي ولا يمثّل طالباً.",
+      error: "هذا الرمز مخصّص للعرض التجريبي ولا يمثّل طالباً.",
     });
+  }
+  const normalizedIdNumber = normalizeStudentId(String(req.params.id || ""));
+  if (!/^\d{4,}$/.test(normalizedIdNumber)) {
+    return res.status(400).json({ success: false, error: "اكتب رقمك الجامعي بالأرقام." });
   }
   const firstName = (name: any) => String(name || "").trim().split(/\s+/)[0] || "";
   const student = dbInstance
@@ -14802,10 +14803,10 @@ app.post("/api/auth/register", (req, res) => {
   }
 
   // Check if student id belongs to allowed list
-  const normalizedIdNumber = normalizeStudentId(idNumber);
-  if (normalizedIdNumber === REVIEW_DEMO_STUDENT_ID) {
-    return res.status(400).json({ error: "هذا الرقم مخصّص للعرض التجريبي ولا يمكن تسجيله." });
+  if (isReviewDemoEntryNumber(idNumber)) {
+    return res.status(400).json({ error: "هذا الرمز مخصّص للعرض التجريبي ولا يمكن تسجيله." });
   }
+  const normalizedIdNumber = normalizeStudentId(idNumber);
   const allowed = dbInstance
     .getAllowedStudents()
     .find((s) => normalizeStudentId(s.idNumber) === normalizedIdNumber);

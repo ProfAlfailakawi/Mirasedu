@@ -18384,7 +18384,7 @@ ${rows
       setErrorMsg("اكتب رقمك الجامعي أولاً.");
       return;
     }
-    // رقم مراجع آبل المحجوز: يفتح الصندوق التجريبي المعزول مباشرةً بلا حساب ولا
+    // رمز مراجع آبل المحجوز (نص عشوائي طويل): يفتح الصندوق التجريبي المعزول مباشرةً بلا حساب ولا
     // استعلام عن كشف حقيقي (الخادم يرفض تسجيل هذا الرقم لأي طالب أصلاً).
     if (isReviewDemoEntryNumber(identity)) {
       if (!demoBusy) void enterDemo();
@@ -32964,6 +32964,18 @@ ${rows
         </div>
       )}
 
+      {demoActive && (
+        <div
+          className="miras-demo-notice pointer-events-none fixed inset-x-0 bottom-0 z-[200590] flex justify-center px-3"
+          style={{ paddingBottom: "max(0.5rem, env(safe-area-inset-bottom))" }}
+          role="status"
+        >
+          <p className="rounded-full border border-amber-300 bg-amber-100/95 px-3 py-1 text-center text-[11px] font-black leading-5 text-amber-900 shadow">
+            عرض تجريبي ببيانات وهمية — لا يُحفظ شيء ولا يصل لأي معلّم
+          </p>
+        </div>
+      )}
+
       {publicLoginApprovalToken && (
         <div className="fixed inset-0 z-[200500] flex min-h-[100dvh] items-center justify-center overflow-y-auto bg-[radial-gradient(circle_at_top_right,#e0e7ff_0,transparent_42%),radial-gradient(circle_at_bottom_left,#d1fae5_0,transparent_40%),#f8fafc] px-4 py-7">
           <div className="relative w-full max-w-md overflow-hidden rounded-[var(--miras-r-xl)] border border-white/90 bg-white/90 p-6 text-center miras-shadow-4 backdrop-blur-2xl sm:p-8">
@@ -35742,6 +35754,9 @@ ${rows
                             id="miras-login-identity"
                             type="text"
                             inputMode="text"
+                            autoCapitalize="none"
+                            autoCorrect="off"
+                            spellCheck={false}
                             autoComplete="username"
                             placeholder="أدخل رقمك الجامعي"
                             value={loginForm.idNumber}

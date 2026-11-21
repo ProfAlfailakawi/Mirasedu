@@ -1,4 +1,4 @@
-import { REVIEW_DEMO_STUDENT_ID } from "../shared/review-demo-entry";
+import { isReviewDemoEntryNumber } from "../shared/review-demo-entry";
 import { planAtomicCloudWrite, commitAtomicCloudWrite, attemptOptimisticCloudCommit, canReuseCloudBaseline, changedEntityChunks, type EntityChunks, type EntityChunkMemo } from "../shared/atomic-cloud-write";
 import { waitForCloudMutation } from "../shared/cloud-mutation-barrier";
 import { preserveGeneralCodeOnReset } from "./generalJoinCodes";
@@ -3475,12 +3475,12 @@ export class LocalDatabase {
   }
 
   public addAllowedStudent(student: AllowedStudent) {
-    const nextId = normalizeDbStudentId(student.idNumber);
-    // الرقم المحجوز لمراجع آبل يفتح الصندوق التجريبي فقط؛ لا يُسجَّل طالباً حقيقياً أبداً.
-    if (nextId === REVIEW_DEMO_STUDENT_ID) {
-      console.warn("[allowed-students] skipped the reserved reviewer demo number");
+    // الرمز المحجوز لمراجع آبل يفتح الصندوق التجريبي فقط؛ لا يُسجَّل طالباً حقيقياً أبداً.
+    if (isReviewDemoEntryNumber(student.idNumber)) {
+      console.warn("[allowed-students] skipped the reserved reviewer demo code");
       return;
     }
+    const nextId = normalizeDbStudentId(student.idNumber);
     const nextSection = String(student.sectionCode || "").trim().toLowerCase();
     const idx = this.data.allowedStudents.findIndex(s =>
       normalizeDbStudentId(s.idNumber) === nextId &&
