@@ -9530,9 +9530,12 @@ export default function App() {
       // الواجهة (تبويب التسليمات) تنتظر هذا العلم بدل عرض بطاقات/حلقات صفرية
       // ليست حقيقية فعلاً — راجع تعريف الحالة أعلاه لسبب عدم انتظار هذا ضمن
       // بوابة الشاشة الافتتاحية نفسها.
-      submissions.then((ok) => {
-        if (ok && session.isCurrent()) setTeacherSubmissionsReady((m) => ({ ...m, [email]: true }));
-      });
+      // يُرفع العلم عند انتهاء القراءة نجحت أم فشلت (انقطاع الشبكة مثلاً): الفشل لا يجوز أن يترك
+      // الهيكل المتحرّك للأبد ويُخفي ما في الذاكرة المحلية؛ حالُه عندئذٍ كما كان قبل هذا التعديل.
+      const markSubmissionsSettled = () => {
+        if (session.isCurrent()) setTeacherSubmissionsReady((m) => ({ ...m, [email]: true }));
+      };
+      submissions.then(markSubmissionsSettled, markSubmissionsSettled);
       void Promise.allSettled([
         submissions,
         fetchQuestionBank(email),
