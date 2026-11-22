@@ -20,6 +20,13 @@
   --duo-widget-clear: env(safe-area-inset-top);
 }
 
+/* التطبيق والودجت على جانبٍ (الخارجية): أول y خالٍ تحت المربع هو ارتفاعه الحقيقي الذي يكتبه الغلاف
+   في --duo-widget-h (يُقرأ ولا يُكتب فوقه) + ٨px. بدونه كانت أول بطاقة تبدأ عند y≈150 داخل المربع.
+   عرضه لا يُحجز ثانيةً: --duo-widget-inset أعلاه هو insets النظام وحدها. */
+:root[data-device="duo"][data-shell="app"]:not([data-widget-side="none"]) {
+  --duo-widget-clear: max(env(safe-area-inset-top), calc(var(--duo-widget-h) + 8px));
+}
+
 /* ── ١) شاشة الدخول في الارتفاع القصير (الخارجية عرضاً): الهوية يميناً والبطاقة يساراً،
         والبطاقة بارتفاع الشاشة تتمرّر وحدها؛ لا شريطٌ أزرق يأكل ثلث الارتفاع فوقها. ── */
 @media screen and (orientation: landscape) and (max-height: 480px) {
@@ -61,6 +68,12 @@
   html[data-device="duo"] body #root .meras-auth-shell.miras-calm-auth:not(#_):not(#__) {
     --duo-widget-clear: max(env(safe-area-inset-top), calc(30dvh - 2.5rem));
     justify-content: flex-start;
+  }
+  /* التطبيق على الخارجية: البطاقة تبدأ تحت مربع الأداة (≥176pt) وتقف قبل عمودها، وشريط الهوية يبقى ممتداً. */
+  html[data-device="duo"][data-shell="app"]:not([data-widget-side="none"]) body #root .meras-auth-shell.miras-calm-auth:not(#_):not(#__):not(#___):not(#____):not(#_____):not(#______):not(#_______) {
+    --duo-widget-clear: max(env(safe-area-inset-top), calc(30dvh - 2.5rem), 176px);
+    padding-right: calc(16px + env(safe-area-inset-right)) !important;
+    padding-left: calc(16px + env(safe-area-inset-left)) !important;
   }
 }
 
