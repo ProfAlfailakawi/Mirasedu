@@ -43,6 +43,8 @@
 	<array>
 		<string>remote-notification</string>
 	</array>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>يُستخدم للوصول إلى الصور والملفات التي تختارها بنفسك لرفعها داخل التطبيق، ولا يُقرأ شيء آخر من مكتبتك.</string>
 	<key>UIApplicationSceneManifest</key>
 	<dict>
 		<key>UIApplicationSupportsMultipleScenes</key>
