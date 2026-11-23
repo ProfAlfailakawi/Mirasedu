@@ -277,3 +277,104 @@ html[data-device="duo"] body #root .miras-demo-bar .miras-demo-toggle:not(#_):no
     left: max(14px, env(safe-area-inset-left)) !important;
   }
 }
+
+/* ── ١٠) الداخلية عرضاً (كتاب أو كامل) — صقل 2026-11-23:
+        • شريط التنقّل كان عائماً في أسفل اللوح الأيسر وحده؛ صار موسّطاً في أسفل الشاشة كلها، كما في البرامج الأخرى.
+        • شارة «عرض تجريبي» كانت فوق الشريط نفسه تغطي أزراره؛ صارت فوقه.
+        • قائمة اختيار المقرر كانت تعبر المفصل؛ صارت على الصفحة اليمنى وحدها.
+        • البحث السريع كان موسّطاً على المفصل؛ صار على الصفحة اليمنى، بعيداً عن الساعة. ── */
+@media screen and (orientation: landscape) and (min-width: 860px) and (max-width: 1000px) and (min-height: 500px) and (max-height: 760px) {
+  html[data-device="duo"] body #root .teacher-command-header .miras-teacher-nav-shell:not(#_):not(#__):not(#___):not(#____):not(#_____):not(#______) {
+    left: 50% !important; right: auto !important; transform: translateX(-50%) !important;
+    max-width: calc(100% - 48px - env(safe-area-inset-left) - env(safe-area-inset-right)) !important;
+  }
+  /* زرّ البحث المرفوع (للمعلّم المشرف) يجلس في صفّ الشريط بدل أن يقفز فوقه. */
+  html[data-device="duo"] body #root .teacher-command-header .miras-teacher-nav-track .miras-dock-fab .miras-dock-fab-orb:not(#_):not(#__):not(#___):not(#____):not(#_____) {
+    position: static !important; transform: none !important; margin: 0 !important; translate: none !important;
+    width: 40px !important; height: 40px !important; box-shadow: none !important;
+  }
+  html[data-device="duo"] body #root .miras-demo-notice:not(#_):not(#__):not(#___) {
+    bottom: calc(68px + max(12px, calc(env(safe-area-inset-bottom) - 8px))) !important;
+    /* على الصفحة اليمنى، لا على المفصل. */
+    justify-content: flex-start !important;
+    padding-inline-start: calc(16px + env(safe-area-inset-right)) !important; padding-inline-end: calc(50% + 16px) !important;
+  }
+  /* شريط «إضافة مِراس للشاشة الرئيسية» (Safari) في أسفل الصفحة اليمنى: الشريط والشارة يرتفعان فوقه ولا يتراكبان. */
+  html[data-device="duo"] body:has(.miras-pwa-row) #root .teacher-command-header .miras-teacher-nav-shell:not(#_):not(#__):not(#___):not(#____):not(#_____):not(#______) {
+    bottom: 84px !important;
+  }
+  html[data-device="duo"] body:has(.miras-pwa-row) #root .miras-demo-notice:not(#_):not(#__):not(#___):not(#____) { bottom: 148px !important; }
+  /* الحاوية تبدأ عند حشوة الصفحة (24px من الحافة اليسرى) وتمتدّ إلى ما قبل عمود الساعة: حشوتها اليسرى تُبعد الحقل
+     إلى ما بعد المفصل (50vw + 16px)، فيبقى على الصفحة اليمنى وحدها. */
+  html[data-device="duo"] body #root .teacher-command-main .miras-global-course-switcher:not(#_):not(#__):not(#___) {
+    padding-left: calc(50vw - 8px) !important; box-sizing: border-box !important;
+  }
+  html[data-device="duo"] body #root .teacher-command-main .miras-global-course-switcher > .relative:not(#_):not(#__):not(#___) {
+    width: 100% !important; max-width: none !important; flex: 1 1 auto !important;
+  }
+  html[data-device="duo"] body .miras-cmdk-overlay:not(#_):not(#__):not(#___) {
+    justify-content: flex-start !important;
+    padding-inline-start: calc(16px + env(safe-area-inset-right)) !important;
+    padding-inline-end: calc(50% + 32px) !important;
+  }
+  html[data-device="duo"] body .miras-cmdk-overlay > .miras-cmdk:not(#_):not(#__):not(#___) { width: 100% !important; max-width: none !important; }
+}
+
+/* ── ١١) شارة «عرض تجريبي» فوق شريط التنقّل السفلي لا عليه (الدوو طولاً والخارجية: الشريط في الأسفل). ── */
+@media screen and (orientation: portrait) {
+  html[data-device="duo"] body #root:has(.miras-teacher-nav-shell) .miras-demo-notice:not(#_):not(#__):not(#___) {
+    bottom: calc(76px + max(8px, env(safe-area-inset-bottom))) !important;
+  }
+}
+
+/* ── ١٢) الخارجية عرضاً في التطبيق: عمود الساعة يتبدّل جهته مع التدوير.
+        كان المحتوى يتجاهل عمود الساعة حين يكون يساراً، فتقع أزرار الخروج والتنبيهات وقائمة المقرر تحت الساعة.
+        • الساعة يساراً: المحتوى يبدأ بعد عمودها، وعمود التنقّل يبقى يميناً كما هو.
+        • الساعة يميناً: عمود التنقّل ينتقل إلى اليسار (لا يقع تحت الساعة)، والمحتوى يقف قبل عمود الساعة. ── */
+@media screen and (orientation: landscape) and (max-height: 480px) {
+  html[data-device="duo"][data-shell="app"][data-widget-side="left"] body #root .teacher-command-main:not(#_):not(#__):not(#___):not(#____):not(#_____) {
+    padding-left: calc(10px + env(safe-area-inset-left)) !important;
+  }
+  html[data-device="duo"][data-shell="app"][data-widget-side="right"] body #root .teacher-command-main:not(#_):not(#__):not(#___):not(#____):not(#_____) {
+    padding-left: 90px !important; padding-right: calc(10px + env(safe-area-inset-right)) !important;
+  }
+  html[data-device="duo"][data-shell="app"][data-widget-side="left"] body #root .miras-mobile-teacher-zero-header:not(#_):not(#__):not(#___):not(#____):not(#_____) {
+    left: calc(9px + env(safe-area-inset-left)) !important;
+  }
+  html[data-device="duo"][data-shell="app"][data-widget-side="right"] body #root .miras-mobile-teacher-zero-header:not(#_):not(#__):not(#___):not(#____):not(#_____) {
+    right: calc(9px + env(safe-area-inset-right)) !important;
+  }
+  html[data-device="duo"][data-shell="app"][data-widget-side="right"] body #root .miras-teacher-nav-shell:not(#_):not(#__):not(#___):not(#____):not(#_____):not(#______) {
+    left: 8px !important; right: auto !important;
+  }
+}
+
+/* ── ١٣) البحث السريع في التطبيق: لوحة البحث تقف قبل عمود الساعة على الجهتين (الخارجية طولاً وعرضاً). ── */
+html[data-device="duo"][data-shell="app"] body .miras-cmdk-overlay:not(#_):not(#__) {
+  padding-left: calc(12px + env(safe-area-inset-left)) !important;
+  padding-right: calc(12px + env(safe-area-inset-right)) !important;
+}
+
+/* ── ١٤) الطالب في التطبيق: الترويسة اللاصقة تلتصق تحت شريط الساعة لا تحته (الداخلية طولاً)،
+        والمحتوى يقف قبل عمود الساعة حين يكون على جانب (الخارجية عرضاً، الساعة يساراً أو يميناً). ── */
+html[data-device="duo"][data-shell="app"] body #root .meras-student-shell .meras-topbar.sticky:not(#_):not(#__):not(#___) {
+  top: env(safe-area-inset-top) !important;
+}
+@media screen and (orientation: landscape) and (max-height: 480px) {
+  html[data-device="duo"][data-shell="app"][data-widget-side="left"] body #root .meras-student-shell > main:not(#_):not(#__):not(#___) {
+    padding-left: calc(12px + env(safe-area-inset-left)) !important;
+  }
+  html[data-device="duo"][data-shell="app"][data-widget-side="right"] body #root .meras-student-shell > main:not(#_):not(#__):not(#___) {
+    padding-right: calc(12px + env(safe-area-inset-right)) !important;
+  }
+}
+
+/* ── ١٥) لوحة التنبيهات في التطبيق (الخارجية طولاً): كانت تمتدّ تحت الساعة فيقع عدّادها «٦ تنبيه» تحت مربعها؛
+        صارت تقف قبل عمود الساعة. ── */
+@media screen and (orientation: portrait) and (max-width: 700px) {
+  html[data-device="duo"][data-shell="app"] body :is(.miras-teacher-alert-popover, .miras-student-alert-popover):not(#_):not(#__):not(#___):not(#____):not(#_____) {
+    right: calc(8px + env(safe-area-inset-right)) !important;
+    left: calc(8px + env(safe-area-inset-left)) !important;
+    width: auto !important; max-width: none !important; min-width: 0 !important; transform: none !important;
+  }
+}
