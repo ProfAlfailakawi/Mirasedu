@@ -5,3 +5,4 @@ dist
 .env
 data/uploads
 data/protected_sources
+google
