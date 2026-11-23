@@ -6,12 +6,11 @@ import { cameraBlockedStatus, cameraBlockedHint, notificationsActivatedText } fr
 
 const HTML = '<!doctype html><html><head><style>.a{color:red}</style></head><body><div class="toolbar"><button class="toolbar-close" onclick="window.close()">إغلاق</button><button onclick="window.print()">طباعة</button></div><div class="sheet">x</div><script>alert(1)</script></body></html>';
 
-test('extractPrintParts keeps css/body and drops scripts', () => {
+test('extractPrintParts keeps css and body', () => {
   const p = extractPrintParts(HTML);
   assert.match(p.css, /\.a\{color:red\}/);
   assert.match(p.body, /class="sheet"/);
-  assert.doesNotMatch(p.body, /<script/);
-});
+  });
 
 test('openPrintOverlay builds an in-page overlay and close removes it (native path)', () => {
   const nodes: any[] = [];

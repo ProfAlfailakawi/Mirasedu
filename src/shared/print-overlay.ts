@@ -6,7 +6,8 @@
 export function extractPrintParts(html: string): { css: string; body: string } {
   const css = Array.from(html.matchAll(/<style[^>]*>([\s\S]*?)<\/style>/gi)).map((m) => m[1]).join("\n");
   const m = html.match(/<body[^>]*>([\s\S]*?)<\/body>/i);
-  const body = (m ? m[1] : html).replace(/<script[\s\S]*?<\/script>/gi, "");
+  // لا نُنقّي سكربتات بتعبير نمطي: innerHTML لا ينفّذ <script>، والـ HTML مولَّد من التطبيق نفسه.
+  const body = m ? m[1] : html;
   return { css, body };
 }
 
