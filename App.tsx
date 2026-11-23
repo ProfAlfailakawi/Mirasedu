@@ -1,4 +1,6 @@
 import { isAppleNativeShell } from "./src/shared/apple-native-shell";
+import { openPrintOverlay } from "./src/shared/print-overlay";
+import { cameraBlockedStatus, cameraBlockedHint, notificationsActivatedText } from "./src/shared/native-copy";
 import { isLikelyUnsupportedExamWebViewUA } from "./src/shared/exam-webview";
 import { returnedProjectDraft } from "./src/shared/returned-project-restore";
 import {
@@ -14225,9 +14227,9 @@ export default function App() {
         : `miras-notification-activation-shown:${getMirasDeviceId()}`;
       if (localStorage.getItem(key)) return "";
       localStorage.setItem(key, "1");
-      return "تم تفعيل إشعارات مراس لهذا المتصفح.";
+      return notificationsActivatedText(isAppleNativeShell());
     } catch {
-      return "تم تفعيل إشعارات مراس لهذا المتصفح.";
+      return notificationsActivatedText(isAppleNativeShell());
     }
   };
 
@@ -15568,6 +15570,17 @@ ${rows
 </script>
 </body>
 </html>`;
+    // داخل تطبيق iOS لا تعمل نوافذ popup: نعرض صفحة الطباعة في طبقة داخل الصفحة
+    // ونطبع الإطار الرئيسي (@media print تُخفي بقية التطبيق).
+    if (isAppleNativeShell()) {
+      openPrintOverlay(html);
+      setSuccessMsg(
+        `تم تجهيز ملف PDF للمطبعة (${rows.length} كود تفعيل). هذه الأكواد صارت مختومة كمُصدَّرة ولن تظهر في أي تصدير قادم.`,
+      );
+      void stampPrintedJoinCodes(codesForPrint, rows.length);
+      releaseBusy();
+      return;
+    }
     // افتح نافذة فارغة فوراً داخل نفس ضغطة الزر ثم وجّهها إلى Blob URL.
     // هذا أكثر ثباتاً من فتح الـ Blob مباشرة في بعض إصدارات Safari/PWA، ويمنع
     // حالة الضغط الذي لا يستجيب إلا بعد الخروج من صفحة الأكواد والعودة لها.
@@ -17681,7 +17694,7 @@ ${rows
         setSuccessMsg("");
         setActivationQrScannerOpen(true);
         setActivationQrScannerStatus(
-          "اسمح للكاميرا من إعدادات المتصفح ثم أعد المحاولة أو اختر صورة QR.",
+          cameraBlockedStatus(isAppleNativeShell()),
         );
       } else {
         // لا نرفع توست خطأ عالمي عند أول تشغيل للعدسة؛ بعض أجهزة iOS/PWA
@@ -36642,8 +36655,7 @@ ${rows
                               إعادة طلب الكاميرا
                             </button>
                             <p className="text-center text-[10px] font-bold leading-5 text-slate-400">
-                              إذا بقي المنع، افتح إعدادات المتصفح واسمح
-                              بالكاميرا ثم جرّب مرة أخرى.
+                              {cameraBlockedHint(isAppleNativeShell())}
                             </p>
                           </div>
                         ) : (
@@ -39566,6 +39578,7 @@ ${rows
                           متميزة بنسبة 100%.
                         </span>
                       </p>
+                      {!isAppleNativeShell() && (
                       <div className="mt-4">
                         <a
                           href="https://console.firebase.google.com/project/meras-320eb/firestore/databases/ai-studio-e76a1c05-ad57-410e-a406-538aa451bedd/data?openUpgradeDialog=true"
@@ -39576,6 +39589,7 @@ ${rows
                           مشاهدة تفاصيل خطة وقواعد Firebase ↗
                         </a>
                       </div>
+                      )}
                     </div>
                   </div>
                 </div>
