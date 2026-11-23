@@ -69,6 +69,9 @@ import './design/miras-beauty.css';
 import './design/miras-refine.css';
 // نمط iPhone Duo المعتمد (2026-11-19) — آخر الطبقات، عرض فقط، على الدوو وحده.
 import './design/miras-duo-pattern.css';
+// حركة شريط التنقّل (بصرية فقط): مؤشّرٌ منزلق وضغطة فورية وتحوّل متّصل — آخر الطبقات.
+import './design/miras-dock-motion.css';
+import { installDockMotion } from './design/dockMotion';
 
 /* علامات الدوو (عرض فقط): «duo» لشاشةٍ شبه مربّعة (الخارجية 466×678 والداخلية 669×951)،
    فكل iPhone (نسبته ≥1.7) وكل iPad (أعرض من 700) «other» ولا يتغيّر. «shell» تطبيقٌ أو متصفّح.
@@ -337,6 +340,10 @@ const mountApp = () => {
 };
 
 mountApp();
+// شريط تنقّل المعلّم الرئيسي: على الهاتف والدوو وحدهما؛ iPad وسطح المكتب كما هما.
+if (document.documentElement.dataset.device === 'duo' || matchMedia('(max-width: 743px)').matches) {
+  installDockMotion({ dock: '.miras-teacher-nav-track', link: '.miras-dock-item:not(.miras-dock-fab)', active: '.miras-dock-item.is-active' });
+}
 
 // التحديث الذاتي الصامت: بصمة الإصدار، منارتها، ثم التحديث والتصعيد عند اللزوم.
 installAppUpdate();

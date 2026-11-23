@@ -1,0 +1,59 @@
+/*
+ * miras-dock-motion.css — حركة شريط التنقّل (src/design/dockMotion.ts)، بصرية فقط.
+ * مؤشّرٌ واحد (.dm-ind) ينزلق تحت الوجهة النشطة بدل خلفيةٍ تقفز من زرٍّ إلى زرّ، والزرّ ينضغط تحت
+ * الإصبع فورًا ويعود بنعومة، والأيقونة النشطة تتنفّس مرّة. الوجهات وترتيبها وموضع الشريط وحجمه كما هي.
+ * التخصيص المرتفع (:not(#_)…) لأن طبقات الشريط السابقة تكتب خلفية الزرّ النشط بتخصيصٍ عالٍ.
+ */
+html body #root .miras-teacher-nav-track[data-dm-ready] {
+  /* لون الزرّ النشط السابق: لوح نيلي فاتح. */
+  --dm-ind-bg: rgb(99 102 241 / .14);
+  --dm-ind-ring: rgb(99 102 241 / .12);
+  --dm-ind-radius: 16px;
+}
+html body #root .miras-teacher-nav-track[data-dm]:not(#_):not(#__) { position: relative; }
+html body #root .miras-teacher-nav-track > .dm-ind:not(#_):not(#__):not(#___) {
+  position: absolute !important; z-index: 0 !important; pointer-events: none !important; opacity: 0;
+  margin: 0 !important; padding: 0 !important; display: block !important;
+  border-radius: var(--dm-ind-radius) !important; background: var(--dm-ind-bg) !important;
+  box-shadow: inset 0 0 0 1px var(--dm-ind-ring) !important;
+  transition: transform .26s cubic-bezier(.34,1.56,.64,1), opacity .2s ease;
+}
+html body #root .miras-teacher-nav-track > .dm-ind.dm-press:not(#_):not(#__):not(#___) { transform: scale(.94); transition-duration: .09s; transition-timing-function: ease-out; }
+
+html body #root .miras-teacher-nav-track[data-dm-ready] > .miras-dock-item:not(#_):not(#__):not(#___) {
+  position: relative; z-index: 1;
+  -webkit-tap-highlight-color: transparent;
+  transition: transform .26s cubic-bezier(.34,1.56,.64,1), color .2s ease;
+}
+/* الخلفية النشطة صار يرسمها المؤشّر المنزلق. */
+html body #root .miras-teacher-nav-track[data-dm-ready] > .miras-dock-item:not(.miras-dock-fab):is(.is-active, :active):not(#_):not(#__):not(#___):not(#____):not(#_____):not(#______):not(#_______):not(#________):not(#_________) {
+  background: transparent !important; background-color: transparent !important; box-shadow: none !important;
+}
+html body #root .miras-teacher-nav-track[data-dm-ready] > .miras-dock-item.dm-press:not(#_):not(#__):not(#___):not(#____) {
+  transform: scale(.9) !important; transition-duration: .09s; transition-timing-function: ease-out;
+}
+/* الأيقونة التي صارت نشطة تتنفّس مرّةً واحدة، فيُفهم الانتقال دون لونٍ وحده. */
+html body #root .miras-teacher-nav-track[data-dm-ready] > .miras-dock-item.is-active > .miras-dock-icon:not(#_):not(#__):not(#___) {
+  animation: miras-dm-pop .38s cubic-bezier(.32,.72,0,1);
+}
+@keyframes miras-dm-pop { 0% { transform: scale(.84); } 55% { transform: scale(1.07); } 100% { transform: none; } }
+html body #root .miras-teacher-nav-track[data-dm-ready] > .miras-dock-item:focus-visible:not(#_):not(#__) { outline: 2px solid rgb(79 70 229); outline-offset: 2px; }
+
+/* لوحة المفاتيح: يتنحّى الشريط ويعود حين تُغلق. */
+html body #root .miras-teacher-nav-track.dm-kb:not(#_):not(#__) { transform: translateY(calc(100% + 28px)); opacity: 0; pointer-events: none; transition: transform .32s cubic-bezier(.32,.72,0,1), opacity .22s ease; }
+
+/* الدوو، الداخلية عرضاً: الكبسولة الداكنة العائمة — مؤشّرٌ دائري فاتح بلون الحالة النشطة السابقة. */
+@media screen and (orientation: landscape) and (min-width: 860px) and (max-width: 1000px) and (min-height: 500px) and (max-height: 760px) {
+  html[data-device="duo"] body #root .miras-teacher-nav-track[data-dm-ready] {
+    --dm-ind-bg: rgb(255 255 255 / .18); --dm-ind-ring: rgb(255 255 255 / .14); --dm-ind-radius: 999px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html body #root .miras-teacher-nav-track > .dm-ind:not(#_):not(#__):not(#___),
+  html body #root .miras-teacher-nav-track[data-dm-ready] > .miras-dock-item:not(#_):not(#__):not(#___) { transition: none; }
+  html body #root .miras-teacher-nav-track[data-dm-ready] > .miras-dock-item.is-active > .miras-dock-icon:not(#_):not(#__):not(#___) { animation: none; }
+}
+@media (prefers-contrast: more) {
+  html body #root .miras-teacher-nav-track[data-dm-ready] { --dm-ind-ring: rgb(79 70 229); }
+}
