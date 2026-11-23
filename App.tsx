@@ -1,4 +1,5 @@
 import { isAppleNativeShell } from "./src/shared/apple-native-shell";
+import { isLikelyUnsupportedExamWebViewUA } from "./src/shared/exam-webview";
 import { returnedProjectDraft } from "./src/shared/returned-project-restore";
 import {
   lastKnownNativePushPermission,
@@ -9904,19 +9905,11 @@ export default function App() {
             : "",
       };
     };
-    const isLikelyUnsupportedExamWebView = () => {
-      const ua = String(navigator.userAgent || "");
-      const isIOS = /iphone|ipad|ipod/i.test(ua);
-      const isAndroidWebView =
-        /; wv\)|\bwv\b|version\/\d+\.\d+.*chrome\/\d+.*mobile safari/i.test(ua);
-      const isInAppBrowser =
-        /FBAN|FBAV|Instagram|Line\/|MicroMessenger|Snapchat|TikTok|Twitter|LinkedInApp|EdgA\/.+WebView/i.test(
-          ua,
-        );
-      const isIOSInApp =
-        isIOS && !/Safari/i.test(ua) && /AppleWebKit/i.test(ua);
-      return Boolean(isAndroidWebView || isInAppBrowser || isIOSInApp);
-    };
+    const isLikelyUnsupportedExamWebView = () =>
+      isLikelyUnsupportedExamWebViewUA(
+        String(navigator.userAgent || ""),
+        isAppleNativeShell(),
+      );
     const hasExternalDisplaySignal = () => {
       const scr: any = typeof window !== "undefined" ? window.screen : null;
       return Boolean(
