@@ -6525,6 +6525,7 @@ export default function App() {
   const [passkeyPasswordFallback, setPasskeyPasswordFallback] = useState(false);
   const passkeyAutoAttemptRef = useRef(false);
   const hasAttemptedAutoPasskeyRef = useRef(false);
+  const [passkeyResumeTick, setPasskeyResumeTick] = useState(0);
   const hasAttemptedGesturePasskeyRef = useRef(false);
   const isPasskeyAuthenticatingRef = useRef(false);
   const [passkeyLocalRevision, setPasskeyLocalRevision] = useState(0);
@@ -19579,7 +19580,43 @@ ${rows
     studentSession,
     passkeyBusy,
     passkeyPasswordFallback,
+    passkeyResumeTick,
   ]);
+
+  // عودة التطبيق/الموقع إلى الواجهة وهو على شاشة الدخول: بوابة «مرة واحدة لكل
+  // جلسة» محفوظة في sessionStorage، وتطبيق الشاشة الرئيسية (PWA) وغلاف التطبيق
+  // يحتفظان بها عبر الإغلاق والفتح، فلا تنطلق البصمة تلقائياً بعد أول مرة. نعيد
+  // تسليح المحاولة التلقائية عند كل عودة حقيقية (غياب ≥ ثانية ونصف)، ونتجاهل
+  // الإخفاء القصير الذي تُحدثه نافذة Face ID نفسها.
+  useEffect(() => {
+    if (typeof document === "undefined") return;
+    let hiddenAt = 0;
+    const rearm = () => {
+      if (isSafeExamBrowserSession()) return;
+      if (isPasskeyAuthenticatingRef.current) return;
+      if (teacherSession || studentSession) return;
+      hasAttemptedAutoPasskeyRef.current = false;
+      clearMirasPasskeyAutoAttempted();
+      setPasskeyResumeTick((v) => v + 1);
+    };
+    const onVis = () => {
+      if (document.visibilityState === "hidden") {
+        hiddenAt = Date.now();
+        return;
+      }
+      if (hiddenAt && Date.now() - hiddenAt >= 1500) rearm();
+      hiddenAt = 0;
+    };
+    const onPageShow = (e: PageTransitionEvent) => {
+      if (e.persisted) rearm();
+    };
+    document.addEventListener("visibilitychange", onVis);
+    window.addEventListener("pageshow", onPageShow);
+    return () => {
+      document.removeEventListener("visibilitychange", onVis);
+      window.removeEventListener("pageshow", onPageShow);
+    };
+  }, [teacherSession, studentSession]);
 
   useEffect(() => {
     if (typeof document === "undefined") return;
@@ -32726,8 +32763,13 @@ ${rows
   const loginAccountStateIsCurrent =
     loginAccountOptions?.key === loginLookupKey &&
     loginAccountOptions.checking === false;
+  // جهاز عليه بصمة محفوظة: يظهر زر البصمة فوراً ولا ينتظر ردّ الخادم (قد يتأخر
+  // ثوانيَ عند الإقلاع البارد). يختفي فقط إن أكّد الخادم أن البصمة غير مفعّلة.
   const canShowLoginPasskey =
-    loginAccountStateIsCurrent && loginAccountOptions?.passkeyEnabled === true;
+    (loginAccountStateIsCurrent && loginAccountOptions?.passkeyEnabled === true) ||
+    (showCompactPasskeyLogin &&
+      !!activeLocalPasskeyLock &&
+      !(loginAccountStateIsCurrent && loginAccountOptions?.passkeyEnabled === false));
   const isTransientActivationCameraMessage = (message: any) =>
     /تعذر تشغيل الكاميرا|تعذّر تشغيل الكاميرا|العدسة لم تجهز|camera-video-not-ready|NotReadable|TrackStart|Overconstrained|AbortError|Could not start video source|camera-unavailable/i.test(
       String(message || ""),
@@ -35486,7 +35528,7 @@ ${rows
             role="main"
             className="meras-auth-shell miras-calm-auth min-h-[100dvh] flex flex-col items-center justify-center px-4 py-4 relative overflow-hidden bg-[#f4f5f8]"
           >
-            <div className={`meras-auth-card w-full max-w-xl h-auto max-h-[calc(100dvh-2rem)] overflow-y-auto flex flex-col justify-center glass-panel rounded-[var(--miras-r-xl)] shadow-premium-lg p-8 sm:p-10 border border-white/60 relative z-10 transition-all duration-300 ${passwordResetToken ? "miras-password-reset-card" : ""}`}>
+            <div className={`meras-auth-card w-full max-w-xl h-auto max-h-[calc(100dvh-2rem)] overflow-y-auto flex flex-col justify-center miras-auth-card-safe glass-panel rounded-[var(--miras-r-xl)] shadow-premium-lg p-8 sm:p-10 border border-white/60 relative z-10 transition-all duration-300 ${passwordResetToken ? "miras-password-reset-card" : ""}`}>
               <div className="absolute top-6 left-6 z-20 flex items-center gap-2">
                 <button
                   type="button"
