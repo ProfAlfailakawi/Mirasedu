@@ -19261,9 +19261,9 @@ html[data-theme="dark"] body .miras-teacher-alert-popover .miras-teacher-alert-d
 }
 .miras-passkey-saved-name,
 .meras-auth-card .miras-login-identity-email {
-  overflow-wrap: anywhere !important;
-  word-break: break-word !important;
-  white-space: normal !important;
+  width: 100% !important;
+  min-width: 0 !important;
+  text-wrap: nowrap !important;
 }
 html body #root .meras-auth-card {
   justify-content: safe center !important;

@@ -2435,6 +2435,56 @@ const MIRAS_RING_D =
   "M386 178A86 86 0 1 0 214 178A86 86 0 1 0 386 178ZM342 178A42 42 0 1 1 258 178A42 42 0 1 1 342 178Z";
 const MIRAS_TAIL_D = "M250 219 C 268 308, 244 374, 150 404";
 
+// سطر واحد دائماً: الاسم والبريد في بطاقة الدخول لا يُقصّان ولا ينكسران لسطرين،
+// بل يصغر الخط تدريجياً حتى يتسع السطر (بحد أدنى مقروء). يُعاد القياس عند تغيّر
+// عرض البطاقة (طيّ/فتح iPhone Duo، تدوير الجهاز).
+function MirasFitOneLine({
+  text,
+  className = "",
+  minPx = 10,
+  dir,
+}: {
+  text: string;
+  className?: string;
+  minPx?: number;
+  dir?: "ltr" | "rtl";
+}) {
+  const ref = useRef<HTMLSpanElement | null>(null);
+  useLayoutEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const fit = () => {
+      el.style.fontSize = "";
+      const base = parseFloat(getComputedStyle(el).fontSize) || 14;
+      let size = base;
+      let guard = 0;
+      while (el.scrollWidth > el.clientWidth + 0.5 && size > minPx && guard < 40) {
+        size = Math.max(minPx, size - 0.5);
+        el.style.fontSize = `${size}px`;
+        guard += 1;
+      }
+    };
+    fit();
+    let ro: ResizeObserver | null = null;
+    try {
+      ro = new ResizeObserver(() => fit());
+      if (el.parentElement) ro.observe(el.parentElement);
+    } catch {}
+    return () => ro?.disconnect();
+  }, [text, minPx]);
+  return (
+    <span
+      ref={ref}
+      dir={dir}
+      className={`block w-full max-w-full overflow-hidden whitespace-nowrap ${className}`}
+      style={{ unicodeBidi: "plaintext", textOverflow: "clip" }}
+      title={text}
+    >
+      {text}
+    </span>
+  );
+}
+
 function MirasMark({ className = "", title }: { className?: string; title?: string }) {
   return (
     <svg
@@ -35820,7 +35870,7 @@ ${rows
                         <div className="space-y-1 mt-2">
                           {activeLocalPasskeyLock?.userName && (
                             <p className="miras-passkey-saved-name text-[17px] font-black leading-6 text-slate-900">
-                              {activeLocalPasskeyLock.userName}
+                              <MirasFitOneLine text={String(activeLocalPasskeyLock.userName)} minPx={11} />
                             </p>
                           )}
                           {passkeyStatus && (
@@ -35887,16 +35937,12 @@ ${rows
                           <div className="flex items-center justify-between gap-3 rounded-2xl border border-indigo-100 bg-indigo-50/50 px-4 py-3">
                             <div className="min-w-0 flex-1 text-right">
                               {loginGreetingName && (
-                                <p className="break-words text-sm font-black text-slate-900">
-                                  أهلاً {loginGreetingName}
+                                <p className="text-sm font-black text-slate-900">
+                                  <MirasFitOneLine text={`أهلاً ${loginGreetingName}`} minPx={11} />
                                 </p>
                               )}
-                              <p
-                                className="miras-login-identity-email break-all font-mono text-xs font-bold leading-5 text-slate-600"
-                                dir="ltr"
-                                style={{ unicodeBidi: "plaintext" }}
-                              >
-                                {loginForm.idNumber}
+                              <p className={`miras-login-identity-email ${String(loginForm.idNumber || "").includes("@") ? "font-sans tracking-tight" : "font-mono"} text-xs font-bold leading-5 text-slate-600`}>
+                                <MirasFitOneLine text={String(loginForm.idNumber || "")} dir="ltr" minPx={9} />
                               </p>
                             </div>
                             <button
