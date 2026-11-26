@@ -10,7 +10,7 @@ import {
   registerNativePushToken,
   requestNativePushPermission,
 } from "./src/native-push";
-import { installStoreUrl, shouldShowManualInstallBanner } from "./src/shared/install-banner";
+import { detectInstallPlatform, installStoreUrl, shouldShowManualInstallBanner } from "./src/shared/install-banner";
 import { isReviewDemoEntryNumber } from "./src/shared/review-demo-entry";
 import { groupSecurityNotifications } from "./src/shared/security-notification-groups";
 import { isPlatformUpdating, showUpdatingNotice, updatingJsonResponse } from "./src/shared/updating-notice";
@@ -22529,6 +22529,7 @@ ${rows
     };
   }, []);
 
+  // (ومثلها أندرويد بعد صدور تطبيق Google Play: الدعوة للتطبيق لا لـ PWA.)
   // آبل لا تُطلق حدث beforeinstallprompt إطلاقاً، فلافتة التثبيت التلقائية لا
   // تظهر أبداً على iPhone/iPad ويبقى الطالب ينتظر دعوة لن تصل. هنا نعرض اللافتة
   // نفسها يدوياً على أجهزة آبل في المتصفح؛ وزر «تثبيت الآن» فيها يفتح صفحة
@@ -50483,11 +50484,16 @@ ${rows
           <div className="mx-auto flex max-w-3xl items-center gap-3 px-4 py-2.5">
             <DnaIconTile icon={<Smartphone />} tone="accent" size="sm" />
             <div className="min-w-0 flex-1">
+              {/* حين يوجد تطبيق في المتجر لهذا الجهاز تصير الدعوة «حمّل التطبيق» لا «أضف للشاشة». */}
               <h4 className="miras-pwa-row-title truncate text-[13px] font-bold text-slate-950">
-                إضافة مِراس للشاشة الرئيسية
+                {installStoreUrl() ? "حمّل تطبيق مِراس" : "إضافة مِراس للشاشة الرئيسية"}
               </h4>
               <p className="miras-pwa-row-sub truncate text-[11px] font-bold text-slate-500">
-                تصفح سريع، مريح، ومثالي بلمسة واحدة من هاتفك!
+                {installStoreUrl()
+                  ? detectInstallPlatform(navigator.userAgent, navigator.maxTouchPoints || 0) === "ios"
+                    ? "التطبيق الرسمي على App Store"
+                    : "التطبيق الرسمي على Google Play"
+                  : "تصفح سريع، مريح، ومثالي بلمسة واحدة من هاتفك!"}
               </p>
             </div>
             <button
@@ -50507,7 +50513,7 @@ ${rows
               className="dna-btnp shrink-0 cursor-pointer"
             >
               <Download className="h-4 w-4" aria-hidden="true" />
-              تثبيت الآن
+              {installStoreUrl() ? "حمّل التطبيق" : "تثبيت الآن"}
             </button>
           </div>
         </div>
