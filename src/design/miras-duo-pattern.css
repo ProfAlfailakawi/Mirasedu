@@ -485,3 +485,15 @@ html[data-device="duo"][data-shell="app"] body #root .meras-student-shell .meras
 @media screen and (horizontal-viewport-segments: 2) {
   html[data-device="duo"] body:not(#_):not(#__):not(#___)::after { visibility: visible; }
 }
+
+/* الخارجية طولاً داخل التطبيق (لقطة المالك 2026-11-26): ضاقت ترويسة المعلّم لتقف قبل عمود الساعة، فصار صفّ أدواتها
+   أعرض منها وخرج زرّ الخروج من حافتها. الصفّ الآن بعرض الترويسة، والأزرار تتقاسمه بالتساوي (حتى 44px)، فيبقى كلّها ظاهراً. */
+@media screen and (orientation: portrait) and (max-width: 559px) {
+  html[data-device="duo"][data-shell="app"]:not([data-widget-side="none"]) body #root .miras-mobile-teacher-zero-header .miras-zero-actions-row:not(#_):not(#__):not(#___) {
+    width: 100% !important; max-width: 100% !important; min-width: 0 !important; box-sizing: border-box !important;
+    justify-content: space-between !important; gap: 2px !important; overflow: hidden !important;
+  }
+  html[data-device="duo"][data-shell="app"]:not([data-widget-side="none"]) body #root .miras-mobile-teacher-zero-header .miras-zero-action-btn:not(#_):not(#__):not(#___) {
+    flex: 1 1 0 !important; width: auto !important; min-width: 0 !important; max-width: 44px !important;
+  }
+}
