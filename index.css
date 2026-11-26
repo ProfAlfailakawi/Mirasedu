@@ -19268,3 +19268,6 @@ html[data-theme="dark"] body .miras-teacher-alert-popover .miras-teacher-alert-d
 html body #root .meras-auth-card {
   justify-content: safe center !important;
 }
+/* بطاقة الدخول: توسيط آمن — عندما يزيد المحتوى عن ارتفاع البطاقة (iPhone Duo،
+   الشاشات القصيرة) كان التوسيط يقصّ أعلاها فيظهر زر الوضع الليلي مقطوعاً. */
+.meras-auth-card.miras-auth-card-safe { justify-content: safe center; }
