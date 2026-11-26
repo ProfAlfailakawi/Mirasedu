@@ -49,6 +49,23 @@ final class MainViewController: CAPBridgeViewController {
         }
         network.start()
         restoreLastPage()
+        NotificationCenter.default.addObserver(self, selector: #selector(focusWebView), name: UIApplication.didBecomeActiveNotification, object: nil)
+    }
+
+    override func viewDidAppear(_ animated: Bool) {
+        super.viewDidAppear(animated)
+        focusWebView()
+    }
+
+    /// Face ID / passkeys (WebAuthn) refuse a page whose document is "not
+    /// focused". A WKWebView's document only counts as focused while the web
+    /// view is first responder, and UIKit grants that on the first touch — so
+    /// the automatic sign-in prompt at launch was rejected until the user
+    /// tapped. Make the web view first responder as soon as the app is active.
+    @objc private func focusWebView() {
+        guard let webView = webView, view.window != nil,
+              presentedViewController == nil, !webView.isFirstResponder else { return }
+        webView.becomeFirstResponder()
     }
 
     override func viewDidLayoutSubviews() {
