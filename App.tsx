@@ -35800,8 +35800,8 @@ ${rows
                     type="button"
                     onClick={triggerPwaInstallation}
                     className="inline-flex h-11 w-11 items-center justify-center rounded-[var(--miras-r-md)] border border-indigo-200/50 bg-indigo-50 text-indigo-700 transition active:scale-95 cursor-pointer"
-                    title="تثبيت منصة مِراس على جهازك"
-                    aria-label="تثبيت مِراس"
+                    title={installStoreUrl() ? "حمّل تطبيق مِراس" : "تثبيت منصة مِراس على جهازك"}
+                    aria-label={installStoreUrl() ? "حمّل تطبيق مِراس" : "تثبيت مِراس"}
                   >
                     <Smartphone className="h-5 w-5 text-indigo-600" />
                   </button>
@@ -37332,8 +37332,8 @@ ${rows
                         </button>
                         {!isAppStandalone && (
                           <button
-                            title="تثبيت منصة مِراس على الشاشة الرئيسية"
-                            aria-label="تثبيت مِراس على جهازك"
+                            title={installStoreUrl() ? "حمّل تطبيق مِراس" : "تثبيت منصة مِراس على الشاشة الرئيسية"}
+                            aria-label={installStoreUrl() ? "حمّل تطبيق مِراس" : "تثبيت مِراس على جهازك"}
                             onClick={triggerPwaInstallation}
                             className="miras-student-tool inline-flex h-12 w-12 items-center justify-center rounded-2xl border border-indigo-100 bg-gradient-to-br from-white to-indigo-50/50 text-indigo-700 shadow-sm hover:bg-indigo-100 relative pwa-glowing-btn"
                           >
@@ -40058,8 +40058,8 @@ ${rows
                         )}
                         {!isAppStandalone && (
                           <button
-                            title="تثبيت منصة مِراس على هذا الجهاز"
-                            aria-label="تثبيت مِراس على جهازك"
+                            title={installStoreUrl() ? "حمّل تطبيق مِراس" : "تثبيت منصة مِراس على هذا الجهاز"}
+                            aria-label={installStoreUrl() ? "حمّل تطبيق مِراس" : "تثبيت مِراس على جهازك"}
                             onClick={triggerPwaInstallation}
                             className="student-icon-btn text-indigo-600 bg-gradient-to-br from-white to-indigo-50/50 border-indigo-100 hover:text-indigo-800 relative shadow-sm pwa-glowing-btn"
                           >
