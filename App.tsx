@@ -58,6 +58,8 @@ import {
   type CSSProperties,
 } from "react";
 import { createPortal } from "react-dom";
+import { ActivationCeremony } from "./src/components/ActivationCeremony";
+import { GradeDistribution, useSwipeBetweenStudents, type DeskScore } from "./src/components/GradingDesk";
 import { motion, AnimatePresence } from "motion/react";
 import logoImg from "./src/assets/images/meras_logo_1781178543060.png";
 import LearningIntelligencePanel from "./src/features/learning-intelligence/LearningIntelligencePanel";
@@ -27671,6 +27673,31 @@ ${rows
     setSelectedSubmissionDetail(detailActivitySubmissions[nextIndex]);
     resetSubmissionDetailViewport();
   };
+  // «مكتب التصحيح» (عرض فقط): السحب على الجوال يستدعي زرّي السابق/التالي كما هما،
+  // والمدرّج يقرأ الدرجات المحمّلة أصلاً مع الدرجة المكتوبة الآن قبل حفظها.
+  const gradingDeskSwipe = useSwipeBetweenStudents(
+    () => openAdjacentSubmissionDetail(1),
+    () => openAdjacentSubmissionDetail(-1),
+    !!selectedSubmissionDetail && detailActivitySubmissions.length > 1,
+  );
+  const gradingDeskScores: DeskScore[] = selectedSubmissionDetail
+    ? detailActivitySubmissions.map((sub: any) => {
+        const live =
+          String(sub.id) === String(selectedSubmissionDetail.id)
+            ? selectedSubmissionDetail
+            : sub;
+        const text = normalizeArabicDigits(String(teacherGradeInputValue(live) ?? ""))
+          .replace(",", ".")
+          .trim();
+        const value = text === "" ? null : Number.parseFloat(text);
+        const max = Number(getActivityMaxPoints(live)) || null;
+        return {
+          id: String(sub.id),
+          value: value !== null && Number.isFinite(value) ? value : null,
+          max,
+        };
+      })
+    : [];
   const closeSubmissionDetail = () => {
     setSelectedSubmissionDetail(null);
     setSubmissionDetailStudentSearch("");
@@ -34858,7 +34885,7 @@ ${rows
             </div>
 
             {/* Split Panel / Single Page Workspace */}
-            <div className="miras-quick-grading-grid min-h-0 flex-1 p-4 gap-4 overflow-hidden lg:grid lg:grid-cols-[17rem_minmax(0,1fr)]">
+            <div className="miras-quick-grading-grid miras-grading-desk min-h-0 flex-1 p-4 gap-4 overflow-hidden lg:grid lg:grid-cols-[17rem_minmax(0,1fr)]">
               {/* Desktop Sidebar Rail */}
               <aside className="hidden min-h-0 overflow-hidden rounded-[var(--miras-r-lg)] border border-slate-100 bg-slate-50/70 p-2 lg:flex lg:flex-col">
                 <div className="mb-2 flex items-center justify-between px-2 text-[10px] font-bold text-slate-500">
@@ -34897,7 +34924,12 @@ ${rows
               </aside>
 
               {/* Solution Page Document Card with sticky bottom controls */}
-              <div className="min-h-0 flex-1 flex flex-col justify-between overflow-hidden bg-white rounded-3xl border border-slate-100 shadow-sm">
+              <div
+                ref={gradingDeskSwipe.ref}
+                onTouchStart={gradingDeskSwipe.onTouchStart}
+                onTouchEnd={gradingDeskSwipe.onTouchEnd}
+                className="min-h-0 flex-1 flex flex-col justify-between overflow-hidden bg-white rounded-3xl border border-slate-100 shadow-sm"
+              >
                 <div className="miras-submission-detail-scroll flex-1 overflow-y-auto overscroll-contain p-5 space-y-4">
                   {/* Rich view for submission metadata */}
                   <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 border-b border-slate-100 pb-3">
@@ -35053,7 +35085,7 @@ ${rows
 
                 {/* Secure & Fixed Grading & Return Controls */}
                 <div className="shrink-0 bg-slate-50 border-t border-slate-100 p-4 rounded-b-3xl flex items-center justify-between gap-3">
-                  <div className="flex items-center gap-2 shrink-0">
+                  <div className="miras-desk-footer-grade flex items-center gap-2 shrink-0">
                     <input
                       data-miras-grade-control="true"
                       value={teacherGradeInputValue(selectedSubmissionDetail)}
@@ -35095,7 +35127,44 @@ ${rows
                     <RotateCw className="h-4.5 w-4.5" />
                   </button>
                 </div>
+                <p className="miras-desk-swipe-hint" aria-hidden="true">اسحب يميناً أو يساراً للتنقل بين الطلبة</p>
               </div>
+
+              {/* مكتب التصحيح (≥1280px): الدرجة بالمعالج نفسه + توزيع درجات النشاط للعرض فقط */}
+              <aside className="miras-grading-desk-aside" aria-label="مكتب التصحيح">
+                <div className="miras-desk-entry">
+                  <p className="miras-desk-entry__who">{selectedSubmissionDetail.studentName || "طالب"}</p>
+                  <p className="miras-desk-entry__hint">اكتب الدرجة ثم Enter للحفظ</p>
+                  <div className="flex items-center gap-2">
+                    <input
+                      aria-label="درجة الطالب"
+                      value={teacherGradeInputValue(selectedSubmissionDetail)}
+                      onChange={(e) => {
+                        const grade = normalizeGradeChange(readGradeInputValue(e, selectedSubmissionDetail.grade));
+                        setSelectedSubmissionDetail((prev: any) => ({ ...prev, grade }));
+                      }}
+                      onBlur={() => {
+                        const grade = normalizeGradeChange(String(selectedSubmissionDetail.grade ?? ""));
+                        updateSubmissionGrade(selectedSubmissionDetail.id, grade, { notifyStudent: true });
+                      }}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") {
+                          (e.currentTarget as HTMLInputElement).blur();
+                        }
+                      }}
+                      type="text"
+                      dir="ltr"
+                      inputMode="decimal"
+                      placeholder=""
+                      className="h-12 w-28 shrink-0 rounded-2xl border border-slate-200 bg-white px-2 text-center font-mono text-lg font-bold text-indigo-700 outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100"
+                    />
+                    <span className="whitespace-nowrap text-[12px] font-bold text-slate-400">
+                      {teacherGradeMaxText(selectedSubmissionDetail)}
+                    </span>
+                  </div>
+                </div>
+                <GradeDistribution scores={gradingDeskScores} currentId={String(selectedSubmissionDetail.id)} />
+              </aside>
             </div>
           </div>
         </div>
@@ -35499,6 +35568,9 @@ ${rows
           </div>
         </div>
       )}
+
+      {/* مراسم التفعيل: عرض فقط على إشارة النجاح الموجودة، لا تلتقط اللمس ولا تؤخر الانتقال */}
+      <ActivationCeremony active={activationSoftReveal} name={studentSession?.name} />
 
       {/* Dynamic Alerts */}
       {visibleSuccessMsg && (
