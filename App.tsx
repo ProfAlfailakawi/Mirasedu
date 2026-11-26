@@ -19194,7 +19194,7 @@ ${rows
     }
   };
 
-  const loginWithPasskey = async (_options?: { automatic?: boolean }) => {
+  const loginWithPasskey = async (_options?: { automatic?: boolean; focusRetry?: boolean }) => {
     mirasPasskeyProbe(
       _options?.automatic ? "طلب دخول تلقائي (بلا لمسة)" : "طلب دخول بضغطة زر",
     );
@@ -19315,6 +19315,22 @@ ${rows
         setErrorMsg(passkeyFriendlyError(e));
       } else {
         console.warn("Automatic passkey login skipped or failed:", e);
+        // رُفضت لأن الصفحة بلا تركيز: إعادة واحدة فور استلامها التركيز.
+        if (
+          !_options?.focusRetry &&
+          e?.name === "NotAllowedError" &&
+          /not focused/i.test(String(e?.message || ""))
+        ) {
+          const retry = () => {
+            window.removeEventListener("focus", retry);
+            window.setTimeout(() => {
+              mirasPasskeyProbe("إعادة تلقائية بعد استلام التركيز");
+              void loginWithPasskey({ automatic: true, focusRetry: true });
+            }, 150);
+          };
+          if (document.hasFocus()) retry();
+          else window.addEventListener("focus", retry);
+        }
       }
     } finally {
       endMirasPasskeyCeremony();
@@ -19679,6 +19695,25 @@ ${rows
               document.visibilityState !== "visible"
             ) {
               armAutoPasskeyWhenSettled();
+              return;
+            }
+            // دليل الرادار (داخل تطبيق iOS): NotAllowedError «The document is not
+            // focused». الصفحة ظاهرة لكن لم تستلم التركيز بعد، فيرفض النظام نافذة
+            // البصمة. ننتظر حدث focus (بسقف ٤ ثوانٍ) ثم نفتحها.
+            if (typeof document !== "undefined" && !document.hasFocus()) {
+              mirasPasskeyProbe("مؤجَّلة: الصفحة بلا تركيز — ننتظر focus");
+              let fired = false;
+              const go = () => {
+                if (fired) return;
+                fired = true;
+                window.removeEventListener("focus", go);
+                window.setTimeout(() => {
+                  mirasPasskeyProbe("استلمت الصفحة التركيز — فتح البصمة تلقائياً");
+                  triggerAutoPasskey();
+                }, 120);
+              };
+              window.addEventListener("focus", go);
+              window.setTimeout(go, 4000);
               return;
             }
             mirasPasskeyProbe("الواجهة استقرت — فتح البصمة تلقائياً الآن");
