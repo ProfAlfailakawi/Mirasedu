@@ -378,3 +378,83 @@ html[data-device="duo"][data-shell="app"] body #root .meras-student-shell .meras
     width: auto !important; max-width: none !important; min-width: 0 !important; transform: none !important;
   }
 }
+
+/* ── ١٦) ملاحظات المالك 2026-11-26: الشريط الاحترافي، ولا شيء تحت الساعة، ولا خطّ مفصل في الشاشة الكاملة. ──
+   • حدّ الساعة (--mi-ir): قيمة iOS، ولا يقلّ عن 84 في الداخلية عرضاً داخل التطبيق لأن iOS قد يبلغ صفراً والساعة في الركن
+     الأعلى الأيمن (main.tsx يعدّ الجهة «يمين» عندها).
+   • التنقّل في التطبيق كبسولةٌ داكنة عمودية تحت الساعة في عمودها، بالشكل والمكان نفسيهما في كل وضعية فيها عمود ساعة
+     (الخارجية طولاً وعرضاً بجهتيها، والداخلية عرضاً). هو شريط التنقّل نفسه منقولاً، بلا زيادةٍ ولا حذف؛ والتسميات باقية لقارئ الشاشة.
+   • المحتوى يقف قبل العمود، وفي الداخلية عرضاً الحاشية متساوية من الجهتين فالفجوة على المفصل تماماً. */
+/* داخل طبقة duo-widget: قواعد الشريط والترويسة القديمة هناك مُعلَّمة !important، والمهمّ في طبقةٍ يغلب المهمّ خارجها؛
+   فتُكتب هذه في الطبقة نفسها بتخصيصٍ أعلى. */
+@layer duo-widget {
+  :root { --mi-ir: env(safe-area-inset-right, 0px); --mi-clock-end: 176px; }
+  @media screen and (orientation: landscape) { :root { --mi-clock-end: 120px; } }
+  @media screen and (orientation: landscape) and (min-width: 860px) and (max-width: 1000px) and (min-height: 500px) and (max-height: 760px) {
+    html[data-device="duo"][data-shell="app"][data-widget-side="right"] { --mi-ir: max(env(safe-area-inset-right, 0px), 84px); }
+  }
+  @media screen and (orientation: portrait) and (max-width: 559px),
+         screen and (orientation: landscape) and (max-height: 480px),
+         screen and (orientation: landscape) and (min-width: 860px) and (max-width: 1000px) and (min-height: 500px) and (max-height: 760px) {
+    html[data-device="duo"][data-shell="app"]:not([data-widget-side="none"]) body #root .miras-teacher-nav-shell:not(#_):not(#__):not(#___):not(#____):not(#_____):not(#______):not(#_______):not(#________):not(#_________) {
+      position: fixed !important; top: var(--mi-clock-end) !important; bottom: auto !important; left: auto !important;
+      right: calc((var(--mi-ir) - 58px) / 2) !important; transform: none !important; translate: none !important;
+      width: 58px !important; min-width: 0 !important; max-width: 58px !important; height: max-content !important; max-height: calc(100dvh - var(--mi-clock-end) - 12px) !important; margin: 0 !important; padding: 5px !important;
+      border-radius: 29px !important; z-index: 60 !important; min-height: 0 !important; flex-direction: column !important; justify-content: flex-start !important; overflow: visible !important;
+      background: rgb(30 34 52 / .92) !important; border: 1px solid rgb(255 255 255 / .09) !important;
+      box-shadow: 0 1px 0 rgb(255 255 255 / .06) inset, 0 12px 32px rgb(10 12 30 / .3) !important;
+      -webkit-backdrop-filter: blur(18px) saturate(1.4); backdrop-filter: blur(18px) saturate(1.4);
+    }
+    html[data-device="duo"][data-shell="app"][data-widget-side="left"] body #root .miras-teacher-nav-shell:not(#_):not(#__):not(#___):not(#____):not(#_____):not(#______):not(#_______):not(#________):not(#_________) {
+      right: auto !important; left: calc((env(safe-area-inset-left, 0px) - 58px) / 2) !important;
+    }
+    html[data-device="duo"][data-shell="app"]:not([data-widget-side="none"]) body #root .miras-teacher-nav-track:not(#_):not(#__):not(#___):not(#____):not(#_____):not(#______):not(#_______):not(#________):not(#_________) {
+      display: flex !important; flex-direction: column !important; flex-wrap: nowrap !important; align-items: center !important; gap: 4px !important;
+      width: auto !important; height: auto !important; min-height: 0 !important; justify-content: flex-start !important; grid-template-columns: none !important;
+    padding: 0 !important; margin: 0 !important; background: none !important; border: 0 !important; box-shadow: none !important;
+    }
+    html[data-device="duo"][data-shell="app"]:not([data-widget-side="none"]) body #root .miras-teacher-nav-track > .dm-ind:not(#_):not(#__):not(#___):not(#____):not(#_____):not(#______):not(#_______):not(#________):not(#_________) { display: none !important; }
+    html[data-device="duo"][data-shell="app"]:not([data-widget-side="none"]) body #root .miras-teacher-nav-track > :is(a, button):not(#_):not(#__):not(#___):not(#____):not(#_____):not(#______):not(#_______):not(#________):not(#_________) {
+      flex: none !important; width: 46px !important; min-width: 46px !important; height: 46px !important; min-height: 46px !important;
+      padding: 0 !important; margin: 0 !important; border-radius: 50% !important; display: grid !important; place-items: center !important;
+      position: relative !important; color: rgb(255 255 255 / .84) !important; background: none !important; box-shadow: none !important; border: 0 !important;
+    }
+    html[data-device="duo"][data-shell="app"]:not([data-widget-side="none"]) body #root .miras-teacher-nav-track > :is(a, button):is([aria-current="page"], .is-active, .active):not(#_):not(#__):not(#___):not(#____):not(#_____):not(#______):not(#_______):not(#________):not(#_________) { background: rgb(255 255 255 / .16) !important; color: #fff !important; }
+    html[data-device="duo"][data-shell="app"]:not([data-widget-side="none"]) body #root .miras-teacher-nav-track > :is(a, button) *:not(#_):not(#__):not(#___):not(#____):not(#_____):not(#______):not(#_______):not(#________):not(#_________) { color: inherit !important; }
+    html[data-device="duo"][data-shell="app"]:not([data-widget-side="none"]) body #root .miras-teacher-nav-track > :is(a, button) :is(span, small):not(:has(svg)):not([class*="badge"]):not([class*="count"]):not([class*="badge"] *):not(#_):not(#__):not(#___):not(#____):not(#_____):not(#______):not(#_______):not(#________):not(#_________) {
+      position: absolute !important; width: 1px !important; height: 1px !important; overflow: hidden !important; clip: rect(0 0 0 0) !important; white-space: nowrap !important;
+    }
+  }
+  /* المحتوى قبل العمود (الخارجية طولاً): كان يمتدّ إلى حافة الشاشة تحت العمود، والشريط السفلي حجز أسفله. */
+  @media screen and (orientation: portrait) and (max-width: 559px) {
+    html[data-device="duo"][data-shell="app"][data-widget-side="right"] body #root .teacher-command-main:not(#_):not(#__):not(#___):not(#____):not(#_____):not(#______):not(#_______):not(#________):not(#_________) {
+      padding-right: calc(10px + var(--mi-ir)) !important; padding-bottom: calc(24px + env(safe-area-inset-bottom, 0px)) !important;
+    }
+    html[data-device="duo"][data-shell="app"][data-widget-side="left"] body #root .teacher-command-main:not(#_):not(#__):not(#___):not(#____):not(#_____):not(#______):not(#_______):not(#________):not(#_________) {
+      padding-left: calc(10px + env(safe-area-inset-left, 0px)) !important; padding-bottom: calc(24px + env(safe-area-inset-bottom, 0px)) !important;
+    }
+  }
+  /* الخارجية عرضاً: لم يعد عمود التنقّل يساراً، فلا حجز له. */
+  @media screen and (orientation: landscape) and (max-height: 480px) {
+    html[data-device="duo"][data-shell="app"][data-widget-side="right"] body #root .teacher-command-main:not(#_):not(#__):not(#___):not(#____):not(#_____):not(#______):not(#_______):not(#________):not(#_________) { padding-left: 10px !important; }
+  }
+  /* الداخلية عرضاً في التطبيق: الحاشية متساوية من الجهتين بعرض عمود الساعة، والشريط السفلي لم يعد يحجز الأسفل. */
+  @media screen and (orientation: landscape) and (min-width: 860px) and (max-width: 1000px) and (min-height: 500px) and (max-height: 760px) {
+    html[data-device="duo"][data-shell="app"]:not([data-widget-side="none"]) { --mi-side: max(var(--mi-ir), env(safe-area-inset-left, 0px)); }
+    html[data-device="duo"][data-shell="app"]:not([data-widget-side="none"]) body #root .teacher-command-main:not(#_):not(#__):not(#___):not(#____):not(#_____):not(#______):not(#_______):not(#________):not(#_________) {
+      padding-left: calc(12px + var(--mi-side)) !important; padding-right: calc(12px + var(--mi-side)) !important; padding-bottom: 24px !important;
+    }
+    /* شارة «عرض تجريبي» على الصفحة اليمنى قبل عمود الساعة، لا تحت الكبسولة. */
+    html[data-device="duo"][data-shell="app"]:not([data-widget-side="none"]) body #root .miras-demo-notice:not(#_):not(#__):not(#___):not(#____) {
+      padding-inline-start: calc(16px + var(--mi-side)) !important;
+    }
+    html[data-device="duo"][data-shell="app"]:not([data-widget-side="none"]) body #root .teacher-command-main .miras-global-course-switcher:not(#_):not(#__):not(#___):not(#____):not(#_____):not(#______):not(#_______):not(#________):not(#_________) { padding-left: calc(50vw + 4px - var(--mi-side)) !important; }
+  }
+}
+/* الشاشة الكاملة ليست كتاباً: لا خطّ ولا ظلّ في المنتصف؛ يعودان مع مفصلٍ حقيقي يبلغه المتصفح. الفجوة تبقى فارغة على المفصل. */
+@media screen and (min-width: 721px) and (max-width: 1000px) and (min-height: 520px) and (max-height: 960px) and (orientation: landscape) {
+  html[data-device="duo"] body:not(#_):not(#__):not(#___)::after { visibility: hidden; }
+}
+@media screen and (horizontal-viewport-segments: 2) {
+  html[data-device="duo"] body:not(#_):not(#__):not(#___)::after { visibility: visible; }
+}
