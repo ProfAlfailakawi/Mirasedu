@@ -19194,7 +19194,7 @@ ${rows
     }
   };
 
-  const loginWithPasskey = async (_options?: { automatic?: boolean; focusRetry?: boolean }) => {
+  const loginWithPasskey = async (_options?: { automatic?: boolean; focusRetry?: number }) => {
     mirasPasskeyProbe(
       _options?.automatic ? "طلب دخول تلقائي (بلا لمسة)" : "طلب دخول بضغطة زر",
     );
@@ -19315,21 +19315,25 @@ ${rows
         setErrorMsg(passkeyFriendlyError(e));
       } else {
         console.warn("Automatic passkey login skipped or failed:", e);
-        // رُفضت لأن الصفحة بلا تركيز: إعادة واحدة فور استلامها التركيز.
+        // رُفضت لأن الصفحة بلا تركيز (داخل تطبيق iOS قبل أول لمسة): نعيد سريعاً
+        // حتى ٣ مرات، عند أول حدث focus أو بعد ٠٫٥ ثم ٠٫٩ ثم ١٫٣ ثانية، أيّهما أسبق
+        // (كما في الجدول src/components/PasskeyEntry.tsx).
+        const attempt = _options?.focusRetry ?? 0;
         if (
-          !_options?.focusRetry &&
+          attempt < 3 &&
           e?.name === "NotAllowedError" &&
           /not focused/i.test(String(e?.message || ""))
         ) {
+          let fired = false;
           const retry = () => {
+            if (fired) return;
+            fired = true;
             window.removeEventListener("focus", retry);
-            window.setTimeout(() => {
-              mirasPasskeyProbe("إعادة تلقائية بعد استلام التركيز");
-              void loginWithPasskey({ automatic: true, focusRetry: true });
-            }, 150);
+            mirasPasskeyProbe(`إعادة تلقائية ${attempt + 1}/3 بعد رفض «بلا تركيز»`);
+            void loginWithPasskey({ automatic: true, focusRetry: attempt + 1 });
           };
-          if (document.hasFocus()) retry();
-          else window.addEventListener("focus", retry);
+          window.addEventListener("focus", retry);
+          window.setTimeout(retry, 500 + attempt * 400);
         }
       }
     } finally {
@@ -19697,24 +19701,11 @@ ${rows
               armAutoPasskeyWhenSettled();
               return;
             }
-            // دليل الرادار (داخل تطبيق iOS): NotAllowedError «The document is not
-            // focused». الصفحة ظاهرة لكن لم تستلم التركيز بعد، فيرفض النظام نافذة
-            // البصمة. ننتظر حدث focus (بسقف ٤ ثوانٍ) ثم نفتحها.
+            // داخل تطبيق iOS قد تكون الصفحة بلا تركيز (NotAllowedError «The document
+            // is not focused»). لا ننتظر حدث focus: نحاول فوراً، وإن رُفضت أعادت
+            // loginWithPasskey المحاولة سريعاً حتى ٣ مرات.
             if (typeof document !== "undefined" && !document.hasFocus()) {
-              mirasPasskeyProbe("مؤجَّلة: الصفحة بلا تركيز — ننتظر focus");
-              let fired = false;
-              const go = () => {
-                if (fired) return;
-                fired = true;
-                window.removeEventListener("focus", go);
-                window.setTimeout(() => {
-                  mirasPasskeyProbe("استلمت الصفحة التركيز — فتح البصمة تلقائياً");
-                  triggerAutoPasskey();
-                }, 120);
-              };
-              window.addEventListener("focus", go);
-              window.setTimeout(go, 4000);
-              return;
+              mirasPasskeyProbe("الصفحة بلا تركيز — محاولة فورية مع إعادة سريعة");
             }
             mirasPasskeyProbe("الواجهة استقرت — فتح البصمة تلقائياً الآن");
             triggerAutoPasskey();
