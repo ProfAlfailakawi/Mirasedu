@@ -6891,7 +6891,21 @@ function notificationEventId(
     body,
     minuteBucket,
   ].join("|");
-  return `miras-${crypto.createHash("sha256").update(raw).digest("hex").slice(0, 28)}`;
+  // معرّف إزالة تكرار لا سرّ فيه: تجزئة FNV-1a غير تشفيرية (128 بت من بذرتين).
+  // كان sha256 هنا يجعل CodeQL يعامل رقم طلب الاسترجاع كأنه كلمة مرور مجزّأة بضعف.
+  return `miras-${notificationIdDigest(raw)}`;
+}
+
+function notificationIdDigest(input: string): string {
+  const fnv = (seed: bigint) => {
+    let h = seed;
+    for (let i = 0; i < input.length; i += 1) {
+      h ^= BigInt(input.charCodeAt(i));
+      h = (h * 0x100000001b3n) & 0xffffffffffffffffn;
+    }
+    return h.toString(16).padStart(16, "0");
+  };
+  return `${fnv(0xcbf29ce484222325n)}${fnv(0x84222325cbf29ce4n)}`.slice(0, 28);
 }
 
 // حارس دائم للإرسال: منع التكرار في الذاكرة وحده يضيع عند تدوير Cloud Run،
@@ -23549,6 +23563,7 @@ app.post("/api/teacher/password-reset-requests/:id/resend", (req, res) => {
 
 app.post(
   "/api/teacher/password-reset-requests/:id/manual-password",
+  resetPasswordRateLimit,
   (req, res) => {
     const item = dbInstance
       .getPasswordResetRequests()
