@@ -388,10 +388,11 @@ html[data-device="duo"][data-shell="app"] body #root .meras-student-shell .meras
 /* داخل طبقة duo-widget: قواعد الشريط والترويسة القديمة هناك مُعلَّمة !important، والمهمّ في طبقةٍ يغلب المهمّ خارجها؛
    فتُكتب هذه في الطبقة نفسها بتخصيصٍ أعلى. */
 @layer duo-widget {
-  /* أسفل الساعة: ارتفاع مربعها كما يبلغه الغلاف (--duo-widget-h) + ١٠px، ولا يقلّ عن تقديرٍ ثابت لو لم يبلغه
-     (في الخارجية طولاً تنتهي الساعة قرب 204pt، فكانت الكبسولة عند 176 تبدأ خلف الترويسة). */
-  :root { --mi-ir: env(safe-area-inset-right, 0px); --mi-clock-end: 212px; --mi-cap: 58px; --mi-cap-top: max(var(--mi-clock-end), calc(var(--duo-widget-h, 0px) + 10px)); }
-  @media screen and (orientation: landscape) { :root { --mi-clock-end: 120px; } }
+  /* أسفل الساعة: ارتفاع مربعها كما يبلغه الغلاف (--duo-widget-h) + ١٠px، ولا يقلّ عن تقديرٍ ثابت لو لم يبلغه.
+     على الجهاز الحقيقي يمتدّ المربع على الشاشة الخارجية من الحبّة العليا إلى حلقة البطارية (≈235pt، لقطة المالك 2026-11-26)،
+     طولاً وعرضاً، فالتقدير الثابت 244px. الداخلية عرضاً ركنُها أقصر (120px). */
+  :root { --mi-ir: env(safe-area-inset-right, 0px); --mi-clock-end: 244px; --mi-cap: 58px; --mi-cap-top: max(var(--mi-clock-end), calc(var(--duo-widget-h, 0px) + 10px)); }
+  @media screen and (orientation: landscape) and (min-height: 481px) { :root { --mi-clock-end: 120px; } }
   @media screen and (orientation: landscape) and (min-width: 860px) and (max-width: 1000px) and (min-height: 500px) and (max-height: 760px) {
     html[data-device="duo"][data-shell="app"][data-widget-side="right"] { --mi-ir: max(env(safe-area-inset-right, 0px), 84px); }
   }
@@ -463,6 +464,12 @@ html[data-device="duo"][data-shell="app"] body #root .meras-student-shell .meras
   }
   /* الخارجية عرضاً: لم يعد عمود التنقّل يساراً، فلا حجز له. */
   @media screen and (orientation: landscape) and (max-height: 480px) {
+    /* تحت 244px لا يتّسع العمود للكبسولة كاملةً: تقف عند حدّ ارتفاعها فوق الحافة وتتمرّر داخلها. */
+    html[data-device="duo"][data-shell="app"]:not([data-widget-side="none"]) body #root .miras-teacher-nav-shell:not(#_):not(#__):not(#___):not(#____):not(#_____):not(#______):not(#_______):not(#________):not(#_________) {
+      max-height: calc(100dvh - var(--mi-cap-top) - 8px - env(safe-area-inset-bottom, 0px)) !important;
+      overflow-x: hidden !important; overflow-y: auto !important; overscroll-behavior: contain; scrollbar-width: none;
+    }
+    html[data-device="duo"][data-shell="app"]:not([data-widget-side="none"]) body #root .miras-teacher-nav-track:not(#_):not(#__):not(#___):not(#____):not(#_____):not(#______):not(#_______):not(#________):not(#_________) > * { flex: none !important; }
     html[data-device="duo"][data-shell="app"][data-widget-side="right"] body #root .teacher-command-main:not(#_):not(#__):not(#___):not(#____):not(#_____):not(#______):not(#_______):not(#________):not(#_________) { padding-left: 10px !important; }
   }
   /* الداخلية عرضاً في التطبيق: الحاشية متساوية من الجهتين بعرض عمود الساعة، والشريط السفلي لم يعد يحجز الأسفل. */
