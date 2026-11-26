@@ -14429,6 +14429,7 @@ app.post("/api/auth/reset-password", resetPasswordRateLimit, (req, res) => {
     return res.status(400).json({ error: "اختر كلمة مرور قوية لا تقل عن 6 خانات ولا تستخدم كلمة المرور الافتراضية." });
   }
   dbInstance.updateStudent(student.id, { passwordHash: hashPasswordSecure(newPassword) } as any);
+  clearStudentLoginRateLimit(student.id);
   dbInstance.updatePasswordResetRequest(requestItem.id, {
     status: "handled",
     usedAt,
@@ -15953,6 +15954,22 @@ function clearLoginRateLimit(identity: any) {
   const suffix = `:${String(identity || "").trim().toLowerCase()}`;
   for (const key of [...loginAttemptBuckets.keys()]) {
     if (key.endsWith(suffix)) loginAttemptBuckets.delete(key);
+  }
+}
+// The student equivalent, run after a successful password reset. The lockout is
+// usually why the student asked for a reset, so leaving it in place made the
+// correct new password fail with 429 for up to LOGIN_BLOCK_MS. Login resolves a
+// student by the digits of the typed identity (Arabic/Persian digits included),
+// so every bucket whose identity resolves to this student is cleared. Email
+// identities belong to teacher accounts and are left untouched.
+function clearStudentLoginRateLimit(studentId: any) {
+  const target = normalizeStudentId(studentId);
+  if (!target) return;
+  for (const key of [...loginAttemptBuckets.keys()]) {
+    const identity = key.slice(key.lastIndexOf(":") + 1);
+    if (!identity.includes("@") && normalizeStudentId(identity) === target) {
+      loginAttemptBuckets.delete(key);
+    }
   }
 }
 
@@ -23587,6 +23604,7 @@ app.post(
     dbInstance.updateStudent(student.id, { passwordHash: hashPasswordSecure(newPassword) } as any);
     clearLoginRateLimit(student.id);
     clearLoginRateLimit(item.studentId);
+    clearStudentLoginRateLimit(student.id);
     dbInstance.updatePasswordResetRequest(item.id, {
       status: "handled",
       handledAt,
