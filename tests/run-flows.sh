@@ -90,6 +90,7 @@ run_group tests/flows.exam-create.mjs
 run_group tests/flows.notifications.mjs
 run_group tests/flows.teacher-notifications.mjs tests/seed-notification-scope.cjs
 run_group tests/flows.password-resets.mjs
+run_group tests/flows.password-reset-lockout.mjs
 run_group tests/flows.grade-release.mjs
 run_group tests/flows.device-lock.mjs tests/seed-device-lock.cjs
 run_group tests/flows.device-transfer-lookup.mjs tests/seed-device-lookup.cjs
