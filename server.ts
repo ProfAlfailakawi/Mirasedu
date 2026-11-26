@@ -5739,6 +5739,18 @@ const findStudentByUniversityId = (value: any) => {
   );
 };
 
+// تسجيل الدخول يطابق رقم الطالب حرفياً (normalizeStudentId(s.id))، أما البحث
+// بالأسماء البديلة فقد يعيد سجلاً آخر يحمل الرقم كاسم بديل. إعادة تعيين كلمة
+// المرور يجب أن تكتب على السجل نفسه الذي يقرؤه الدخول، وإلا «لا تضبط» الكلمة الجديدة.
+const findStudentForPasswordReset = (value: any) => {
+  const normalized = normalizeStudentId(value);
+  if (!normalized) return undefined;
+  return (
+    dbInstance.getStudents().find((student: any) => normalizeStudentId(student.id) === normalized) ||
+    findStudentByUniversityId(normalized)
+  );
+};
+
 // ── الاسم الحيّ كمصدر وحيد للحقيقة ──────────────────────────────────────
 // سجل الطالب (students) هو المرجع. أي كائن يحمل studentId (تسليم، سجل، طلب)
 // يُختم باسم الطالب الحالي عند القراءة، فلا نعتمد على الاسم المنسوخ القديم.
@@ -6879,7 +6891,21 @@ function notificationEventId(
     body,
     minuteBucket,
   ].join("|");
-  return `miras-${crypto.createHash("sha256").update(raw).digest("hex").slice(0, 28)}`;
+  // معرّف إزالة تكرار لا سرّ فيه: تجزئة FNV-1a غير تشفيرية (128 بت من بذرتين).
+  // كان sha256 هنا يجعل CodeQL يعامل رقم طلب الاسترجاع كأنه كلمة مرور مجزّأة بضعف.
+  return `miras-${notificationIdDigest(raw)}`;
+}
+
+function notificationIdDigest(input: string): string {
+  const fnv = (seed: bigint) => {
+    let h = seed;
+    for (let i = 0; i < input.length; i += 1) {
+      h ^= BigInt(input.charCodeAt(i));
+      h = (h * 0x100000001b3n) & 0xffffffffffffffffn;
+    }
+    return h.toString(16).padStart(16, "0");
+  };
+  return `${fnv(0xcbf29ce484222325n)}${fnv(0x84222325cbf29ce4n)}`.slice(0, 28);
 }
 
 // حارس دائم للإرسال: منع التكرار في الذاكرة وحده يضيع عند تدوير Cloud Run،
@@ -14364,7 +14390,7 @@ app.post("/api/auth/reset-password", resetPasswordRateLimit, (req, res) => {
     // password, sent within a short window right after the reset, is treated
     // as a replay; any other password still gets the one-time-link error.
     const usedMs = new Date((requestItem as any).usedAt).getTime();
-    const replayStudent = findStudentByUniversityId(requestItem.studentId);
+    const replayStudent = findStudentForPasswordReset(requestItem.studentId);
     if (
       Number.isFinite(usedMs) &&
       Date.now() - usedMs <= 2 * 60 * 1000 &&
@@ -14388,65 +14414,16 @@ app.post("/api/auth/reset-password", resetPasswordRateLimit, (req, res) => {
       .status(410)
       .json({ error: "رابط إعادة التعيين منتهي أو تم استخدامه سابقاً." });
   }
-  const student = findStudentByUniversityId(requestItem.studentId);
+  const student = findStudentForPasswordReset(requestItem.studentId);
   if (!student)
     return res
       .status(404)
       .json({ error: "لا يوجد حساب طالب مرتبط بهذا الطلب." });
-  const currentFingerprint = getRequestDeviceFingerprint(req);
-  const currentDeviceToken = getRequestDeviceToken(req);
-  const activationCode = (student as any).activationCode;
-  if (!requestItem.teacherApprovedAnyDeviceAt && activationCode && isUnifiedJoinCode(activationCode)) {
-    const activationRecord = dbInstance
-      .getJoinCodes()
-      .find(
-        (jc: any) =>
-          normalizeJoinCode(jc.code) === normalizeJoinCode(activationCode),
-      );
-    const lockedDeviceToken = String(
-      (activationRecord as any)?.activationDeviceToken || "",
-    ).trim();
-    const lockedFingerprint = String(
-      (activationRecord as any)?.activationDeviceFingerprint || "",
-    ).trim();
-    if (activationRecord?.status === "used") {
-      if (
-        lockedDeviceToken &&
-        (!currentDeviceToken || lockedDeviceToken !== currentDeviceToken)
-      ) {
-        recordActivationAttempt(req, {
-          code: activationCode,
-          student,
-          reason: "محاولة تغيير كلمة المرور من جهاز مختلف عن جهاز التفعيل",
-          foundCode: activationRecord,
-        });
-        return res
-          .status(403)
-          .json({
-            error:
-              "الرابط مرتبط بجهاز التفعيل. اطلب من أستاذك إصدار رابط استرجاع لأي جهاز؛ لا يتغير جهازك الموثوق.",
-          });
-      }
-      if (
-        !lockedDeviceToken &&
-        lockedFingerprint &&
-        lockedFingerprint !== currentFingerprint
-      ) {
-        recordActivationAttempt(req, {
-          code: activationCode,
-          student,
-          reason: "محاولة تغيير كلمة المرور ببصمة جهاز مختلفة",
-          foundCode: activationRecord,
-        });
-        return res
-          .status(403)
-          .json({
-            error:
-              "الرابط مرتبط بجهاز التفعيل. اطلب من أستاذك إصدار رابط استرجاع لأي جهاز؛ لا يتغير جهازك الموثوق.",
-          });
-      }
-    }
-  }
+  // لا قفل جهاز على رابط الاسترجاع: الرابط لا يصل للطالب إلا من يد أستاذه، وهذا
+  // التسليم هو التحقق. القفل القديم كان يرفض الرابط حين يفتحه الطالب من واتساب في
+  // سفاري بينما فعّل حسابه في التطبيق أو PWA (لكل منها مخزن ومعرّف جهاز مستقل على
+  // iOS)، فيبدو أن «الرقم الجديد لا يضبط». الرابط ما زال لمرة واحدة وصالحاً لساعة،
+  // ولا يغيّر الجهاز الموثوق ولا قفل تسجيل الدخول.
   const usedAt = new Date().toISOString();
   if (isWeakDefaultPassword(newPassword)) {
     return res.status(400).json({ error: "اختر كلمة مرور قوية لا تقل عن 6 خانات ولا تستخدم كلمة المرور الافتراضية." });
@@ -14457,6 +14434,10 @@ app.post("/api/auth/reset-password", resetPasswordRateLimit, (req, res) => {
     usedAt,
     handledAt: usedAt,
   } as any);
+  // محاولات الدخول الفاشلة بكلمة المرور المنسية تقفل الرقم 10 دقائق؛ بعد التعيين
+  // يجب أن تعمل الكلمة الجديدة فوراً لا أن تُرفض بقفل اكتسبته القديمة.
+  clearLoginRateLimit(student.id);
+  clearLoginRateLimit(requestItem.studentId);
   dbInstance.addActivityLog({
     studentId: student.id,
     studentName: student.name,
@@ -14475,7 +14456,8 @@ app.post("/api/auth/reset-password", resetPasswordRateLimit, (req, res) => {
   // it stays in the activity log but no longer alerts the teacher.
   return res.json({
     success: true,
-    message: "تم تغيير كلمة المرور بنجاح. يمكنك تسجيل الدخول الآن.",
+    studentId: normalizeStudentId(student.id),
+    message: "تم تغيير كلمة المرور بنجاح. سجّل الدخول الآن بكلمة المرور الجديدة.",
   });
 });
 
@@ -16812,8 +16794,15 @@ app.post("/api/exam-integrity/pulse", (req, res) => {
       integrityWarnings: [...previousWarnings, signal].slice(-30),
     });
   }
-  notifyUsers(
-    (token) => token.role === "teacher",
+  // النبضة تخص أستاذ المقرر وحده. كانت تُدفع لكل أستاذ في النظام، فيصل بانر لأساتذة
+  // لا يملكون المقرر ولا يجدون شيئاً في الجرس (يُفلتر صحيحاً)، وتملأ الصندوق.
+  const pulseCourse = String((subject.exam as any).courseCode || subject.student.sectionCode || "");
+  const pulseOwner = teacherNotificationOwner(pulseCourse) ||
+    String(sectionOwnerEmail(pulseCourse) || "").trim().toLowerCase();
+  if (pulseOwner) notifyUsers(
+    (token) =>
+      token.role !== "student" &&
+      String(token.teacherEmail || token.userId || "").trim().toLowerCase() === pulseOwner,
     "نبضة رادار نزاهة",
     `${subject.exam.title || "اختبار"} — ${subject.student.name || subject.student.id}: ${label}`,
     {
@@ -23574,6 +23563,7 @@ app.post("/api/teacher/password-reset-requests/:id/resend", (req, res) => {
 
 app.post(
   "/api/teacher/password-reset-requests/:id/manual-password",
+  resetPasswordRateLimit,
   (req, res) => {
     const item = dbInstance
       .getPasswordResetRequests()
@@ -23588,13 +23578,15 @@ app.post(
       return res
         .status(400)
         .json({ error: "كلمة المرور الجديدة يجب ألا تقل عن 6 خانات ولا تكون افتراضية." });
-    const student = findStudentByUniversityId(item.studentId);
+    const student = findStudentForPasswordReset(item.studentId);
     if (!student)
       return res
         .status(404)
         .json({ error: "لا يوجد حساب طالب مرتبط بهذا الطلب." });
     const handledAt = new Date().toISOString();
     dbInstance.updateStudent(student.id, { passwordHash: hashPasswordSecure(newPassword) } as any);
+    clearLoginRateLimit(student.id);
+    clearLoginRateLimit(item.studentId);
     dbInstance.updatePasswordResetRequest(item.id, {
       status: "handled",
       handledAt,

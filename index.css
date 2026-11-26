@@ -6218,13 +6218,13 @@ body,
     border-radius: 1.55rem !important;
   }
 
-  .miras-passkey-shield-card > div:first-child {
+  .miras-passkey-shield-card:not(.miras-passkey-shield-card--minimal) > div:first-child {
     width: 3.15rem !important;
     height: 3.15rem !important;
     border-radius: 1.05rem !important;
   }
 
-  .miras-passkey-shield-card > div:first-child svg {
+  .miras-passkey-shield-card:not(.miras-passkey-shield-card--minimal) > div:first-child svg {
     width: 1.55rem !important;
     height: 1.55rem !important;
   }
@@ -19248,6 +19248,26 @@ html[data-theme="dark"] body .miras-teacher-alert-popover .miras-teacher-alert-d
   }
 }
 
+/* =========================================================
+   Login card overflow (iPhone / iPhone Duo): the passkey gate content
+   column used to be squeezed to 50px by the legacy icon-tile rule above,
+   so the saved name/email was clipped. Keep long emails wrapping, and
+   never let a centered, scrollable auth card hide its top edge.
+   ========================================================= */
+.miras-passkey-shield-card--minimal > div:first-child {
+  width: 100% !important;
+  height: auto !important;
+  min-width: 0 !important;
+}
+.miras-passkey-saved-name,
+.meras-auth-card .miras-login-identity-email {
+  width: 100% !important;
+  min-width: 0 !important;
+  text-wrap: nowrap !important;
+}
+html body #root .meras-auth-card {
+  justify-content: safe center !important;
+}
 /* بطاقة الدخول: توسيط آمن — عندما يزيد المحتوى عن ارتفاع البطاقة (iPhone Duo،
    الشاشات القصيرة) كان التوسيط يقصّ أعلاها فيظهر زر الوضع الليلي مقطوعاً. */
 .meras-auth-card.miras-auth-card-safe { justify-content: safe center; }

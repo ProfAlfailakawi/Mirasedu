@@ -7,7 +7,14 @@ export function teacherOwnsNotification(item: any, teacherEmail: string, courseO
   const recipient = item?.userId || data.userId;
   if (recipient && !sameIdentity(recipient, teacherEmail)) return false;
   const course = item?.targetSectionCode || item?.linkedSectionCode || item?.sectionCode || item?.courseCode || item?.studentSection || data.sectionCode || data.courseCode;
-  if (course) return sameIdentity(courseOwner(String(course)), teacherEmail);
+  if (course) {
+    // A course whose owner cannot be resolved any more (archived/closed course, or a
+    // display code shared by two teachers) used to hide the row even though the push
+    // already reached its explicit recipient: banner arrived, bell stayed empty.
+    // A known owner still decides; an unknown one falls back to the recipient.
+    const owner = courseOwner(String(course));
+    if (owner) return sameIdentity(owner, teacherEmail);
+  }
   const owner = item?.teacherEmail || item?.ownerEmail || data.teacherEmail || data.ownerEmail || item?.actorEmail || item?.userId || data.userId;
   return !!owner && sameIdentity(owner, teacherEmail);
 }

@@ -2435,6 +2435,56 @@ const MIRAS_RING_D =
   "M386 178A86 86 0 1 0 214 178A86 86 0 1 0 386 178ZM342 178A42 42 0 1 1 258 178A42 42 0 1 1 342 178Z";
 const MIRAS_TAIL_D = "M250 219 C 268 308, 244 374, 150 404";
 
+// سطر واحد دائماً: الاسم والبريد في بطاقة الدخول لا يُقصّان ولا ينكسران لسطرين،
+// بل يصغر الخط تدريجياً حتى يتسع السطر (بحد أدنى مقروء). يُعاد القياس عند تغيّر
+// عرض البطاقة (طيّ/فتح iPhone Duo، تدوير الجهاز).
+function MirasFitOneLine({
+  text,
+  className = "",
+  minPx = 10,
+  dir,
+}: {
+  text: string;
+  className?: string;
+  minPx?: number;
+  dir?: "ltr" | "rtl";
+}) {
+  const ref = useRef<HTMLSpanElement | null>(null);
+  useLayoutEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const fit = () => {
+      el.style.fontSize = "";
+      const base = parseFloat(getComputedStyle(el).fontSize) || 14;
+      let size = base;
+      let guard = 0;
+      while (el.scrollWidth > el.clientWidth + 0.5 && size > minPx && guard < 40) {
+        size = Math.max(minPx, size - 0.5);
+        el.style.fontSize = `${size}px`;
+        guard += 1;
+      }
+    };
+    fit();
+    let ro: ResizeObserver | null = null;
+    try {
+      ro = new ResizeObserver(() => fit());
+      if (el.parentElement) ro.observe(el.parentElement);
+    } catch {}
+    return () => ro?.disconnect();
+  }, [text, minPx]);
+  return (
+    <span
+      ref={ref}
+      dir={dir}
+      className={`block w-full max-w-full overflow-hidden whitespace-nowrap ${className}`}
+      style={{ unicodeBidi: "plaintext", textOverflow: "clip" }}
+      title={text}
+    >
+      {text}
+    </span>
+  );
+}
+
 function MirasMark({ className = "", title }: { className?: string; title?: string }) {
   return (
     <svg
@@ -14255,6 +14305,49 @@ export default function App() {
     });
     setBrowserNotifPermission(realPermission);
   };
+  // صندوق الخادم هو مصدر الحقيقة. كانت القائمة المحلية تُضاف إليها العناصر ولا
+  // يُحذف منها شيء، ولكل من سفاري وPWA والتطبيق نسخته الخاصة في localStorage،
+  // فيرى كل جهاز قائمة مختلفة، ويبقى تنبيه قديم جداً ظاهراً بعد أن حذفه الخادم.
+  // الآن: ما في الصندوق + ما وصل بالدفع أو أُنشئ محلياً خلال آخر 10 دقائق ولم
+  // يصل نسخته من الخادم بعد، مرتّباً من الأحدث.
+  const reconcileLocalNotificationsWithInbox = (serverItems: any[]) => {
+    const PENDING_WINDOW_MS = 10 * 60 * 1000;
+    const now = Date.now();
+    const serverIds = new Set<string>();
+    const serverSignatures = new Set<string>();
+    serverItems.forEach((n: any) => {
+      serverIds.add(stableNotificationId(n));
+      serverSignatures.add(stableNotificationSignature(n));
+    });
+    setLocalNotifications((prev) => {
+      const byId = new Map<string, any>();
+      prev.forEach((n: any) => {
+        const id = stableNotificationId(n);
+        if (serverIds.has(id) || serverSignatures.has(stableNotificationSignature(n))) {
+          byId.set(id, n);
+          return;
+        }
+        const created = notificationCreatedTimeMs(n) || 0;
+        if (created && now - created <= PENDING_WINDOW_MS) byId.set(id, n);
+      });
+      serverItems.forEach((n: any) => {
+        const id = stableNotificationId(n);
+        if (![...byId.values()].some((kept: any) => stableNotificationSignature(kept) === stableNotificationSignature(n)))
+          byId.set(id, n);
+      });
+      const next = [...byId.values()]
+        .sort(
+          (a: any, b: any) =>
+            (notificationCreatedTimeMs(b) || 0) -
+            (notificationCreatedTimeMs(a) || 0),
+        )
+        .slice(0, 80);
+      const same =
+        next.length === prev.length &&
+        next.every((n: any, i: number) => stableNotificationId(n) === stableNotificationId(prev[i]));
+      return same ? prev : next;
+    });
+  };
   const fetchInAppNotifications = async () => {
     const identity = currentNotificationIdentity();
     if (!identity) return false;
@@ -14282,7 +14375,7 @@ export default function App() {
         },
       );
       const d = await resp.json().catch(() => ({}));
-      if (Array.isArray(d.notifications) && d.notifications.length) {
+      if (resp.ok && Array.isArray(d.notifications)) {
         const isStudentIdentity =
           String(identity.role || "student") === "student";
         const shouldKeepNotification = isStudentIdentity
@@ -14295,6 +14388,7 @@ export default function App() {
           targeted,
           shouldKeepNotification,
         );
+        reconcileLocalNotificationsWithInbox(targeted);
         // سجل الجرس لا يُنشئ بانر نظام أبداً. البانر مملوك حصراً لدفعة FCM داخل
         // sw.js؛ وجود مسار عرض ثانٍ هنا كان يجعل حدثاً واحداً يظهر مرتين على iOS
         // عندما يقرأ الاستطلاع سجل الجرس في اللحظة نفسها التي تصل فيها الدفعة.
@@ -15917,14 +16011,36 @@ ${rows
     }
   };
 
+  // سفاري وWKWebView يرفضان clipboard.writeText بعد await لأن لمسة المستخدم انتهت،
+  // فكان الأستاذ يرى «نُسخ» بينما الحافظة تحمل رابطاً قديماً (مستخدَماً أو لطالب آخر)
+  // فيرسله للطالب ولا يعمل. نكتب الحافظة بوعدٍ داخل اللمسة نفسها (ClipboardItem)،
+  // ثم نفتح نافذة الرابط ليشاركه الأستاذ أو ينسخه بلمسة جديدة إن تعذّر النسخ.
   const resendPasswordResetLink = async (id: string) => {
+    const requestPromise = fetch(
+      `/api/teacher/password-reset-requests/${id}/resend`,
+      { method: "POST", cache: "no-store", headers: teacherHeaders() },
+    ).then(async (resp) => ({
+      ok: resp.ok,
+      data: await resp.json().catch(() => ({}) as any),
+    }));
+    let copied: Promise<boolean> = Promise.resolve(false);
     try {
-      const resp = await fetch(
-        `/api/teacher/password-reset-requests/${id}/resend`,
-        { method: "POST", cache: "no-store", headers: teacherHeaders() },
-      );
-      const d = await resp.json().catch(() => ({}));
-      if (!resp.ok) {
+      const ClipboardItemCtor = (window as any).ClipboardItem;
+      if (ClipboardItemCtor && navigator.clipboard?.write) {
+        const blobPromise = requestPromise.then(({ ok, data }) => {
+          const link = ok ? String(data?.request?.resetLink || "") : "";
+          if (!link) throw new Error("no-link");
+          return new Blob([link], { type: "text/plain" });
+        });
+        copied = navigator.clipboard
+          .write([new ClipboardItemCtor({ "text/plain": blobPromise })])
+          .then(() => true)
+          .catch(() => false);
+      }
+    } catch {}
+    try {
+      const { ok, data: d } = await requestPromise;
+      if (!ok) {
         setErrorMsg(d.error || "تعذر إعادة تجهيز رابط جديد.");
         return;
       }
@@ -15934,18 +16050,24 @@ ${rows
           ...prev.filter((item: any) => String(item.id) !== String(id)),
         ]);
       }
-      await fetchPasswordResetRequests();
-      fetchLogs();
-      const freshLink = d?.request?.resetLink;
-      if (freshLink) {
+      const freshLink = String(d?.request?.resetLink || "");
+      let didCopy = await copied;
+      if (!didCopy && freshLink) {
         try {
           await navigator.clipboard.writeText(freshLink);
+          didCopy = true;
         } catch {}
       }
+      if (freshLink) {
+        setJoinQrModalCode("");
+        setPasswordResetQrLink(freshLink);
+      }
+      void fetchPasswordResetRequests();
+      fetchLogs();
       setSuccessMsg(
-        freshLink
-          ? "رابط استرجاع لأي جهاز نُسخ؛ صالح لساعة ولمرة واحدة."
-          : "أُصدر رابط استرجاع لأي جهاز؛ صالح لساعة ولمرة واحدة.",
+        didCopy
+          ? "رابط استرجاع جديد نُسخ؛ يعمل من أي جهاز، صالح لساعة ولمرة واحدة."
+          : "أُصدر رابط استرجاع جديد؛ انسخه أو شاركه من النافذة. صالح لساعة ولمرة واحدة.",
       );
     } catch {
       setErrorMsg("تعذر إعادة إرسال الرابط حالياً.");
@@ -18205,6 +18327,11 @@ ${rows
       setPasswordResetToken("");
       setResetNewPassword("");
       setResetConfirmPassword("");
+      const resetStudentId = String(data?.studentId || "").trim();
+      if (resetStudentId) {
+        setLoginForm((prev: any) => ({ ...prev, idNumber: resetStudentId }));
+      }
+      setInstructorMode(true);
       try {
         window.history.replaceState({}, "", window.location.pathname);
       } catch {}
@@ -22874,7 +23001,7 @@ ${rows
             </div>
             <div className="mt-3 flex flex-wrap justify-end gap-2 border-t border-slate-100 pt-3">
               <button type="button" onClick={() => { setJoinQrModalCode(""); setPasswordResetQrLink(req.resetLink); }} disabled={!req.resetLink || ["used", "expired", "cancelled", "revoked"].includes(status) || (req.expiresAt && new Date(req.expiresAt).getTime() <= Date.now())} title="QR تغيير كلمة المرور" aria-label="QR تغيير كلمة المرور" className="inline-flex h-10 w-10 items-center justify-center rounded-2xl border border-indigo-100 bg-indigo-50 text-indigo-700 transition-colors hover:bg-indigo-100 disabled:text-slate-300 disabled:bg-slate-50"><QrCode className="h-4 w-4" /></button>
-              <button onClick={() => copyResetLinkToClipboard(req.resetLink)} title="نسخ الرابط" aria-label="نسخ الرابط" className="inline-flex h-10 w-10 items-center justify-center rounded-2xl bg-slate-900 text-white shadow-sm transition-colors hover:bg-indigo-600"><Link2 className="h-4 w-4" /></button>
+              <button onClick={() => (!req.resetLink || status !== "new" || (req.expiresAt && new Date(req.expiresAt).getTime() <= Date.now()) ? resendPasswordResetLink(req.id) : copyResetLinkToClipboard(req.resetLink))} title="نسخ الرابط" aria-label="نسخ الرابط" className="inline-flex h-10 w-10 items-center justify-center rounded-2xl bg-slate-900 text-white shadow-sm transition-colors hover:bg-indigo-600"><Link2 className="h-4 w-4" /></button>
               <button onClick={() => resendPasswordResetLink(req.id)} title="إصدار رابط آمن لأي جهاز ونسخه" aria-label="إصدار رابط استرجاع لأي جهاز" className="inline-flex h-10 w-10 items-center justify-center rounded-2xl border border-indigo-100 bg-indigo-50 text-indigo-700 transition-colors hover:bg-indigo-100"><RotateCw className="h-4 w-4" /></button>
               <button onClick={() => manualPasswordReset(req)} title="تغيير يدوي" aria-label="تغيير يدوي" className="inline-flex h-10 w-10 items-center justify-center rounded-2xl border border-emerald-100 bg-emerald-50 text-emerald-700 transition-colors hover:bg-emerald-100"><PencilLine className="h-4 w-4" /></button>
               <button onClick={() => completePasswordResetRequest(req.id)} title="مكتمل" aria-label="مكتمل" className="inline-flex h-10 w-10 items-center justify-center rounded-2xl border border-slate-200 bg-slate-50 text-slate-700 transition-colors hover:bg-slate-100"><CheckCircle2 className="h-4 w-4" /></button>
@@ -25938,18 +26065,37 @@ ${rows
     () =>
       Array.from(notificationsByStudent.values()).sort(
         (a: any, b: any) =>
-          new Date(b.updatedAt || b.createdAt || 0).getTime() -
-          new Date(a.updatedAt || a.createdAt || 0).getTime(),
+          (notificationCreatedTimeMs(b) || 0) -
+          (notificationCreatedTimeMs(a) || 0),
       ),
     [notificationsByStudent],
   );
   const studentCourseNotifications = useMemo(
     () =>
       [
-        ...unreadCalendarNotifications.map((n: any) => ({
-          text: `${n.title}: ${n.body}`,
-          time: new Date(n.updatedAt || n.createdAt || 0).getTime(),
-        })),
+        // نص كل تنبيه يحمل وقته: مفتاح «تمت القراءة» مبني على النص، فتنبيه جديد
+        // بنفس صياغة تنبيه قديم مقروء كان يُعامل مقروءاً ويختفي رغم وصول الإشعار.
+        ...unreadCalendarNotifications.map((n: any) => {
+          const time = notificationCreatedTimeMs(n) || new Date(n.createdAt || n.updatedAt || 0).getTime();
+          let stamp = "";
+          try {
+            if (time > 0)
+              stamp = new Intl.DateTimeFormat("en-GB", {
+                timeZone: "Asia/Kuwait",
+                day: "2-digit",
+                month: "2-digit",
+                hour: "2-digit",
+                minute: "2-digit",
+                hour12: false,
+              }).format(new Date(time)).replace(",", "");
+          } catch {}
+          const title = String(n.title || "مِراس").trim();
+          const body = String(n.body || "").trim();
+          return {
+            text: `${title}${body ? ` — ${body}` : ""}${stamp ? ` · ${stamp}` : ""}`,
+            time,
+          };
+        }),
       ]
         .sort((a: any, b: any) => (b.time || 0) - (a.time || 0))
         .map((item: any) => item.text),
@@ -26072,16 +26218,13 @@ ${rows
       }
     });
 
-    // Add push or calendar system notifications if any (filtered and formatted nicely)
-    (studentCourseNotifications || []).forEach((n: any) => {
-      const text = String(n || "");
-      if (text && !list.includes(text)) {
-        list.push(text);
-      }
-    });
-
-    // Filter duplicates and return unique list
-    return Array.from(new Set(list));
+    // التنبيهات الحقيقية (الدفع وصندوق الخادم) أولاً ومن الأحدث، ثم حالات
+    // الواجهة الثابتة. كانت تُلحق في آخر القائمة فيظهر الإشعار الجديد تحت
+    // بطاقات قديمة ويبدو أن «ما وصل شيء».
+    const pushed = (studentCourseNotifications || [])
+      .map((n: any) => String(n || ""))
+      .filter(Boolean);
+    return Array.from(new Set([...pushed, ...list]));
   }, [
     studentSession,
     displayedStudentActivities,
@@ -35591,8 +35734,8 @@ ${rows
                       تعيين كلمة مرور جديدة
                     </h3>
                     <p className="mt-2 text-[11px] font-bold leading-6 text-slate-600">
-                      افتح هذا الرابط من نفس الجهاز الذي استخدمت فيه كود
-                      التفعيل. لن يقبل النظام تغيير كلمة المرور من جهاز آخر.
+                      اكتب كلمة مرور جديدة واحفظها. الرابط لمرة واحدة، وبعد
+                      الحفظ سجّل الدخول من التطبيق أو المتصفح الذي فعّلت منه حسابك.
                     </p>
                   </div>
                   <div className="space-y-1.5">
@@ -35769,7 +35912,7 @@ ${rows
                         <div className="space-y-1 mt-2">
                           {activeLocalPasskeyLock?.userName && (
                             <p className="miras-passkey-saved-name text-[17px] font-black leading-6 text-slate-900">
-                              {activeLocalPasskeyLock.userName}
+                              <MirasFitOneLine text={String(activeLocalPasskeyLock.userName)} minPx={11} />
                             </p>
                           )}
                           {passkeyStatus && (
@@ -35834,18 +35977,14 @@ ${rows
                       ) : (
                         <>
                           <div className="flex items-center justify-between gap-3 rounded-2xl border border-indigo-100 bg-indigo-50/50 px-4 py-3">
-                            <div className="min-w-0 text-right">
+                            <div className="min-w-0 flex-1 text-right">
                               {loginGreetingName && (
-                                <p className="truncate text-sm font-black text-slate-900">
-                                  أهلاً {loginGreetingName}
+                                <p className="text-sm font-black text-slate-900">
+                                  <MirasFitOneLine text={`أهلاً ${loginGreetingName}`} minPx={11} />
                                 </p>
                               )}
-                              <p
-                                className="truncate font-mono text-xs font-bold text-slate-600"
-                                dir="ltr"
-                                style={{ unicodeBidi: "plaintext" }}
-                              >
-                                {loginForm.idNumber}
+                              <p className={`miras-login-identity-email ${String(loginForm.idNumber || "").includes("@") ? "font-sans tracking-tight" : "font-mono"} text-xs font-bold leading-5 text-slate-600`}>
+                                <MirasFitOneLine text={String(loginForm.idNumber || "")} dir="ltr" minPx={9} />
                               </p>
                             </div>
                             <button

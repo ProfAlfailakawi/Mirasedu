@@ -256,6 +256,40 @@ const MIRAS_PERDOC_KEYS = new Set<string>([
   "errorReports", // رادار مِراس: تقارير الأخطاء المجمّعة
 ]);
 
+export function inAppNotificationBucket(item: any): string {
+  const data = item?.data || {};
+  const rawRole = String(item?.role || data.role || data.targetRole || "").trim().toLowerCase();
+  const role = ["teacher", "admin", "superadmin", "super_admin"].includes(rawRole)
+    ? "teacher"
+    : rawRole === "students" ? "student" : rawRole || "any";
+  const user = String(item?.userId || data.userId || "").trim().toLowerCase();
+  if (user) return `user:${role}:${user}`;
+  const course = String(item?.sectionCode || item?.courseCode || data.courseCode || data.sectionCode || "").trim().toLowerCase();
+  return `course:${role}:${course}`;
+}
+
+export function pruneInAppNotifications(
+  items: any[],
+  now = Date.now(),
+  perBucket = 60,
+  maxAgeMs = 45 * 24 * 60 * 60 * 1000,
+  hardCap = 4000,
+): any[] {
+  const counts = new Map<string, number>();
+  const kept: any[] = [];
+  for (const item of items) {
+    const created = Date.parse(String(item?.createdAt || ""));
+    if (Number.isFinite(created) && now - created > maxAgeMs) continue;
+    const bucket = inAppNotificationBucket(item);
+    const used = counts.get(bucket) || 0;
+    if (used >= perBucket) continue;
+    counts.set(bucket, used + 1);
+    kept.push(item);
+    if (kept.length >= hardCap) break;
+  }
+  return kept;
+}
+
 const MIRAS_ALLOW_EMPTY_FIRESTORE_INIT =
   String(process.env.MIRAS_ALLOW_EMPTY_FIRESTORE_INIT || "").toLowerCase() === "true";
 const MIRAS_ALLOW_LOCAL_RESTORE_TO_EMPTY_CLOUD =
@@ -3733,10 +3767,12 @@ export class LocalDatabase {
   public addInAppNotification(item: any): void {
     if (!this.data.inAppNotifications) this.data.inAppNotifications = [];
     this.data.inAppNotifications.unshift(item);
-    // سقف محافظ (200) لأن كامل قاعدة البيانات تُحفظ في مستند Firestore واحد بحد 1MB.
-    if (this.data.inAppNotifications.length > 200) {
-      this.data.inAppNotifications.length = 200;
-    }
+    // كان السقف 200 عنصراً للنظام كله (كل الطلبة وكل الأساتذة معاً)، فتنبيهات
+    // الآخرين — نبضات الاختبار خصوصاً — تُسقط تنبيهك خلال دقائق: يصل الإشعار
+    // ويفتح المستخدم الجرس فلا يجد شيئاً أو يجد قديماً. التنبيهات صارت وثيقة لكل
+    // عنصر (MIRAS_PERDOC_KEYS)، فلا قيد 1MB. الآن: 60 لكل مستلم (أو مقرر للتنبيهات
+    // العامة)، وحذف ما تجاوز 45 يوماً، وسقف عام 4000 للحماية فقط.
+    this.data.inAppNotifications = pruneInAppNotifications(this.data.inAppNotifications);
     this.persist(false);
   }
 

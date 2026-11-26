@@ -64,6 +64,18 @@ if(aliasRequest){
  const aliasReset=await api('POST','/api/auth/reset-password',{token:new URL(aliasRequest.resetLink).searchParams.get('resetToken'),newPassword:'FreshAlias998'},{deviceToken:'tok-1001'});
  check('alias reset link updates the canonical student account',aliasReset.ok,JSON.stringify(aliasReset.data));
 }
+// The link the teacher copies straight from the request (no re-issue) must also work
+// when the student opens it in another browser (WhatsApp -> Safari while the account
+// was activated in the app/PWA). It stays one-time and does not move the trusted device.
+r=await api('POST','/api/auth/forgot-password',{idNumber:'1001'});
+let directList=await api('GET','/api/teacher/password-reset-requests',undefined,{jar:owner});
+const directRequest=(directList.data.requests||[]).find(x=>x.studentId==='1001'&&x.status==='new');
+if(directRequest){
+ const directReset=await api('POST','/api/auth/reset-password',{token:new URL(directRequest.resetLink).searchParams.get('resetToken'),newPassword:'DirectLink998'},{deviceToken:'safari-not-activation-device'});
+ check('teacher-copied original link resets from another browser',directReset.ok&&directReset.data.studentId==='1001',JSON.stringify(directReset.data));
+ const loginAfterDirect=await api('POST','/api/auth/login',{idNumber:'1001',password:'DirectLink998'},{deviceToken:'tok-1001'});
+ check('new password logs in on the activation device',loginAfterDirect.ok,JSON.stringify(loginAfterDirect.data).slice(0,200));
+}else check('teacher sees the direct reset request',false,JSON.stringify(directList.data).slice(0,200));
 // A student changing their own password through the reset link is routine: no teacher alert.
 r=await api('GET',`/api/notifications/inbox?userId=${encodeURIComponent(AA)}&role=teacher`,undefined,{jar:owner});
 check('student self-service password change does not alert the teacher',r.ok && !(r.data.items || r.data.notifications || []).some(x=>(x.type||x.data?.type)==='password_changed'),JSON.stringify(r.data).slice(0,200));

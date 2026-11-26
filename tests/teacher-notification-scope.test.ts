@@ -68,3 +68,9 @@ test('different codes, students, older events and missing evidence remain visibl
   assert.equal(duplicatesCodeIntegrityLog({...note,at:100000},[log],time),false);
   assert.equal(duplicatesCodeIntegrityLog({...note,data:{studentId:'1'}},[log],time),false);
 });
+test('direct teacher alert stays in the bell when its course owner is no longer resolvable',()=>{
+  const unknown=(_:string)=>'';
+  assert.equal(owns({role:'teacher',userId:admin,sectionCode:'ARCHIVED-1',data:{teacherEmail:admin}},admin,unknown,same),true);
+  assert.equal(owns({role:'teacher',userId:'other@example.com',sectionCode:'ARCHIVED-1'},admin,unknown,same),false);
+  assert.equal(owns({sectionCode:'ARCHIVED-1'},admin,unknown,same),false);
+});
