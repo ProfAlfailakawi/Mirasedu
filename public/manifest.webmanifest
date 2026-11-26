@@ -93,5 +93,17 @@
       "form_factor": "wide",
       "label": "مِراس"
     }
-  ]
+  ],
+  "related_applications": [
+    {
+      "platform": "play",
+      "url": "https://play.google.com/store/apps/details?id=kw.edu.mirasedu.app",
+      "id": "kw.edu.mirasedu.app"
+    },
+    {
+      "platform": "itunes",
+      "url": "https://apps.apple.com/app/id6834583275"
+    }
+  ],
+  "prefer_related_applications": false
 }

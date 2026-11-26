@@ -36,7 +36,8 @@ test('iOS browser: manual banner shown, button opens the App Store', () => {
 
 test('Android: PWA prompt until a Play URL is set, then the store', () => {
   const env = { userAgent: ANDROID, maxTouchPoints: 5, nativeShell: false };
-  assert.equal(shouldShowManualInstallBanner(env), false);
+  assert.equal(shouldShowManualInstallBanner(env, ''), false);
+  assert.equal(shouldShowManualInstallBanner(env, 'https://play.google.com/store/apps/details?id=x'), true);
   assert.equal(installStoreUrl(env, urls), null);
   assert.equal(installStoreUrl(env, { ...urls, playStore: 'https://play.google.com/store/apps/details?id=x' }), 'https://play.google.com/store/apps/details?id=x');
 });
@@ -50,5 +51,12 @@ test('desktop is unchanged', () => {
 
 test('constants', () => {
   assert.equal(APP_STORE_URL, 'https://apps.apple.com/app/id6834583275');
-  assert.equal(PLAY_STORE_URL, '');
+  assert.equal(PLAY_STORE_URL, 'https://play.google.com/store/apps/details?id=kw.edu.mirasedu.app');
+});
+
+test('inside the Android app nothing is offered', () => {
+  const env = { userAgent: ANDROID, maxTouchPoints: 5, nativeShell: true };
+  assert.equal(canOfferInstall(env), false);
+  assert.equal(shouldShowManualInstallBanner(env, 'https://play.google.com/store/apps/details?id=x'), false);
+  assert.equal(installStoreUrl(env, { ...urls, playStore: 'https://play.google.com/store/apps/details?id=x' }), null);
 });
