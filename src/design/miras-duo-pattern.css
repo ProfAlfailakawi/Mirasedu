@@ -493,14 +493,32 @@ html[data-device="duo"][data-shell="app"] body #root .meras-student-shell .meras
   html[data-device="duo"] body:not(#_):not(#__):not(#___)::after { visibility: visible; }
 }
 
-/* الخارجية طولاً داخل التطبيق (لقطة المالك 2026-11-26): ضاقت ترويسة المعلّم لتقف قبل عمود الساعة، فصار صفّ أدواتها
-   أعرض منها وخرج زرّ الخروج من حافتها. الصفّ الآن بعرض الترويسة، والأزرار تتقاسمه بالتساوي (حتى 44px)، فيبقى كلّها ظاهراً. */
+/* الخارجية طولاً داخل التطبيق (لقطتا المالك 2026-11-26 و2026-11-27): ضاقت ترويسة المعلّم لتقف قبل عمود الساعة، لكنها بقيت
+   تحجز داخلها حشوة الساعة (--duo-widget-inset = 84px) فصار صفّ أدواتها ٢٦٩px فقط، والمعلّم الحقيقي له ستة أزرار (٦×44 لا تتسع)
+   فخرج زرّ الخروج من حافة البطاقة. قاعدة #349 لم تُطبَّق على الأزرار: قاعدة miras-teacher-home-plus.css (7 معرّفات) غلبتها،
+   وقاعدة (pointer: coarse) تمنع الانكماش تحت 44px على الجهاز.
+   الآن: الحشوة الزائدة تُلغى (الترويسة نفسها تقف قبل العمود)، والصفّ تحت العنوان بعرض البطاقة كاملاً، والأزرار تتقاسمه
+   بالتساوي حتى 44px ولا تُقصّ أبداً. الحشوة عبر المتغيّر لأن قاعدتها داخل @layer duo-widget (لا تغلبها !important عادية). */
 @media screen and (orientation: portrait) and (max-width: 559px) {
-  html[data-device="duo"][data-shell="app"]:not([data-widget-side="none"]) body #root .miras-mobile-teacher-zero-header .miras-zero-actions-row:not(#_):not(#__):not(#___) {
-    width: 100% !important; max-width: 100% !important; min-width: 0 !important; box-sizing: border-box !important;
-    justify-content: space-between !important; gap: 2px !important; overflow: hidden !important;
+  html[data-device="duo"][data-shell="app"]:not([data-widget-side="none"]) body #root .miras-mobile-teacher-zero-header:not(#_):not(#__):not(#___):not(#____):not(#_____):not(#______):not(#_______):not(#________):not(#_________) {
+    --duo-widget-inset: 0.55rem;
   }
-  html[data-device="duo"][data-shell="app"]:not([data-widget-side="none"]) body #root .miras-mobile-teacher-zero-header .miras-zero-action-btn:not(#_):not(#__):not(#___) {
-    flex: 1 1 0 !important; width: auto !important; min-width: 0 !important; max-width: 44px !important;
+  /* أبناء الترويسة (نوافذ منبثقة إن وُجدت) يبقون على الحجز الأصلي؛ الترويسة وحدها تتغيّر. */
+  html[data-device="duo"][data-shell="app"]:not([data-widget-side="none"]) body #root .miras-mobile-teacher-zero-header * {
+    --duo-widget-inset: max(12px, env(safe-area-inset-right), env(safe-area-inset-left));
+  }
+  html[data-device="duo"][data-shell="app"]:not([data-widget-side="none"]) body #root .miras-mobile-teacher-zero-header .miras-zero-title-block:not(#_):not(#__):not(#___):not(#____):not(#_____):not(#______):not(#_______):not(#________):not(#_________) {
+    grid-column: 1 / -1 !important; grid-row: 1 !important;
+  }
+  html[data-device="duo"][data-shell="app"]:not([data-widget-side="none"]) body #root .miras-mobile-teacher-zero-header .miras-zero-name-pill:not(#_):not(#__):not(#___):not(#____):not(#_____):not(#______):not(#_______):not(#________):not(#_________) {
+    grid-column: 1 / -1 !important; grid-row: 3 !important;
+  }
+  html[data-device="duo"][data-shell="app"]:not([data-widget-side="none"]) body #root .miras-mobile-teacher-zero-header .miras-zero-actions-row:not(#_):not(#__):not(#___):not(#____):not(#_____):not(#______):not(#_______):not(#________):not(#_________) {
+    grid-column: 1 / -1 !important; grid-row: 2 !important; justify-self: stretch !important;
+    width: 100% !important; max-width: 100% !important; min-width: 0 !important; box-sizing: border-box !important;
+    flex-wrap: nowrap !important; justify-content: space-between !important; gap: 2px !important; overflow: hidden !important;
+  }
+  html[data-device="duo"][data-shell="app"]:not([data-widget-side="none"]) body #root .miras-mobile-teacher-zero-header .miras-zero-action-btn:not(#_):not(#__):not(#___):not(#____):not(#_____):not(#______):not(#_______):not(#________):not(#_________) {
+    flex: 1 1 0 !important; width: auto !important; min-width: 0 !important; max-width: 44px !important; height: 44px !important;
   }
 }
